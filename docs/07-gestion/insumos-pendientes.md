@@ -26,6 +26,56 @@ Documentos y datos que se necesitan para que el análisis se apoye en la realida
 | 24 | **¿La institución tiene tags CoviPass?** ¿A nombre de quién? ¿COVI-H emite factura fiscal en caseta o estado de cuenta empresarial? | Determina si el descargo de peajes ante el TSC es defendible. `covih.com` bloquea la consulta automatizada | M-18, M-13 |
 | 25 | **¿El peaje se financia con el viático o es gasto de misión separado?** | Si va en el viático, es de ARGOS y M-18 se solapa. **Resolver antes de escribir historias de M-18** | M-18, M-20 |
 
+## Abiertos — surgidos del Bloque 1
+
+Consolidados de los cuatro artefactos del Bloque 1: actores y permisos, mapa de procesos y `PR-01`, máquina de estados, y las 53 reglas `RN-xx`.
+
+### Bloqueantes de la operación en delegaciones
+
+| # | Insumo | Para qué | A quién |
+|---|---|---|---|
+| 26 | **¿Acepta la institución un régimen de excepción a la segregación de funciones con controles compensatorios?** El MARCI exige cinco funciones incompatibles, lo que implica un mínimo de cinco personas por misión. Una delegación de tres no puede cumplirlo por aritmética. Está marcado `[C]`: **no se verificó que el MARCI contemple controles compensatorios de forma expresa** | Sin esto, la operación de toda delegación pequeña queda en suspenso, y el diseño no se puede cerrar | **Auditoría Interna.** Requiere pronunciamiento formal; no se consigue en un día |
+| 27 | **Mapa de delegaciones con dotación real de personal**, y qué puesto de la sede respalda a cada una | Determina qué funciones se pueden sacar de la delegación y cuáles no | Talento Humano / Gerencia Administrativa |
+
+### Huecos del modelo de autorización
+
+| # | Insumo | Para qué |
+|---|---|---|
+| 28 | **¿Quién autoriza la misión de la máxima autoridad?** Y el autorizador alterno por dependencia y por delegación | Es un hueco real del modelo, no un detalle. Sin respuesta, el flujo se cae en el caso más visible de la institución |
+| 29 | **¿Es delegable la firma del permiso de circulación en día u hora inhábil?** NRM-02 dice *firmado por la máxima autoridad*. Hasta confirmarlo, el sistema **no lo permite** | Define si el salvoconducto puede emitirse un sábado sin el titular |
+| 30 | **¿Existe régimen formal de excusa por conflicto de interés** (parentesco entre solicitante y autorizador)? | Si existe, es una incompatibilidad más en la matriz de segregación |
+| 31 | **Criterio de prelación** cuando dos solicitudes aprobadas compiten por el único vehículo compatible | Aparece la primera semana. Sin criterio explícito, lo resuelve quien tenga más jerarquía, que es exactamente lo que el sistema debería evitar |
+
+### Paquete de parámetros operativos
+
+| # | Insumo |
+|---|---|
+| 32 | Horario hábil oficial de la institución; antelación mínima de solicitud; plazo de convalidación de una emergencia; plazos de liquidación; umbrales de desviación de consumo (superior e inferior, que son independientes) |
+| 33 | Criterio de vencimiento de licencia: ¿al inicio o al fin del día? |
+| 34 | Correlativo institucional del vehículo: ¿único por institución, o compuesto por delegación? |
+| 35 | Escala de severidad de fallas del vehículo — cuál es incapacitante y cuál no |
+
+### Preguntas que cambian el alcance de un módulo
+
+Estas no son parámetros: si la respuesta es sí, hay diseño adicional que hacer.
+
+| # | Pregunta | Qué cambia si es sí |
+|---|---|---|
+| 36 | **¿La institución tiene almacenamiento propio de combustible** (cisterna, bidones)? | Cambia el **circuito completo de M-09**: deja de ser solo fondo y consumo, y aparece control de existencias |
+| 37 | ¿Admite y reembolsa consumo de combustible pagado por el motorista de su bolsillo? | Agrega un circuito de reembolso con su propia comprobación |
+| 38 | ¿Moviliza **carga peligrosa o especializada**? ¿Bajo qué régimen? | Requisitos adicionales de vehículo, motorista y documentación |
+| 39 | ¿Realiza traslados de **personas bajo custodia o de menores**? | Cadena de custodia y minimización reforzada en M-17 |
+| 40 | ¿Opera **rutas de lista abierta** con paradas donde suben y bajan personas? | El manifiesto cerrado sería impracticable; hay que modelar otra cosa |
+| 41 | ¿Habilitamos **modo delegación desconectada** — autorizar y despachar sin red? | Deuda declarada por el arquitecto: se podría autorizar contra un espejo viejo. Tiene mitigaciones diseñadas (horizonte de validez, marca impresa, revalidación con hallazgo automático) pero **es decisión del PO** |
+
+### Datos de catálogo por conseguir
+
+| # | Insumo |
+|---|---|
+| 42 | Catálogo oficial de **restricciones médicas** de la DNVT |
+| 43 | **¿Cómo se rotula una motocicleta del Estado?** El Acuerdo 303 describe franjas en *puertas laterales*, que una moto no tiene |
+| 44 | ¿Hay vehículos con **excepción de rotulación** autorizada, y quién la concede? |
+
 ## Resueltos en la revisión del 2026-08-06
 
 | # | Insumo original | Resolución |

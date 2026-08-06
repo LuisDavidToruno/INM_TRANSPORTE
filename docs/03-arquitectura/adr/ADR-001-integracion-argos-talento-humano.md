@@ -41,6 +41,29 @@ Además, estos datos **cambian poco**: un motorista no cambia de categoría de l
 
 La distinción importa: **el empleado pertenece a Talento Humano; su rol como motorista dentro de la flota pertenece a SIGTI.** Un empleado espejeado puede tener, en SIGTI, datos propios que Talento Humano no conoce — historial de conducción, incidentes al volante, vehículos que tiene habilitados.
 
+### La licencia de conducir es dato PROPIO de SIGTI, no espejo
+
+Corrección incorporada tras el análisis de `PR-01` (2026-08-06).
+
+La tabla de arriba listaba "licencias" como dato espejeado de Talento Humano. **Es un error, y hay que corregirlo antes de escribir historias de M-05 y M-07.**
+
+Razón: [NRM-06](../../01-negocio/normativa/NRM-06-transito-y-licencias.md) exige que SIGTI mantenga **número de licencia, categorías, fecha de vencimiento, restricciones médicas y el escaneo del documento**, porque sobre esos datos se sostiene el **bloqueo duro** de asignación. Si Talento Humano no registra la categoría con ese nivel de detalle —y no hay razón para asumir que lo haga, porque a Talento Humano la categoría de licencia no le sirve para nada—, **el bloqueo no se puede sostener sobre el espejo**.
+
+Un control de esta criticidad legal no puede depender del modelo de datos de un sistema ajeno que no tiene motivo para mantenerlo.
+
+**Resolución:**
+
+| Dato | Dueño |
+|---|---|
+| Identidad del empleado, puesto, dependencia, alta y baja | Talento Humano (espejo) |
+| Permisos, vacaciones, incapacidades, calendario | Talento Humano (espejo) |
+| **Licencia: número, categorías, vigencia, restricciones médicas, escaneo** | **SIGTI (propio)** |
+| Habilitación por tipo de vehículo, historial de conducción e incidentes | SIGTI (propio) |
+
+**Consecuencia operativa:** alguien de la institución tiene que **capturar y mantener las licencias dentro de SIGTI**, con su alerta de vencimiento. Es trabajo adicional real y hay que decirlo de frente — pero es el precio de que el bloqueo sea defendible ante un siniestro.
+
+`[C]` Si al obtener el contrato de API de Talento Humano (insumo #17) resulta que **sí** mantiene la categoría de licencia con el detalle requerido, se puede reconsiderar y espejearlo. Hasta entonces, se asume propio.
+
 ## Alternativas consideradas
 
 | Alternativa | A favor | En contra | Por qué se descartó |
