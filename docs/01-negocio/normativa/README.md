@@ -30,7 +30,7 @@ Marco legal y administrativo que condiciona el diseño de SIGTI. Cada ficha trad
 | [NRM-07](NRM-07-transparencia-y-datos-personales.md) | Transparencia (IAIP) y datos personales | ⚠️ Reducida en la parte de datos personales | M-14, M-17 |
 | [NRM-08](NRM-08-firma-electronica.md) | Firma electrónica y validez documental | ⚠️ Reducida — autorización interna, sin certificados | M-15, flujos de aprobación |
 | [NRM-09](NRM-09-realidad-operativa.md) | Conectividad, feriados, horarios, prácticas de control | ✅ Vigente | M-08, M-09, M-16, M-19 |
-| `NRM-10` | **Peajes**: puntos, tarifas y clasificación por ejes | 🔄 En elaboración | M-18 |
+| [NRM-10](NRM-10-peajes.md) | **Peajes**: puntos, tarifas y clasificación vehicular | ✅ **Vigente, núcleo de M-18** | M-18, M-03, M-06, M-08, M-13 |
 
 **Las fichas fuera de alcance no se borran.** Se conservan como referencia: documentan qué le va a pedir SIGTI a otro sistema, y evitan que alguien redescubra en seis meses una investigación que ya se hizo.
 

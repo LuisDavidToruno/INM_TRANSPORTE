@@ -20,7 +20,11 @@ Documentos y datos que se necesitan para que el análisis se apoye en la realida
 | 18 | **Componente de mapas de ARGOS**: cuál es, cómo se reutiliza, qué licencia o servicio usa | M-19 Seguimiento en Ruta se apoya en él | M-19 |
 | 19 | **Informes de Auditoría Interna o del TSC** sobre flota, combustible o uso de vehículos, si existen | Cada hallazgo describe algo que salió mal en la operación real: **son requisitos disfrazados** y valen más que cualquier entrevista | Bloque 2 |
 | 20 | **Texto de la reforma al Art. 48 de la Ley de Tránsito** (2025), categorías CD y CE | Fijar la matriz licencia↔vehículo definitiva | M-05, M-07 |
-| 21 | **Tarifas vigentes de peaje** por punto y categoría de ejes | Estimación y conciliación de peajes | M-18 |
+| 21 | **Tarifa de peaje efectivamente vigente hoy**, confirmada con COVI-H o la SAPP | Hay contradicción entre el comunicado de la SIT del 28/02/2026 y fuentes comerciales. **No se carga ninguna tarifa sin esto** | M-18 |
+| 22 | **Lista oficial de exoneraciones de peaje** — cláusula del contrato de concesión o consulta a COVI-H | Decide si un vehículo administrativo del Estado paga o no. **Es lo que define cómo se construye M-18** | M-18 |
+| 23 | **OCR de dos PDF oficiales**: Ley de Tránsito (Arts. 48 y 51) y tabla de tarifas de la SAPP | Un solo trabajo resuelve la matriz licencia↔vehículo y el criterio de clasificación de peaje | M-05, M-07, M-18 |
+| 24 | **¿La institución tiene tags CoviPass?** ¿A nombre de quién? ¿COVI-H emite factura fiscal en caseta o estado de cuenta empresarial? | Determina si el descargo de peajes ante el TSC es defendible. `covih.com` bloquea la consulta automatizada | M-18, M-13 |
+| 25 | **¿El peaje se financia con el viático o es gasto de misión separado?** | Si va en el viático, es de ARGOS y M-18 se solapa. **Resolver antes de escribir historias de M-18** | M-18, M-20 |
 
 ## Resueltos en la revisión del 2026-08-06
 
