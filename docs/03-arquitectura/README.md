@@ -27,7 +27,9 @@ Se registran aquí para que el `ADR-001` de selección de stack tenga contra qu�
 | Almacenamiento local persistente en cliente de campo y sincronización diferida | `RNF` offline-first | Alto — descarta arquitecturas puramente server-rendered |
 | Bitácora append-only inmutable con hash encadenado | Control interno TSC | Alto — condiciona el modelo de persistencia |
 | Generación de documentos imprimibles con folio, QR y hash | Marco híbrido papel-digital | Medio |
-| Parámetros con vigencia por rango de fechas (temporalidad bitemporal) | Reglamento de viáticos cambiante | Alto — condiciona el modelo de datos |
+| Parámetros con vigencia por rango de fechas (temporalidad bitemporal) | Tarifas de peaje y categorías por ejes, que se revisan periódicamente | Alto — condiciona el modelo de datos |
+| Espejo local de datos externos con sincronización por eventos y reconciliación | Integración con ARGOS y Talento Humano — ver [ADR-001](adr/ADR-001-integracion-argos-talento-humano.md) | Alto |
+| Seguimiento de ubicación y estado en tiempo real, con mapas | M-19; se reutiliza el componente de ARGOS | Medio |
 | Instalación y respaldo operables por personal sin especialización | Despliegue on-premise en delegaciones | Alto — descarta stacks con operación compleja |
 | Uso desde celular en campo, con cámara y sin conectividad | Realidad rural hondureña | Alto |
 | Cifrado en reposo de datos personales | M-17 y hábeas data | Medio |

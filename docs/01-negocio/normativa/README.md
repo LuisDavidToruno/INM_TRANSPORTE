@@ -17,17 +17,22 @@ Marco legal y administrativo que condiciona el diseño de SIGTI. Cada ficha trad
 
 ## Fichas
 
-| ID | Tema | Módulos afectados | Riesgo de cambio |
+**Estado actualizado tras la revisión del PO del 2026-08-06** — ver [DP-001](../../07-gestion/decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md).
+
+| ID | Tema | Estado | Módulos |
 |---|---|---|---|
-| [NRM-01](NRM-01-control-interno-tsc.md) | Control interno y auditoría — TSC, MARCI, ONADICI | Todos | Bajo |
-| [NRM-02](NRM-02-bienes-del-estado.md) | Bienes del Estado, uso y circulación de vehículos oficiales | M-03, M-04, M-07, M-12 | Medio |
-| [NRM-03](NRM-03-viaticos.md) | Viáticos y gastos de viaje | M-10 | **Alto** |
-| [NRM-04](NRM-04-presupuesto-siafi.md) | Presupuesto, SEFIN y SIAFI | M-09, M-10, M-11, M-13 | Medio |
-| [NRM-05](NRM-05-contrataciones-oncae.md) | Compras y contrataciones — ONCAE, HonduCompras | M-09, M-11 | **Alto** |
-| [NRM-06](NRM-06-transito-y-licencias.md) | Tránsito, licencias, matrícula, seguro, siniestros | M-03, M-04, M-05, M-07, M-12 | **Alto** |
-| [NRM-07](NRM-07-transparencia-y-datos-personales.md) | Transparencia (IAIP) y datos personales | M-14, M-17 | Medio |
-| [NRM-08](NRM-08-firma-electronica.md) | Firma electrónica y validez documental | M-15, todos los flujos de aprobación | Bajo |
-| [NRM-09](NRM-09-realidad-operativa.md) | Conectividad, feriados, horarios, prácticas de control | M-08, M-10, M-16 | Medio |
+| [NRM-01](NRM-01-control-interno-tsc.md) | Control interno y auditoría — TSC, MARCI, ONADICI | ✅ **Vigente, transversal** | Todos |
+| [NRM-02](NRM-02-bienes-del-estado.md) | Bienes del Estado, uso y circulación de vehículos oficiales | ✅ Vigente | M-03, M-04, M-07, M-12 |
+| [NRM-03](NRM-03-viaticos.md) | Viáticos y gastos de viaje | ⛔ **Fuera de alcance** — lo maneja ARGOS | — |
+| [NRM-04](NRM-04-presupuesto-siafi.md) | Presupuesto, SEFIN y SIAFI | ⚠️ Reducida — la estructura la define ARGOS; SIAFI diferido | M-09, M-11, M-13 |
+| [NRM-05](NRM-05-contrataciones-oncae.md) | Compras y contrataciones — ONCAE, HonduCompras | ⛔ **Fuera de alcance** — SIGTI no compra | — |
+| [NRM-06](NRM-06-transito-y-licencias.md) | Tránsito, licencias, matrícula, seguro, siniestros | ✅ **Núcleo del sistema** | M-03, M-04, M-05, M-07, M-12 |
+| [NRM-07](NRM-07-transparencia-y-datos-personales.md) | Transparencia (IAIP) y datos personales | ⚠️ Reducida en la parte de datos personales | M-14, M-17 |
+| [NRM-08](NRM-08-firma-electronica.md) | Firma electrónica y validez documental | ⚠️ Reducida — autorización interna, sin certificados | M-15, flujos de aprobación |
+| [NRM-09](NRM-09-realidad-operativa.md) | Conectividad, feriados, horarios, prácticas de control | ✅ Vigente | M-08, M-09, M-16, M-19 |
+| `NRM-10` | **Peajes**: puntos, tarifas y clasificación por ejes | 🔄 En elaboración | M-18 |
+
+**Las fichas fuera de alcance no se borran.** Se conservan como referencia: documentan qué le va a pedir SIGTI a otro sistema, y evitan que alguien redescubra en seis meses una investigación que ya se hizo.
 
 ## Cómo usar estas fichas
 

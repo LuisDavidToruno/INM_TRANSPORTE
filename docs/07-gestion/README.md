@@ -22,9 +22,11 @@ Cómo se conduce el proyecto: qué se hace, en qué orden, y qué se decidió po
 | 3 | Catálogos maestros y gestión de flota (M-01 a M-05) |
 | 4 | Solicitud de viaje y aprobaciones (M-06) — núcleo de valor |
 | 5 | Programación, despacho, Orden de Misión y bitácora (M-07, M-08, M-15) |
-| 6 | Combustible y viáticos con conciliación (M-09, M-10, M-13) |
-| 7 | Traslado de carga y de personas externas (M-17), operación offline (M-16) |
-| 8 | Reportes, transparencia, hardening, instalación on-premise y piloto |
+| 6 | Combustible y peajes con conciliación (M-09, M-18, M-13) |
+| 7 | Seguimiento en ruta (M-19), traslado de carga y personas (M-17), operación offline (M-16) |
+| 8 | Integraciones ARGOS y Talento Humano (M-20), reportes, hardening y piloto |
+
+**Nota:** los viáticos salieron del alcance en la revisión del 2026-08-06 — los maneja ARGOS. Ver [DP-001](decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md).
 
 ## Sprint 0 por bloques
 

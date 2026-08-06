@@ -7,6 +7,16 @@
 | **Última verificación** | 2026-08-06 |
 | **Riesgo de cambio** | **Alto** — hay reforma reciente y varias iniciativas en trámite |
 
+> ## ✅ CONFIRMADA COMO NÚCLEO DEL SISTEMA
+>
+> Revisión del PO del 2026-08-06 — ver [DP-001, decisiones D-11, D-12, D-13 y D-14](../../07-gestion/decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md).
+>
+> - **La matriz licencia ↔ vehículo se implementa con bloqueo duro.** Palabras del PO: *"nos tenemos que proteger con la ley también"*. Sin excepción configurable.
+> - **Seguro y revisión mecánica se gestionan igual**, aunque no sean obligatorios por ley vigente: póliza, vigencia, aseguradora, alertas. El bloqueo queda como regla configurable **apagada por defecto**.
+> - **El permiso especial del IHTT para traslado de carga sale del alcance.** El PO confirmó que no se requiere.
+>
+> Esto se enmarca en la definición del producto: *así como Talento Humano cuida de todo lo referente a los empleados, SIGTI cuida de todo lo referente a los vehículos*.
+
 Esta ficha contiene la **validación de mayor valor legal del sistema**: la matriz licencia ↔ vehículo.
 
 ## Marco normativo
@@ -54,7 +64,7 @@ Hay **desabastecimiento prolongado de placas metálicas**. En marzo de 2026 el C
 
 El IHTT tiene competencia en todo el territorio y emite **Permiso de Explotación**, **Certificado de Operación** y **Permiso Especial (privado)** — incluido el permiso especial de carga general y carga especializada para personas naturales o jurídicas **cuyo giro no es el transporte pero necesitan movilizar carga**.
 
-`[C] importante` Determinar si el traslado institucional de carga (equipos, herramientas, insumos) requiere permiso especial del IHTT. Es una zona gris que conviene consultar antes de cerrar el diseño del módulo de carga.
+~~`[C] importante` Determinar si el traslado institucional de carga requiere permiso especial del IHTT.~~ **Resuelto: el PO confirmó que no se requiere ese permiso.** Sale del alcance (D-14).
 
 ## Implicaciones de requerimiento
 
@@ -67,15 +77,14 @@ El IHTT tiene competencia en todo el territorio y emite **Permiso de Explotació
 - **El sistema debe** incluir un **módulo de accidente o siniestro** con: fecha, hora, lugar con coordenadas, motorista, ocupantes, terceros involucrados, daños, lesionados, número de reporte policial o de la DNVT, denuncia, aseguradora si aplica, fotografías, croquis, y estado del proceso de deducción de responsabilidad.
 - **El sistema debe** proveer al motorista una **guía de actuación en accidente accesible sin conexión** desde el móvil, y capturar el reporte inicial offline.
 - **El sistema debe** registrar **infracciones y multas de tránsito** asociadas al vehículo y al motorista, con estado de pago y quién asume el costo.
-- **El sistema debe** registrar, en el módulo de carga, los datos que un permiso del IHTT exigiría (tipo de carga, peso, origen, destino, remitente, consignatario), para tener la información disponible si se confirma esa obligación.
+- **El sistema debe** registrar del lado de la carga: tipo, peso, origen, destino, remitente y consignatario — por trazabilidad operativa, no por exigencia del IHTT.
 
 ## Zonas grises y pendientes
 
-- `[C]` Texto de la reforma al Art. 48 (2025) sobre categorías CD y CE.
-- `[C]` Contraste de la tabla de categorías contra el texto oficial de la Ley de Tránsito y la DNVT.
-- `[C]` Si el traslado institucional de carga requiere permiso especial del IHTT.
+- `[C]` **Texto de la reforma al Art. 48 (2025)** sobre categorías CD y CE. Es el pendiente más importante de esta ficha: sin él, la matriz definitiva no se puede fijar. Registrado como insumo #20 y riesgo #7.
+- `[C]` Contraste de la tabla de las 8 categorías contra el texto oficial de la Ley de Tránsito y la DNVT.
 - `[C]` Si las Disposiciones Generales del Presupuesto 2026 exigen asegurar la flota.
-- **Vigilar** el avance del anteproyecto de seguro obligatorio y de la revisión mecánica obligatoria: si se aprueban, la regla configurable se activa.
+- **Vigilar** el avance del anteproyecto de seguro obligatorio y de la revisión mecánica obligatoria: si se aprueban, la regla configurable se activa sin cambiar código.
 
 ## Fuentes
 

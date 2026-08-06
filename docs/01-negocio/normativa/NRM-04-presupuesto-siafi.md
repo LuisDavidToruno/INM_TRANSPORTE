@@ -1,11 +1,21 @@
 # NRM-04 — Presupuesto y finanzas (SEFIN / SIAFI)
 
+> ## ⚠️ ALCANCE REDUCIDO
+>
+> Decisión del PO del 2026-08-06 — ver [DP-001, decisión D-09](../../07-gestion/decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md).
+>
+> - **La estructura presupuestaria que use SIGTI es la que defina ARGOS.** Llega por API como espejo local, no se modela desde cero.
+> - **La integración con SIAFI queda diferida.** No se inicia con ella.
+> - Los **códigos del objeto del gasto** se investigan cuando se necesiten; no bloquean.
+>
+> **Lo que sí queda vigente para SIGTI:** entender que el gasto está sujeto a **cuota trimestral de compromiso**, no solo a presupuesto anual. Ese dato viene de ARGOS, pero SIGTI debe respetarlo al aprobar la asignación de fondos de combustible y peajes.
+
 | Campo | Valor |
 |---|---|
 | **Ámbito** | Imputación presupuestaria, cuotas de compromiso, conciliación con el sistema financiero del Estado |
-| **Módulos afectados** | M-09, M-10, M-11, M-13, M-14 |
+| **Módulos afectados** | M-09, M-11, M-13 — a través de la estructura que provee ARGOS |
 | **Última verificación** | 2026-08-06 |
-| **Riesgo de cambio** | Medio — las Disposiciones Generales cambian cada ejercicio |
+| **Riesgo de cambio** | Medio, pero absorbido por ARGOS |
 
 ## Marco normativo
 

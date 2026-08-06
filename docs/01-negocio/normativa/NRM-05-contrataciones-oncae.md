@@ -1,11 +1,21 @@
 # NRM-05 — Compras y contrataciones (ONCAE / HonduCompras)
 
+> ## ⛔ FUERA DEL ALCANCE DE SIGTI
+>
+> **SIGTI no compra nada.** Decisión del PO del 2026-08-06 — ver [DP-001, decisión D-03](../../07-gestion/decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md).
+>
+> El mecanismo real es otro: el **Jefe de Transporte** solicita a **Administración** un monto en efectivo o una cantidad de órdenes de pago; Administración lo aprueba y lo entrega. SIGTI gestiona la **asignación y el consumo de ese fondo**, no contratos de suministro ni proveedores ni convenios marco.
+>
+> La Ley de Contratación del Estado es responsabilidad de otros sistemas de la institución.
+>
+> **Esta ficha se conserva como referencia** por si en el futuro la institución quiere trazar el gasto hacia el instrumento contractual que lo originó. La propuesta operativa vigente está en `PROP-01` de [insumos-pendientes.md](../../07-gestion/insumos-pendientes.md).
+
 | Campo | Valor |
 |---|---|
 | **Ámbito** | Adquisición de combustible, llantas, repuestos, mantenimiento y alquiler de vehículos |
-| **Módulos afectados** | M-09, M-11 |
+| **Módulos afectados** | Ninguno directamente. M-09 se reencuadró a gestión de fondo asignado |
 | **Última verificación** | 2026-08-06 |
-| **Riesgo de cambio** | **Alto** — hay reformas anunciadas y regímenes de excepción con vigencia incierta |
+| **Riesgo de cambio** | Alto, pero sin impacto en SIGTI |
 
 ## Marco normativo
 

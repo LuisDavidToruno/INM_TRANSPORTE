@@ -5,7 +5,22 @@
 | **Ámbito** | Publicación obligatoria de información, protección de datos de personas trasladadas |
 | **Módulos afectados** | M-14, M-17, M-01 |
 | **Última verificación** | 2026-08-06 |
-| **Riesgo de cambio** | Medio — hay ley de datos personales pendiente en el Congreso desde 2018 |
+| **Riesgo de cambio** | Bajo tras la decisión del PO |
+
+> ## ⚠️ ALCANCE REDUCIDO EN LA PARTE DE DATOS PERSONALES
+>
+> Decisión del PO del 2026-08-06 — ver [DP-001, decisión D-14](../../07-gestion/decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md).
+>
+> **No se diseña para anticipar la Ley de Protección de Datos Personales** pendiente en el Congreso desde 2018.
+>
+> **Lo que sí se conserva**, porque el MARCI lo exige de todas formas y no cuesta más:
+> - Control de acceso por rol y por necesidad de conocer sobre listas de pasajeros
+> - Registro de cada consulta: quién vio qué y cuándo
+> - Separación entre datos de gestión pública y datos personales, para poder publicar en transparencia sin depuración manual
+>
+> **Lo que se descarta:** registro de consentimiento, catálogo de finalidades y registro de actividades de tratamiento.
+>
+> La sección de **transparencia** de esta ficha sigue vigente sin cambios.
 
 ## Transparencia
 
@@ -44,7 +59,7 @@ Por observación directa del Portal Único: las instituciones publican efectivam
 - **El sistema debe** soportar el **ejercicio del hábeas data**: buscar todos los registros de una persona identificada, exportarlos y rectificarlos — **dejando traza de la rectificación sin destruir el registro contable original**.
 - **El sistema debe** definir **políticas de retención diferenciadas**: los datos financieros y de bienes se conservan por el plazo de fiscalización; los datos personales de pasajeros deben tener plazo de depuración o seudonimización más corto. `[C]` los plazos con Auditoría Interna y el OIP.
 - **El sistema debe** cifrar los datos personales en reposo, y cifrar en tránsito toda comunicación, incluida la de las delegaciones.
-- **El sistema debe** anticipar la ley en trámite: registro de consentimiento, catálogo de finalidades y registro de actividades de tratamiento. Es más barato ahora que retro-adaptarlo.
+- ~~**El sistema debe** anticipar la ley en trámite: registro de consentimiento, catálogo de finalidades y registro de actividades de tratamiento.~~ **Descartado por decisión D-14.**
 
 ## Zonas grises y pendientes
 

@@ -1,46 +1,70 @@
 # Insumos pendientes de la institución piloto
 
-Documentos y datos que se necesitan para que el análisis se apoye en la realidad y no en suposiciones. **Los marcados como bloqueantes no deben suplirse con inferencias**: mientras falten, el módulo correspondiente queda con parámetros abiertos marcados `[C]`.
+Documentos y datos que se necesitan para que el análisis se apoye en la realidad y no en suposiciones. **Los bloqueantes no se suplen con inferencias**: mientras falten, el módulo correspondiente queda con parámetros abiertos marcados `[C]`.
 
-Actualiza el estado de cada fila cuando el insumo se reciba, e indica dónde quedó archivado.
+**Actualizado 2026-08-06** tras la revisión del PO. Ver [DP-001](decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md).
 
-## Bloqueantes
+## Abiertos — bloqueantes
 
-| # | Insumo | Para qué | Bloquea | Estado |
-|---|---|---|---|---|
-| 1 | **Reglamento interno de uso de vehículos** de la institución | Reglas de uso, autorizaciones, responsabilidades y sanciones propias | M-03, M-04, M-12 | Pendiente |
-| 2 | **Formatos en papel vigentes**: bitácora, requisición de vehículo, salida, vale de combustible, orden de misión, acta de entrega | Paridad pantalla↔papel; son el diseño de las pantallas | M-08, M-09, M-15, todo el Bloque 4 | Pendiente |
-| 3 | **Reglamento de viáticos homologado** de la institución + **Acuerdo 401-2026** con sus tablas de zonas, categorías y tarifas | Cálculo de viáticos. El acuerdo es de julio de 2026; no se pueden usar tarifas anteriores | M-10 | Pendiente |
-| 4 | **Organigrama y niveles de autorización**: quién aprueba qué según destino, monto y jerarquía | Flujo de aprobaciones y matriz de permisos | M-01, M-06 | Pendiente |
-
-## Importantes
-
-| # | Insumo | Para qué | Estado |
+| # | Insumo | Para qué | Bloquea |
 |---|---|---|---|
-| 5 | Inventario actual de flota, aunque sea en hoja de cálculo | Modelo de datos del vehículo, volumen real, tipos presentes | Pendiente |
-| 6 | Padrón de motoristas con categorías de licencia y vencimientos | Matriz licencia↔vehículo, dimensionamiento | Pendiente |
-| 7 | Contratos vigentes de combustible y mantenimiento, y el mecanismo real de control (vale físico, cupón, tarjeta, requisición) | M-09 y M-11; determina si se modela vale, tarjeta o ambos | Pendiente |
-| 8 | Estructura presupuestaria que usan: gerencia administrativa, unidades ejecutoras, objetos del gasto de combustible / mantenimiento / viáticos | Imputación presupuestaria y conciliación con SIAFI | Pendiente |
-| 9 | Capacidades del servidor on-premise disponible y quién administra la infraestructura | ADR de stack y despliegue (Sprint 2) | Pendiente |
+| 1 | **Reglamento interno de uso de vehículos** de la institución | Reglas de uso, autorizaciones, responsabilidades y sanciones propias | M-03, M-04, M-12 |
+| 2 | **Formatos en papel vigentes**: bitácora, requisición de vehículo, salida, orden de misión, acta de entrega, control de combustible | Paridad pantalla↔papel; son el diseño de las pantallas | M-08, M-09, M-15, todo el Bloque 4 |
 
-## Útiles
+## Abiertos — nuevos, derivados de las decisiones del PO
 
-| # | Insumo | Para qué | Estado |
+| # | Insumo | Para qué | Bloquea |
 |---|---|---|---|
-| 10 | Volumen operativo mensual: cuántas solicitudes, viajes, vehículos, delegaciones | Dimensionamiento y priorización | Pendiente |
-| 11 | Mapa de delegaciones regionales y su situación de conectividad real | Alcance del modo offline | Pendiente |
-| 12 | Últimos informes de auditoría interna o del TSC sobre flota, combustible o viáticos | Los hallazgos reales son requisitos disfrazados | Pendiente |
-| 13 | Sistemas institucionales existentes con los que habría que integrar (RRHH, almacén, marcaje, GPS) | Alcance de integraciones | Pendiente |
-| 14 | Calendario oficial de días hábiles y horario laboral de la institución, incluidos horarios especiales | Cálculo de viáticos, permisos de día inhábil, plazos | Pendiente |
-| 15 | Certificados de firma electrónica: ¿la institución ya tiene? ¿de qué autoridad certificadora? | Diseño del esquema de firma | Pendiente |
+| 16 | **Contrato de API y webhooks de ARGOS**: endpoints, autenticación, esquema de datos, eventos que emite | Es el corazón de la integración. Sin esto, M-20 es especulación | M-20, y el espejo local de autorizaciones y presupuesto |
+| 17 | **Contrato de API de Talento Humano**: expediente del empleado, licencias, permisos, vacaciones, incapacidades, calendario | Padrón de motoristas y disponibilidad para asignación | M-05, M-07, M-20 |
+| 18 | **Componente de mapas de ARGOS**: cuál es, cómo se reutiliza, qué licencia o servicio usa | M-19 Seguimiento en Ruta se apoya en él | M-19 |
+| 19 | **Informes de Auditoría Interna o del TSC** sobre flota, combustible o uso de vehículos, si existen | Cada hallazgo describe algo que salió mal en la operación real: **son requisitos disfrazados** y valen más que cualquier entrevista | Bloque 2 |
+| 20 | **Texto de la reforma al Art. 48 de la Ley de Tránsito** (2025), categorías CD y CE | Fijar la matriz licencia↔vehículo definitiva | M-05, M-07 |
+| 21 | **Tarifas vigentes de peaje** por punto y categoría de ejes | Estimación y conciliación de peajes | M-18 |
 
-## Cómo levantarlos
+## Resueltos en la revisión del 2026-08-06
 
-La forma más eficiente no es pedir la lista completa por correo. Es una sesión de dos horas con:
+| # | Insumo original | Resolución |
+|---|---|---|
+| 3 | Reglamento de viáticos y Acuerdo 401-2026 | **Fuera de alcance.** Lo maneja ARGOS. SIGTI solo comparte la clave para vincular una Orden de Misión con sus viáticos |
+| 4 | Organigrama y niveles de autorización | Se obtienen de **ARGOS por API**, con espejo local actualizado por webhooks |
+| 5 | Inventario actual de flota | **No se espera.** El catálogo se diseña a partir de cómo se registran habitualmente los vehículos de instituciones públicas hondureñas |
+| 6 | Padrón de motoristas y licencias | Viene del **sistema de Talento Humano por API** |
+| 7 | Contratos de combustible y mecanismo de control | **Reencuadrado.** No hay contratos que gestionar: Administración aprueba un monto en efectivo u órdenes de pago que el Jefe de Transporte solicita. Ver `PROP-01` abajo |
+| 8 | Estructura presupuestaria | Se usa **la que define ARGOS** |
+| 9 | Servidor on-premise y quién administra | Desarrollo **local** más **servidor de prueba** disponible, con credenciales gestionadas por el PO |
+| 10 | Volumen operativo | **Alto flujo.** Genera requisitos, no solo dimensionamiento — ver M-19 abajo |
+| 11 | Delegaciones y conectividad | Se reutiliza el **componente de mapas de ARGOS** |
+| 12 | Informes de auditoría | Reformulado como insumo #19, con la aclaración de a qué se refiere |
+| 13 | Sistemas con los que integrar | **Talento Humano, ARGOS (viáticos), Almacén.** Almacén queda diferido |
+| 14 | Calendario de días hábiles y feriados | Se maneja **junto con Talento Humano** |
+| 15 | Certificados de firma electrónica | **No se usa firma electrónica certificada.** Autorización interna por usuario autenticado o código gestionado por el sistema |
 
-- **Gerencia Administrativa o quien maneje la flota** — insumos 1, 4, 7, 8
-- **Encargado de transporte / despacho** — insumos 2, 5, 6, 10, 11
-- **Un motorista con años en el puesto** — es quien conoce los casos especiales reales del Bloque 2
-- **Auditoría Interna** — insumo 12, y los plazos de retención documental
+## PROP-01 — Propuesta para el control de combustible
 
-Lleva los formatos en papel a la sesión y recórrelos campo por campo. Ahí aparecen las reglas que nadie escribió nunca.
+El PO pidió una propuesta "práctica y segura" para el insumo 7. Se propone lo siguiente, a validar en el Bloque 1:
+
+**Modelo: fondo asignado con trazabilidad de tres puntas.**
+
+1. **Solicitud de fondo** — el Jefe de Transporte solicita a Administración un monto en efectivo o una cantidad de órdenes de pago, con la justificación operativa del período.
+2. **Aprobación** — Administración aprueba y entrega. Queda registrado el monto, la fecha, quién aprobó y contra qué partida.
+3. **Asignación** — Transporte asigna porciones del fondo a misiones o a motoristas concretos. Cada asignación tiene folio, monto, responsable y misión vinculada. El motorista **firma la recepción**.
+4. **Consumo** — el motorista registra el consumo desde el campo, con galones, monto, estación, odómetro y **fotografía del comprobante**. Funciona sin conectividad.
+5. **Liquidación** — al cerrar la misión se concilian: monto asignado vs. monto consumido vs. comprobantes vs. saldo devuelto.
+6. **Conciliación con kilometraje** — galones consumidos vs. kilómetros recorridos vs. rendimiento esperado del vehículo, con desviación marcada **en ambas direcciones**.
+
+**Por qué es seguro:** el punto de fuga clásico es el efectivo sin trazabilidad. Aquí ningún lempira se mueve sin quedar atado a un folio, un responsable, una misión y un odómetro. La conciliación automática con kilometraje es exactamente lo que busca el auditor del TSC.
+
+**Por qué es práctico:** no exige contratos, ni integración con proveedores, ni tarjetas de flota. Funciona con el mecanismo que la institución ya usa hoy — solo lo registra.
+
+**Decisiones abiertas de PROP-01:**
+- `[C]` ¿El fondo se asigna por período (mensual) o por misión?
+- `[C]` ¿Un motorista puede tener saldo acumulado entre misiones, o liquida cada una?
+- `[C]` ¿Qué pasa con el sobrante: se devuelve o se arrastra?
+- `[C]` ¿La orden de pago es un documento con folio preimpreso, o la genera el sistema?
+
+## Cómo levantar los insumos abiertos
+
+Los insumos 1, 2 y 19 salen de **una sesión de dos horas** con Gerencia Administrativa, el Encargado de Transporte, un motorista con años en el puesto, y Auditoría Interna. Lleva los formatos en papel a la mesa y recórrelos campo por campo: ahí aparecen las reglas que nadie escribió nunca.
+
+Los insumos 16, 17 y 18 dependen del PO, que administra ARGOS.

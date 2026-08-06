@@ -20,7 +20,15 @@ El repositorio se llama `INM_TRANSPORTE` por su origen, pero **el producto no es
 
 5. **Offline-first, no "con soporte offline".** Más de 2 millones de personas del área rural hondureña no tienen acceso a internet (INE, EPHPM julio 2025). El cliente de campo debe registrar salida, bitácora, consumo, incidentes y fotos sin ninguna conectividad.
 
-6. **Nada normativo se cablea.** Tarifas de viáticos, zonas, categorías, feriados, horario hábil, plazos de liquidación y matriz licencia↔vehículo son **parámetros con vigencia por rango de fechas**. Todo cálculo usa la tabla vigente **a la fecha del hecho**, no a la fecha de captura.
+6. **Nada normativo se cablea.** Tarifas de peaje, categorías por número de ejes, feriados, horario hábil, plazos y matriz licencia↔vehículo son **parámetros con vigencia por rango de fechas**. Todo cálculo usa la tabla vigente **a la fecha del hecho**, no a la fecha de captura.
+
+7. **No replicamos lo que otro sistema ya hace.** ARGOS posee viáticos, estructura presupuestaria, niveles de autorización y el componente de mapas. Talento Humano posee el expediente del empleado, permisos, vacaciones y feriados. SIGTI se integra con ellos — no los reimplementa. Ver [DP-001](docs/07-gestion/decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md).
+
+## La frase que define el producto
+
+> Así como Talento Humano cuida de todo lo referente a los empleados, **SIGTI cuida de todo lo referente a los vehículos** — motos, buses, pickups, camiones.
+
+El expediente del vehículo es una entidad de primera clase con ciclo de vida completo, no un catálogo: documentación y vencimientos, seguro, revisión, mantenimiento, fallas, incidentes, especificaciones técnicas, custodios y asignaciones.
 
 ## Estado actual
 
@@ -38,8 +46,8 @@ El repositorio se llama `INM_TRANSPORTE` por su origen, pero **el producto no es
 | M-06 | Solicitudes de Transporte | Captura y encamina la necesidad de movilización y el objeto del traslado |
 | M-07 | Programación y Despacho | Asignación vehículo↔motorista, conflictos, consolidaciones, emisión de Orden de Misión |
 | M-08 | Ejecución y Bitácora | Salida, kilometrajes, paradas, arribos, eventos en ruta, entregas, retorno |
-| M-09 | Combustible | Vales o tarjetas, consumo real, conciliación galonaje–kilometraje |
-| M-10 | Viáticos y Gastos de Viaje | Cálculo, autorización, anticipo y liquidación conforme al reglamento vigente |
+| M-09 | Combustible | Fondo aprobado por Administración, asignación a misiones, consumo, conciliación galonaje–kilometraje |
+| ~~M-10~~ | ~~Viáticos y Gastos de Viaje~~ | **Retirado.** Lo maneja ARGOS — ver [DP-001](docs/07-gestion/decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md) |
 | M-11 | Mantenimiento y Taller | Preventivo, correctivo, llantas, repuestos, órdenes de trabajo, indisponibilidad |
 | M-12 | Incidentes, Siniestros y Sanciones | Averías, accidentes, robos, multas, uso indebido, investigaciones |
 | M-13 | Liquidación y Cierre | Resultado económico y operativo de la misión, desviaciones, cierre del expediente |
@@ -47,6 +55,11 @@ El repositorio se llama `INM_TRANSPORTE` por su origen, pero **el producto no es
 | M-15 | Formatos Oficiales e Impresión | Documentos físicos con folio y QR verificable |
 | M-16 | Sincronización y Operación Desconectada | Captura sin conectividad y reconciliación al reconectar |
 | M-17 | Traslado de Personas Externas | Manifiestos, cadena de custodia, minimización de datos, registro de consultas |
+| M-18 | Peajes | Puntos de peaje del país, tarifas con vigencia, clasificación por número de ejes, estimación y conciliación |
+| M-19 | Seguimiento en Ruta | Ubicación y estado de cada vehículo en tiempo real, multi-destino, tiempos de espera en sitio, actualización por el motorista |
+| M-20 | Integraciones | ARGOS (viáticos, presupuesto, autorizaciones, mapas), Talento Humano (expedientes, permisos, feriados), Almacén (diferido) |
+
+**Los IDs no se reciclan.** M-10 queda retirado, no reasignado.
 
 ## Ciclo de vida de la Orden de Misión
 
@@ -66,7 +79,9 @@ Las fichas completas están en [docs/01-negocio/normativa/](docs/01-negocio/norm
 - **Sin placa metálica es un estado válido** — hay desabastecimiento nacional. Un campo `placa` obligatorio y único rompe el sistema.
 - **Seguro y revisión mecánica no son obligatorios por ley vigente**: rastreables y alertables, pero el bloqueo es **regla configurable**.
 - **Identificación del vehículo del Estado** (franjas azul–blanco–azul, leyenda, siglas, correlativo) es campo verificable con fecha y foto: es hallazgo frecuente de auditoría.
-- **Datos personales**: no hay ley general vigente, pero sí hábeas data constitucional. Minimización, control por necesidad de conocer y registro de cada consulta en M-17.
+- **Peajes**: el país tiene puntos de peaje con tarifas que clasifican por **número de ejes**. Cada vehículo de la flota debe tener su categoría de peaje resuelta. Ver `NRM-10`.
+- **Sin firma electrónica certificada.** La autorización es interna: usuario autenticado o código gestionado por el sistema, con registro completo de quién, cuándo, desde dónde y sobre qué contenido.
+- **Datos personales**: se conserva el control de acceso por rol y el registro de consultas — exigido por el MARCI. **No** se diseña para anticipar la ley de datos personales pendiente en el Congreso.
 
 ## Convenciones
 

@@ -41,6 +41,23 @@ Ninguna todavía. El Sprint 0 produce artefactos de definición; las historias s
 
 Entregado: `CLAUDE.md`, estructura completa de `docs/`, 11 plantillas con ejemplo real del dominio, 9 fichas normativas `NRM-01` a `NRM-09` con nivel de verificación y fuentes, registro de riesgos normativos, lista de insumos pendientes, `ADR-000`, y los 10 subagentes del equipo en `.claude/agents/`.
 
+## Revisión del PO — mismo día, después del Bloque 0
+
+El PO revisó el Bloque 0 y cambió el alcance de forma significativa. **Las decisiones 1 a 9 de arriba siguen vigentes**, pero se agregan y corrigen varias. Todo está en [DP-001](../../decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md).
+
+Resumen de lo que cambió:
+
+| Cambio | Efecto |
+|---|---|
+| **Viáticos salen del alcance** — los maneja ARGOS | M-10 retirado. NRM-03 y NRM-05 pasan a referencia |
+| **Peajes entran** — puntos, tarifas y clasificación por ejes | Nuevo M-18 y ficha `NRM-10` |
+| **Combustible reencuadrado** — no hay contratos, hay un fondo que aprueba Administración | M-09 cambia de modelo. Propuesta `PROP-01` |
+| **Sin firma electrónica certificada** — autorización interna por usuario o código | NRM-08 reducida |
+| **Espejo local + webhooks** para datos de ARGOS y Talento Humano | Nuevo `ADR-001` |
+| **Seguimiento en ruta** como capacidad central | Nuevo M-19 |
+| **SIGTI es a los vehículos lo que Talento Humano es a los empleados** | Definición de producto; entra en la visión |
+| **Matriz licencia↔vehículo confirmada** con bloqueo duro | NRM-06 pasa a núcleo |
+
 ## Acuerdos para la siguiente sesión
 
 1. El PO revisa el Bloque 0 antes de que arranque el Bloque 1.

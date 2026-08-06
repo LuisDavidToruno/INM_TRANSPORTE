@@ -1,11 +1,21 @@
 # NRM-03 — Viáticos y gastos de viaje
 
+> ## ⛔ FUERA DEL ALCANCE DE SIGTI
+>
+> **Los viáticos los maneja ARGOS.** Decisión del PO del 2026-08-06 — ver [DP-001, decisión D-01](../../07-gestion/decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md).
+>
+> SIGTI **no** calcula tarifas, **no** gestiona anticipos ni liquidaciones de viático, y **no** necesita la tabla de zonas y categorías. Solo conserva la clave que permite vincular una Orden de Misión con sus viáticos en ARGOS.
+>
+> **Esta ficha se conserva como referencia**, no como requisito. Es útil para dos cosas: entender qué le va a pedir SIGTI a ARGOS por API, y **detectar doble cobro** — un viático de transporte cobrado cuando el traslado se hizo en vehículo oficial con combustible institucional.
+>
+> **No confundir con lo que sí queda en SIGTI:** la liquidación de los gastos operativos del viaje que el motorista ejecuta con fondos de la institución — **combustible y peajes**. Eso es control de flota, no viático del servidor.
+
 | Campo | Valor |
 |---|---|
 | **Ámbito** | Cálculo, autorización, anticipo y liquidación de viáticos del sector público |
-| **Módulos afectados** | M-10, M-13 |
+| **Módulos afectados** | Ninguno. M-10 fue retirado |
 | **Última verificación** | 2026-08-06 |
-| **Riesgo de cambio** | **ALTO — es el riesgo normativo número uno del proyecto** |
+| **Riesgo de cambio** | Alto, **pero es riesgo de ARGOS, no de SIGTI** |
 
 ## Hallazgo crítico
 

@@ -7,6 +7,22 @@
 | **Última verificación** | 2026-08-06 |
 | **Riesgo de cambio** | Bajo |
 
+> ## ⚠️ ALCANCE REDUCIDO — no se usa firma electrónica certificada
+>
+> Decisión del PO del 2026-08-06 — ver [DP-001, decisión D-04](../../07-gestion/decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md).
+>
+> **Se descarta** la firma electrónica avanzada con certificado, y con ella la integración con FIEL o cualquier autoridad certificadora.
+>
+> **En su lugar, esquema interno de autorización:** basta la identificación del usuario autenticado, o un **código especial gestionado por el sistema**.
+>
+> **Lo que sí se conserva del diseño original**, porque el control interno lo exige igual:
+> - Registro completo de cada autorización: identidad, cargo, rol, método de autenticación, marca de tiempo, dispositivo, y hash del contenido autorizado
+> - **Delegación de autorización** con vigencia acotada, dejando constancia de que se actuó por delegación — esencial dada la rotación de personal
+> - Todo documento con versión imprimible: folio único, **QR de verificación**, espacio para firma y sello, y hash en el pie
+> - Página pública de verificación por QR o folio, sin exponer datos personales
+>
+> El resto de esta ficha se conserva como referencia por si la institución adopta certificados más adelante.
+
 ## Marco normativo
 
 | Norma | Referencia | Vigencia | Verificación |
