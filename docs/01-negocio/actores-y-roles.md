@@ -388,8 +388,10 @@ Dos ajustes que la práctica impone y que un modelo puramente jerárquico no res
 | 24 | Habilitar o inhabilitar motorista en el padrón | – | – | – | **E** | – | – | – | C | – | P | – | C | – | – |
 | 25 | Consultar datos de personas externas trasladadas | – | – | – | C¹² | C¹² | C¹² | – | C¹² | C¹² | C¹² | – | C¹² | – | – |
 | 26 | Administrar usuarios, puestos y roles | **E** | – | – | – | – | – | – | A¹³ | – | – | – | C | – | – |
-| 27 | Declarar régimen de excepción de delegación | – | – | – | – | – | – | – | P | **A** | P | – | C | – | – |
-| 28 | Convalidar actos ejecutados en régimen de excepción | – | – | – | – | – | – | – | **E** | E | – | – | C | – | – |
+| ~~27~~ | ~~Declarar régimen de excepción de delegación~~ ⛔ | – | – | – | – | – | – | – | P | **A** | P | – | C | – | – |
+| ~~28~~ | ~~Convalidar actos ejecutados en régimen de excepción~~ ⛔ | – | – | – | – | – | – | – | **E** | E | – | – | C | – | – |
+
+> ⛔ **Las acciones 27 y 28 están suspendidas — no se implementan.** El régimen de excepción que habilitan no tiene respaldo normativo verificado y ninguna regla `RN-xx` lo gobierna. Ver [DP-002](../07-gestion/decisiones-de-producto/DP-002-segregacion-en-delegaciones-pequenas.md) y la sección 5.4. Se conservan en la matriz para que la decisión quede visible, no para construirlas.
 
 **Notas:**
 
@@ -516,6 +518,18 @@ Con esto quedan localmente solo **despachar, conducir, entregar el fondo y liqui
 **Choque con la realidad de campo:** este nivel exige que la delegación pueda comunicarse con la sede en el momento de necesitar la autorización. Con más de 2 millones de personas del área rural sin acceso a internet — NRM-09 `[V]` —, eso no siempre ocurre. Por eso existe el Nivel 2. Mitigaciones ya previstas: **emisión anticipada** de Órdenes de Misión y salvoconductos con folio pre-asignado del rango de la delegación, y autorización asíncrona mediante **código gestionado por el sistema** — DP-001 D-04 — que la sede puede comunicar por teléfono y que el encargado ingresa sin conectividad.
 
 #### Nivel 2 — Régimen de excepción por insuficiencia de personal *(cuando el Nivel 1 no alcanza)*
+
+> ## ⛔ DISEÑADO, PERO **NO SE IMPLEMENTA**
+>
+> Decisión provisional del equipo tras el hallazgo `HN1-01` — ver **[DP-002](../07-gestion/decisiones-de-producto/DP-002-segregacion-en-delegaciones-pequenas.md)**.
+>
+> Este régimen levanta expresamente las incompatibilidades I-02 a I-06, I-08 e I-09. **No se encontró ninguna fuente que respalde levantar incompatibilidades a cambio de controles compensatorios.** Lo que sí tiene respaldo `[P]` en la Guía General del MARCI es delegar a mandos medios o a personal independiente — que es el **Nivel 1**, no esto.
+>
+> Otros dos artefactos del Bloque 1 dicen por escrito que este régimen **no existe**: [RN-01](reglas/RN-01-segregacion-de-funciones.md) y [orden-de-mision.md §3.3](../03-arquitectura/estados/orden-de-mision.md). Esa contradicción es el hallazgo.
+>
+> **Se construye el Nivel 1.** Este diseño se conserva como contingencia y no se borra — es bueno y está trabajado. Se activa solo si **Auditoría Interna de la institución** lo avala (insumo #26), y en ese caso hay que escribir la `RN-54` que lo gobierne, porque hoy **ninguna regla lo hace**.
+>
+> Las **acciones 27 y 28 de la matriz de permisos** (declarar régimen, convalidar actos) quedan igualmente suspendidas.
 
 Un régimen **declarado, acotado y compensado**. No es una casilla que el usuario marca: es un acto administrativo con expediente.
 

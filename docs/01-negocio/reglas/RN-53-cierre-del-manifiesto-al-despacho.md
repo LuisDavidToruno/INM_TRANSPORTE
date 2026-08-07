@@ -48,7 +48,7 @@ Las novedades se capturan desde el campo **sin conectividad** ([RN-43](RN-43-cap
 - **Persona que baja antes del destino.** Se registra como descenso en punto intermedio con hora y lugar. Importa para el manifiesto de retorno y para el cálculo de tiempos (M-19).
 - **Misión de recorrido con lista abierta** — transporte de personal en ruta fija con paradas. El manifiesto cerrado sería impracticable. `[C]` confirmar si la institución opera rutas de este tipo; de ser así, el manifiesto se cierra por tramo o se sustituye por conteo con puntos de abordaje, y esa variante debe modelarse explícitamente en lugar de forzar la regla general.
 - **Traslado de personas externas con datos que no se pueden capturar completos** en el momento del abordaje. Se registra lo mínimo ([RN-51](RN-51-minimizacion-de-datos-de-personas-externas.md)) y se completa después como novedad, con la marca de registro diferido ([RN-46](RN-46-fecha-del-hecho-y-fecha-de-captura.md)).
-- **Novedad registrada después del retorno.** Si la bitácora ya se cerró, entra a la cola de conflictos ([RN-45](RN-45-cero-sobrescritura-silenciosa.md)) y puede exigir reapertura autorizada ([RN-05](RN-05-registro-cerrado-no-se-edita.md)).
+- **Novedad registrada después del retorno.** Si la bitácora ya se cerró, entra a la cola de conflictos ([RN-45](RN-45-cero-sobrescritura-silenciosa.md)) y se incorpora como **asiento de corrección sobre bitácora cerrada**, con su fecha del hecho. **No hay reapertura** — corregido por el hallazgo `HB1-04`; ver [RN-05](RN-05-registro-cerrado-no-se-edita.md) y [orden-de-mision.md §3.4](../../03-arquitectura/estados/orden-de-mision.md).
 
 ## Trazabilidad
 

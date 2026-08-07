@@ -101,6 +101,24 @@ Estables, nunca se reciclan. Si un artefacto se descarta, su ID queda marcado co
 | `M-xx` | Módulo funcional | este documento |
 | `ACT-xx` | Actor / rol | `docs/01-negocio/actores-y-roles.md` |
 
+### Precedencia entre artefactos
+
+Incorporada tras los hallazgos `HB1-01` a `HB1-05`: cuatro especialidades escribiendo en paralelo produjeron cuatro respuestas distintas a la misma pregunta, y nada decía cuál mandaba.
+
+**Cuando dos artefactos se contradicen, manda el que es autoridad sobre esa materia:**
+
+| Materia | Autoridad |
+|---|---|
+| Transiciones de estado, precondiciones, invariantes, bloqueos duros | `docs/03-arquitectura/estados/` |
+| Actores, incompatibilidades, matriz de permisos, alcance de datos | `docs/01-negocio/actores-y-roles.md` |
+| Todo lo demás del negocio | La regla `RN-xx` correspondiente |
+| Fronteras entre sistemas | El `ADR-xxx` vigente |
+| Alcance del producto | El `DP-xxx` vigente |
+
+**Las tablas derivadas citan su origen en lugar de reescribirlo.** Si un proceso necesita mostrar quién puede ejecutar una transición, enlaza a la tabla de transiciones — no la copia. Una tabla copiada es una tabla que va a divergir.
+
+Cuando encuentres una contradicción: **no la resuelvas en silencio en el artefacto que estés tocando.** Corrige el que no es autoridad, y si la autoridad es la que está mal, dilo como hallazgo.
+
 ### Trazabilidad obligatoria
 
 - Toda **historia de usuario** referencia al menos una regla de negocio y el módulo al que pertenece.
@@ -116,6 +134,14 @@ Marca siempre la afirmación normativa con su nivel. **Nunca inventes números d
 - `[P]` Parcialmente verificado — la norma existe, no se pudo extraer el articulado
 - `[C]` Por confirmar con la institución
 - `[I]` Inferencia o práctica común, no norma
+
+#### El nivel nunca sube al bajar de nivel de abstracción
+
+Incorporado tras el hallazgo `HN1-03`. **Ningún artefacto puede declarar un nivel de verificación superior al de la ficha `NRM-xx` que cita.** Si la ficha dice `[C]`, la regla dice `[C]`; si la ficha dice `[I]`, la historia dice `[I]`.
+
+El patrón que hay que evitar es la escalada silenciosa: la ficha marca `[C]`, el documento de análisis lo repite como `[P]`, la regla lo declara `[V]`, y el código lo implementa como obligación legal. Nadie mintió en ningún paso, y el resultado es falso.
+
+**Tampoco se cita como `[V]` una implicación de requerimiento** escrita por el propio equipo. Que la ficha diga "el sistema debe X" no verifica que la norma exija X: verifica que nosotros lo dedujimos. Eso es `[I]`, salvo que la norma lo diga literalmente.
 
 ### Diagramas
 

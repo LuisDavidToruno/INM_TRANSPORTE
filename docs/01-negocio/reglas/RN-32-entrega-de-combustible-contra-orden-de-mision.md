@@ -1,20 +1,39 @@
-# RN-32 — No se entrega combustible sin Orden de Misión aprobada, y solo al vehículo y motorista de esa orden
+# RN-32 — No se emite combustible sin Orden de Misión programada, no se entrega hasta el despacho, y solo al vehículo y motorista de esa orden
 
 | Campo | Valor |
 |---|---|
 | **Módulos** | M-09, M-07 |
-| **Origen** | Norma [NRM-01](../normativa/NRM-01-control-interno-tsc.md) — TSC-NOGECI V-07; `PROP-01` |
-| **Verificación** | `[V]` la exigencia de autorización previa de toda transacción |
+| **Origen** | Norma [NRM-01](../normativa/NRM-01-control-interno-tsc.md) — TSC-NOGECI V-07 `[P]`; `PROP-01`. Momentos de emisión y entrega: [orden-de-mision.md](../../03-arquitectura/estados/orden-de-mision.md) §2 `PROGRAMADA`, `EF-04`, `T-12` y §10.1 — **artefacto autoridad en transiciones e invariantes** |
+| **Verificación** | `[P]` la exigencia de autorización previa de toda transacción: [NRM-01](../normativa/NRM-01-control-interno-tsc.md) marca `[P]` el catálogo NOGECI donde vive V-07, verificado por citas en informes del TSC pero sin articulado extraído. Corregido desde `[V]` por la regla de no escalar el nivel |
 | **Tipo** | Bloqueo duro |
-| **Configurable** | Sí — `estado_minimo_orden_para_asignar_combustible`, con valor inicial `APROBADA` |
+| **Configurable** | Sí — `estado_minimo_orden_para_emitir_combustible`, con valor inicial **`PROGRAMADA`**. El momento de la **entrega** no es configurable: ocurre dentro del despacho |
+
+## Nota de corrección — hallazgo `HB1-06`
+
+> **Qué estaba mal.** El estado mínimo tenía valor inicial `APROBADA` y, a la vez, la regla exigía que el receptor fuera *"el vehículo asignado a esa orden"* y *"el motorista asignado a esa orden"*. **En `APROBADA` no hay vehículo ni motorista asignados** — `INV-11`: *"Sigue sin reservar recursos: aprobar no es programar"*. La regla no podía evaluar sus propios requisitos 2 y 3 con su propio valor inicial.
+>
+> **Qué manda.** La máquina de estados separa dos momentos que la regla mezclaba:
+>
+> | Momento | Estado | Qué ocurre | Referencia |
+> |---|---|---|---|
+> | **Emisión** de la asignación | `PROGRAMADA` | Ya hay vehículo y motorista asignados (`INV-12`). Se genera la propuesta de asignación de fondo. El instrumento existe con folio, en estado `EMITIDA` | `T-08`, `V-01` |
+> | **Entrega** contra firma | Dentro de `T-12` despachar | ACT-07 entrega el fondo o los vales; la asignación pasa a `ENTREGADA` | `EF-04`, `V-02` |
+>
+> `EF-04` y §10.1 son taxativos: *"`V-02` entregar ocurre **dentro de** `T-12` despachar. **No se entrega fondo a una misión no despachada**"*, y `PROGRAMADA` lista expresamente entre lo que **no se puede**: *"Entregar fondo de combustible."*
+>
+> **Nota de hallazgo abierta.** El diagrama §3.1 de [`PR-01`](../procesos/PR-01-movilizacion-institucional.md) sitúa la entrega **antes** del fin del proceso, con estado final *"Misión `PROGRAMADA`, documentos impresos y fondo entregado"* — un estado que, con esta corrección, nunca ocurre. `PR-01` y su punto de control `PC-08` deben alinearse a la máquina de estados. No se corrige aquí porque está fuera de esta carpeta.
 
 ## Enunciado
 
-ACT-07 Encargado de Combustible **no debe** poder registrar una asignación de combustible imputada a una misión si:
+ACT-07 Encargado de Combustible **no debe** poder **emitir** una asignación de combustible imputada a una misión si:
 
-1. La Orden de Misión no ha alcanzado el estado mínimo configurado (inicialmente `APROBADA`), o
+1. La Orden de Misión no ha alcanzado el estado mínimo configurado — valor inicial **`PROGRAMADA`**, el primero en que existen vehículo y motorista asignados —, o
 2. El vehículo receptor no es el asignado a esa orden, o
 3. El motorista receptor no es el asignado a esa orden ni un encargado de delegación facultado para recibir en su nombre `[C]`
+
+Y **no debe** poder **entregar** el fondo, el vale o la orden de pago hasta el momento del despacho. La entrega contra firma de recepción es parte del acto de despachar, no un paso previo: mientras la misión no se despacha, el instrumento existe emitido y **no sale de la custodia de ACT-07**.
+
+El parámetro `estado_minimo_orden_para_emitir_combustible` **no puede configurarse por debajo de `PROGRAMADA`**: hacerlo dejaría los requisitos 2 y 3 sin nada contra qué evaluarse.
 
 Cuando el esquema de la institución sea **asignación por período** y no por misión, el vínculo obligatorio es motorista + período + fondo, y cada consumo se imputa después a una misión concreta.
 

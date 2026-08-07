@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | **Módulos** | M-01, M-06, M-20 |
-| **Origen** | Norma [NRM-01](../normativa/NRM-01-control-interno-tsc.md) — TSC-NOGECI V-07; complemento operativo de [RN-01](RN-01-segregacion-de-funciones.md) |
+| **Origen** | Norma [NRM-01](../normativa/NRM-01-control-interno-tsc.md) — MARCI, norma de segregación de funciones incompatibles `[C]` su numeración; complemento operativo de [RN-01](RN-01-segregacion-de-funciones.md) |
 | **Verificación** | `[V]` la exigencia de autorización por servidor competente — `[C]` la jerarquía concreta de la institución |
 | **Tipo** | Derivación + bloqueo duro |
 | **Configurable** | Sí — la cadena de escalamiento es dato del espejo de ARGOS, parámetro `cadena_autorizacion` |
