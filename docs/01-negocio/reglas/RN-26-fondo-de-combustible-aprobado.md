@@ -4,11 +4,15 @@
 |---|---|
 | **Módulos** | M-09, M-13 |
 | **Origen** | Decisión [DP-001 D-03](../../07-gestion/decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md) y `PROP-01` de [insumos-pendientes](../../07-gestion/insumos-pendientes.md); norma [NRM-01](../normativa/NRM-01-control-interno-tsc.md) |
-| **Verificación** | `[V]` la decisión de producto — `[C]` el mecanismo real de la institución (insumo #7 reencuadrado) |
+| **Verificación** | Sin nivel normativo para la frontera de alcance: es **decisión de producto** ([DP-001 D-03](../../07-gestion/decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md)) y se cita por su identificador (`HN1-20`). `[I]` la incompatibilidad solicita fondo × aprueba fondo: es control interno recogido por [actores-y-roles §5.2](../actores-y-roles.md), no articulado citable. `[C]` el mecanismo real de la institución (insumo #7 reencuadrado) |
 | **Tipo** | Bloqueo duro |
-| **Configurable** | Sí — `periodicidad_fondo` y `tolerancia_sobregiro`, esta última con valor inicial cero |
+| **Configurable** | Sí — `periodicidad_fondo` y `tolerancia_sobregiro`, esta última con valor inicial cero. La incompatibilidad del punto 4 del enunciado **no** es configurable |
 
-## Enunciado
+## Nota de corrección — hallazgo `HN1-15`
+
+> **Qué estaba mal.** La regla invocaba [RN-01](RN-01-segregacion-de-funciones.md) para prohibir que quien solicita el fondo lo apruebe. Pero `RN-01` se aplica *"sobre una misma **Orden de Misión**"*, y sus cinco funciones son funciones sobre una misión. **El fondo de combustible es un objeto de período, no de misión**: lo solicita ACT-04 y lo aprueba ACT-08 para un período completo. Leída como está escrita, `RN-01` **no alcanza al fondo**, y la incompatibilidad más sensible del circuito de dinero quedaba enunciada sin regla que la sostuviera.
+>
+> **Cómo se corrige.** La incompatibilidad se incorpora al **enunciado de esta regla** como control propio, evaluado sobre el expediente del fondo. No se amplía `RN-01` desde aquí: eso es materia de [actores-y-roles.md](../actores-y-roles.md), que es la autoridad, y su tabla `I-01` a `I-17` también razona por misión. **Nota de hallazgo abierta:** el par *solicita fondo × aprueba fondo* —y el `I-17` *propone descargo × aprueba descargo*— no existen en esa tabla. Quedan señalados para que la autoridad los incorpore.
 
 Toda asignación de combustible **debe** imputarse a un **fondo aprobado vigente**, constituido por:
 
@@ -16,7 +20,11 @@ Toda asignación de combustible **debe** imputarse a un **fondo aprobado vigente
 2. **Aprobación** de ACT-08 Gerencia Administrativa, con monto aprobado, fecha, aprobador y partida contra la que se afecta
 3. **Entrega** registrada del efectivo o de las órdenes de pago
 
-El sistema **no debe** permitir asignar combustible si no existe fondo vigente con **saldo disponible suficiente**. Quien solicita el fondo **no puede** ser quien lo aprueba ([RN-01](RN-01-segregacion-de-funciones.md)).
+El sistema **no debe** permitir asignar combustible si no existe fondo vigente con **saldo disponible suficiente**.
+
+4. **Segregación propia del expediente del fondo — bloqueo duro no configurable.** La persona que **solicita** el fondo o su ampliación **no puede** ser la que **aprueba** su constitución, y ninguna de las dos puede ser la que **liquida** el fondo al cierre del período. Se verifica **por identidad de persona**, no por rol, sobre el expediente del fondo, que es objeto de período y no de misión. Es control propio de esta regla, no una aplicación de [RN-01](RN-01-segregacion-de-funciones.md), cuyo alcance es la Orden de Misión.
+
+La aprobación del fondo verifica además la **cuota trimestral de compromiso** ([RN-54](RN-54-cuota-trimestral-de-compromiso.md)): tener saldo en la partida anual no significa que el compromiso quepa en el trimestre.
 
 ## Justificación
 
@@ -50,12 +58,14 @@ Hasta que se confirmen, el sistema modela el fondo como **entidad con período d
 - **Cambio de Jefe de Transporte con fondo abierto.** El fondo no se cierra por rotación: se registra el traspaso de responsabilidad con acta y saldo verificado, análogo a la custodia de vehículo ([RN-22](RN-22-custodia-del-vehiculo.md)).
 - **Devolución de saldo no consumido al final del período.** Se registra como devolución con constancia, y solo entonces incrementa el saldo disponible. Una devolución declarada pero no constatada no libera saldo.
 - **Fondo aprobado sin partida presupuestaria indicada.** La estructura presupuestaria la define ARGOS ([DP-001 D-09](../../07-gestion/decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md)). Si el espejo no la tiene disponible, el fondo se registra con partida pendiente y **se bloquea su cierre** hasta que se complete.
-- **Solicitud y aprobación por la misma persona en una delegación pequeña.** Bloqueo por [RN-01](RN-01-segregacion-de-funciones.md), con escalamiento por [RN-02](RN-02-escalamiento-de-autorizacion.md). El fondo es dinero: aquí la segregación es más importante, no menos.
+- **Solicitud y aprobación por la misma persona en una delegación pequeña.** Bloqueo por el punto 4 del enunciado, con escalamiento a la dependencia matriz por [RN-02](RN-02-escalamiento-de-autorizacion.md) y conforme a [DP-002](../../07-gestion/decisiones-de-producto/DP-002-segregacion-en-delegaciones-pequenas.md). El fondo es dinero: aquí la segregación es más importante, no menos.
+- **Fondo aprobado que excede la cuota del trimestre.** No es un problema de saldo del fondo sino de compromiso presupuestario. Se resuelve por [RN-54](RN-54-cuota-trimestral-de-compromiso.md): advertencia con acuse motivado, o bloqueo si la institución lo configuró así.
 
 ## Trazabilidad
 
 - Decisión: [DP-001, D-03](../../07-gestion/decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md); `PROP-01` en [insumos-pendientes](../../07-gestion/insumos-pendientes.md)
-- Norma: [NRM-01](../normativa/NRM-01-control-interno-tsc.md)
-- Reglas relacionadas: [RN-01](RN-01-segregacion-de-funciones.md), [RN-27](RN-27-asignacion-de-combustible-con-folio.md), [RN-29](RN-29-liquidacion-de-combustible.md)
+- Normas: [NRM-01](../normativa/NRM-01-control-interno-tsc.md), [NRM-04](../normativa/NRM-04-presupuesto-siafi.md)
+- Hallazgos que corrigen esta regla: `HN1-15` y `HN1-20` de [H-B1-002](../../05-calidad/hallazgos/H-B1-002-revision-normativa-bloque-1.md)
+- Reglas relacionadas: [RN-01](RN-01-segregacion-de-funciones.md), [RN-27](RN-27-asignacion-de-combustible-con-folio.md), [RN-29](RN-29-liquidacion-de-combustible.md), [RN-54](RN-54-cuota-trimestral-de-compromiso.md)
 - Actores: ACT-04, ACT-07, ACT-08, ACT-10
 - Historias y casos especiales: pendientes — Bloque 2

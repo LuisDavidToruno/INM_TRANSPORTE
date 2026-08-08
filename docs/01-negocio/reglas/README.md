@@ -123,6 +123,14 @@ Nivel de verificación (`[V]` `[P]` `[C]` `[I]`) va dentro de cada regla, marcad
 | [RN-52](RN-52-registro-de-consultas-a-manifiestos.md) | Toda consulta a manifiestos y listas de pasajeros se registra: quién vio qué y cuándo | M-17, M-14, M-01 | Bloqueo duro | No | NRM-07, NRM-01 |
 | [RN-53](RN-53-cierre-del-manifiesto-al-despacho.md) | El manifiesto se cierra al despachar; los cambios en ruta se registran como novedad, no como edición | M-17, M-08, M-07, M-13 | Bloqueo + advertencia | No | NRM-02, NRM-06, NRM-01 |
 
+## Presupuesto
+
+| ID | Enunciado | Módulos | Tipo | Cfg. | Origen |
+|---|---|---|---|---|---|
+| [RN-54](RN-54-cuota-trimestral-de-compromiso.md) | El compromiso de gasto se valida contra la **cuota trimestral**, no solo contra el presupuesto anual | M-09, M-18, M-13, M-20 | Advertencia → bloqueo | Sí | NRM-04, DP-001 D-09, ADR-001 |
+
+Escrita tras el hallazgo `HN1-07`: `NRM-04` deja la cuota trimestral en alcance explícito y **ninguna de las 53 reglas originales la citaba**. El gasto de combustible y peajes no está limitado solo por el presupuesto anual: está limitado por la cuota del trimestre, y un sistema que solo controla contra el anual deja comprometer gasto que la institución no puede ejecutar.
+
 ---
 
 ## Los cinco bloqueos que no se pueden desactivar

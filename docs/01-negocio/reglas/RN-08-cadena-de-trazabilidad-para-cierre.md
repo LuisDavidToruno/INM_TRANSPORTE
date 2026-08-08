@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | **Módulos** | M-13, M-14 |
-| **Origen** | Norma [NRM-01](../normativa/NRM-01-control-interno-tsc.md) — vínculo en cadena trazable |
-| **Verificación** | `[V]` |
+| **Origen** | Norma [NRM-01](../normativa/NRM-01-control-interno-tsc.md) — vínculo en cadena trazable y exportación de paquetes de evidencia |
+| **Verificación** | `[I]` la cadena de eslabones exigida y la exportación por período o por vehículo: ambas son **implicaciones de requerimiento** escritas por el equipo en [NRM-01](../normativa/NRM-01-control-interno-tsc.md), no articulado citable. Corregido desde `[V]` por la regla de no escalar el nivel (`HN1-06`). `[V]` que el hallazgo típico del TSC en flota es el incremento de consumo sin relación con el uso habitual — está así en la ficha |
 | **Tipo** | Bloqueo duro con salida por `CERRADA_CON_HALLAZGO` |
 | **Configurable** | Sí — parámetro `eslabones_exigidos_para_cierre`, con mínimo no desactivable |
 

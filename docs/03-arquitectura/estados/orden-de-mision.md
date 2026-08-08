@@ -592,24 +592,45 @@ Ver sección 7.
 
 `BD-06` se implementa comparando **identidad de persona**, no rol. Un usuario puede tener dos roles compatibles en el organigrama y aun así no puede ejercer dos funciones incompatibles **en la misma misión**.
 
-| | Solicita | Autoriza | Programa | Despacha | Entrega combustible | Conduce | Liquida | Cierra |
-|---|---|---|---|---|---|---|---|---|
-| **Solicita** | — | ✗ | ✓ | ✗ | ✓ | ✓ | ✗ | ✗ |
-| **Autoriza** | ✗ | — | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ |
-| **Programa** | ✓ | ✓ | — | ✗ | ✗ | ✗ | ✓ | ✗ |
-| **Despacha** | ✗ | ✗ | ✗ | — | ✗ | ✗ | ✗ | ✗ |
-| **Entrega combustible** | ✓ | ✗ | ✗ | ✗ | — | ✗ | ✗ | ✗ |
-| **Conduce** | ✓ | ✗ | ✗ | ✗ | ✗ | — | ✗ | ✗ |
-| **Liquida** | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | — | ✗ |
-| **Cierra** | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | — |
+> ## Corrección — hallazgo `HB1-11`
+>
+> **Aquí había una matriz de 8 × 8 que duplicaba la tabla de incompatibilidades `I-01` a `I-17` de [actores-y-roles.md §5.2](../../01-negocio/actores-y-roles.md). Se eliminó.**
+>
+> Por la [precedencia entre artefactos](../../../CLAUDE.md) de `CLAUDE.md`, **`actores-y-roles.md` es la autoridad en incompatibilidades**. Este documento es autoridad en transiciones, precondiciones e invariantes — no en quién es incompatible con quién.
+>
+> La copia ya había divergido de la fuente en tres puntos, y uno era grave:
+>
+> | Celda de la matriz eliminada | Qué decía | Qué dice la autoridad |
+> |---|---|---|
+> | `Solicita × Entrega combustible` | **✓ compatible** | `I-03` — **bloqueo duro**. Es el par que habilita el fraude de combustible más simple: quien pide el viaje también entrega el dinero |
+> | `Programa × Despacha` | ✗ incompatible | **No existe** ningún par `I-nn` que lo establezca. Era invención de esta tabla |
+> | `Conduce × Programa` y `Conduce × Cierra` | ✗ incompatibles | **No existen** en `I-01` a `I-17`. Ver la nota de divergencia abajo |
+>
+> Es exactamente lo que advierte la regla de precedencia: *una tabla copiada es una tabla que va a divergir*. El remedio no era corregir las celdas — era dejar de copiarla.
 
-✗ = incompatibles en la misma misión, bloqueo duro. ✓ = compatibles.
+**La tabla de incompatibilidades es [`actores-y-roles.md §5.2`, pares `I-01` a `I-17`](../../01-negocio/actores-y-roles.md).** Consúltala ahí. Este documento no la reproduce.
 
-Dos combinaciones merecen explicación. **Programa y liquida** se permiten porque ambas son función de Transporte y la separación real que exige el control es contra quien entregó el dinero y quien lo gastó. **Autoriza y cierra** se permiten porque cerrar es aprobar el resultado de lo que se autorizó; lo que no puede es liquidarlo.
+Lo que sí es propio de este documento son las **precondiciones de segregación de cada transición**, que están en la sección 4 (bloqueos duros `BD-01` a `BD-11`) y en la ficha de cada `T-nn`. Esas precondiciones **invocan** los pares `I-nn`; no los redefinen.
 
-`[C]` La institución puede endurecer esta matriz, nunca relajarla — insumo #1.
+La regla de negocio que implementa la segregación es [`RN-01`](../../01-negocio/reglas/RN-01-segregacion-de-funciones.md).
 
-**El problema de las delegaciones pequeñas.** Una delegación con tres personas no puede segregar cinco funciones. La solución **no es una excepción configurable**: una excepción registrada es evidencia en contra ante el TSC. La solución es el **escalamiento a sede**: la función incompatible la ejerce remotamente alguien de la sede central. Si la delegación está desconectada, el mecanismo es el código de autorización fuera de línea (6.6), que hace exactamente esto sin red. `[C]` mapa de delegaciones y su dotación real — insumo #11.
+### Divergencia abierta — `Conduce × Programa` y `Conduce × Cierra`
+
+La matriz eliminada marcaba estos dos pares como incompatibles. **No existen en la tabla autoridad.** No se resuelven aquí, porque este documento no es autoridad en la materia.
+
+El argumento a favor de incorporarlos existe y es el mismo de `I-11`: quien conduce aporta el odómetro, el galonaje y la ruta. Si además programó la misión, eligió el vehículo cuyo rendimiento esperado va a compararse contra su propio consumo. Si además la cerró, dio por buena su propia liquidación.
+
+**Queda como propuesta de ampliación dirigida a `actores-y-roles.md`.** Mientras no se incorpore ahí, `RN-01` implementa `I-11` tal como lo escribe la autoridad — autorizar, despachar, entregar fondo y liquidar — y estos dos pares **no se bloquean**.
+
+`[C]` La institución puede endurecer las incompatibilidades, nunca relajarlas — insumo #1.
+
+**El problema de las delegaciones pequeñas.** Una delegación con tres personas no puede segregar cinco funciones. La solución **no es una excepción configurable**: una excepción registrada es evidencia en contra ante el TSC. La solución es el **escalamiento a sede**: la función incompatible la ejerce remotamente alguien de la sede central. Si la delegación está desconectada, el mecanismo es el código de autorización fuera de línea (6.6), que hace exactamente esto sin red.
+
+> **Ratificado por [DP-002](../../07-gestion/decisiones-de-producto/DP-002-segregacion-en-delegaciones-pequenas.md)** tras el hallazgo `HN1-01`. Esta postura —escalamiento a sede, sin régimen de excepción— es la que se construye. El régimen de excepción diseñado en `actores-y-roles.md §5.4` Nivel 2 queda **suspendido y no se implementa**, junto con las acciones 27 y 28 de la matriz de permisos.
+>
+> Requiere ratificación del PO y pronunciamiento de **Auditoría Interna** — insumo #26. Si Auditoría Interna avala el régimen de excepción, se revierte por `DP-003` y **hay que corregir este párrafo**, que hoy dice por escrito que ese régimen no existe.
+
+`[C]` Mapa de delegaciones y su dotación real de personal — insumo #27.
 
 ### 3.4 Transiciones prohibidas
 

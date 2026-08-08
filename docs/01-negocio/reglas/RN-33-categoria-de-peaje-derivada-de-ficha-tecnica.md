@@ -18,6 +18,19 @@ La categoría asignada es un **atributo con vigencia y fundamento registrado**: 
 
 El catálogo de categorías **debe** ser tabla abierta, capaz de admitir "Liviano/Turismo", "Vehículo de N Ejes" hasta 9, montacargas y categorías futuras **sin cambio de código**.
 
+## Dos derivaciones distintas, y hay que nombrarlas — hallazgos `HB1-09` y `HN1-10`
+
+> Antes de asignar el vehículo no hay ficha técnica contra la cual derivar, y la estimación de peajes se calcula igual, en `T-02`. Esta regla definía solo la derivación por vehículo, y [RN-35](RN-35-estimacion-de-peajes-antes-de-aprobar.md) la exigía en un momento en que no puede existir. Se agrega la segunda derivación.
+
+| Derivación | Base | Cuándo se usa | Qué garantiza |
+|---|---|---|---|
+| **Por vehículo** | Atributos de la **ficha técnica** de la unidad concreta | Programación (`T-08`, `BD-07`), despacho, conciliación y liquidación | Es la categoría con la que se compara lo efectivamente cobrado en caseta ([RN-36](RN-36-discrepancia-de-clasificacion-en-caseta.md)) |
+| **Por tipo de vehículo requerido** | Categoría de peaje **declarada en el catálogo de tipos de vehículo** (M-02), como atributo del tipo con su propia vigencia y fundamento | Estimación previa de `T-02`, cuando aún no hay unidad asignada | Da un estimado reproducible y auditable, no un supuesto del desarrollador |
+
+La categoría del **tipo** es dato de catálogo cargado y aprobado por [RN-39](RN-39-parametros-normativos-con-vigencia.md), no una fórmula. Si un tipo agrupa unidades de categorías distintas —una flota de "camiones" con 2 y con 3 ejes—, el tipo declara la categoría **más frecuente** y la marca como *estimativa*; la diferencia con la del vehículo asignado se resuelve en el recálculo de `T-08`, que es donde la máquina de estados la prevé.
+
+El estimado producido con la categoría del tipo **debe** indicarlo expresamente. Un estimado que no dice sobre qué base se calculó no se puede defender ante quien lo autorizó.
+
 ## Justificación
 
 [NRM-10](../normativa/NRM-10-peajes.md) corrigió el supuesto de partida con evidencia: *"Un vehículo liviano tiene 2 ejes y paga L. 22. Un 'Vehículo de 2 Ejes' paga L. 90. Ambos tienen dos ejes."* `[V]`
@@ -38,7 +51,7 @@ Aplica a todo vehículo que pueda circular por un punto de peaje.
 
 1. La derivación se ejecuta al dar de alta el vehículo y **cada vez que cambia** un atributo técnico relevante, generando una nueva vigencia de categoría, no una sobrescritura.
 2. El resultado muestra **qué atributos lo determinaron**. Una categoría sin explicación no se puede defender ante la SAPP ni ante un auditor.
-3. Si falta un atributo necesario, el sistema **no adivina**: deja la categoría como *no resuelta* y bloquea la estimación de peajes de [RN-35](RN-35-estimacion-de-peajes-antes-de-aprobar.md) para ese vehículo, indicando el dato faltante.
+3. Si falta un atributo necesario, el sistema **no adivina**: deja la categoría como *no resuelta*, marca el estimado de [RN-35](RN-35-estimacion-de-peajes-antes-de-aprobar.md) como no disponible con el dato faltante indicado, y **bloquea la programación** de ese vehículo (`BD-07`). No bloquea la aprobación de la misión.
 4. La categoría puede **corregirse manualmente** por ACT-01 o ACT-04, exigiendo fundamento y adjunto — típicamente una resolución de la SAPP. La corrección manual queda marcada como tal y no se pierde al recalcular.
 5. La progresión de tarifas por eje **no se implementa como fórmula**: [NRM-10](../normativa/NRM-10-peajes.md) advierte que *"una fórmula inferida se vuelve falsa al primer ajuste asimétrico"* `[I]`.
 
@@ -55,6 +68,7 @@ Aplica a todo vehículo que pueda circular por un punto de peaje.
 
 - Norma: [NRM-10 — Peajes](../normativa/NRM-10-peajes.md); relación con [NRM-06](../normativa/NRM-06-transito-y-licencias.md)
 - Decisión: [DP-001, D-02](../../07-gestion/decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md)
+- Hallazgos que amplían esta regla: `HB1-09` de [H-B1-001](../../05-calidad/hallazgos/H-B1-001-revision-qa-bloque-1.md); `HN1-10` de [H-B1-002](../../05-calidad/hallazgos/H-B1-002-revision-normativa-bloque-1.md) — derivación por tipo de vehículo requerido
 - Reglas relacionadas: [RN-34](RN-34-tarifa-de-peaje-por-punto-categoria-vigencia.md), [RN-35](RN-35-estimacion-de-peajes-antes-de-aprobar.md), [RN-36](RN-36-discrepancia-de-clasificacion-en-caseta.md), [RN-09](RN-09-matriz-licencia-vehiculo.md)
 - Actores: ACT-01, ACT-04
 - Historias y casos especiales: pendientes — Bloque 2

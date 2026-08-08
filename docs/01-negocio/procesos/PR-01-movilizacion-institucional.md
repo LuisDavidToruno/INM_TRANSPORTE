@@ -140,9 +140,13 @@ Para delegaciones sin cobertura, `ACT-10` **emite anticipadamente** la Orden con
 
 La misión pasa a `PROGRAMADA`.
 
-### E7 — Se asigna y entrega el fondo de combustible · `ACT-07` · `REQUIERE RED`
+### E7 — Se **emite** la asignación del fondo de combustible · `ACT-07` · `REQUIERE RED`
 
-Del fondo aprobado por Gerencia Administrativa (`ACT-08`) en `PR-04`, el Encargado de Combustible (`ACT-07`) asigna la porción de esta misión y entrega el efectivo, el vale o la orden de pago, **con folio y contra firma de recepción del Motorista (`ACT-06`)**.
+> **Corrección — hallazgo `HB1-06`.** Esta etapa decía *"se asigna y entrega"*, y el diagrama 3.1 terminaba con *"fondo entregado"* estando la misión en `PROGRAMADA`. **Es incorrecto.** La máquina de estados separa dos momentos: la **emisión** ocurre en `PROGRAMADA` (`V-01`), y la **entrega contra firma** ocurre **dentro de `T-12` despachar** (`EF-04`, `V-02`). La sección 10.1 de [orden-de-mision.md](../../03-arquitectura/estados/orden-de-mision.md) lista expresamente "entregar fondo de combustible" entre lo que **no se puede** en `PROGRAMADA`. Alineado con [`RN-32`](../reglas/RN-32-entrega-de-combustible-contra-orden-de-mision.md) corregida.
+
+Del fondo aprobado por Gerencia Administrativa (`ACT-08`) en `PR-04`, el Encargado de Combustible (`ACT-07`) **emite** la asignación de esta misión: efectivo, vale u orden de pago **con folio**, en estado `EMITIDA`.
+
+**El instrumento no sale de la custodia de `ACT-07` todavía.** La entrega contra firma de recepción del Motorista (`ACT-06`) ocurre en E8, como parte del acto de despachar. Emitir antes permite imprimir con antelación para las delegaciones sin cobertura; entregar antes dejaría fondo público en manos de alguien cuya misión aún puede no despacharse.
 
 El sistema verifica:
 
@@ -155,6 +159,8 @@ El vale vive su propio ciclo bajo `ACT-07`: emitido → entregado con firma → 
 `[C]` Sobre los peajes: no está confirmado si `ACT-06` recibe efectivo por adelantado junto con el de combustible, si paga de su bolsillo y liquida después, o si la institución usa TAG prepago. El sistema se diseña para **soportar los tres**, con el medio de pago como dato, porque de él depende qué evidencia existe. `[I]` NRM-10 — insumos #24 y #25.
 
 ### E8 — Despacho y salida · `ACT-05` · `SIN RED, con documentos ya impresos`
+
+**La entrega del fondo ocurre aquí**, no en E7: `ACT-07` entrega el efectivo, el vale o la orden de pago **contra firma de recepción de `ACT-06`**, y la asignación pasa de `EMITIDA` a `ENTREGADA`. Es parte del acto de despachar (`T-12`, `EF-04`), no un paso previo.
 
 El Encargado de Despacho (`ACT-05`) y el Motorista (`ACT-06`) hacen juntos la verificación física antes de salir: odómetro de salida, nivel de combustible, llantas, herramientas y llanta de repuesto, extintor, documentos a bordo, estado de la rotulación, daños preexistentes con fotografía.
 
@@ -288,8 +294,8 @@ flowchart TD
     end
 
     subgraph FON["ACT-07 ENCARGADO DE COMBUSTIBLE"]
-        G1["Asigna la porción del fondo<br/>a esta misión"]
-        G2["Entrega efectivo, vale u orden de pago<br/>con folio, contra firma de ACT-06"]
+        G1["EMITE la asignacion del fondo<br/>con folio. Estado EMITIDA"]
+        G2["El instrumento queda en custodia<br/>de ACT-07. NO se entrega aun"]
     end
 
     subgraph ESP["ESPEJOS LOCALES — ADR-001"]
@@ -297,7 +303,7 @@ flowchart TD
         E17["ACT-17 Talento Humano<br/>permisos, vacaciones,<br/>incapacidades y feriados"]
     end
 
-    FIN["Misión PROGRAMADA.<br/>Documentos impresos y fondo entregado.<br/>Continúa en el diagrama 3.2"]
+    FIN["Mision PROGRAMADA.<br/>Documentos impresos, fondo EMITIDO<br/>y aun no entregado.<br/>Continua en el diagrama 3.2"]
 
     E16 -.->|"nivel competente"| K3
     E17 -.->|"disponibilidad"| K7
@@ -482,7 +488,8 @@ Dónde el sistema bloquea, y por qué. **Bloqueo duro** significa que no hay man
 | **PC-05** | Asignación (E5) y despacho (E8) | `ACT-04`; estado operativo declarado por `ACT-11` | Matrícula vigente; vehículo no `EN_TALLER`; sin misión superpuesta | **Bloqueo** | `[V]` NRM-02, NRM-06 |
 | **PC-06** | Asignación (E5) | `ACT-04` | Póliza de seguro y revisión mecánica vigentes | **Advertencia registrada**; bloqueo solo si la institución activó la regla — apagada por defecto | `[V]` NRM-06: no son obligatorios por ley vigente. DP-001 D-13 |
 | **PC-07** | Asignación (E5) | `ACT-04` | Compatibilidad tipo de vehículo ↔ objeto del traslado: pasajeros, peso, volumen, naturaleza de la carga | **Bloqueo** | Premisa rectora 2 de `CLAUDE.md` |
-| **PC-08** | Entrega del fondo (E7) | `ACT-07`; la ampliación la aprueba `ACT-08` | Saldo suficiente en el fondo vigente | **Bloqueo de la entrega del fondo.** No bloquea la misión: despachar sin fondo asignado es posible y queda como **decisión registrada con responsable** | `[I]` DP-001 D-03 y PROP-01. `[C]` Confirmar si la institución admite despachar sin fondo |
+| **PC-08** | **Emisión** del fondo (E7) | `ACT-07`; la ampliación la aprueba `ACT-08` | Saldo suficiente en el fondo vigente; misión en `PROGRAMADA`, con vehículo y motorista ya asignados | **Bloqueo de la emisión.** No bloquea la misión: despachar sin fondo asignado es posible y queda como **decisión registrada con responsable** | `[I]` DP-001 D-03 y PROP-01. `[C]` Confirmar si la institución admite despachar sin fondo |
+| **PC-08b** | **Entrega** del fondo (E8, dentro de `T-12`) | `ACT-07`, contra firma de `ACT-06` | La misión se está despachando. **No se entrega fondo a una misión no despachada** | **Bloqueo de la entrega** | `[V]` `EF-04` y §10.1 de [orden-de-mision.md](../../03-arquitectura/estados/orden-de-mision.md); [`RN-32`](../reglas/RN-32-entrega-de-combustible-contra-orden-de-mision.md) — corrección `HB1-06` |
 | **PC-09** | Entrega del fondo (E7) | `ACT-07` vs. `ACT-05` y `ACT-04` | Quien entrega el fondo ≠ quien despacha ≠ quien liquida — I-08 e I-10 | **Bloqueo duro.** I-10 es núcleo irreductible: no lo levanta ni el régimen de excepción | `[V]` NRM-01 |
 | **PC-10** | Asignación (E5) | `ACT-04`, dato de `ACT-17` | Motorista disponible: sin permiso, vacaciones ni incapacidad | **Bloqueo**; se cubre con otro motorista conservando la asignación original | `[V]` DP-001 D-07 |
 | **PC-11** | Retorno (E11) | `ACT-05` | Coherencia del odómetro: sin retroceso, sin salto imposible, sin consumo sin recorrido | **Alerta bloqueante del cierre de bitácora** hasta justificar | `[V]` NRM-09 |
@@ -492,7 +499,11 @@ Dónde el sistema bloquea, y por qué. **Bloqueo duro** significa que no hay man
 | **PC-15** | Autorización (E3) | `ACT-03` | El solicitante tiene misiones anteriores sin liquidar | **Configurable**: advertencia o bloqueo, según parámetro institucional | `[C]` Definir con la institución |
 | **PC-16** | Cualquier acto de autorización | Todos | Registro de persona, **puesto**, rol, cuándo, desde dónde y hash del contenido. Si fue por delegación: folio del acto que la confiere y su vigencia | Obligatorio, no omisible | `[V]` NRM-01, DP-001 D-04 |
 | **PC-17** | Permanente | `ACT-01` y `ACT-12` | `ACT-01` no ejecuta transacciones de negocio ni altera la pista de auditoría (I-13); `ACT-12` solo lee y exporta (I-12) | **Bloqueo duro permanente — núcleo irreductible** | `[V]` NRM-01 |
-| **PC-18** | Operación de delegación | `ACT-10`; convalida un puesto de sede | Los actos ejecutados en régimen de excepción o por emergencia **impiden el cierre hasta ser convalidados**; vencido el plazo, la misión cierra con hallazgo | **Bloqueo del cierre**, no del acto | `[C]` Régimen aún no aprobado por la institución — pendiente D |
+| **PC-18** | Operación de delegación | `ACT-10`; convalida un puesto de sede | Los actos ejecutados **por emergencia** impiden el cierre hasta ser convalidados; vencido el plazo, la misión cierra con hallazgo | **Bloqueo del cierre**, no del acto | `[I]` — ver la nota de abajo |
+
+> **`PC-18` — alcance reducido por [DP-002](../../07-gestion/decisiones-de-producto/DP-002-segregacion-en-delegaciones-pequenas.md).** Este punto de control cubría también los actos ejecutados **en régimen de excepción**. Ese régimen quedó **suspendido y no se implementa**: la vía para una delegación sin personal suficiente es el **escalamiento a sede**, no levantar incompatibilidades. `PC-18` conserva únicamente la convalidación de los actos ejecutados **por emergencia**, que sí existe.
+>
+> Si Auditoría Interna avala el régimen de excepción (insumo #26), se revierte por `DP-003` y este punto de control recupera su alcance original — junto con las acciones 27 y 28 de la matriz de permisos, hoy suspendidas.
 
 **Advertencia de diseño:** una advertencia que nadie ve no es un control. Toda advertencia de esta tabla queda **visible en el expediente** con el nombre de quien continuó a pesar de ella. Es lo que el auditor pregunta.
 
