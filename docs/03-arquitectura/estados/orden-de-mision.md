@@ -306,7 +306,7 @@ El solicitante no reabre un rechazo: crea una solicitud nueva, y el sistema ofre
 - Contenido mínimo completo: objeto del traslado (personal, personas externas, carga o combinación), descripción de lo trasladado, dependencia solicitante, origen, uno o más destinos con orden previsto, ventana solicitada con fecha y hora de salida y de retorno, tipo de vehículo requerido, cantidad de pasajeros y/o peso y volumen de carga, motivo de viaje del catálogo.
 - Si el traslado es de personas externas, se cumplen los requisitos de manifiesto de M-17.
 - `BD-09` — el tipo de vehículo requerido es compatible con lo que se declara mover.
-- Antelación mínima configurable respecto a la salida solicitada. Si no se cumple, la solicitud se marca **urgente** y su autorización exige el nivel adicional que defina la institución. `[C]` antelación mínima y nivel requerido para urgencia — insumo #1.
+- Antelación mínima configurable respecto a la salida solicitada. Si no se cumple, la solicitud se marca **urgente** y su autorización exige el nivel adicional que defina la institución. `[C]` antelación mínima y nivel requerido para urgencia — insumo **#32**, paquete de parámetros operativos.
 
 **Efectos**
 - Se asigna número de expediente institucional: correlativo por delegación y año, sin reciclado.
@@ -546,7 +546,7 @@ Cubre tres situaciones reales: la misión se extiende más allá de la ventana a
 - Se cierra la bitácora. No admite eventos nuevos; toda corrección posterior es un asiento.
 - El vehículo pasa a `DISPONIBLE`, o a `EN_TALLER` si se declararon novedades que lo requieren, o a `NO_DISPONIBLE` si hay incidente bajo investigación. Las novedades declaradas por el motorista pueden generar orden de trabajo en M-11 ([DP-001, D-08](../../07-gestion/decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md)).
 - El motorista vuelve a disponible.
-- Empieza a correr el **plazo de liquidación**, configurable en días hábiles según el calendario de la delegación, con alerta y escalamiento al vencerse. `[C]` el plazo — insumo #1.
+- Empieza a correr el **plazo de liquidación**, configurable en días hábiles según el calendario de la delegación, con alerta y escalamiento al vencerse. `[C]` el plazo — insumo **#32**, paquete de parámetros operativos.
 - Si hubo consumo de fondo, las asignaciones vinculadas pasan a estado pendiente de liquidación.
 
 ---
