@@ -506,7 +506,14 @@ Cubre tres situaciones reales: la misión se extiende más allá de la ventana a
 
 **Precondiciones**
 - Autorización de ACT-04, o de ACT-09 si la extensión hace que la misión toque día u hora inhábil no cubierto por el salvoconducto vigente.
-- En relevo: el motorista entrante cumple `BD-02` contra el paquete normativo congelado que lleva el dispositivo, y existe acta de traspaso de custodia con odómetro.
+- **En prórroga: se revalidan `BD-02` y `BD-03` contra la nueva fecha de fin**, con el paquete normativo congelado que lleva el dispositivo. Si la licencia del motorista en curso vence dentro de la ventana ampliada, la prórroga **se bloquea**: la salida es el relevo, o el retorno anticipado por `T-18`.
+- En relevo: el motorista entrante cumple `BD-02` contra el paquete normativo congelado, y existe acta de traspaso de custodia con odómetro.
+
+> **Corrección — hallazgo detectado al escribir [CE-06](../../02-requisitos/casos-especiales/CE-06-la-mision-se-extiende-mas-dias-destinos-o-kilometros.md).** Esta transición revalidaba `BD-02` y `BD-03` **solo en el relevo**. Pero `BD-02` exige licencia habilitante y vigente **durante todo el rango de la misión**, y la prórroga es precisamente lo que mueve el fin de ese rango.
+>
+> El agujero: una misión prorrogada podía seguir circulando con el motorista original y su licencia vencida dentro de la ventana nueva, y el sistema no lo detectaba hasta la liquidación, como `H-07`. Es decir, tarde — con el vehículo ya de vuelta y la responsabilidad ya trasladada a quien autorizó la prórroga.
+>
+> `BD-02` no tiene excepción configurable. Prorrogar no puede ser la puerta trasera que lo evita.
 
 **Efectos**
 - Se registra la nueva ventana o el nuevo destino, conservando la original. El expediente muestra ambas.
@@ -666,7 +673,7 @@ Bloqueo duro significa: **el sistema no ofrece la acción, y si se intenta por c
 
 ### `BD-02` — Licencia habilitante y vigente durante todo el rango
 
-**Se evalúa en** `T-08`, `T-10`, `T-12` y en el relevo de `T-17`. **Se revalida en cada una**, con los datos del momento.
+**Se evalúa en** `T-08`, `T-10`, `T-12`, y en `T-17` **tanto en el relevo como en la prórroga** — la prórroga mueve el fin del rango, y este bloqueo exige vigencia durante todo el rango. **Se revalida en cada una**, con los datos del momento.
 
 **Regla, en tres condiciones que deben cumplirse las tres.**
 

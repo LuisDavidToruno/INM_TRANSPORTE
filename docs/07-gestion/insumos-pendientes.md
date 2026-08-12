@@ -76,6 +76,35 @@ Estas no son parámetros: si la respuesta es sí, hay diseño adicional que hace
 | 43 | **¿Cómo se rotula una motocicleta del Estado?** El Acuerdo 303 describe franjas en *puertas laterales*, que una moto no tiene |
 | 44 | ¿Hay vehículos con **excepción de rotulación** autorizada, y quién la concede? |
 
+## Abiertos — surgidos del Bloque 2 · casos especiales
+
+Derivados de `CE-09` (bitácora en papel digitada días después), `CE-10` (motorista incapacitado en ruta), `CE-14` (vehículo prestado), `CE-15` (comodato y alquiler), `CE-16` (vehículo a taller con misiones programadas), `CE-17` (vehículo sin placa metálica), `CE-18` (carga y pasajeros en la misma misión) y `CE-19` (vehículo asignado a funcionario frente al pool). Cada uno está escalado al PO dentro de su caso especial, con opciones y costo.
+
+| # | Insumo | Qué desbloquea | Origen |
+|---|---|---|---|
+| 45 | **¿Desde cuándo corre el plazo de liquidación** cuando el retorno se registra días después del hecho? Y **¿cuál es el plazo máximo de digitación diferida** en días hábiles? | `RN-46`, `RN-47`, `T-18`, `T-19`. Sin esto, las delegaciones sin red acumulan hallazgos por algo que no controlan | `CE-09` D-1 y D-2 |
+| 46 | **¿El talonario preimpreso de bitácora trae folio propio?** Si se conserva, hay dos numeraciones que cruzar con la de `RN-44` | Diseño del formato impreso de M-15 y de la pantalla de digitación. Complementa el insumo #2 | `CE-09` D-3 |
+| 47 | **¿Puede digitar formularios en papel quien después liquida esa misma misión?** En una delegación de tres personas es la misma persona | `RN-47` lo deja `[C]`. Decide si es advertencia o incompatibilidad nueva en la matriz `I-xx` | `CE-09` D-4 |
+| 48 | **¿Puede conducir un vehículo oficial un servidor que no es motorista de planilla**, si su licencia habilita el tipo de vehículo y está vigente? | Define si existe la figura de motorista eventual en M-05 y si se apoya en el mecanismo de convalidación de `PC-18` | `CE-10` D-1 |
+| 49 | **¿Cubre la póliza de seguro a un conductor no registrado como motorista de la institución?** | Puede cerrar la discusión del insumo #48 antes de empezar, aunque el reglamento lo permita | `CE-10` D-2 |
+| 50 | **¿Existe reevaluación de aptitud para conducir tras un evento de salud en ruta?** `RN-11` cubre restricciones de la licencia, no la aptitud posterior a un episodio | Requisito de M-05 y bloqueo adicional sobre la reincorporación. Frontera con Talento Humano | `CE-10` D-3 |
+| 51 | **¿Qué se hace hoy cuando no hay ningún motorista disponible para relevar en carretera?** Es la pregunta que decide si el vehículo pasa la noche en la vía | Tipifica los receptores válidos de custodia fuera de sede y el subtipo nuevo de `T-18` | `CE-10` |
+| 52 | **¿Quién autoriza el préstamo de un vehículo entre dependencias, y quién el préstamo a otra institución?** `NRM-02` exige acta y resolución, pero el articulado no se pudo extraer | El expediente de préstamo de M-03. Requiere el insumo #1 y consulta a la unidad de Bienes | `CE-14` D-1 |
+| 53 | **Rubros económicos del préstamo**: quién asume combustible, peajes, mantenimiento, multas y daños durante la tenencia ajena | Campos tipificados obligatorios del acta de préstamo. Hoy se acuerda de palabra | `CE-14` D-2 |
+| 54 | **¿Puede prestarse un vehículo con orden de trabajo abierta, incidente en investigación o documentación que vence dentro de la ventana?** | Bloqueos y advertencias sobre la apertura del préstamo | `CE-14` D-3 |
+| 55 | **¿Aplica la rotulación del Estado a vehículos en comodato o alquilados?** Zona gris expresa de `NRM-02` | `RN-18`. Hoy la advertencia se emite con aclaración de régimen y **no** bloquea | `CE-15` D-1 |
+| 56 | **¿Aplica la prohibición de circular en día u hora inhábil a vehículos en comodato o alquilados?** Zona gris expresa de `NRM-02` | `RN-23`, `RN-24`, `PC-03`. Postura provisional `[I]`: se aplica igual, por asimetría de costo. Consultar a la unidad de Bienes o a ONADICI | `CE-15` D-2 |
+| 57 | **Modalidad de alquiler vigente de la institución, contrato tipo y responsabilidades por rubro**; y si el arrendador puede sustituir la unidad a mitad de contrato | Título de tenencia de M-03, dirección de órdenes de trabajo en M-11 y costo por kilómetro en M-13 | `CE-15` |
+| 58 | **¿Cómo se registra hoy la devolución al comodante o al arrendador, y quién la autoriza?** | Estado terminal `RETIRADO_DE_FLOTA` y su acta. Complementa las zonas grises de `NRM-02` sobre acta de entrega-recepción | `CE-15` |
+| 59 | **¿El mantenimiento preventivo vencido bloquea la asignación o solo advierte?** Y **¿cuál es la ventana de indisponibilidad estimada exigible** al enviar un vehículo a taller | `BD-07` lo deja abierto expresamente. Sin la ventana, el sistema no puede decir qué misiones programadas quedan afectadas. Complementa los insumos #32 y #35 | `CE-16` |
+| 60 | **Catálogo de documentos sustitutivos que emite el Instituto de la Propiedad** ante la falta de placa metálica, y la vigencia de cada uno | `NRM-06` los menciona genéricamente como *"documento sustitutivo o constancia del IP"* sin tipificarlos. El catálogo se entrega vacío y **no se inventa** | `CE-17` |
+| 61 | **¿Acepta la DNVT el documento sustitutivo del IP en un retén?** | Decide si el paquete de identificación en carretera es defensa efectiva o solo evidencia interna. Postura provisional: se imprime siempre, por asimetría de costo | `CE-17` |
+| 62 | **¿Admite el modelo más de un vehículo simultáneo bajo una misma Orden de Misión (convoy)?** | Decisión de producto con impacto en la máquina de estados, el despacho, la bitácora y la conciliación de `RN-30`. `CE-02` ya introduce varios vehículos **en secuencia**; esto es simultáneo | `CE-18` |
+| 63 | **¿Qué tipos de carga exigen peso cierto y cuáles admiten estimación por rango?** | `RN-21` lo deja abierto. Define cuándo se bloquea el despacho por peso no declarado | `CE-18` |
+| 64 | **¿Existe régimen formal de asignación permanente de vehículo a funcionario?** Quién lo confiere, con qué acto y con qué vigencia | Es el insumo más bloqueante de `CE-19` y depende del insumo #1. Sin él, todos los vehículos se modelan como pool y el control no alcanza a los asignados | `CE-19` |
+| 65 | **¿Autoriza la institución el resguardo domiciliario de vehículos asignados, y con qué fundamento?** `NRM-02` prohíbe `[V]` el traslado a residencias; que el vehículo **pernocte** ahí es figura distinta y no consta regulada | Decide si la entrada y salida del domicilio se registran como eventos de bitácora amparados o como uso indebido | `CE-19` |
+| 66 | **¿Se acepta la figura de Orden de Misión permanente de período** para el uso ordinario de vehículos asignados? Y **¿puede el asignatario conducir**, con qué política? | Si se acepta, hay que escribirla en la máquina de estados. Si no, el uso ordinario queda sin instrumento de control o produce ~250 expedientes anuales por vehículo | `CE-19` |
+
 ## Resueltos en la revisión del 2026-08-06
 
 | # | Insumo original | Resolución |

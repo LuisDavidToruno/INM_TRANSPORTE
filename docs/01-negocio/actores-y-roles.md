@@ -419,10 +419,18 @@ Nada se borra. **Toda anulación es un asiento reverso con motivo y autor** — 
 | Orden de Misión | `APROBADA`, `PROGRAMADA` | `ACT-04`, `ACT-10` | Motivo; libera vehículo y motorista |
 | Orden de Misión | `DESPACHADA`, `EN_RUTA` | `ACT-08` | Motivo, y **reversión de los vales ya entregados** con acta de `ACT-07` |
 | Orden de Misión | `RETORNADA`, `LIQUIDADA` | Nadie anula | Solo corrección por asiento reverso de `ACT-08` con constancia |
-| Orden de Misión | `CERRADA` | Nadie | Reapertura excepcional por `ACT-09`, notificada a `ACT-12` `[C]` |
+| Orden de Misión | `CERRADA`, `CERRADA_CON_HALLAZGO`, `ANULADA`, `RECHAZADA` | **Nadie. No hay reapertura** | Expediente de hallazgo posterior y asiento reverso, autorizado por `ACT-08` o requerido por `ACT-12` |
 | Vale o asignación de fondo | No canjeado | `ACT-07` | Acta de anulación con folio |
 | Vale o asignación de fondo | Canjeado | Nadie | Se corrige en la liquidación, no anulando |
-| Cualquiera | Cualquier estado | `ACT-09` | Causa grave, motivo escrito, notificación automática a `ACT-12` |
+| Cualquiera **salvo estados terminales de la Orden de Misión** | Cualquier estado no terminal | `ACT-09` | Causa grave, motivo escrito, notificación automática a `ACT-12` |
+
+> **Corrección — contradicción detectada al escribir [CE-28](../02-requisitos/casos-especiales/CE-28-hallazgo-posterior-sobre-mision-cerrada.md).**
+>
+> Estas dos filas decían *"reapertura excepcional por `ACT-09`, notificada a `ACT-12` `[C]`"* y *"cualquiera, cualquier estado, `ACT-09`"*. **Ambas contradicen la autoridad en transiciones.** La [máquina de estados §8.1](../03-arquitectura/estados/orden-de-mision.md) es tajante: *desde los terminales no sale ninguna transición. Nunca.* Y [§7.5](../03-arquitectura/estados/orden-de-mision.md): *la misión no se reabre y no cambia de estado*.
+>
+> Por la [precedencia entre artefactos](../../CLAUDE.md), este documento es autoridad en actores, incompatibilidades y alcance de datos — **no en transiciones de estado**. Se corrige aquí.
+>
+> La razón de fondo no es formal: basta con que la reapertura exista para que se use, y basta con que se use una vez para que ningún reporte histórico vuelva a ser reproducible. Lo que sí puede hacer `ACT-09` sobre un expediente terminal es **requerir** el expediente de hallazgo posterior y el asiento reverso; no revivir el expediente.
 
 > `RN-xx propuesta:` *La anulación posterior al despacho obliga a resolver los vales entregados antes de consumarse; la Orden de Misión no puede quedar anulada con fondo vivo.*
 

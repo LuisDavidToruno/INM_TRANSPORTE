@@ -57,7 +57,7 @@ Son dos conciliaciones distintas y **ninguna sustituye a la otra**:
 
 **3. Cuando el cálculo no es concluyente, se dice.** Odómetro averiado, saldo de tanque arrastrado entre misiones, sustitución de vehículo a mitad de misión. El resultado se marca **no concluyente** y alimenta el análisis agregado, que sí es válido ([RN-30](../../01-negocio/reglas/RN-30-conciliacion-galonaje-kilometraje.md), condiciones de aplicación). Un hallazgo falso repetido tres veces hace que nadie vuelva a mirar los hallazgos.
 
-**4. Cada vehículo por separado si hubo sustitución.** Cortes de odómetro propios por vehículo. Un promedio de la misión mezcla dos rendimientos y no significa nada. Es el desenlace "continúa con vehículo sustituto" del caso de avería en ruta (`CE-07`, lote de ejecución).
+**4. Cada vehículo por separado si hubo sustitución.** Cortes de odómetro propios por vehículo. Un promedio de la misión mezcla dos rendimientos y no significa nada. Es el desenlace "continúa con vehículo sustituto" del caso de avería en ruta ([`CE-02`](CE-02-averia-mecanica-en-ruta.md)).
 
 **5. La desviación se tipifica, no se comenta en texto libre.** Catálogo configurable: ruta de montaña, espera prolongada con motor encendido, carga completa, tráfico, descenso continuo, precio distinto al estimado, y — la que importa — *sin causa identificada*.
 
