@@ -126,6 +126,12 @@ Un requisito no funcional que no se puede medir es una aspiración. Estos son lo
 |---|---|---|---|
 | 75 | **¿Los proveedores de combustible y de peaje emiten estado de cuenta consolidado a nombre de la institución?** ¿Con qué periodicidad, en qué formato, y a quién llega? | `RN-95` exige conciliar contra esos estados de cuenta, y hoy no hay ningún insumo que los cubra: #16 y #17 son de ARGOS y Talento Humano. **Sin estado de cuenta, la conciliación de combustible y peajes depende solo de lo que declare el motorista** — que es exactamente lo que el auditor no acepta como control | `RN-95`, `CE-25`, `CE-28` |
 
+## Abiertos — surgidos de los casos de uso `CU-xx`
+
+| # | Insumo | Qué desbloquea | Origen |
+|---|---|---|---|
+| 76 | **¿Quién es el responsable, por puesto, de la cola de conflictos de sincronización de cada delegación?** Y con ella: **cuánto tiempo retiene el servidor una transición cuya predecesora no ha llegado** antes de escalarla, y **en qué plazo se escala un conflicto sin resolver**. `RN-45` exige que la cola tenga responsable por puesto, antigüedad visible y escalamiento por plazo configurable —*"una cola sin dueño se convierte en un basurero"*—, y la §6.3 Regla 2 de la máquina de estados exige un plazo que hoy no tiene valor | Sin responsable nombrado, los conflictos se acumulan y `BD-08` bloquea liquidaciones que nadie sabe que le tocan. Sin plazo de retención, una transición con hueco de secuencia queda en espera indefinida y la misión no se puede liquidar ni cerrar | [`CU-11`](../02-requisitos/casos-de-uso/CU-11-sincronizar-y-resolver-conflictos.md), `RN-45`, `RNF-03` |
+
 ## Resueltos en la revisión del 2026-08-06
 
 | # | Insumo original | Resolución |
