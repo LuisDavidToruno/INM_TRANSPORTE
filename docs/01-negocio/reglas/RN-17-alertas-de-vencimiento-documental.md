@@ -10,7 +10,9 @@
 
 ## Enunciado
 
-El sistema **debe** emitir alertas anticipadas del vencimiento de: licencia de conducir y cada una de sus categorías, matrícula, póliza de seguro, revisión mecánica, permisos, salvoconductos, constancia de trámite de placa, tarjetas de responsabilidad y cualquier otro documento con fecha de expiración registrada en el expediente del vehículo o del motorista.
+El sistema **debe** emitir alertas anticipadas del vencimiento de: licencia de conducir y cada una de sus categorías, matrícula, póliza de seguro, revisión mecánica, permisos, salvoconductos, constancia de trámite de placa, documento de respaldo del vehículo sin lámina ([RN-65](RN-65-sin-lamina-respaldo-y-paquete-de-identificacion.md)), **título de tenencia** ([RN-62](RN-62-titulo-de-tenencia-con-vigencia-y-rubros.md)), **acto que confiere el régimen de uso** ([RN-58](RN-58-regimen-de-uso-del-vehiculo.md)), **fecha de devolución comprometida de un préstamo** ([RN-63](RN-63-prestamo-de-vehiculo-como-expediente-del-bien.md)), tarjetas de responsabilidad y cualquier otro documento con fecha de expiración registrada.
+
+El umbral **no siempre es una fecha**. Los vencimientos que se cuentan en **kilómetros** —mantenimiento preventivo, cambio de llantas, servicios por acumulado— alertan sobre el **kilometraje acumulado del vehículo** ([RN-89](RN-89-kilometraje-acumulado-invariante-del-expediente.md)), con su propio umbral en kilómetros, y **se proyectan sobre la ventana de las misiones ya programadas**: el sistema reporta, para un horizonte configurable, las Órdenes de Misión programadas sobre vehículos cuyo preventivo vence **dentro de la ventana de la misión**.
 
 Los umbrales de anticipación **deben** ser parámetros por tipo de documento, no constantes. El valor de referencia es 60, 30 y 15 días `[C]`.
 
@@ -51,6 +53,7 @@ Aplica a todo documento con fecha de vencimiento registrada. Los documentos **si
 
 - Normas: [NRM-06](../normativa/NRM-06-transito-y-licencias.md), [NRM-09](../normativa/NRM-09-realidad-operativa.md)
 - Decisión: [DP-001, D-11](../../07-gestion/decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md)
-- Reglas relacionadas: [RN-10](RN-10-licencia-vigente-en-todo-el-rango.md), [RN-15](RN-15-identidad-del-vehiculo-y-placa.md), [RN-16](RN-16-seguro-y-revision-mecanica.md), [RN-18](RN-18-rotulacion-del-vehiculo-del-estado.md)
+- Reglas relacionadas: [RN-10](RN-10-licencia-vigente-en-todo-el-rango.md), [RN-15](RN-15-identidad-del-vehiculo-y-placa.md), [RN-16](RN-16-seguro-y-revision-mecanica.md), [RN-18](RN-18-rotulacion-del-vehiculo-del-estado.md), [RN-55](RN-55-habilitacion-vencida-durante-la-mision.md), [RN-58](RN-58-regimen-de-uso-del-vehiculo.md), [RN-60](RN-60-indisponibilidad-sobrevenida-y-reservas.md), [RN-62](RN-62-titulo-de-tenencia-con-vigencia-y-rubros.md), [RN-63](RN-63-prestamo-de-vehiculo-como-expediente-del-bien.md), [RN-65](RN-65-sin-lamina-respaldo-y-paquete-de-identificacion.md), [RN-89](RN-89-kilometraje-acumulado-invariante-del-expediente.md)
 - Actores: ACT-04, ACT-10, ACT-11, ACT-13
-- Historias y casos especiales: pendientes — Bloque 2
+- Casos especiales: [CE-16](../../02-requisitos/casos-especiales/CE-16-vehiculo-a-taller-con-misiones-programadas.md), [CE-11](../../02-requisitos/casos-especiales/CE-11-licencia-vence-durante-la-mision.md), [CE-15](../../02-requisitos/casos-especiales/CE-15-vehiculo-en-comodato-o-alquilado.md)
+- Historias: pendientes — Bloque 4

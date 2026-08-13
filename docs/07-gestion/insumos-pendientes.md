@@ -105,6 +105,27 @@ Derivados de `CE-09` (bitácora en papel digitada días después), `CE-10` (moto
 | 65 | **¿Autoriza la institución el resguardo domiciliario de vehículos asignados, y con qué fundamento?** `NRM-02` prohíbe `[V]` el traslado a residencias; que el vehículo **pernocte** ahí es figura distinta y no consta regulada | Decide si la entrada y salida del domicilio se registran como eventos de bitácora amparados o como uso indebido | `CE-19` |
 | 66 | **¿Se acepta la figura de Orden de Misión permanente de período** para el uso ordinario de vehículos asignados? Y **¿puede el asignatario conducir**, con qué política? | Si se acepta, hay que escribirla en la máquina de estados. Si no, el uso ordinario queda sin instrumento de control o produce ~250 expedientes anuales por vehículo | `CE-19` |
 
+## Abiertos — surgidos de los requisitos no funcionales `RNF-xx`
+
+Un requisito no funcional que no se puede medir es una aspiración. Estos son los umbrales que **no se inventaron**: cada uno bloquea la verificación de al menos un `RNF`. Ver [`docs/02-requisitos/no-funcionales/README.md`](../02-requisitos/no-funcionales/README.md).
+
+| # | Insumo | Qué desbloquea | Origen |
+|---|---|---|---|
+| 67 | **Volumen operativo cifrado**: cuántos vehículos, cuántas delegaciones y dependencias, cuántos usuarios con cuenta y cuántos concurrentes en hora pico, cuántas misiones al mes, y **cuál es la misión más larga que la institución ejecuta**. El insumo #10 se resolvió como *"alto flujo"*, que no es un número | Fija el juego de datos de referencia `JDR-1`, del que dependen **todos** los umbrales de rendimiento y volumen. Hoy `JDR-1` es una derivación aritmética sobre supuestos | `RNF-01`, `RNF-02`, `RNF-03` |
+| 68 | **Enlace real de la sede y de cada delegación**: tipo, ancho de banda, estabilidad, y si el enlace de la delegación es compartido con otras funciones | Umbrales de tiempo de sincronización y periodicidad de reconciliación. Complementa el insumo #11 | `RNF-03`, `RNF-07` |
+| 69 | **Dispositivo de campo de referencia**: qué celulares tienen hoy los motoristas, quién los provee —¿la institución o el motorista?— y quién paga el plan de datos | Sin dispositivo de referencia declarado, las mediciones de batería, almacenamiento y respuesta se hacen contra el equipo del desarrollador, que es diseñar para nadie | `RNF-12`, `RNF-08` |
+| 70 | **Parque real de impresoras** en sede y delegaciones: matriciales de 9 o 24 agujas, láser, tamaño de papel que usan hoy | Decide si el QR impreso es vía primaria o solo conveniencia, y si el formato es carta o hay excepciones. Complementa el insumo #2 | `RNF-11` |
+| 71 | **Plazo de conservación** de registros financieros y de bienes, y **plazo de depuración o seudonimización** de datos personales de pasajeros. [NRM-01](../01-negocio/normativa/NRM-01-control-interno-tsc.md) y [NRM-07](../01-negocio/normativa/NRM-07-transparencia-y-datos-personales.md) los dejan `[C]` expresamente. Además: **periodicidad del sello de la cadena de auditoría** | Es el insumo detrás de la tensión estructural entre conservar todo y depurar lo personal. **A Auditoría Interna y al OIP** | `RNF-02`, `RNF-04`, `RNF-13`, `RNF-17` |
+| 72 | **Ventana de mantenimiento aceptable**, tolerancia de indisponibilidad en horario hábil, y cuánta pérdida de datos acepta la institución tras un desastre (RPO) | Sin esto, la disponibilidad se promete a ojo. Y prometer números que nadie podrá sostener es peor que declarar el límite | `RNF-09`, `RNF-10`, `RNF-07` |
+| 73 | **¿Quién opera el servidor en producción, con qué perfil técnico, y por qué canal se le avisa** de una condición crítica fuera de horario? También: **quién custodia la clave de cifrado del respaldo**. El insumo #9 resolvió el ambiente de desarrollo, no la operación real | Fija el nivel de simplicidad exigible a la instalación y al respaldo, que es un **filtro de elegibilidad de stack**, no una meta de calidad | `RNF-09`, `RNF-13`, `RNF-20` |
+| 74 | **Frecuencia de reporte de posición aceptable** para M-19 y quién asume el consumo de datos que genera | Umbrales de latencia y de consumo del seguimiento en ruta. Depende también del insumo #18 | `RNF-08` |
+
+## Abiertos — surgidos de la consolidación de reglas
+
+| # | Insumo | Qué desbloquea | Origen |
+|---|---|---|---|
+| 75 | **¿Los proveedores de combustible y de peaje emiten estado de cuenta consolidado a nombre de la institución?** ¿Con qué periodicidad, en qué formato, y a quién llega? | `RN-95` exige conciliar contra esos estados de cuenta, y hoy no hay ningún insumo que los cubra: #16 y #17 son de ARGOS y Talento Humano. **Sin estado de cuenta, la conciliación de combustible y peajes depende solo de lo que declare el motorista** — que es exactamente lo que el auditor no acepta como control | `RN-95`, `CE-25`, `CE-28` |
+
 ## Resueltos en la revisión del 2026-08-06
 
 | # | Insumo original | Resolución |

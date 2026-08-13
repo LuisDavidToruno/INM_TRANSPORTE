@@ -32,6 +32,10 @@ Aplica a la liquidación de toda misión con pasos por caseta registrados, y al 
 
 **No aplica** como bloqueo durante la ejecución: un paso incoherente ya ocurrió y debe registrarse tal cual. La regla observa, no impide.
 
+La tercera dimensión se evalúa contra la **versión del alcance autorizado vigente a la fecha del hecho del paso** ([RN-77](RN-77-versionado-del-alcance-autorizado.md)), no contra el alcance original. **Un paso amparado por una extensión autorizada no es hallazgo.**
+
+El **reordenamiento de destinos registrado con motivo** no constituye desviación de ruta si la secuencia resultante sigue siendo geográfica y temporalmente coherente ([RN-76](RN-76-estado-en-ruta-declarado-por-el-motorista.md)); el estimado de peajes se recalcula con el paquete normativo congelado.
+
 ## Comportamiento esperado
 
 1. El catálogo de puntos incluye ubicación, corredor, kilómetro y sentido de cobro, lo que permite ordenar geográficamente `[V]`.
@@ -53,6 +57,7 @@ Aplica a la liquidación de toda misión con pasos por caseta registrados, y al 
 ## Trazabilidad
 
 - Normas: [NRM-10](../normativa/NRM-10-peajes.md), [NRM-01](../normativa/NRM-01-control-interno-tsc.md)
-- Reglas relacionadas: [RN-34](RN-34-tarifa-de-peaje-por-punto-categoria-vigencia.md), [RN-35](RN-35-estimacion-de-peajes-antes-de-aprobar.md), [RN-30](RN-30-conciliacion-galonaje-kilometraje.md), [RN-31](RN-31-odometro-de-retorno.md), [RN-08](RN-08-cadena-de-trazabilidad-para-cierre.md)
+- Reglas relacionadas: [RN-34](RN-34-tarifa-de-peaje-por-punto-categoria-vigencia.md), [RN-35](RN-35-estimacion-de-peajes-antes-de-aprobar.md), [RN-30](RN-30-conciliacion-galonaje-kilometraje.md), [RN-31](RN-31-odometro-de-retorno.md), [RN-08](RN-08-cadena-de-trazabilidad-para-cierre.md), [RN-66](RN-66-imputacion-externa-por-jerarquia-de-anclas.md), [RN-76](RN-76-estado-en-ruta-declarado-por-el-motorista.md), [RN-77](RN-77-versionado-del-alcance-autorizado.md), [RN-91](RN-91-categoria-y-tarifa-de-peaje-impresas-en-la-orden.md), [RN-95](RN-95-conciliacion-contra-fuentes-externas.md)
 - Actores: ACT-04, ACT-06, ACT-08, ACT-12
-- Historias y casos especiales: pendientes — Bloque 2
+- Casos especiales: [CE-08](../../02-requisitos/casos-especiales/CE-08-multi-destino-con-esperas-prolongadas-en-sitio.md), [CE-06](../../02-requisitos/casos-especiales/CE-06-la-mision-se-extiende-mas-dias-destinos-o-kilometros.md), [CE-24](../../02-requisitos/casos-especiales/CE-24-cobro-en-categoria-de-peaje-equivocada.md)
+- Historias: pendientes — Bloque 4

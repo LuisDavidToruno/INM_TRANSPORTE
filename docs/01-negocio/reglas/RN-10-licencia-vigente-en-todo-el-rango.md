@@ -4,15 +4,19 @@
 |---|---|
 | **Módulos** | M-05, M-07 |
 | **Origen** | Norma [NRM-06](../normativa/NRM-06-transito-y-licencias.md); decisión [DP-001 D-12](../../07-gestion/decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md) |
-| **Verificación** | `[V]` |
+| **Verificación** | `[P]` la exigencia de licencia vigente y habilitante — [NRM-06](../normativa/NRM-06-transito-y-licencias.md) deja pendiente el texto reformado del Art. 48 (insumo #20). `[I]` la formulación *"bloquear si la licencia estará vencida en cualquier fecha del rango"*: es **implicación de requerimiento escrita por el equipo**, no articulado citable. Corregido desde `[V]` por la regla de no escalar el nivel de verificación |
 | **Tipo** | Bloqueo duro |
 | **Configurable** | **No** |
 
 ## Enunciado
 
-El sistema **no debe** permitir asignar ni despachar un motorista cuya licencia venza en **cualquier fecha comprendida entre la fecha de salida y la fecha prevista de retorno**, ambas inclusive.
+El sistema **no debe** permitir asignar ni despachar un motorista cuya licencia venza en **cualquier fecha comprendida entre la fecha de salida y la fecha prevista de retorno**, ambas inclusive, más la holgura de retorno configurada `[C]` insumo #1.
 
-Si la misión se **extiende** más allá de la fecha prevista de retorno, la vigencia se revalúa contra la nueva fecha, y una licencia que quede vencida dentro del nuevo rango **bloquea la extensión**.
+**Todo cambio de la ventana de la misión revalida la vigencia contra la nueva fecha de fin** — prórroga, destino adicional que la desplace, reprogramación o extensión por cualquier causa — y una licencia que quede vencida dentro del nuevo rango **bloquea el cambio**. La [máquina de estados](../../03-arquitectura/estados/orden-de-mision.md), autoridad en transiciones, lo exige en `T-17`.
+
+La comprobación se hace sobre **quien efectivamente conduce**, no sobre quien ostenta el puesto de motorista ([RN-57](RN-57-habilitacion-de-quien-efectivamente-conduce.md)).
+
+Esta regla gobierna la **asignación**. El vencimiento **sobrevenido** con la misión ya `EN_RUTA` se rige por [RN-55](RN-55-habilitacion-vencida-durante-la-mision.md).
 
 ## Justificación
 
@@ -47,6 +51,7 @@ Aplica a **todas** las categorías que la asignación necesita: si la habilitaci
 
 - Norma: [NRM-06 — Tránsito, licencias, matrícula y siniestros](../normativa/NRM-06-transito-y-licencias.md)
 - Decisión: [DP-001, D-12](../../07-gestion/decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md)
-- Reglas relacionadas: [RN-09](RN-09-matriz-licencia-vehiculo.md), [RN-14](RN-14-sustitucion-de-motorista.md), [RN-17](RN-17-alertas-de-vencimiento-documental.md), [RN-50](RN-50-degradacion-por-sincronizacion-detenida.md)
+- Reglas relacionadas: [RN-09](RN-09-matriz-licencia-vehiculo.md), [RN-14](RN-14-sustitucion-de-motorista.md), [RN-17](RN-17-alertas-de-vencimiento-documental.md), [RN-50](RN-50-degradacion-por-sincronizacion-detenida.md), [RN-55](RN-55-habilitacion-vencida-durante-la-mision.md), [RN-57](RN-57-habilitacion-de-quien-efectivamente-conduce.md), [RN-77](RN-77-versionado-del-alcance-autorizado.md)
 - Actores: ACT-04, ACT-05, ACT-06
-- Historias y casos especiales: pendientes — Bloque 2
+- Casos especiales: [CE-11](../../02-requisitos/casos-especiales/CE-11-licencia-vence-durante-la-mision.md), [CE-06](../../02-requisitos/casos-especiales/CE-06-la-mision-se-extiende-mas-dias-destinos-o-kilometros.md), [CE-19](../../02-requisitos/casos-especiales/CE-19-vehiculo-asignado-a-funcionario-frente-al-pool.md)
+- Historias: pendientes — Bloque 4

@@ -30,7 +30,12 @@ La separación estructural, además, es lo que permite publicar en el Portal Ún
 
 Aplica a todo traslado que incluya personas ajenas a la institución.
 
-**No aplica** al personal de la institución, cuyos datos ya viven en Talento Humano y se referencian por espejo ([RN-48](RN-48-datos-espejo-de-solo-lectura.md)) — no se duplican en el manifiesto.
+**Aplica también, con el mismo criterio, a dos supuestos que no son traslado:**
+
+- **Terceros involucrados en un siniestro** ([RN-74](RN-74-sin-atribucion-de-responsabilidad-en-campo.md)): solo los datos del catálogo autorizado —identificación, contacto, vehículo, aseguradora— **sin diagnóstico médico ni dato clínico**, y con registro de toda consulta posterior ([RN-52](RN-52-registro-de-consultas-a-manifiestos.md)).
+- **Dato de salud del servidor** que se incapacita en ruta ([RN-70](RN-70-interrupcion-en-ruta-con-desenlace-obligatorio.md)): SIGTI registra **la existencia de la incapacidad y su efecto operativo**; nunca diagnóstico ni dato clínico. El expediente de salud pertenece a Talento Humano ([DP-001 D-07](../../07-gestion/decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md)).
+
+**No aplica** al personal de la institución en cuanto a sus datos de expediente, que ya viven en Talento Humano y se referencian por espejo ([RN-48](RN-48-datos-espejo-de-solo-lectura.md)) — no se duplican en el manifiesto.
 
 `[C]` La institución debe declarar qué traslados de personas externas realiza y con qué fundamento. **Sin esa declaración, el catálogo de campos queda en el mínimo.**
 
@@ -56,6 +61,7 @@ Aplica a todo traslado que incluya personas ajenas a la institución.
 
 - Norma: [NRM-07 — Transparencia y datos personales](../normativa/NRM-07-transparencia-y-datos-personales.md)
 - Decisión: [DP-001, D-14](../../07-gestion/decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md)
-- Reglas relacionadas: [RN-52](RN-52-registro-de-consultas-a-manifiestos.md), [RN-53](RN-53-cierre-del-manifiesto-al-despacho.md), [RN-20](RN-20-compatibilidad-vehiculo-objeto-del-traslado.md), [RN-04](RN-04-anulacion-como-asiento-reverso.md)
+- Reglas relacionadas: [RN-52](RN-52-registro-de-consultas-a-manifiestos.md), [RN-53](RN-53-cierre-del-manifiesto-al-despacho.md), [RN-20](RN-20-compatibilidad-vehiculo-objeto-del-traslado.md), [RN-04](RN-04-anulacion-como-asiento-reverso.md), [RN-67](RN-67-matriz-de-compatibilidad-objeto-objeto.md), [RN-70](RN-70-interrupcion-en-ruta-con-desenlace-obligatorio.md), [RN-74](RN-74-sin-atribucion-de-responsabilidad-en-campo.md)
 - Actores: ACT-01, ACT-02, ACT-05, ACT-12
-- Historias y casos especiales: pendientes — Bloque 2
+- Casos especiales: [CE-03](../../02-requisitos/casos-especiales/CE-03-accidente-de-transito-en-mision.md), [CE-10](../../02-requisitos/casos-especiales/CE-10-motorista-incapacitado-en-ruta.md), [CE-18](../../02-requisitos/casos-especiales/CE-18-carga-y-pasajeros-en-la-misma-mision.md)
+- Historias: pendientes — Bloque 4

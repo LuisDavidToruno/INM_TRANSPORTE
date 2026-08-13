@@ -20,6 +20,8 @@ El expediente de cada vehículo **debe** registrar el estado de sus elementos de
 
 Cada elemento se registra como **constatado** con **fecha de constatación, fotografía y servidor que constató**. Transcurrido el parámetro de vigencia, la constatación **caduca** y el vehículo pasa a estado *identificación no constatada*, lo que genera advertencia al despachar.
 
+El parámetro `vigencia_constatacion_rotulacion` **admite valor diferenciado por estado de placa** ([RN-64](RN-64-estado-de-la-placa-tipificado.md)): en un vehículo **sin lámina metálica** la rotulación es su **única identificación visible** como bien del Estado, y por eso su constatación caduca antes que la del resto de la flota.
+
 Una constatación sin fotografía **no debe** aceptarse.
 
 ## Justificación
@@ -40,7 +42,7 @@ Aplica a todo vehículo propiedad del Estado en la flota.
 
 1. La constatación se captura desde el móvil, **sin conectividad**, con fotografía por elemento y ubicación. Es el caso de uso de constatación física que [NRM-02](../normativa/NRM-02-bienes-del-estado.md) exige para conciliar contra el registro de bienes.
 2. Al despachar un vehículo con identificación no constatada o con algún elemento marcado como **ausente**, el sistema advierte con acuse registrado.
-3. El sistema genera el **reporte previo a Semana Santa** que [NRM-02](../normativa/NRM-02-bienes-del-estado.md) exige: vehículos autorizados a circular con su permiso, vehículos que deben estar resguardados con confirmación de resguardo, y estado de identificación de cada uno.
+3. El sistema genera el **reporte previo a Semana Santa** que [NRM-02](../normativa/NRM-02-bienes-del-estado.md) exige: vehículos autorizados a circular con su permiso, vehículos que deben estar resguardados con **confirmación de resguardo con responsable, fecha, odómetro y ubicación fotografiada**, y estado de identificación de cada uno. **Sin evidencia, el vehículo figura como no confirmado, nunca como resguardado** ([RN-58](RN-58-regimen-de-uso-del-vehiculo.md)).
 4. La corrección de un elemento ausente genera un registro de **subsanación** con fecha, foto posterior y responsable, no una simple edición del estado.
 5. El historial de constataciones es consultable por vehículo: cuándo se verificó, quién, qué encontró.
 

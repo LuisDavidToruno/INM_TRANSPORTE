@@ -28,6 +28,8 @@ Aplica a todo vehículo de la flota, incluidos comodato y alquiler, donde la pó
 
 El parámetro es **por institución**, no por vehículo ni por dependencia: una institución no puede exigir póliza a unos vehículos y no a otros sin dejar el criterio escrito. `[C]` confirmar si se requiere granularidad por tipo de vehículo.
 
+**Excepción admitida: granularidad por régimen de tenencia.** `bloqueo_por_poliza_vencida` admite valor distinto según el régimen de [RN-62](RN-62-titulo-de-tenencia-con-vigencia-y-rubros.md) — propiedad, comodato, alquiler. No es una excepción por vehículo: es un criterio escrito y uniforme dentro de cada régimen, y responde a un hecho concreto — el contrato de alquiler normalmente **obliga** a mantener la póliza vigente, de modo que ahí el bloqueo no deriva de la ley sino del contrato.
+
 ## Comportamiento esperado
 
 1. Con el parámetro apagado: al asignar o despachar un vehículo con póliza o revisión vencida o ausente, el sistema **advierte**, exige acuse del despachador y **registra** quién continuó pese a la advertencia.

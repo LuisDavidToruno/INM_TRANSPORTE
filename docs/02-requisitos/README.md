@@ -9,7 +9,7 @@ Qué debe hacer el sistema, expresado de forma verificable.
 | `casos-de-uso/` | Bloque 3 | Casos de uso `CU-xx`, agrupados por módulo `M-xx` |
 | `historias/` | Bloque 3 | Historias de usuario `HU-xxx` con criterios de aceptación |
 | `casos-especiales/` | **Bloque 2** | Excepciones `CE-xx` de la operación real, cada una con su regla de resolución |
-| `no-funcionales/` | Bloque 3 | Requisitos no funcionales `RNF-xx` |
+| `no-funcionales/` | **Escrito** | Requisitos no funcionales `RNF-xx` — 21, de los cuales 9 son determinantes de arquitectura |
 
 ## Los casos especiales son el bloque de mayor valor
 

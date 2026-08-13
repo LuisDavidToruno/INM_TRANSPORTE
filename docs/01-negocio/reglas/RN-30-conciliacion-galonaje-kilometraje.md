@@ -35,7 +35,11 @@ La detección en ambas direcciones es lo que distingue este control de un contro
 
 Aplica a toda misión con odómetro de salida y retorno y con consumo registrado.
 
-**No aplica** de forma concluyente cuando: el odómetro está averiado ([RN-28](RN-28-comprobacion-del-consumo-de-combustible.md)), el vehículo arrastra saldo de tanque entre misiones, o la misión terminó con el tanque en nivel muy distinto al inicial. En esos casos el cálculo se marca **no concluyente** y se conserva para el análisis agregado, que sí es válido.
+**No aplica** de forma concluyente cuando: el odómetro está averiado ([RN-28](RN-28-comprobacion-del-consumo-de-combustible.md), [RN-90](RN-90-intervencion-del-instrumento-de-medicion.md)), el vehículo arrastra saldo de tanque entre misiones, o la misión terminó con el tanque en nivel muy distinto al inicial. En esos casos el cálculo se marca **no concluyente** y se conserva para el análisis agregado, que sí es válido.
+
+**No entra en el denominador** el kilometraje recorrido **bajo tenencia ajena** —vehículo prestado o cedido— que se asienta con las dos lecturas del acta y se excluye del cálculo, porque no hubo consumo nuestro contra esos kilómetros ([RN-63](RN-63-prestamo-de-vehiculo-como-expediente-del-bien.md), [RN-72](RN-72-imputacion-por-tramo-de-vehiculo-y-motorista.md)).
+
+**Sí entra en el numerador todo abastecimiento**, cualquiera sea su fuente de financiamiento — fondo de la misión, tanque institucional, otra dependencia, donación o peculio del servidor ([RN-83](RN-83-todo-ingreso-de-combustible-es-un-abastecimiento.md)). Sin esa cobertura, esta regla señala un síntoma cuya causa el sistema no puede registrar.
 
 ## Comportamiento esperado
 
@@ -48,8 +52,9 @@ Aplica a toda misión con odómetro de salida y retorno y con consumo registrado
 ## Casos límite
 
 - **Terreno de montaña, tráfico o aire acondicionado en operación prolongada.** Degradan el rendimiento legítimamente. El esperado debe admitir **variantes por tipo de ruta**; sin eso, el sistema producirá hallazgos falsos y en tres meses nadie los mirará. `[C]` levantar con el Jefe de Transporte.
-- **Vehículo que sale con el tanque lleno y retorna con el tanque lleno**, habiendo cargado en ruta. El cálculo es correcto. El problema aparece cuando sale lleno y retorna vacío: los galones consumidos exceden a los cargados. Por eso el registro debe incluir **nivel de combustible a la salida y al retorno** ([RN-22](RN-22-custodia-del-vehiculo.md)).
-- **Tiempo prolongado de motor encendido en espera** — vehículo esperando con aire acondicionado durante horas. Consume sin recorrer. M-19 mide los tiempos de espera en sitio: esa medición es la que explica la desviación. Sin ella, el hallazgo sería infundado.
+- **Vehículo que sale con el tanque lleno y retorna con el tanque lleno**, habiendo cargado en ruta. El cálculo es correcto. El problema aparece cuando sale lleno y retorna vacío: los galones consumidos exceden a los cargados. Por eso el **nivel de combustible a la salida y al retorno es dato obligatorio de la bitácora** — obligación que vive en [RN-83](RN-83-todo-ingreso-de-combustible-es-un-abastecimiento.md), no en [RN-22](RN-22-custodia-del-vehiculo.md), que trata de custodia.
+- **Tiempo prolongado de motor encendido en espera** — vehículo esperando con aire acondicionado durante horas. Consume sin recorrer. El motor encendido durante la espera **se registra con un toque y entra como variable del cálculo** ([RN-76](RN-76-estado-en-ruta-declarado-por-el-motorista.md)): una desviación con espera prolongada registrada **no produce hallazgo por sí sola**. Sin esa medición, el hallazgo sería infundado.
+- **Desviación amparada por una causa registrada y aceptada** — retorno anticipado, extensión autorizada, espera improductiva. No produce hallazgo por sí sola: la conciliación se evalúa contra el **alcance vigente a la fecha de cada hecho** ([RN-77](RN-77-versionado-del-alcance-autorizado.md), [RN-78](RN-78-grado-de-cumplimiento-del-objeto.md)).
 - **Rendimiento excelente por descenso continuo** en una ruta de bajada. Legítimo. La tipificación de causa debe incluirlo, y el analista decide.
 - **Vehículo nuevo sin histórico.** El esperado se toma de la ficha técnica del fabricante o del tipo de vehículo, marcado como valor provisional hasta acumular histórico propio.
 - **Sustitución de vehículo a mitad de misión.** Cada vehículo se concilia por separado, con sus propios cortes de odómetro ([RN-14](RN-14-sustitucion-de-motorista.md)). Un cálculo agregado de la misión mezclaría dos rendimientos y no significaría nada.

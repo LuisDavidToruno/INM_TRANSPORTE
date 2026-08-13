@@ -4,7 +4,7 @@
 |---|---|
 | **Módulos** | M-07, M-06, M-03, M-17 |
 | **Origen** | Norma [NRM-02](../normativa/NRM-02-bienes-del-estado.md) — ficha maestra con capacidad; [NRM-06](../normativa/NRM-06-transito-y-licencias.md) — peso bruto vehicular |
-| **Verificación** | `[V]` la exigencia de registrar capacidad de pasajeros y carga en kg y m³ |
+| **Verificación** | `[I]` la exigencia de registrar capacidad de pasajeros y carga en kg y m³ — es **implicación de requerimiento** escrita por el equipo en [NRM-02](../normativa/NRM-02-bienes-del-estado.md), no articulado citable. Corregido desde `[V]` por la regla de no escalar el nivel (`CLAUDE.md`, hallazgo `HN1-03`) |
 | **Tipo** | Bloqueo duro |
 | **Configurable** | No el bloqueo. Sí el `margen_tolerancia_carga`, con valor inicial cero |
 
@@ -38,7 +38,8 @@ Aplica a la programación, al despacho y a toda modificación del manifiesto ant
 2. El bloqueo es cuantitativo y explícito: *"El vehículo <correlativo> tiene capacidad para 5 pasajeros incluido el motorista. La misión declara 7."*
 3. El sistema propone vehículos con capacidad suficiente, o la **división en dos órdenes de misión**, que es la salida operativa real.
 4. Si a la ficha técnica le falta la capacidad, el sistema bloquea e indica el dato faltante. **Nunca asume** una capacidad por marca o modelo.
-5. La carga efectivamente transportada se registra al despachar y se compara contra la declarada; la diferencia alimenta el reporte de liquidación.
+5. **El peso y la ocupación efectivos se capturan al despachar** y se comparan contra lo declarado; **la desviación se acumula como indicador por dependencia solicitante** ([RN-82](RN-82-indicadores-de-calidad-de-la-programacion.md)), además de alimentar el reporte de liquidación. Una dependencia que declara sistemáticamente por debajo de lo que embarca es un dato de gestión, no un error de captura.
+6. Cuando dos objetos legítimos compiten por el mismo vehículo, **la reducción se aplica primero al objeto no principal** declarado en la solicitud. **En ningún caso la configuración se resuelve trasladando personas fuera de plazas homologadas** ([RN-67](RN-67-matriz-de-compatibilidad-objeto-objeto.md)).
 
 ## Casos límite
 
@@ -49,10 +50,12 @@ Aplica a la programación, al despacho y a toda modificación del manifiesto ant
 - **Emergencia con evacuación de personas.** No hay excepción configurable de capacidad. Si la institución necesita una, debe ser una decisión de la máxima autoridad registrada como tal, y hasta hoy `[C]` no consta que exista. La salida prevista es dividir en varias misiones.
 - **Margen de tolerancia.** El parámetro existe porque una institución puede querer admitir un 5% de holgura sobre el peso estimado. Su valor inicial es **cero**, y activarlo es un acto registrado con fundamento. Un margen invisible es la forma de que la regla deje de significar algo.
 - **Carga que se entrega en el primer destino y libera capacidad.** La evaluación se hace por **tramo**, no por misión completa, cuando la misión declara multi-destino. Evaluar solo el peor tramo bloquearía misiones perfectamente ejecutables.
+- **Carga que se recoge en un destino intermedio** y consume capacidad. Es el reverso del caso anterior y esta regla, por sí sola, no lo veía: lo cubre [RN-68](RN-68-compatibilidad-y-capacidad-por-tramo.md), que evalúa cada tramo sobre su configuración efectiva, incluida la que se incorpora en ruta.
 
 ## Trazabilidad
 
 - Normas: [NRM-02](../normativa/NRM-02-bienes-del-estado.md), [NRM-06](../normativa/NRM-06-transito-y-licencias.md)
-- Reglas relacionadas: [RN-20](RN-20-compatibilidad-vehiculo-objeto-del-traslado.md), [RN-09](RN-09-matriz-licencia-vehiculo.md), [RN-33](RN-33-categoria-de-peaje-derivada-de-ficha-tecnica.md), [RN-53](RN-53-cierre-del-manifiesto-al-despacho.md)
+- Reglas relacionadas: [RN-20](RN-20-compatibilidad-vehiculo-objeto-del-traslado.md), [RN-09](RN-09-matriz-licencia-vehiculo.md), [RN-33](RN-33-categoria-de-peaje-derivada-de-ficha-tecnica.md), [RN-53](RN-53-cierre-del-manifiesto-al-despacho.md), [RN-67](RN-67-matriz-de-compatibilidad-objeto-objeto.md), [RN-68](RN-68-compatibilidad-y-capacidad-por-tramo.md), [RN-69](RN-69-inventario-de-la-carga-y-acta-de-entrega.md)
 - Actores: ACT-02, ACT-04, ACT-05, ACT-06
-- Historias y casos especiales: pendientes — Bloque 2
+- Casos especiales: [CE-18](../../02-requisitos/casos-especiales/CE-18-carga-y-pasajeros-en-la-misma-mision.md)
+- Historias: pendientes — Bloque 4
