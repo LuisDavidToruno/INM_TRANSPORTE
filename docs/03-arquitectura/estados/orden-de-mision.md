@@ -556,7 +556,13 @@ Cubre tres situaciones reales: la misión se extiende más allá de la ventana a
 **Precondiciones**
 - `BD-06` **Segregación:** quien liquida ≠ motorista, ≠ quien entregó el combustible, ≠ quien despachó.
 - `BD-08` **No hay divergencias de sincronización sin resolver** en esta misión. Bloqueo duro: liquidar con dos versiones del retorno sin conciliar produce un número que no significa nada.
-- Todas las asignaciones de fondo vinculadas están liquidadas (sección 10.1).
+- Todas las asignaciones de fondo vinculadas están **liquidadas**, entendiendo por liquidar **declarar el resultado — incluido el faltante o el sobrante**, no que el resultado cuadre en cero (sección 10.1).
+
+> **Corrección — hallazgo `HB3-03`.** Esta precondición, leída junto con la definición de `LIQUIDADA` de §10.1 —*"cuadran asignado, consumido, comprobado y saldo devuelto"*— dejaba **una misión con faltante de caja atrapada en `RETORNADA` para siempre**. Contradice a [`RN-86`](../../01-negocio/reglas/), cuya obligación de reintegro *"sobrevive al cierre de la misión"*, y al propósito mismo de `CERRADA_CON_HALLAZGO`.
+>
+> Liquidar es **declarar** el resultado. Si falta dinero, la liquidación lo dice, el hallazgo se dispara, y la obligación de reintegro sigue viva en su propio expediente después del cierre. Lo que no puede pasar es que el expediente quede abierto indefinidamente esperando un reintegro: *un expediente que no puede cerrarse se abandona.*
+>
+> Detectado al escribir [`CU-15`](../../02-requisitos/casos-de-uso/CU-15-liquidar-la-mision-y-conciliar.md).
 - Toda desviación fuera de umbral tiene causa tipificada y justificación registrada.
 - Los comprobantes obligatorios están adjuntos. **La falta del ticket de caseta advierte pero no bloquea** ([NRM-10](../../01-negocio/normativa/NRM-10-peajes.md)): el motorista no siempre puede conseguirlo, y bloquear por eso hace que el sistema se abandone. La falta queda registrada y cuenta para el criterio de hallazgo.
 
@@ -581,7 +587,21 @@ Cubre tres situaciones reales: la misión se extiende más allá de la ventana a
 **Precondiciones**
 - `BD-06` **Quien cierra ≠ quien liquidó.**
 - **No se cumple ninguno** de los criterios `H-01` a `H-08`. Si alguno se cumple, esta transición no está disponible: el camino es `T-22`.
-- No hay expedientes vinculados abiertos que condicionen el resultado — incidente en investigación, reclamo de peaje ante la SAPP, orden de trabajo derivada de una novedad no atendida. `[C]` cuáles condicionan el cierre y cuáles no — insumo #1.
+- No hay expedientes vinculados abiertos que condicionen el resultado. **Un expediente vinculado condiciona el cierre solo si su resultado puede cambiar el resultado económico u operativo de esta misión.** `[C]` la lista definitiva — insumo #1.
+
+> **Corrección — hallazgo `HB3-02`. Este era un bloqueo sin salida.**
+>
+> [`RN-92`](../../01-negocio/reglas/) declaraba que las discrepancias de peaje no cierran sin el reclamo resuelto. Pero **un reclamo ante la SAPP tarda meses**, y la discrepancia de clasificación **no está entre los criterios `H-01` a `H-08`**, cuya lista está declarada cerrada en §7.2. Resultado: ni `T-21` ni `T-22` disponibles. **El expediente quedaba atrapado en `LIQUIDADA` indefinidamente.**
+>
+> Es exactamente lo que [`RN-08`](../../01-negocio/reglas/RN-08-cadena-de-trazabilidad-para-cierre.md) evitó al admitir `CERRADA_CON_HALLAZGO`: *un expediente que no puede cerrarse se abandona, y un expediente abandonado no produce el hallazgo que el auditor necesita ver.* Una regla escrita 84 números después lo reintrodujo sin advertirlo.
+>
+> **Resolución adoptada — el reclamo de peaje NO condiciona el cierre.** Razón de fondo: un reclamo ante la SAPP es una gestión **contra un tercero** por un cobro indebido de la concesionaria. No es un hallazgo sobre la conducta de la institución — es una **cuenta por cobrar**. Sobrevive al cierre en su propio expediente, con su monto, igual que la obligación de reintegro de `RN-86`.
+>
+> Lo que sí condiciona el cierre es lo que puede **cambiar el resultado de esta misión**: un incidente en investigación cuyo desenlace altera la responsabilidad, o una orden de trabajo que revela que el kilometraje registrado era falso.
+>
+> `[C]` **Decisión del PO pendiente.** La alternativa era incorporar un `H-09` y cerrar como `CERRADA_CON_HALLAZGO`. Se descartó porque marcaría a la institución por un error del concesionario. Si el PO prefiere lo contrario, se revierte y se abre `H-09`.
+>
+> Corregir también [`RN-92`](../../01-negocio/reglas/), que hoy dice lo opuesto.
 
 **Efectos**
 - El expediente pasa a **inmutable**. Sección 8.
@@ -665,9 +685,21 @@ Bloqueo duro significa: **el sistema no ofrece la acción, y si se intenta por c
 
 **Se evalúa en** `T-05`, `T-06`.
 
-**Regla.** La persona que ejecuta la autorización o el rechazo no puede ser la persona que creó la solicitud (`T-01`) ni quien la envió (`T-02`), si fueran distintas.
+**Regla.** La persona que ejecuta la autorización o el rechazo no puede ser **ninguna de estas tres**, si fueran distintas entre sí:
+
+1. Quien **creó** la solicitud (`T-01`)
+2. Quien la **envió** (`T-02`)
+3. **El solicitante de derecho** — la persona a cuyo nombre se solicita la movilización, que puede no ser ninguna de las dos anteriores
+
+> **Corrección — hallazgo `HB3-01`.** Esta regla comparaba solo contra el creador y el remitente, y **no bloqueaba el escenario más común de todos**: la asistente captura la solicitud para su jefe, y el jefe la autoriza. Formalmente el jefe no creó ni envió nada — pero es el solicitante, y la incompatibilidad `I-01` de [actores-y-roles.md](../../01-negocio/actores-y-roles.md) sí se está violando.
+>
+> [`RN-02`](../../01-negocio/reglas/RN-02-escalamiento-de-autorizacion.md) ya establecía que en la captura por encargo el solicitante de derecho es otro. El bloqueo no lo leía.
+>
+> Detectado al escribir [`CU-01`](../../02-requisitos/casos-de-uso/CU-01-registrar-solicitud-de-transporte.md) y [`CU-02`](../../02-requisitos/casos-de-uso/CU-02-autorizar-solicitud-de-transporte.md). Un control que no cubre el caso cotidiano no es un control.
 
 **Datos.** Identidad de persona, no identificador de usuario: un mismo servidor con dos cuentas sigue siendo la misma persona. La comparación se hace contra el identificador de persona del espejo de Talento Humano.
+
+**La captura por encargo es explícita.** Toda solicitud registra por separado quién la capturó y a nombre de quién se solicita. No se infiere del usuario autenticado: se declara. Sin ese dato, el bloqueo vuelve a ser ciego.
 
 **Caso límite.** El jefe de una unidad solicita para sí mismo. Entonces su autorizador es el nivel inmediato superior según la jerarquía espejada de ARGOS. Si es la máxima autoridad quien solicita, `[C]` quién autoriza — insumo #4 resuelto vía ARGOS, pero el caso concreto necesita confirmación.
 
@@ -706,7 +738,21 @@ La regla de vigencia es la misma que en `BD-02`: **durante todo el rango**, no s
 
 **Se evalúa en** `T-12`, y en `T-17` cuando la prórroga extiende la misión a franja inhábil.
 
-**Regla.** Si cualquier parte de la ventana de la misión cae en día inhábil u hora inhábil según el calendario configurable de la delegación, debe existir un **permiso de circulación emitido por ACT-09 Máxima Autoridad**, vigente para esa ventana y ese vehículo, y su **salvoconducto impreso** debe emitirse junto con la Orden de Misión.
+**Regla.** Si cualquier parte de la ventana de la misión cae en día inhábil u hora inhábil según el calendario configurable de la delegación, debe existir un **permiso de circulación emitido por ACT-09 Máxima Autoridad**, vigente para esa ventana, ese vehículo y esa ruta, y su **salvoconducto impreso** debe emitirse junto con la Orden de Misión.
+
+**Excepción — vehículo de servicio exceptuado.** No aplica a los vehículos marcados como de **servicio exceptuado** (emergencia, seguridad, defensa, salud), que [NRM-02](../../01-negocio/normativa/NRM-02-bienes-del-estado.md) exime `[V]` y que [`RN-24`](../../01-negocio/reglas/RN-24-vehiculo-de-servicio-exceptuado.md) ya reconocía. La excepción es **atributo del vehículo con vigencia**, no del viaje, y su uso queda registrado.
+
+> **Corrección — hallazgos `HB3-08` y `HB3-07`.**
+>
+> **`HB3-08`:** este bloqueo no contemplaba la excepción, de modo que **una ambulancia con excepción vigente no podía despacharse un domingo**. Ya estaba abierto desde el Bloque 1 como `HB1-21`.
+>
+> **`HB3-07`:** qué ampara el salvoconducto tenía tres redacciones — `BD-04` decía "vehículo y ventana", `PC-03` "vehículo, motorista y ventana", `RN-23` "vehículo, motorista, ruta y ventana". No es cosmético: decide si un relevo de motorista invalida el permiso frente al agente que lo revisa en carretera.
+>
+> **Resolución adoptada:** el permiso ampara **vehículo, ruta y ventana**. El motorista figura en el salvoconducto pero **un relevo documentado no lo invalida**, siempre que el motorista entrante esté habilitado (`BD-02`) y el relevo quede registrado.
+>
+> La razón es operativa y hay que decirla: si el relevo invalidara el permiso, un motorista incapacitado un domingo en carretera dejaría el vehículo varado sin salida legal — y la institución tendría un bien del Estado abandonado en la vía, que es peor que el riesgo que el permiso pretende controlar.
+>
+> `[C]` **Confirmar con Auditoría Interna.** `NRM-02` no precisa el alcance del permiso; la lectura es nuestra. Si la institución exige que sea nominativo por motorista, se revierte y hay que diseñar la salida para el relevo en día inhábil.
 
 **Cómo se determina "inhábil".**
 - Calendario de días hábiles, feriados y horario laboral **configurable por institución y por delegación** ([NRM-09](../../01-negocio/normativa/NRM-09-realidad-operativa.md)). Los feriados se espejan de Talento Humano ([DP-001, D-07](../../07-gestion/decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md)).
@@ -724,13 +770,22 @@ La regla de vigencia es la misma que en `BD-02`: **durante todo el rango**, no s
 | Condición | Tratamiento |
 |---|---|
 | Odómetro de salida < última lectura conocida del vehículo | **Bloqueo duro de captura.** Es error de digitación o retroceso de odómetro |
-| Odómetro de retorno < odómetro de salida | **Bloqueo duro de captura.** Físicamente imposible |
+| Odómetro de retorno < odómetro de salida, en `T-18` **ordinario** | **Bloqueo duro de captura.** Físicamente imposible |
+| Odómetro de retorno < odómetro de salida, en `T-18` subtipo **retorno constatado** | **No bloquea.** Se registra tal cual, se marca la inconsistencia y **el vehículo se libera igual** — ver la nota de abajo |
 | Odómetro de retorno = odómetro de salida en misión ejecutada | Permitido pero exige justificación. Es el patrón de la misión que nunca se hizo |
 | Kilómetros recorridos > distancia estimada × factor configurable | **No bloquea.** Justificación obligatoria y marca para revisión. Deriva en `H-02` |
 | Kilómetros recorridos < distancia estimada × factor configurable | **No bloquea.** Igual tratamiento: la desviación se vigila **en ambas direcciones** ([NRM-01](../../01-negocio/normativa/NRM-01-control-interno-tsc.md)) |
 | Salto imposible respecto al tiempo transcurrido | **No bloquea.** Marca para revisión |
 
-**La única salida al bloqueo duro** es que exista un **acta previa de sustitución o reinicio de odómetro**, registrada por ACT-11 Encargado de Mantenimiento antes de la salida, con la lectura del odómetro retirado y la del instalado. Entonces el sistema calcula el kilometraje acumulado sumando tramos y el bloqueo no aplica. **No es un permiso para saltarse la validación: es un hecho mecánico que hay que poder registrar.**
+> **Corrección — hallazgo `HB3-04`.** Este bloqueo era incompatible con [`RN-79`](../../01-negocio/reglas/RN-79-retorno-constatado-libera-al-vehiculo.md), que establece que la constatación física del retorno *"se registra tal cual, se marca la inconsistencia y el vehículo se libera igual"*.
+>
+> **Resolución:** se distingue el `T-18` **ordinario** —el motorista registra su propio retorno, con el vehículo delante— del subtipo **retorno constatado**, en el que un tercero verifica que el vehículo está de vuelta sin que el motorista haya podido cerrar la bitácora: incapacitado, sin dispositivo, o simplemente no volvió a la oficina.
+>
+> En el ordinario, una lectura menor a la de salida es error de digitación y se corrige en el momento. En el constatado, **bloquear no arregla nada**: el vehículo ya está en el predio, y negarse a registrarlo lo deja secuestrado por un trámite mientras la delegación se queda sin unidad. Se registra la inconsistencia, se libera el vehículo, y la liquidación queda bloqueada hasta resolverla.
+>
+> Detectado al escribir [`CU-10`](../../02-requisitos/casos-de-uso/CU-10-registrar-retorno-y-cerrar-bitacora.md).
+
+**La única salida al bloqueo duro** —en el `T-18` ordinario— es que exista un **acta previa de sustitución o reinicio de odómetro**, registrada por ACT-11 Encargado de Mantenimiento antes de la salida, con la lectura del odómetro retirado y la del instalado. Entonces el sistema calcula el kilometraje acumulado sumando tramos y el bloqueo no aplica. **No es un permiso para saltarse la validación: es un hecho mecánico que hay que poder registrar.**
 
 Esto importa porque el hallazgo típico del TSC en flota es el **incremento de consumo de combustible sin relación con el uso habitual**, y el odómetro es el único ancla que tiene el sistema para detectarlo.
 
@@ -1302,11 +1357,27 @@ stateDiagram-v2
     NO_DISPONIBLE --> EN_TALLER: W-12 enviar a taller
     EN_TALLER --> NO_DISPONIBLE: W-13 irreparable o pendiente
 
+    DISPONIBLE --> PRESTADO: W-16 prestar a otra dependencia
+    NO_DISPONIBLE --> PRESTADO: W-16b prestar desde no disponible
+    PRESTADO --> DISPONIBLE: W-17 devolucion del prestamo
+
     NO_DISPONIBLE --> DADO_DE_BAJA: W-14 descargo
     EN_TALLER --> DADO_DE_BAJA: W-15 descargo por irreparable
 
+    NO_DISPONIBLE --> RETIRADO_DE_FLOTA: W-18 fin de tenencia
+    EN_TALLER --> RETIRADO_DE_FLOTA: W-19 sustitucion por el arrendador
+
     DADO_DE_BAJA --> [*]
+    RETIRADO_DE_FLOTA --> [*]
 ```
+
+> **Corrección — hallazgos `HB3-17` y el de `CE-14`.** Faltaban dos estados, y su ausencia obligaba a registrar asientos falsos.
+>
+> **`RETIRADO_DE_FLOTA`** — segundo estado terminal. El único terminal era `DADO_DE_BAJA` **por descargo**, que presupone que el bien es nuestro. Devolver un vehículo en comodato al comodante, o terminar un alquiler, obligaba a declararlo *dado de baja del registro de bienes del Estado* — **un asiento falso sobre un bien ajeno**, detectable cruzando el inventario institucional contra el padrón de flota. Son cosas distintas: el descargo extingue un bien propio; el retiro devuelve uno que nunca lo fue.
+>
+> **`PRESTADO`** — la enumeración de causas de `NO_DISPONIBLE` no incluía el préstamo entre dependencias o instituciones, pese a que [`RN-19`](../../01-negocio/reglas/RN-19-vehiculo-no-operativo-no-se-asigna.md) lo trata como caso límite y [`RN-13`](../../01-negocio/reglas/RN-13-sin-doble-asignacion.md) exige que ocupe ventana. Un vehículo prestado no está averiado ni de baja: está fuera de nuestro alcance operativo pero sigue siendo nuestro, y sigue devengando responsabilidad patrimonial.
+>
+> Detectado al escribir [`CE-14`](../../02-requisitos/casos-especiales/CE-14-vehiculo-prestado-entre-dependencias-o-instituciones.md), [`CE-15`](../../02-requisitos/casos-especiales/CE-15-vehiculo-en-comodato-o-alquilado.md) y [`CU-17`](../../02-requisitos/casos-de-uso/CU-17-alta-y-mantenimiento-del-expediente-del-vehiculo.md).
 
 | Estado | Qué es cierto | Quién lo fija |
 |---|---|---|
@@ -1315,7 +1386,9 @@ stateDiagram-v2
 | `EN_MISION` | Fuera, con misión `EN_RUTA` | Automático por `T-14` y `T-18` |
 | `EN_TALLER` | Con orden de trabajo abierta, preventivo o correctivo. No asignable | ACT-11 |
 | `NO_DISPONIBLE` | No asignable por causa **tipificada**: documentación vencida, incidente bajo investigación, resguardo ordenado — el caso de Semana Santa —, sin custodio, en trámite de descargo, alta reciente sin habilitar | ACT-04 · ACT-11 · ACT-08 |
-| `DADO_DE_BAJA` | Descargado del registro de bienes. **Terminal** | ACT-08 con acta |
+| `PRESTADO` | Cedido temporalmente a otra dependencia o institución. Sigue siendo bien nuestro y devenga responsabilidad patrimonial, pero no se puede asignar a misiones propias. Ocupa ventana | ACT-08 con acta de préstamo |
+| `DADO_DE_BAJA` | Descargado del registro de bienes. **Terminal.** Solo para bienes **propios** | ACT-08 con acta |
+| `RETIRADO_DE_FLOTA` | Fin de la tenencia de un bien **ajeno**: devolución de comodato, fin de alquiler, sustitución de unidad por el arrendador. **Terminal.** No es descargo: el bien nunca fue del Estado | ACT-14 con acta de devolución |
 
 **Reglas**
 

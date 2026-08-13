@@ -12,7 +12,15 @@
 
 El **reclamo por discrepancia de clasificación de peaje** es un **objeto propio** con: **estado**, **destinatario**, **fecha de presentación**, **resolución** y **resultado económico**.
 
-Las discrepancias que lo integran **no se dan por cerradas hasta que el reclamo se resuelve**.
+Las discrepancias que lo integran **no se dan por cerradas hasta que el reclamo se resuelve** — pero **el reclamo abierto no impide cerrar la Orden de Misión**.
+
+> **Corrección — hallazgo `HB3-02`.** La redacción anterior, leída junto con `T-21`, dejaba **el expediente atrapado en `LIQUIDADA` indefinidamente**: el reclamo ante la SAPP tarda meses y la discrepancia de clasificación no está entre los criterios `H-01` a `H-08`, cuya lista está cerrada. No había salida ni por `T-21` ni por `T-22`.
+>
+> Es lo que [`RN-08`](RN-08-cadena-de-trazabilidad-para-cierre.md) evitó al admitir `CERRADA_CON_HALLAZGO`: *un expediente que no puede cerrarse se abandona.*
+>
+> **Lo que se cierra es la misión; lo que sigue abierto es el reclamo.** Son dos expedientes distintos. El reclamo es una gestión **contra un tercero** por un cobro indebido de la concesionaria — es una **cuenta por cobrar**, no un hallazgo sobre la conducta de la institución. Sobrevive al cierre con su monto, igual que la obligación de reintegro de [`RN-86`](.).
+>
+> `[C]` Decisión del PO pendiente. La alternativa era abrir un `H-09` y cerrar como `CERRADA_CON_HALLAZGO`; se descartó porque marcaría a la institución por un error del concesionario.
 
 El **sobrecosto por clasificación** se tipifica en cada liquidación con la constancia de que **no se imputó al motorista**.
 

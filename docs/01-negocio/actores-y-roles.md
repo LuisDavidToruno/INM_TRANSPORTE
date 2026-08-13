@@ -483,6 +483,19 @@ Se evalúan **sobre la persona, no sobre el puesto** — una persona con tres pu
 | I-15 | `ACT-13` Custodio × Autoriza la salida de su propio vehículo | Misma misión | **Advertencia con motivo escrito** | Práctica de control, sin norma expresa `[I]` |
 | I-16 | Ordena el mantenimiento × Recibe conforme el trabajo | Misma orden de trabajo | **Advertencia con motivo escrito** | Práctica de control `[I]`. `[C]` si Auditoría Interna lo quiere como bloqueo |
 | I-17 | `ACT-14` Encargado de Bienes × Aprueba el descargo del bien | Mismo expediente de descargo | **Bloqueo duro** | Quien propone la baja de un bien no la aprueba — NRM-02 `[P]` |
+| **I-18** | **Habilita la licencia × Es habilitado** | Mismo expediente de habilitación | **Bloqueo duro** `[C]` | Quien se habilita a sí mismo da por bueno el único dato del que depende `BD-02` — el bloqueo de mayor valor legal del sistema. Hallazgo `HB3-05` |
+| **I-19** | **Solicita el fondo × Aprueba el fondo** | Mismo fondo, mismo período | **Bloqueo duro** `[C]` | `RN-01` razona por Orden de Misión y el fondo es objeto **de período**, así que este par se caía entre las dos. Vivía solo en el numeral 4 de `RN-26`. Hallazgos `HN1-15` y `HB3-06` |
+
+> **`I-18` e `I-19` — incorporadas provisionalmente tras los hallazgos `HB3-05` y `HB3-06`.**
+>
+> Ninguna de las dos existía, y ambas cubren huecos reales:
+>
+> - **`I-18`**: en una delegación pequeña, el `ACT-04` que también conduce podía **registrar y dar por buena su propia licencia**. `BD-02` bloquea conducir sin licencia habilitante, pero leía un dato que el propio conductor había capturado. El control se validaba a sí mismo.
+> - **`I-19`**: el par *solicita fondo × aprueba fondo* no estaba en ningún lado, porque `RN-01` razona por misión y el fondo es de período. `I-17` tenía el mismo problema de encuadre.
+>
+> **Están marcadas `[C]` y no `[V]`**: la exigencia se deduce del principio de segregación del MARCI, no de articulado citable — y ya sabemos por `HN1-02` que la numeración de esa norma sigue sin verificarse.
+>
+> **Consecuencia operativa que hay que mirar de frente:** `I-18` puede dejar sin salida a una delegación de tres personas donde el único que sabe de licencias es también el que conduce. Mientras el insumo #26 siga abierto, el tratamiento es el mismo que el resto: **escalamiento a sede**, no excepción local. Si Auditoría Interna dice otra cosa, se ajusta.
 
 **El núcleo irreductible (I-07, I-10, I-11, I-12, I-13) no se levanta nunca**: ni por régimen de excepción, ni por delegación, ni por resolución de la máxima autoridad. Todo lo demás admite el tratamiento de la sección 5.4.
 
