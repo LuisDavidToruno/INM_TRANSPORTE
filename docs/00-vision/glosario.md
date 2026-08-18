@@ -44,9 +44,20 @@ En papel existe hoy como formato preimpreso. **La pantalla debe reproducirlo cam
 ## 2. Las personas
 
 ### Motorista
-Quien conduce el vehículo institucional. **Es el término del dominio hondureño.** No se usa "conductor" ni "chofer" en artefactos ni en la interfaz.
+Quien conduce el vehículo institucional **y pertenece al padrón de motoristas**. Es el término del dominio hondureño, y el que va en la interfaz. No se usa "chofer".
 
 Como empleado pertenece a Talento Humano; como recurso de la flota pertenece a SIGTI.
+
+### Quien conduce
+**No es sinónimo de motorista, y la diferencia importa.**
+
+`RN-57` verifica la habilitación sobre **quien efectivamente conduce**, cualquiera sea su puesto — y esa persona **puede no estar en el padrón**: el funcionario con vehículo asignado permanentemente, o quien releva en una emergencia.
+
+Todo motorista es quien conduce; **no todo quien conduce es motorista**. En la interfaz se dice *"quien conduce"* o *"conductor declarado"* cuando el padrón no aplica, y **motorista** cuando sí.
+
+> **Distinción incorporada tras el hallazgo 5.1 de la entrega de diseño.** El diseñador notó que el inventario y el mapa de navegación usaban "conductor" donde el glosario lo prohibía, y planteó la duda correcta: *o se renombran esas pantallas, o "conductor" tiene ahí un sentido distinto que el glosario debería recoger.*
+>
+> Era lo segundo. La prohibición original era correcta como sustituto de *motorista*, pero borraba una distinción que `RN-57` necesita — y que apareció justamente al cubrir el hueco de `CE-19`, donde el funcionario que conduce su propio vehículo no lo alcanzaba ninguna verificación de licencia.
 
 ### Jefatura inmediata
 Superior jerárquico directo del solicitante, quien autoriza la solicitud en primera instancia.
@@ -253,7 +264,8 @@ No se usan en artefactos, código ni interfaz. La columna derecha es lo que se u
 
 | No usar | Usar |
 |---|---|
-| driver, conductor, chofer | **motorista** |
+| driver, chofer | **motorista** |
+| conductor, como sustituto de *motorista* | **motorista** — pero ver "Quien conduce": el término sí es válido cuando el padrón no aplica |
 | trip, viaje (como entidad) | **Orden de Misión** |
 | request | **solicitud** |
 | log, logbook | **bitácora** |
