@@ -6,9 +6,11 @@ Cómo se ve y cómo se recorre el sistema.
 
 | Ruta | Estado | Contenido |
 |---|---|---|
-| `mapa-de-navegacion.md` | Bloque 4 | Estructura de pantallas por rol y los caminos entre ellas |
-| `wireframes/` | Bloque 4 | Bocetos de baja fidelidad, uno por pantalla clave |
-| `formatos-impresos/` | Bloque 4 | Diseño de los documentos oficiales: orden de misión, vale, bitácora, salvoconducto, planilla de viáticos, acta de entrega |
+| `mapa-de-navegacion.md` | ✅ Bloque 4 | Estructura de pantallas por rol y los caminos entre ellas, en los dos clientes |
+| `inventario-de-pantallas.md` | ✅ Bloque 4 | Las 126 pantallas con su trazabilidad, si funcionan sin red y si replican papel |
+| [`brief-para-diseno.md`](brief-para-diseno.md) | ✅ Bloque 4 | **Paquete de entrega para el diseñador.** Qué leer, en qué orden, y qué se puede empezar hoy |
+| `wireframes/` | Delegado a diseño | Bocetos de baja fidelidad. 91 pantallas se pueden hacer ya; 27 esperan los formatos en papel |
+| `formatos-impresos/` | Bloque 4 | Diseño de los documentos oficiales: orden de misión, vale de combustible, bitácora, salvoconducto, acta de entrega-recepción |
 
 ## Principio rector: paridad pantalla ↔ papel
 

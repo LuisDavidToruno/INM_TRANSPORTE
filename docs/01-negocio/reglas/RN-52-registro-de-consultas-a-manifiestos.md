@@ -56,4 +56,4 @@ Aplica a datos personales de personas trasladadas (M-17) y a las restricciones m
 - Decisión: [DP-001, D-14](../../07-gestion/decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md)
 - Reglas relacionadas: [RN-51](RN-51-minimizacion-de-datos-de-personas-externas.md), [RN-11](RN-11-restricciones-medicas-del-motorista.md), [RN-03](RN-03-registro-inmutable-de-autorizacion.md)
 - Actores: ACT-01, ACT-03, ACT-05, ACT-12
-- Historias y casos especiales: pendientes — Bloque 2
+- Historias: [HU-117](../../02-requisitos/historias/HU-117-acceso-al-manifiesto-por-necesidad-de-conocer.md) necesidad de conocer · [HU-118](../../02-requisitos/historias/HU-118-registrar-cada-consulta-al-manifiesto.md) registro de cada consulta · [HU-119](../../02-requisitos/historias/HU-119-reporte-de-accesos-y-alerta-de-patron-anomalo.md) reporte y alertas · [HU-120](../../02-requisitos/historias/HU-120-consultar-el-manifiesto-sin-conectividad.md) consulta sin red · [HU-121](../../02-requisitos/historias/HU-121-atender-habeas-data-buscar-y-exportar.md) hábeas data

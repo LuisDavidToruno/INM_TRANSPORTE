@@ -1,6 +1,6 @@
 # Historias de usuario `HU-xxx`
 
-**110 historias**, `HU-001` a `HU-110`, todas con criterios de aceptación en **Gherkin español**. Sin huecos en la numeración.
+**125 historias**, `HU-001` a `HU-125`, todas con criterios de aceptación en **Gherkin español**. Sin huecos en la numeración.
 
 Cada historia es una **rebanada entregable** de un caso de uso: produce valor por sí sola y se termina en un sprint. No es una pantalla ni un campo.
 
@@ -28,6 +28,7 @@ Plantillas: [historia de usuario](../../plantillas/historia-de-usuario.md) · [c
 | `HU-093` – `HU-095` | [CU-16](../casos-de-uso/CU-16-cerrar-el-expediente-de-la-mision.md) cerrar | M-13, M-14 |
 | `HU-096` – `HU-104` | [CU-17](../casos-de-uso/CU-17-alta-y-mantenimiento-del-expediente-del-vehiculo.md) expediente del vehículo | M-03, M-04 |
 | `HU-105` – `HU-110` | [CU-18](../casos-de-uso/CU-18-registrar-y-mantener-la-habilitacion-del-motorista.md) habilitación del motorista | M-05 |
+| `HU-111` – `HU-125` | **Traslado de personas externas** — sin caso de uso previo, escritas para tapar el hueco detectado al armar el backlog | **M-17** |
 
 ## Estado de Definition of Ready
 
