@@ -132,6 +132,14 @@ Un requisito no funcional que no se puede medir es una aspiración. Estos son lo
 |---|---|---|---|
 | 76 | **¿Quién es el responsable, por puesto, de la cola de conflictos de sincronización de cada delegación?** Y con ella: **cuánto tiempo retiene el servidor una transición cuya predecesora no ha llegado** antes de escalarla, y **en qué plazo se escala un conflicto sin resolver**. `RN-45` exige que la cola tenga responsable por puesto, antigüedad visible y escalamiento por plazo configurable —*"una cola sin dueño se convierte en un basurero"*—, y la §6.3 Regla 2 de la máquina de estados exige un plazo que hoy no tiene valor | Sin responsable nombrado, los conflictos se acumulan y `BD-08` bloquea liquidaciones que nadie sabe que le tocan. Sin plazo de retención, una transición con hueco de secuencia queda en espera indefinida y la misión no se puede liquidar ni cerrar | [`CU-11`](../02-requisitos/casos-de-uso/CU-11-sincronizar-y-resolver-conflictos.md), `RN-45`, `RNF-03` |
 
+
+## Abiertos — surgidos de las historias de usuario
+
+| # | Insumo | Qué desbloquea | Origen |
+|---|---|---|---|
+| 77 | **Procedimiento y plazo para reclamar un peaje mal cobrado** ante el concesionario o la SAPP: a quién se presenta, en qué forma, con qué plazo de prescripción y qué respuesta cabe esperar | `RN-92` modela el reclamo como objeto con estado y resultado económico, pero **nadie sabe cómo se presenta**. Sin el procedimiento, el sistema registra un reclamo que no se puede tramitar | `HU-050`, `RN-92`, `CE-24` |
+| 78 | **Plazo de la obligación de recuperar un vehículo resguardado fuera de sede**, y quién responde por él mientras tanto | Cuando la misión termina con el vehículo resguardado en sitio — avería, incapacidad del motorista, retorno del personal sin la unidad — el bien queda bajo custodia de alguien, en algún lugar, por tiempo indefinido. Es responsabilidad patrimonial sin dueño ni reloj | `HU-059`, `HU-065`, `CE-02`, `CE-10` |
+
 ## Resueltos en la revisión del 2026-08-06
 
 | # | Insumo original | Resolución |
