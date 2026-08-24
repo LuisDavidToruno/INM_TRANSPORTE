@@ -4,6 +4,8 @@ Marco legal y administrativo que condiciona el diseño de SIGTI. Cada ficha trad
 
 **Fecha de investigación: 2026-08-06.** La normativa de este dominio cambia con frecuencia. Revisa [riesgos-normativos.md](riesgos-normativos.md) antes de tomar cualquier ficha como definitiva.
 
+**Segunda ronda: 2026-08-24** — investigación pública sobre peajes, licencias, clasificadores presupuestarios y rotulación. Actualizadas [NRM-02](NRM-02-bienes-del-estado.md), [NRM-04](NRM-04-presupuesto-siafi.md), [NRM-06](NRM-06-transito-y-licencias.md) y [NRM-10](NRM-10-peajes.md). **Dos afirmaciones marcadas `[V]` se degradaron** — ver riesgos #19 y #21.
+
 ## Leyenda de verificación
 
 | Marca | Significado |
@@ -13,7 +15,13 @@ Marco legal y administrativo que condiciona el diseño de SIGTI. Cada ficha trad
 | `[C]` | Por confirmar con la institución |
 | `[I]` | Inferencia o práctica común, no norma |
 
-**Advertencia metodológica:** muchos PDF oficiales de `tsc.gob.hn`, `onadici.gob.hn` y `sefin.gob.hn` son escaneos sin capa de texto. Se verificó existencia, numeración y vigencia; en varios casos no fue posible transcribir el articulado. **No se inventó ningún número de artículo, tarifa ni código presupuestario.**
+**Advertencia metodológica — corregida el 2026-08-24.** La afirmación de que *"los PDF oficiales son escaneos sin capa de texto"* es **una generalización falsa**, y costó cuatro documentos legibles que se dieron por perdidos.
+
+- **La mayoría de los PDF del TSC y de SEFIN sí tienen capa de texto.** Sus streams están comprimidos con FlateDecode y los buscadores indexan su contenido; lo que falla es el conversor web, no el documento. **Se abren con cualquier lector de PDF.**
+- **Solo algunos son escaneos de imagen reales** — confirmado para la Circular 003-2025-Presidencia-TSC. Esos sí requieren OCR.
+- **Antes de declarar un PDF ilegible:** comprobar si un buscador devuelve texto de su interior. Si lo devuelve, el documento tiene texto.
+
+Se verificó existencia, numeración y vigencia; en varios casos no fue posible transcribir el articulado. **No se inventó ningún número de artículo, tarifa ni código presupuestario.**
 
 ## Fichas
 

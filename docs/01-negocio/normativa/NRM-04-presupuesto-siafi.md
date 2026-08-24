@@ -31,7 +31,36 @@ Según la propia FAQ de SEFIN, **SIAFI GES** se usa en formulación presupuestar
 
 El **Manual de Clasificadores** define cinco clasificaciones: por objeto, por funciones, por fuente de financiamiento, por organismo financiador y geográfica. `[V]`
 
-**No se pudieron verificar los códigos numéricos del objeto del gasto** para combustibles y lubricantes, mantenimiento de vehículos y viáticos. **No se inventan.** Deben tomarse del manual vigente. `[C]`
+### Códigos del objeto del gasto — avance parcial del 2026-08-24
+
+**Combustibles y lubricantes** `[P]`. Grupo localizado en el clasificador de objetos del gasto de SEFIN. **Origen: el índice de un buscador sobre el PDF oficial `Objetos-del-Gasto-2019.pdf`; no se pudo abrir el documento.**
+
+| Código | Descripción |
+|---|---|
+| **35600** | Combustibles y Lubricantes |
+| 35610 | Gasolina |
+| 35620 | Diésel |
+| 35630 | Kerosén |
+| 35640 | Gas LPG |
+| **35650** | Aceites y Grasas Lubricantes |
+| 35660 | Bunker |
+
+Definición asociada `[P]`: *productos derivados del petróleo — gasolinas, aceites ligeros usados como combustible, kerosén, diésel y grasas lubricantes, gas natural y artificial, líquido de frenos y aceite para equipo de oficina.*
+
+> ### ⚠️ Tres advertencias que hay que leer antes de usar estos códigos
+>
+> 1. **`[P]`, no `[V]`.** El PDF oficial de SEFIN **sí tiene capa de texto** — los buscadores lo indexan — pero el entorno de investigación no pudo descomprimirlo. Nadie del equipo ha visto la tabla con sus ojos. Ver *Limitación de herramienta* en [NRM-06](NRM-06-transito-y-licencias.md).
+> 2. **Puede ser el clasificador municipal, no el de la Administración Central.** Una de las fuentes describe el archivo como *Clasificador de Objetos del Gasto Municipal*. **Si SIGTI se despliega en una institución de la Administración Central, estos códigos podrían no aplicarle.** Contradicción no resuelta.
+> 3. **El archivo se llama `Objetos-del-Gasto-2019.pdf`.** El Manual de Clasificadores de referencia en esta ficha es de 2018 y el ejercicio en curso es 2026. **Un clasificador de siete años atrás no se carga a producción sin confirmar vigencia.**
+
+**No verificado y no inventado** `[C]`:
+
+- **Mantenimiento y reparación de vehículos o equipo de transporte** — no se localizó el código.
+- **Llantas, neumáticos y repuestos** — no se localizó.
+- **Peajes.** No se localizó ningún objeto del gasto de peaje, y **es dudoso que exista uno propio**: el peaje probablemente se imputa a un objeto genérico de servicios, o se financia con el viático — que es precisamente la frontera abierta con ARGOS del insumo #25. `[I]`
+- **Seguros** — no se localizó.
+
+**Ninguno de estos códigos se cablea.** Van al catálogo de objeto del gasto con vigencia por fecha, igual que todo lo demás.
 
 ## Cuotas trimestrales de compromiso `[V]`
 
@@ -54,7 +83,9 @@ Esto es determinante y suele pasarse por alto: **el gasto en combustible y viát
 
 ## Zonas grises y pendientes
 
-- `[C]` Códigos del objeto del gasto para combustible, mantenimiento y viáticos, tomados del Manual de Clasificadores vigente.
+- `[P]` **Combustibles y lubricantes: grupo 35600 y sus subcódigos.** Falta abrir el PDF oficial y confirmar tres cosas: que aplica a la Administración Central y no solo a municipios, que el clasificador de 2019 sigue vigente en 2026, y la transcripción literal.
+- `[C]` **Códigos de mantenimiento y reparación de vehículos, llantas, repuestos y seguros.** Buscados el 2026-08-24 sin resultado.
+- `[C]` **¿Existe objeto del gasto propio para peajes?** Probablemente no; ver la nota en la sección de clasificadores. Es la otra cara del insumo #25.
 - `[C]` Artículos del Acuerdo 360-2026 sobre combustible, vehículos y viáticos.
 - `[C]` ¿Existe alguna interfaz o mecanismo de intercambio con SIAFI disponible para la institución? Determina si la conciliación es por archivo o automatizable.
 - `[C]` Estructura presupuestaria concreta que usa la institución piloto.
@@ -64,3 +95,5 @@ Esto es determinante y suele pasarse por alto: **el gasto en combustible y viát
 - [SEFIN — Administración Financiera SIAFI](https://www.sefin.gob.hn/administracion-financiera-siafi/) — consultado 2026-08-06
 - [SEFIN — diferencia entre SIAFI GES y SIAFI](https://www.sefin.gob.hn/faq-items/que-diferencia-principal-existe-entre-siafi-ges-y-siafi/) — consultado 2026-08-06
 - [SEFIN — Manual de Clasificadores Presupuestarios](https://www.sefin.gob.hn/wp-content/uploads/SAMI/docs/CLASIFICADORES/Manual-de-Clasifiadores-Presupuestarios.pdf) — consultado 2026-08-06
+- [SEFIN — Objetos del Gasto 2019](https://www.sefin.gob.hn/wp-content/uploads/SAMI/docs/CLASIFICADORES/Objetos-del-Gasto-2019.pdf) — consultado **2026-08-24**. **Tiene capa de texto**; no legible con las herramientas disponibles. Origen del grupo 35600
+- [SEFIN — Disposiciones Generales del Presupuesto 2026](https://www.sefin.gob.hn/wp-content/uploads/Presupuesto/2026/Proyecto/index_html_files/Disposiciones-Generales-2026.pdf) — localizado el 2026-08-24, **no consultado en detalle**. Es la vía para cerrar los topes sobre combustible y vehículos

@@ -4,6 +4,8 @@ Documentos y datos que se necesitan para que el análisis se apoye en la realida
 
 **Actualizado 2026-08-06** tras la revisión del PO. Ver [DP-001](decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md).
 
+**Actualizado 2026-08-24** tras una ronda de investigación pública sobre los insumos que **no dependen de la institución piloto** — #20, #21, #22, #23, #42, #43 y los códigos presupuestarios. Ninguno se cierra por completo; seis se reducen o se reencuadran, y se abren los insumos #79 a #82. Ver la nota metodológica de [riesgos-normativos.md](../01-negocio/normativa/riesgos-normativos.md).
+
 ## Abiertos — bloqueantes
 
 | # | Insumo | Para qué | Bloquea |
@@ -19,10 +21,10 @@ Documentos y datos que se necesitan para que el análisis se apoye en la realida
 | 17 | **Contrato de API de Talento Humano**: expediente del empleado, licencias, permisos, vacaciones, incapacidades, calendario | Padrón de motoristas y disponibilidad para asignación | M-05, M-07, M-20 |
 | 18 | **Componente de mapas de ARGOS**: cuál es, cómo se reutiliza, qué licencia o servicio usa | M-19 Seguimiento en Ruta se apoya en él | M-19 |
 | 19 | **Informes de Auditoría Interna o del TSC** sobre flota, combustible o uso de vehículos, si existen | Cada hallazgo describe algo que salió mal en la operación real: **son requisitos disfrazados** y valen más que cualquier entrevista | Bloque 2 |
-| 20 | **Texto de la reforma al Art. 48 de la Ley de Tránsito** (2025), categorías CD y CE | Fijar la matriz licencia↔vehículo definitiva | M-05, M-07 |
-| 21 | **Tarifa de peaje efectivamente vigente hoy**, confirmada con COVI-H o la SAPP | Hay contradicción entre el comunicado de la SIT del 28/02/2026 y fuentes comerciales. **No se carga ninguna tarifa sin esto** | M-18 |
-| 22 | **Lista oficial de exoneraciones de peaje** — cláusula del contrato de concesión o consulta a COVI-H | Decide si un vehículo administrativo del Estado paga o no. **Es lo que define cómo se construye M-18** | M-18 |
-| 23 | **OCR de dos PDF oficiales**: Ley de Tránsito (Arts. 48 y 51) y tabla de tarifas de la SAPP | Un solo trabajo resuelve la matriz licencia↔vehículo y el criterio de clasificación de peaje | M-05, M-07, M-18 |
+| 20 | ~~**Texto de la reforma al Art. 48**~~ → **`Acuerdo No. 1012-2021`, Reglamento Especial en Materia de Permisos de Conducir**. Reencuadrado el 2026-08-24: **el Art. 48 regula requisitos de obtención, no la matriz** | Fijar la matriz licencia↔vehículo definitiva. **El esquema de ocho categorías ya está `[V]`, y `BE` aparece en `[P]`; faltan los umbrales literales y confirmar `BE`**. El Decreto 51-2025 se despega como pendiente aparte, y toca M-05, no M-07 | M-05, M-07 |
+| 21 | ~~Contradicción entre el comunicado de la SIT y fuentes comerciales~~ **Resuelta el 2026-08-24 en contra de la fuente comercial, por cinco fuentes.** Queda: **confirmar con COVI-H o la SAPP que el congelamiento sigue vigente** — es condicional, sin plazo, y no hay evidencia entre marzo y agosto de 2026 | Ya hay tabla de trabajo `[P]` respaldada por el regulador. **Se puede diseñar M-18; no se promueve a producción sin esto** | M-18 |
+| 22 | **Lista oficial de exoneraciones de peaje.** **Cuatro vías web agotadas el 2026-08-24**: contrato en el portal PPP (403), `covih.com` (403 en todas las rutas), sitio de la SAPP (404 tras migración de dominio), búsqueda de resoluciones (sin resultado) | ~~Define cómo se construye M-18~~ **Ya no.** La exoneración se modela como dato del vehículo y el diseño es el mismo pague o no. Define **cuánto estima** el sistema. `[V]` un pick-up es categoría liviana — L. 22 | M-18 |
+| 23 | ~~**OCR de dos PDF oficiales**~~ **Reencuadrado el 2026-08-24: no es OCR, es abrir archivos.** Cuatro PDF oficiales **tienen capa de texto** y solo hay que descargarlos: Acuerdo 1012-2021, Decreto 51-2025, Ley de Tránsito y Objetos del Gasto de SEFIN. **Solo la Circular 003-2025-Presidencia-TSC requiere OCR real** | La matriz licencia↔vehículo, el expediente del motorista, los códigos presupuestarios y la rotulación de motos. **Veinte minutos con un navegador cierran cuatro de cinco** | M-05, M-07, M-18, M-03 |
 | 24 | **¿La institución tiene tags CoviPass?** ¿A nombre de quién? ¿COVI-H emite factura fiscal en caseta o estado de cuenta empresarial? | Determina si el descargo de peajes ante el TSC es defendible. `covih.com` bloquea la consulta automatizada | M-18, M-13 |
 | 25 | **¿El peaje se financia con el viático o es gasto de misión separado?** | Si va en el viático, es de ARGOS y M-18 se solapa. **Resolver antes de escribir historias de M-18** | M-18, M-20 |
 
@@ -72,8 +74,8 @@ Estas no son parámetros: si la respuesta es sí, hay diseño adicional que hace
 
 | # | Insumo |
 |---|---|
-| 42 | Catálogo oficial de **restricciones médicas** de la DNVT |
-| 43 | **¿Cómo se rotula una motocicleta del Estado?** El Acuerdo 303 describe franjas en *puertas laterales*, que una moto no tiene |
+| 42 | Catálogo oficial de **restricciones médicas** de la DNVT. **Buscado el 2026-08-24 sin resultado.** Se confirma `[V]` que el trámite exige exámenes general, visual, psicológico y de tipo sanguíneo en centros autorizados por la DNVT, y `[P]` que el Decreto 51-2025 añade toxicológico, glucosa y electrocardiograma para mayores de 40 en categorías C, D y CE — **pero el catálogo de códigos de restricción que se estampan en la licencia no tiene fuente pública.** Es consulta directa a la DNVT, no investigación documental |
+| 43 | **¿Cómo se rotula una motocicleta del Estado?** **Reencuadrado el 2026-08-24: puede que no haya vacío.** Las fuentes consultadas dicen *"partes laterales"*, no *"puertas laterales"* — y un tanque o un carenado **son** partes laterales. **Contradicción no resuelta**: ambas formulaciones son secundarias, ninguna es el texto del Acuerdo 303. Se cierra leyendo el Acuerdo 303 o la Circular 003-2025-Presidencia-TSC, **la única que sí requiere OCR**. Ver riesgo #21 |
 | 44 | ¿Hay vehículos con **excepción de rotulación** autorizada, y quién la concede? |
 
 ## Abiertos — surgidos del Bloque 2 · casos especiales
@@ -139,6 +141,28 @@ Un requisito no funcional que no se puede medir es una aspiración. Estos son lo
 |---|---|---|---|
 | 77 | **Procedimiento y plazo para reclamar un peaje mal cobrado** ante el concesionario o la SAPP: a quién se presenta, en qué forma, con qué plazo de prescripción y qué respuesta cabe esperar | `RN-92` modela el reclamo como objeto con estado y resultado económico, pero **nadie sabe cómo se presenta**. Sin el procedimiento, el sistema registra un reclamo que no se puede tramitar | `HU-050`, `RN-92`, `CE-24` |
 | 78 | **Plazo de la obligación de recuperar un vehículo resguardado fuera de sede**, y quién responde por él mientras tanto | Cuando la misión termina con el vehículo resguardado en sitio — avería, incapacidad del motorista, retorno del personal sin la unidad — el bien queda bajo custodia de alguien, en algún lugar, por tiempo indefinido. Es responsabilidad patrimonial sin dueño ni reloj | `HU-059`, `HU-065`, `CE-02`, `CE-10` |
+
+## Abiertos — surgidos de la investigación pública del 2026-08-24
+
+| # | Insumo | Qué desbloquea | A quién |
+|---|---|---|---|
+| 79 | **¿Existe la categoría de licencia `BE`, y existe una `DE` análoga?** El Acuerdo 1012-2021 contempla `BE` — *categoría B enganchada a remolque* — y `CLAUDE.md` enumera ocho categorías sin ella | **Un pickup que remolca plataforma, generador o lancha cae en `BE`, no en `B`.** Con ocho categorías cableadas, el bloqueo duro que el PO pidió como protección legal falla justo donde más se necesita. Se cierra leyendo el Acuerdo 1012-2021 | Nadie externo — **es abrir un PDF**. Ver insumo #23 |
+| 80 | **¿Se cerró la negociación SIT–COVI del ajuste gradual de peaje a cuatro años?** | Si se cerró, hay **cuatro tramos tarifarios con fecha conocida** que se cargan de una vez como parámetros con vigencia. Es el mejor escenario posible para el modelo de tarifas de M-18 | SIT o SAPP. Complementa el insumo #21 |
+| 81 | **¿Habrá lectura RFID de placa en las estaciones de peaje, y será el dato accesible a la institución?** El IP distribuye placas con RFID desde el último trimestre de 2026, con puntos de lectura en retenes, fronteras y casetas | Sería una fuente de paso por caseta **independiente de lo que declare el motorista** — el tipo de evidencia que el auditor prefiere. **No se diseña nada hoy**; se registra para no rehacer el modelo de M-18 y M-19 después | Instituto de la Propiedad. **Vigilancia, no bloqueo** |
+| 82 | **¿Quedan los vehículos del Estado incluidos, exceptuados o priorizados en el reemplazo de placas?** | Con **990,000 vehículos sin identificación (27 % del parque)**, define cuánto tiempo más el estado *"sin placa metálica"* seguirá siendo el caso normal y no la excepción | Instituto de la Propiedad / unidad de Bienes |
+
+## Reducidos o reencuadrados en la ronda del 2026-08-24
+
+Ninguno de estos se cierra del todo — se documenta qué se consiguió y qué queda.
+
+| # | Antes | Después |
+|---|---|---|
+| 20 | Texto de la reforma al Art. 48, para fijar la matriz | **El Art. 48 no contiene la matriz.** La matriz está en el Acuerdo 1012-2021, y su esquema de ocho categorías ya está `[V]`, y `BE` aparece en `[P]` por fuentes concordantes. El Decreto 51-2025 pasa a ser insumo de M-05 |
+| 21 | Contradicción abierta sobre la tarifa vigente | **Resuelta en contra de la fuente comercial.** Queda un hueco de seis meses sobre un congelamiento condicional. Hay tabla de trabajo `[P]` para diseñar |
+| 22 | Decide cómo se construye M-18 | **Ya no lo decide.** Un pick-up es categoría liviana `[V]` — L. 22. Cuatro vías web agotadas; solo se cierra preguntando |
+| 23 | Trabajo de OCR sobre dos PDF | **Cuatro PDF tienen capa de texto y solo hay que abrirlos.** Solo uno requiere OCR real |
+| 42 | Catálogo de restricciones médicas | Sin fuente pública. **Se confirma que la vía documental no existe**; es consulta a la DNVT |
+| 43 | *"El Acuerdo 303 describe franjas en puertas laterales, que una moto no tiene"* | **La premisa del insumo puede ser falsa.** Las fuentes dicen *"partes laterales"*. Contradicción abierta, ninguna fuente primaria |
 
 ## Resueltos en la revisión del 2026-08-06
 

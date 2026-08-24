@@ -4,7 +4,7 @@
 |---|---|
 | **Ámbito** | Administración, registro, identificación, uso y baja de vehículos propiedad del Estado |
 | **Módulos afectados** | M-03, M-04, M-07, M-12, M-15 |
-| **Última verificación** | 2026-08-06 |
+| **Última verificación** | **2026-08-24** (previa: 2026-08-06) |
 | **Riesgo de cambio** | Medio |
 
 ## Marco normativo
@@ -26,12 +26,24 @@
 Todo vehículo del Estado debe portar:
 
 - Placas nacionales
-- **Tres franjas horizontales de 10 cm cada una, azul–blanco–azul**, en las puertas laterales, como distintivo de pertenencia al Gobierno de la República
-- Leyenda **"PROPIEDAD DEL ESTADO DE HONDURAS"** en letras de **2.54 cm**
+- **Tres franjas horizontales de 10 cm cada una, azul–blanco–azul**, como distintivo de pertenencia al Gobierno de la República
+- Leyenda **"PROPIEDAD DEL ESTADO DE HONDURAS"** en letras de **2.54 cm**, sobre la franja central
 - Siglas o nombre de la institución
 - **Numeración consecutiva** institucional del vehículo
 
 Es un hallazgo de auditoría frecuente y se verifica físicamente en operativos.
+
+> ### Revisión del 2026-08-24 — dónde van las franjas, y qué pasa con las motos
+>
+> **Se corrigió "puertas laterales" por la fórmula sin sujeto.** `[P]` Las fuentes secundarias consultadas el 2026-08-24 dicen **"en las partes laterales"** del vehículo, no "en las puertas". Las medidas — 10 cm de franja, 2.54 cm de letra — se **confirman `[P]`** por fuente concordante.
+>
+> **Es una diferencia con consecuencias.** *"Puertas laterales"* excluye por construcción a la motocicleta y convierte el insumo #43 en un vacío normativo. *"Partes laterales"* no la excluye: un tanque de combustible y un carenado **son** partes laterales, y la rotulación sería exigible con la misma regla.
+>
+> **La contradicción no se resuelve aquí.** No se pudo leer el texto del Acuerdo 303 ni el de la Circular 003-2025-Presidencia-TSC — esta última es un **escaneo de imagen real** (JPEG embebido, digitalizado en Canon iR1643i II), a diferencia de otros PDF del TSC que sí tienen capa de texto. **Es el único documento del lote que efectivamente requiere OCR.**
+>
+> **Fiabilidad relativa:** ambas formulaciones vienen de fuentes secundarias. Ninguna es el texto del Acuerdo 303. **La atribución "puertas laterales" es la que hay que probar**, porque es la más restrictiva y la que hoy sostiene un insumo abierto.
+>
+> **Postura provisional para el diseño, sin cambiar ninguna regla:** el estado de rotulación se modela como **campo verificable con fecha, fotografía y observación libre**, exactamente como ya lo pide la implicación de requerimiento correspondiente. Ese modelo **funciona igual** con moto o con pickup, y no depende de resolver la contradicción. Lo que sí conviene evitar es cablear una lista de ubicaciones esperadas por tipo de vehículo.
 
 ## Prohibición de uso privado y permisos `[V]`
 
@@ -60,6 +72,8 @@ El *Manual de Propiedad Estatal* de la Dirección General de Bienes Nacionales r
 
 ## Zonas grises y pendientes
 
+- `[C]` **Ubicación exigida de las franjas — "puertas laterales" vs. "partes laterales".** Decide si la motocicleta del Estado tiene o no obligación de rotulación (insumo #43). Se cierra leyendo el Acuerdo 303 o la Circular 003-2025-Presidencia-TSC. **Esta última sí requiere OCR real.**
+- `[P]` **Categorías exceptuadas del control de circulación en día inhábil:** vehículos destinados a **emergencias, seguridad, defensa y salud**, más los adscritos a la **CONAPREMM**. Fuente periodística sobre actuaciones del TSC, consultada el 2026-08-24. Concuerda con la excepción que la ficha ya asumía; **sube de `[I]` a `[P]`, no a `[V]`.** Confirmar el listado literal contra la circular.
 - `[C]` ¿La institución tiene vehículos bajo alguna excepción de circulación (emergencia, salud, seguridad)? Es un atributo del vehículo, no del viaje.
 - `[C]` Formatos vigentes de acta de entrega-recepción, tarjeta de responsabilidad y descargo.
 - `[C]` Régimen aplicable a vehículos en comodato o alquilados: ¿les aplica la rotulación y la prohibición de día inhábil?
@@ -68,6 +82,9 @@ El *Manual de Propiedad Estatal* de la Dirección General de Bienes Nacionales r
 
 - [PCM-047-2015 — Dirección Nacional de Bienes del Estado](http://www.sefin.gob.hn/wp-content/uploads/2016/03/PCM-047-2015.pdf) — consultado 2026-08-06
 - [ONADICI — Circular STLCC-ONADICI No. 022-03-2024, uso indebido de vehículos](https://www.onadici.gob.hn/wp-content/uploads/2024/03/CIRCULAR-STLCC-ONADICI-No.-022-03-2024-USO-INDEBIDO-DE-VEHICULOS.pdf) — consultado 2026-08-06
+- [TSC — Circular 003-2025-Presidencia-TSC](https://www.tsc.gob.hn/wp-content/uploads/Circular_003-025_PRESIDENCIA-TSC.pdf) — consultada **2026-08-24**. **Escaneo de imagen real** (JPEG 1725×2221, Canon iR1643i II, procesado con *Paper Capture*): **requiere OCR**, a diferencia de otros PDF del TSC
+- [La Prensa — hasta L. 50,000 de multa por uso indebido de vehículos del Estado](https://www.laprensa.hn/honduras/multa-indebido-vehiculos-estado-tribunal-superior-cuentas-DD29912463) — consultada 2026-08-24. Origen `[P]` de las medidas de rotulación y de las categorías exceptuadas
+- [Tiempo — vehículos del Estado circulando sin permisos, 28/03/2026](https://tiempo.hn/honduras/2026/03/28/vehiculos-estado-honduras-sin-permisos-tsc-multas/) — consultada 2026-08-24
 - [TSC — Circular 003-2025-Presidencia](https://www.tsc.gob.hn/wp-content/uploads/Circular_003-025_PRESIDENCIA-TSC.pdf) — consultado 2026-08-06
 - [TSC advierte multas por uso indebido de vehículos del Estado, marzo 2026](https://tiempo.hn/honduras/2026/03/28/vehiculos-estado-honduras-sin-permisos-tsc-multas/) — consultado 2026-08-06
 - [AMHON — Reglamento para el control en el uso de vehículos municipales](https://amhon.hn/documentos/manuales/Reglamento_Vehiculos_Municipalidades.pdf) — consultado 2026-08-06
