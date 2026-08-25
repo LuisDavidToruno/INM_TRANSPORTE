@@ -6,7 +6,7 @@
 | **Actor** | ACT-04 Jefe de Transporte · ACT-12 Auditor Interno |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta el criterio de imputación entre ejercicios fiscales y la ventana de apertura cuando el registro tardío cruza el corte (`NRM-04`), y el umbral de materialidad a partir del cual el registro tardío obliga a asiento de diferencia en lugar de nota al expediente (insumo #1) |
 
 ## Historia
 

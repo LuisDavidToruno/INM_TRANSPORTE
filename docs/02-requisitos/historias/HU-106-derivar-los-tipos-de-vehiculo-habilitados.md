@@ -6,7 +6,7 @@
 | **Actor** | ACT-04 Jefe de Transporte |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — bloqueada por el texto de la reforma al Art. 48 (2025) sobre las categorías `CD` y `CE` (insumos #20 y #23): **sin él la matriz definitiva licencia↔vehículo no se puede fijar**, y esa matriz es el objeto entero de la historia. Es el pendiente más importante de `NRM-06` |
 
 ## Historia
 

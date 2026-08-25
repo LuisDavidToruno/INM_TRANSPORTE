@@ -6,7 +6,7 @@
 | **Actor** | ACT-06 Motorista |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta el catálogo de datos mínimos autorizados de personas externas, que `NRM-07` deja `[C]`, y el formato en papel vigente del acta de entrega (insumo #2), sin el cual la pantalla no puede tener paridad con la casilla del papel |
 
 ## Historia
 

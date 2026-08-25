@@ -6,7 +6,7 @@
 | **Actor** | ACT-06 Motorista · ACT-10 Encargado de Delegación · ACT-04 Jefe de Transporte |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta el régimen de responsabilidad patrimonial por el bien sustraído bajo custodia de misión (insumo #47) y el plazo de la obligación de recuperación con el puesto al que se asigna. Sin eso, el retorno sin vehículo no tiene desenlace de responsabilidad |
 
 ## Historia
 

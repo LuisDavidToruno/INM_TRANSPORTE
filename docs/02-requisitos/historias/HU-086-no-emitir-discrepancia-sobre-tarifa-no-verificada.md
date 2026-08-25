@@ -6,7 +6,7 @@
 | **Actor** | ACT-01 Administrador del Sistema (carga) · ACT-08 Gerencia Administrativa (pone en vigencia) · ACT-04 Jefe de Transporte (consume) |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta el OCR del PDF de tarifas de la SAPP, que es un escaneo sin capa de texto, para poder contrastarlo contra el HTML (insumo #21). Esta historia existe precisamente para no emitir discrepancia sobre una tarifa no verificada: sin la fuente verificada no hay nada que verificar |
 
 ## Historia
 

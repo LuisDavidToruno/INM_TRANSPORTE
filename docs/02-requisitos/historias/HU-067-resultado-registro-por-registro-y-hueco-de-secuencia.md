@@ -6,7 +6,7 @@
 | **Actor** | ACT-06 Motorista · ACT-04 Jefe de Transporte |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta cuánto tiempo retiene el servidor una transición cuya predecesora no ha llegado antes de escalarla, y el responsable por puesto de la cola de cada delegación (insumo #76). Sin dueño, la retención se convierte en un registro que nadie desatasca |
 
 ## Historia
 

@@ -6,7 +6,7 @@
 | **Actor** | ACT-06 Motorista |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta el catálogo institucional de causas de espera y cuáles cuentan como improductivas, y la ventana de atención de cada destino (insumo #51). Sin ellos no se puede distinguir la espera evitable de la inevitable, que es el objeto de la historia |
 
 ## Historia
 

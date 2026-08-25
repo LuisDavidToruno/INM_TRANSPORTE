@@ -6,7 +6,7 @@
 | **Actor** | ACT-08 Gerencia Administrativa |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta qué expedientes vinculados abiertos condicionan el cierre —incidente en investigación, orden de trabajo por novedad no atendida— y cuáles no (insumo #1). Es la condición de la transición, no un umbral. Falta también el plazo de retención documental del expediente cerrado (insumo #1) |
 
 ## Historia
 

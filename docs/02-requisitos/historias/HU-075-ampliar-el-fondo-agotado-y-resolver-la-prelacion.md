@@ -6,7 +6,7 @@
 | **Actor** | ACT-04 Jefe de Transporte |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — bloqueada por `PROP-01` / insumo #7, y falta el **criterio de prelación entre misiones que compiten** (insumo #31): el parámetro se entrega vacío y no se inventa un orden. Sin él, la ampliación no puede adjudicar |
 
 ## Historia
 

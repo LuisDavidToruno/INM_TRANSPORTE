@@ -6,7 +6,7 @@
 | **Actor** | ACT-08 Gerencia Administrativa (entrega) · ACT-07 Encargado de Combustible (recibe) |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — bloqueada por `PROP-01` / insumo #7: si la orden de pago lleva folio preimpreso o lo genera el sistema determina si el traspaso lista folios propios o folios de terceros. Falta también el formato en papel del acta de entrega y traspaso de fondo (insumo #2) |
 
 ## Historia
 

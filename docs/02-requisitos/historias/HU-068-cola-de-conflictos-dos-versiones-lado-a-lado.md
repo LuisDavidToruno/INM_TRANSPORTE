@@ -6,7 +6,7 @@
 | **Actor** | ACT-04 Jefe de Transporte · ACT-10 Encargado de Delegación en su ámbito |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta el responsable por puesto de la cola de conflictos de cada delegación y el plazo de escalamiento de un conflicto sin resolver (insumo #76), y el volumen esperado de conflictos por período (insumo #67), sin el cual no se dimensiona la cola ni la resolución por lotes |
 
 ## Historia
 

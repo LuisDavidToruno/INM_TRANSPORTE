@@ -6,7 +6,7 @@
 | **Actor** | ACT-04 Jefe de Transporte |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta el `criterio_vencimiento_licencia` —¿inicio o fin del día?— contra el texto de la Ley de Tránsito (insumo #33), y si la institución exige capacitaciones o certificaciones internas como **condición** de la habilitación o son dato informativo: de ello depende si entran en el cálculo de la vigencia |
 
 ## Historia
 

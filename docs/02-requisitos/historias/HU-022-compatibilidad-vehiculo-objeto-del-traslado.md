@@ -100,6 +100,18 @@ Característica: Compatibilidad y capacidad del vehículo frente al objeto del t
 - El peso **efectivo** medido en báscula y su desviación respecto a lo declarado — se registra en la ejecución (M-08)
 - La habilitación del motorista para ese vehículo — es [HU-025](HU-025-habilitacion-de-quien-efectivamente-conduce.md)
 
+## Delimitación de `RN-67` — hallazgo `HB34-15`
+
+> `RN-67` se aplica en tres momentos y ninguna de las tres historias lo declaraba. El comportamiento coincide —la ausencia de entrada bloquea—, así que no hay contradicción; faltaba la frontera.
+>
+> | Momento | Historia | Contra qué evalúa |
+> |---|---|---|
+> | Envío de la solicitud (M-06) | [`HU-002`](HU-002-bloqueo-de-compatibilidad-del-objeto-del-traslado.md) | El **tipo de vehículo requerido**, sin vehículo concreto |
+> | **Asignación del vehículo** (M-07) | **`HU-022`** | La **ficha técnica del vehículo concreto**: plazas y kilogramos reales, tramo por tramo |
+> | Programación con personas externas (M-17 · M-07) | [`HU-125`](HU-125-personas-externas-junto-con-carga-y-personal.md) | El par **personas externas × personal × carga**, con manifiesto y minimización |
+>
+> Esta historia es la única que evalúa contra **la unidad que va a salir**. Que `HU-002` haya pasado no la exime: el tipo dice 5 plazas y el `INS-P-014` concreto puede tener una desmontada.
+
 ## Notas y pendientes
 
 - `[C]` **Qué tipos de carga exigen peso cierto y cuáles admiten estimación por rango** — insumo #63. Mientras no se resuelva, el sistema exige peso declarado y lo marca como *estimado* si el solicitante lo declara así.

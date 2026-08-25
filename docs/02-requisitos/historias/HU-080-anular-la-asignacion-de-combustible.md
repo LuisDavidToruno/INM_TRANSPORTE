@@ -6,7 +6,15 @@
 | **Actor** | ACT-07 Encargado de Combustible · ACT-08 Gerencia Administrativa |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta el `plazo_devolucion_saldo` en días hábiles (insumo #32), la decisión sobre si la institución exige devolución física o admite destrucción con acta de los impresos anulados (insumo #1) y los formatos en papel del acta de anulación y del acta de devolución (insumo #2) |
+
+## Delimitación con `HU-044` — hallazgo `HB34-16`
+
+> Ambas historias cubren [`CE-20`](../casos-especiales/CE-20-mision-cancelada-con-combustible-ya-entregado.md) y llegan a la misma conclusión correcta —**con consumo no se anula, se liquida**—, con **dos mensajes distintos para el mismo bloqueo** y en dos sprints distintos. No estaban en la tabla de solapamientos del [`README`](README.md).
+>
+> **Delimitación adoptada:** [HU-044](HU-044-sustituir-con-la-mision-despachada.md) manda en **la reversión de la misión**; esta historia manda en **el ciclo del instrumento** —folio, acta de devolución uno por uno, asiento reverso contra el asiento de entrega, no reciclado del folio, plazo de devolución—, que es lo que `HU-044` no cubre.
+>
+> **El mensaje del bloqueo lo fija `HU-044`**, porque lo que se impide es anular la misión. Aquí se usa **la misma redacción** con los datos de este expediente. Ambas van al mismo sprint.
 
 ## Historia
 
@@ -63,8 +71,9 @@ Característica: Anulación y devolución de la asignación de combustible
     Y un abastecimiento registrado de "8.0" galones por "L 1,040.00" el "2026-09-23"
     Cuando la Gerencia Administrativa intenta anular la misión "OM-2026-0512"
     Entonces el sistema rechaza la anulación
-    Y muestra "La misión OM-2026-0512 registra consumo de L 1,040.00 el 23/09/2026. No se anula: se liquida, aunque su kilometraje sea cero."
+    Y muestra "Hubo consumo de 1,040.00 lempiras contra la asignación ASG-2026-00812. La misión no se anula: debe liquidarse aunque su kilometraje sea cero."
     Y el sistema encamina la misión hacia RETORNADA para su liquidación
+    Y el texto del bloqueo es el mismo que muestra HU-044 sobre la misma situación
 
   Escenario: Devolución íntegra sin ningún consumo
     Dado que "ASG-2026-00812" está en estado "ENTREGADA" y no registra ningún consumo
@@ -96,6 +105,7 @@ Característica: Anulación y devolución de la asignación de combustible
 ## Fuera de alcance
 
 - La liquidación de la misión no ejecutada con consumo — es [HU-089](HU-089-conciliar-el-fondo-y-tipificar-sobrante-y-faltante.md)
+- **La reversión de la misión** —custodia, documentos impresos, estado de la Orden, misión nueva con folio nuevo— es [HU-044](HU-044-sustituir-con-la-mision-despachada.md), que además es dueña del texto del bloqueo por consumo
 - La anulación de la Orden de Misión en sí: pertenece a la máquina de estados de la Orden (M-07)
 - El reintegro del faltante y su cobro: fuera de SIGTI
 

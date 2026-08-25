@@ -31,6 +31,11 @@ Es la validación de mayor valor legal del sistema, junto con `HU-012`, que cubr
 - [RN-11](../../01-negocio/reglas/RN-11-restricciones-medicas-del-motorista.md) — Las restricciones médicas de la licencia deben ser compatibles con las condiciones de la misión
 - [RN-14](../../01-negocio/reglas/RN-14-sustitucion-de-motorista.md) — Toda incorporación o cambio de conductor revalida las habilitaciones
 - [RN-59](../../01-negocio/reglas/RN-59-todo-uso-se-ampara-en-orden-de-mision.md) — Todo uso se ampara en Orden de Misión, cualquiera sea el régimen del vehículo
+- [RN-01](../../01-negocio/reglas/RN-01-segregacion-de-funciones.md) — **Segregación de funciones al declarar al conductor.** La regla exige la comprobación *«antes de registrar cualquier acto de control **y antes de asignar o sustituir al motorista**»*. `I-11` —conducir × autorizar, despachar, entregar el fondo o liquidar la misma misión— es **núcleo irreductible**: bloqueo duro que no se levanta por régimen de excepción, delegación, emergencia ni resolución de la máxima autoridad. Incorporada por `HB34-02`
+
+La matriz de incompatibilidades es autoridad de [`actores-y-roles.md §5.2`](../../01-negocio/actores-y-roles.md): esta historia **no la copia**, la aplica.
+
+> **Nota de corrección — `HB34-02`.** Ninguna de las historias que asignan, reservan, sustituyen o relevan al motorista comprobaba `I-11`. El caso: quien autoriza la orden el lunes se declara conductor de esa misma orden el martes, pasa las cinco verificaciones de habilitación —licencia vigente, categoría habilitante, sin restricciones— y la misión sale con el autorizador al volante. Se detectaba en la verificación de cierre de `RN-01` n.º 5, es decir **después de que ocurrió**, y el único efecto era `CERRADA_CON_HALLAZGO`. [HU-039](HU-039-segregacion-de-funciones-al-despachar.md) cubría la mitad simétrica —el motorista que pretende despachar—; `RN-01` dice que **el sistema bloquea el segundo acto, sea cual sea el orden**, y esta era la mitad que faltaba.
 
 ## Casos especiales que la afectan
 
@@ -54,6 +59,30 @@ Característica: Habilitación de cada persona declarada para conducir
     Y una misión con ventana del "2026-09-10" al "2026-09-14" y holgura posterior de "1" día
     Y un motorista "José Martínez" con licencia "01-1985-04321" categoría "C1",
       vigente hasta el "2027-03-15", sin restricciones médicas
+    Y una Orden de Misión "OM-2026-0451" autorizada por "Carlos Rodríguez" el "2026-09-07"
+
+  Escenario: Se rechaza declarar como conductor a quien autorizó la misma Orden de Misión
+    Dado un servidor "Carlos Rodríguez" con licencia "04-1983-22910" categoría "C",
+      vigente hasta el "2028-04-30", sin restricciones médicas
+    Cuando el Jefe de Transporte lo declara como conductor titular de "OM-2026-0451"
+    Entonces el sistema rechaza la declaración
+    Y muestra "Carlos Rodríguez autorizó la Orden de Misión OM-2026-0451 el 07/09/2026. Por incompatibilidad I-11 (RN-01) no puede ser declarado conductor de esa misión. Es núcleo irreductible: no admite excepción."
+    Y no ofrece ninguna opción de continuar por urgencia, por escasez de personal ni por resolución superior
+    Y registra el intento con el par de incompatibilidad detectado, el usuario, la función pretendida y el momento
+
+  Escenario: Se rechaza declarar como relevo a quien entregó el fondo de esa misión
+    Dado una Encargada de Combustible "Delmy Cruz" con licencia "07-1987-13355" categoría "C" vigente hasta el "2029-02-28"
+    Y que "Delmy Cruz" registró la entrega del fondo de "OM-2026-0451"
+    Cuando el Jefe de Transporte la declara como relevo de esa misión
+    Entonces el sistema rechaza la declaración del relevo
+    Y muestra "Delmy Cruz entregó el fondo de combustible de la Orden de Misión OM-2026-0451. Por incompatibilidad I-11 (RN-01) no puede conducirla."
+    Y la verificación se hace por identidad de persona, no por rol asignado
+
+  Escenario: Conducir y solicitar sí son compatibles
+    Dado que "José Martínez" registró la solicitud que dio origen a "OM-2026-0451"
+    Cuando el Jefe de Transporte lo declara como conductor titular de esa misión
+    Entonces el sistema acepta la declaración
+    Y no genera advertencia por segregación: `I-11` no incluye solicitar
 
   Escenario: Se rechaza al motorista de relevo cuya licencia no habilita el vehículo
     Dado un motorista de relevo "Marvin Discua" con licencia "05-1990-11987" categoría "B",
@@ -116,7 +145,9 @@ Característica: Habilitación de cada persona declarada para conducir
 
 - El bloqueo base sobre el motorista titular del padrón — es `HU-012` (Bloque de solicitud y autorización)
 - El expediente del motorista, la captura de licencias y las alertas anticipadas de vencimiento — son de M-05
-- El relevo ejecutado con la misión ya en ruta, con acta y corte de odómetro — es [HU-045](HU-045-relevo-de-motorista-en-ruta.md)
+- El relevo ejecutado con la misión ya en ruta: el acta y el corte de odómetro son de [HU-045](HU-045-relevo-de-motorista-en-ruta.md); la revalidación del entrante en ese momento es de [HU-061](HU-061-relevo-de-motorista-en-ruta.md)
+- La segregación de funciones en los demás actos —autorizar, despachar, entregar el fondo, liquidar— es de [HU-010](HU-010-bloqueo-de-segregacion-y-escalamiento.md), [HU-039](HU-039-segregacion-de-funciones-al-despachar.md), [HU-073](HU-073-impedir-que-quien-solicita-el-fondo-lo-apruebe.md) y [HU-091](HU-091-bloquear-la-liquidacion-por-segregacion-de-funciones.md). **Esta historia cubre exclusivamente el disparo por el acto de declarar al conductor**, que era la mitad de `I-11` que faltaba (`HB34-02`)
+- La definición y el mantenimiento de la matriz de incompatibilidades — es de [`actores-y-roles.md`](../../01-negocio/actores-y-roles.md) y de M-01
 - La validación contra el registro de la DNVT: no hay integración disponible; el dato es el que capturó la institución
 
 ## Notas y pendientes

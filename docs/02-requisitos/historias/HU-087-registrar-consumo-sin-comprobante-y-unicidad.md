@@ -6,7 +6,7 @@
 | **Actor** | ACT-06 Motorista (registra) · ACT-04 Jefe de Transporte (resuelve al liquidar) |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta el pronunciamiento de Auditoría Interna sobre si se admite una constancia como descargo alternativo, con qué tope y con qué umbral de hallazgo (insumo #1): los parámetros se entregan vacíos y ahí el dato **es** la lógica. Falta también la `clave_unicidad_comprobante` por tipo de comprobante (insumo #1) |
 
 ## Historia
 

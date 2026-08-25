@@ -6,7 +6,7 @@
 | **Actor** | ACT-04 Jefe de Transporte · ACT-10 Encargado de Delegación en su ámbito |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta quién convalida un acto de emergencia y en qué plazo, y quién puede ordenar el retorno anticipado (insumos #32 y #50). Sin eso, dos de los desenlaces obligatorios no tienen actor competente. Falta además decidir si un incidente abierto impide cerrar la misión o solo la marca (insumo #1) |
 
 ## Historia
 

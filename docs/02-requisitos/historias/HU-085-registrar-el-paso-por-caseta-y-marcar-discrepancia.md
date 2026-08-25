@@ -6,7 +6,7 @@
 | **Actor** | ACT-06 Motorista |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta el contenido literal del Artículo 51 de la Ley de Tránsito (insumo #23), la lista oficial de exoneraciones (insumo #22), si la institución opera con tags (insumo #24) y qué se acepta hoy como descargo de peaje: ticket de caseta, declaración o ninguno (insumo #1) |
 
 ## Historia
 

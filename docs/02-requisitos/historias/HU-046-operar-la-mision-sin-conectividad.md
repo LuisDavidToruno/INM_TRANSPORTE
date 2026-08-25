@@ -6,7 +6,7 @@
 | **Actor** | ACT-06 Motorista |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta la duración máxima real de la misión que ejecuta la institución (insumo #67): si supera 7 días, sube el umbral de `RNF-03` y cambia el dimensionamiento del cliente de campo. Falta también el dispositivo de campo de referencia (insumo #69) |
 
 ## Historia
 

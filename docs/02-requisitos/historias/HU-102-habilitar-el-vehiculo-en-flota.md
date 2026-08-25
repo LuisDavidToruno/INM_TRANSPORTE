@@ -6,7 +6,7 @@
 | **Actor** | ACT-04 Jefe de Transporte |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta el catálogo `estado_operativo_vehiculo` y qué estados habilitan la asignación (insumo #1): es la definición misma de *habilitado en flota*, no un parámetro. Faltan también el `horizonte_reservas_afectadas` al inhabilitar (insumo #1) y la modalidad de alquiler con sus condiciones de sustitución de unidad (insumo #57) |
 
 ## Historia
 

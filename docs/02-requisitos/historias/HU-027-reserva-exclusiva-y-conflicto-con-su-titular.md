@@ -99,6 +99,7 @@ Característica: Reserva exclusiva de recursos y resolución del conflicto
 - El **criterio de prelación** que decide cuál de dos solicitudes se queda con el recurso — no está definido y **no se inventa**
 - La consolidación de dos misiones en una sola Orden — es [HU-030](HU-030-consolidacion-de-solicitudes-compatibles.md)
 - La sustitución del recurso ya reservado por otro — es [HU-043](HU-043-sustituir-vehiculo-o-motorista-en-programada.md)
+- **La segregación de funciones sobre el motorista que se reserva** (`I-11`, [`RN-01`](../../01-negocio/reglas/RN-01-segregacion-de-funciones.md)) — es [HU-025](HU-025-habilitacion-de-quien-efectivamente-conduce.md), que la evalúa al declarar al conductor, **antes** de que exista reserva que constituir. Delimitación escrita por `HB34-02`: la reserva es exclusividad de franja, no habilitación de la persona, y no vuelve a evaluar lo que `HU-025` ya bloqueó
 - El reporte de conflictos acumulados como medición del déficit de flota — es de M-14
 
 ## Notas y pendientes

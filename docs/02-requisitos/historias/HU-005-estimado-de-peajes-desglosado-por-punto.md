@@ -52,6 +52,15 @@ Característica: Estimado de peajes de la ruta solicitada
     Y un tipo de vehículo requerido "Pickup doble cabina" cuya ficha técnica resuelve la categoría de peaje "Liviano"
     Y un umbral de antigüedad de la tabla de tarifas de "30" días
 
+  Escenario: Se rechaza producir estimado cuando ningún punto de la ruta tiene tarifa cargada
+    Dada una ruta "Tegucigalpa–Puerto Lempira" cuyos puntos de peaje no tienen ninguna tarifa cargada
+      para la categoría "Liviano"
+    Cuando el Solicitante consulta el estimado de peajes de esa ruta
+    Entonces el sistema no produce ningún estimado
+    Y muestra "Ningún punto de peaje de esta ruta tiene tarifa cargada. No se estima un gasto que quien autorice no podría verificar. Solicite a Catálogos Maestros la carga de las tarifas."
+    Y no muestra un total de "L 0.00" ni ninguna cifra sustitutiva
+    Y el expediente queda con el estimado marcado "no disponible", no con valor cero
+
   Escenario: Se declara la antigüedad de la tabla antes de mostrar cualquier número
     Dada una tabla de tarifas sincronizada por última vez el "2026-01-20"
     Y una fecha del sistema del "2026-03-14"
@@ -113,4 +122,6 @@ Característica: Estimado de peajes de la ruta solicitada
 - `[C]` **Lista oficial de exoneraciones** — insumo #22. Decide si un vehículo administrativo del Estado paga o no
 - `[P]` Que el país clasifique por punto y categoría consta en [NRM-10](../../01-negocio/normativa/NRM-10-peajes.md) con verificación parcial. Esta historia **no** eleva ese nivel
 - `[C]` Texto del Art. 51 de la Ley de Tránsito, necesario para fijar la derivación de categoría — insumo #23
+- Corregido por `HB34-20`: la historia no tenía **ningún camino de rechazo** y estaba marcada `Refinada`. El `DoR` lo exige sin excepción. El rechazo agregado es el que la propia historia insinuaba en su contexto —*«cuando el dato no es confiable, el sistema lo dice; nunca sustituye una tarifa faltante por una cifra inventada»*— llevado a su extremo: **con la tabla completamente vacía no se emite estimado, y el estimado ausente no es cero**. Un total de `L 0.00` en el expediente es un gasto que la jefatura autoriza creyendo que no existe.
+- `[C]` **Si la ausencia total de tarifas debe además impedir el envío de la solicitud.** Se adopta que **no**: el estimado queda *no disponible* y el expediente se encamina, porque bloquear el envío por un catálogo que la institución todavía no cargó paraliza la operación. **Reversible** si el PO decide lo contrario; el bloqueo del envío es materia de [HU-004](HU-004-envio-a-autorizacion-con-numero-de-expediente-y-congelamiento.md) — insumo #21
 - Trazabilidad: [CU-01](../casos-de-uso/CU-01-registrar-solicitud-de-transporte.md) paso 8, excepción E5; [CU-02](../casos-de-uso/CU-02-autorizar-solicitud-de-transporte.md) paso 3

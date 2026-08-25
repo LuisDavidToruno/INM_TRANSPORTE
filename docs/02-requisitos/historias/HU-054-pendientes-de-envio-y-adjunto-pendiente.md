@@ -6,7 +6,7 @@
 | **Actor** | ACT-06 Motorista · ACT-10 Encargado de Delegación |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta el plazo tras el cual un adjunto pendiente se declara ausente y escala (insumo #1) y el dispositivo de campo de referencia, sin el cual el techo de almacenamiento se mide contra el equipo del desarrollador (insumo #69) |
 
 ## Historia
 
@@ -74,6 +74,20 @@ Característica: Visibilidad de lo pendiente de envío en el dispositivo de camp
     Entonces el sistema muestra "Comprobante pendiente desde hace 15 días. Si no llega, este gasto se descarga como comprobante ausente."
     Y escala la alerta al responsable de la delegación
 
+  Escenario: Se rechaza marcar como enviado un registro que sigue en cola
+    Dado que el dispositivo lleva 4 días sin conectividad con "34" registros pendientes
+    Cuando alguien intenta marcar manualmente como "enviado" el registro pendiente más antiguo
+    Entonces el sistema rechaza la marca
+    Y muestra "El estado de envío lo determina el acuse del servidor, no el usuario. Este registro sigue pendiente desde el 12/05/2026."
+    Y el registro permanece en estado "PENDIENTE_DE_ENVIO"
+
+  Escenario: Se rechaza entregar el vehículo con la bitácora sin enviar y sin respaldo
+    Dado que "José Martínez" tiene "34" registros pendientes de enviar
+    Cuando "José Martínez" intenta cerrar la entrega de custodia del vehículo
+    Entonces el sistema no cierra la entrega
+    Y muestra "Tiene 34 registros sin enviar. Sincronice, o imprima la hoja de bitácora de respaldo y entréguela firmada. No se entrega el vehículo con la bitácora solo en el teléfono."
+    Y ofrece las dos salidas: sincronizar ahora o imprimir el respaldo
+
   Escenario: Cada registro dice si ya fue recibido en oficina
     Dado que la sincronización se completó
     Cuando "José Martínez" consulta el estado de su bitácora
@@ -92,3 +106,5 @@ Característica: Visibilidad de lo pendiente de envío en el dispositivo de camp
 - `[C]` Plazo tras el cual un adjunto pendiente se declara ausente y escala — insumo #1
 - `[C]` Dispositivo de campo de referencia, sin el cual el techo de almacenamiento y el volumen de ≥ 200 fotografías se miden contra el equipo del desarrollador — insumo #69
 - `[C]` Volumen operativo real: cuántas misiones y cuántas fotografías por misión — insumo #67
+- Corregido por `HB34-20`: la historia no tenía **ningún camino de rechazo**. Los dos agregados son los que sostienen su propia premisa —*«el dispositivo nunca me diga que algo se envió si no se envió»*—: el estado de envío no es editable por el usuario, y el vehículo no se entrega con la bitácora solo en el teléfono
+- `[C]` **Si la entrega de custodia con registros sin enviar se bloquea o solo advierte.** Se adopta el **bloqueo con dos salidas ofrecidas** —sincronizar o imprimir el respaldo—, porque una vez entregado el vehículo el motorista deja de tener el dispositivo y el registro se pierde con él. **Reversible** — insumo #1

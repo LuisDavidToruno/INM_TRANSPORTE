@@ -16,7 +16,7 @@
 
 ## Contexto
 
-El permiso es **específico**: ampara ese vehículo, esa ruta y esa ventana. Es la redacción más exigente de las tres que conviven en el diseño, y se adopta a propósito porque es la conservadora ante un operativo — resolución `HCU-04` de [CU-03](../casos-de-uso/CU-03-permiso-de-circulacion-en-dia-inhabil.md).
+El permiso es **específico**: ampara ese vehículo, ese motorista, esa ruta y esa ventana. Es la redacción más exigente de las tres que conviven en el diseño, y se adopta a propósito porque es la conservadora ante un operativo — resolución `HCU-04` de [CU-03](../casos-de-uso/CU-03-permiso-de-circulacion-en-dia-inhabil.md).
 
 Los disparadores son cotidianos: el vehículo entra a taller la víspera, el motorista aparece con incapacidad, la misión se reprograma para el fin de semana siguiente. En papel, nadie vuelve a mirar el salvoconducto ya firmado: se sale con él y se confía en que nadie compare.
 
@@ -26,7 +26,7 @@ Excepción deliberada: **un relevo de motorista documentado en ruta no invalida 
 
 ## Reglas que la gobiernan
 
-- [RN-23](../../01-negocio/reglas/RN-23-permiso-de-circulacion-en-dia-inhabil.md) — El permiso ampara vehículo, ruta y ventana determinados
+- [RN-23](../../01-negocio/reglas/RN-23-permiso-de-circulacion-en-dia-inhabil.md) — El permiso ampara vehículo, motorista, ruta y ventana determinados
 - [RN-25](../../01-negocio/reglas/RN-25-salvoconducto-con-folio-y-qr.md) — El salvoconducto anulado se refleja de inmediato en la verificación; el folio no se recicla
 - [RN-61](../../01-negocio/reglas/RN-61-sustitucion-de-vehiculo-recalcula-valores-congelados.md) — La sustitución de vehículo recalcula y vuelve a congelar todo valor derivado, con asiento de diferencia
 - [RN-14](../../01-negocio/reglas/RN-14-sustitucion-de-motorista.md) — La sustitución de motorista o vehículo revalida todas las habilitaciones
@@ -119,12 +119,12 @@ Característica: Reemisión del permiso de circulación por cambio de sus elemen
 
 ---
 
-## Nota de alineación con la autoridad
+## Nota de corrección — alcance del salvoconducto
 
-> Una versión anterior de esta historia describía el salvoconducto como amparando **vehículo, motorista, ruta y ventana**, y exigía reemisión tras un relevo de motorista.
+> **El permiso ampara vehículo, motorista, ruta y ventana**, conforme a [`RN-23`](../../01-negocio/reglas/RN-23-permiso-de-circulacion-en-dia-inhabil.md) y a `BD-04` de la [máquina de estados](../../03-arquitectura/estados/orden-de-mision.md). **Un relevo de motorista lo invalida** y obliga a reemitirlo para el tramo restante — ver [`HU-018`](HU-018-reemision-del-permiso-por-cambio-de-elementos.md).
 >
-> **`BD-04` de la [máquina de estados](../../03-arquitectura/estados/orden-de-mision.md) — autoridad en precondiciones — dice que ampara vehículo, ruta y ventana.** El motorista figura impreso en el documento, pero **un relevo documentado no invalida el permiso** y no exige reemisión.
+> **Una corrección anterior de esta historia adoptó la lectura contraria** —sin el motorista, con el relevo sin invalidar— por temor a dejar el vehículo varado un domingo. **Ese temor era infundado:** el código de autorización fuera de línea permite que la máxima autoridad autorice por teléfono, sin conectividad.
 >
-> La razón es operativa: si el relevo invalidara el permiso, un motorista incapacitado un domingo en carretera dejaría el vehículo varado esperando otra firma de la máxima autoridad — un bien del Estado abandonado en la vía es peor que el riesgo que el permiso controla. Ver hallazgo `HB3-07`.
+> La razón de fondo: **el salvoconducto lo lee un agente en carretera que compara el nombre del papel con quien va al volante.** Si no coinciden, el documento no sirve para lo único que existe.
 >
-> `[C]` Pendiente de confirmar con Auditoría Interna: `NRM-02` no precisa el alcance del permiso. Si la institución exige que sea nominativo por motorista, se revierte y hay que diseñar la salida para el relevo en día inhábil.
+> Hallazgos `HB3-07` y `HB34-06`.

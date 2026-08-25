@@ -6,7 +6,7 @@
 | **Actor** | ACT-06 Motorista |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta si la institución admite y reembolsa combustible pagado por el motorista de su bolsillo y en qué plazo (insumo #37). Es una fuente de abastecimiento que ocurre con o sin regla, y de la respuesta depende si el registro abre una obligación o solo un asiento |
 
 ## Historia
 

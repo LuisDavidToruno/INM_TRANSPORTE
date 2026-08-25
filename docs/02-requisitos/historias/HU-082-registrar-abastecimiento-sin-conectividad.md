@@ -6,7 +6,7 @@
 | **Actor** | ACT-06 Motorista |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — faltan los formatos en papel vigentes de la hoja de bitácora y del vale para lograr la paridad exacta que exige `RN-80` (insumo #2), el `desfase_maximo_sin_justificacion` entre fecha del hecho y fecha de captura (insumo #1) y el umbral de monto a partir del cual el comprobante es exigible (insumo #1, con Auditoría Interna) |
 
 ## Historia
 

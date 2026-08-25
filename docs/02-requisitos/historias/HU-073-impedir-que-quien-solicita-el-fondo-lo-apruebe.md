@@ -6,7 +6,7 @@
 | **Actor** | ACT-08 Gerencia Administrativa (y ACT-04 Jefe de Transporte como solicitante) |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — bloqueada por `PROP-01` / insumo #7 como todo el ciclo del fondo, y falta confirmar con Auditoría Interna si el puesto de respaldo para el escalamiento se designa por adelantado o se resuelve caso a caso (insumo #1). Sin respaldo designado, el bloqueo por segregación deja a la delegación sin poder aprobar |
 
 ## Historia
 

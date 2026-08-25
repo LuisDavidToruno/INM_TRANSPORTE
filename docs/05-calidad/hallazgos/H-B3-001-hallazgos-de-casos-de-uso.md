@@ -79,7 +79,7 @@ El par *solicita fondo × aprueba fondo* no está en `I-01` a `I-17`. Hoy vive s
 No es cosmético: **decide si un relevo de motorista invalida el permiso** en carretera, frente a un agente que lo revisa físicamente.
 
 - **Detectado en:** `CU-03`, `CU-06`. Ya abierto desde el Bloque 1
-- **Resolución adoptada:** la más exigente
+- **Resolución adoptada:** la más exigente — `RN-23`: vehículo, motorista, ruta y ventana. **Un relevo invalida el permiso.** Corregido en `BD-04` el 2026-08-25, tras una primera corrección que había adoptado la lectura contraria
 
 ### `HB3-08` — `BD-04` ignora el vehículo de servicio exceptuado
 

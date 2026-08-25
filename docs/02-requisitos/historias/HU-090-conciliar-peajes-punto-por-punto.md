@@ -6,7 +6,7 @@
 | **Actor** | ACT-04 Jefe de Transporte |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta el catálogo de distancias entre puntos y la velocidad media máxima por tipo de vehículo para evaluar la coherencia temporal (insumo #1), si la institución tiene tags y si el concesionario emite estado de cuenta empresarial (insumo #24), y qué objeto del gasto se usa para peajes (`NRM-10` §8) |
 
 ## Historia
 

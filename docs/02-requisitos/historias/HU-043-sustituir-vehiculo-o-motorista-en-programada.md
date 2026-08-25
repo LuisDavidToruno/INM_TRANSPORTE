@@ -35,6 +35,11 @@ Dos consecuencias que no son obvias:
 - [RN-33](../../01-negocio/reglas/RN-33-categoria-de-peaje-derivada-de-ficha-tecnica.md) — El vehículo entrante también necesita categoría resuelta
 - [RN-61](../../01-negocio/reglas/RN-61-sustitucion-de-vehiculo-recalcula-valores-congelados.md) · [RN-42](../../01-negocio/reglas/RN-42-correccion-retroactiva-con-asiento-de-diferencia.md) — Recálculo, recongelamiento y asiento de diferencia
 - [RN-82](../../01-negocio/reglas/RN-82-indicadores-de-calidad-de-la-programacion.md) — El motivo tipificado alimenta el indicador; un texto libre no
+- [RN-01](../../01-negocio/reglas/RN-01-segregacion-de-funciones.md) — **Segregación de funciones sobre el motorista entrante.** La regla exige la comprobación *«antes de asignar o **sustituir** al motorista»*, y `I-11` es **núcleo irreductible**. Incorporada por `HB34-02`
+
+La matriz de incompatibilidades es autoridad de [`actores-y-roles.md §5.2`](../../01-negocio/actores-y-roles.md): esta historia **no la copia**, la aplica.
+
+> **Nota de corrección — `HB34-02`.** La lista de revalidaciones del entrante —`BD-02`, `BD-03`, `BD-07`, `BD-10`, `BD-11`— **no incluía la segregación**, y la sustitución es justamente la puerta por donde entra el caso que `RN-01` describe en sus casos límite: *«el encargado autoriza el lunes, el motorista se incapacita el martes a las 05:50, y se pone él»*. La regla lo resuelve sin margen: **bloqueo duro por `I-11`; no hay confirmación con motivo, no hay advertencia registrada, no hay urgencia que lo habilite**. La salida es sustituir por otro motorista habilitado o escalar por `RN-02`. El principio de la historia —*«no se da por buena ninguna verificación previa»*— exige que la matriz también se reevalúe: en la asignación original el entrante no existía.
 
 ## Casos especiales que la afectan
 
@@ -55,7 +60,20 @@ Característica: Sustitución de recurso con la misión en PROGRAMADA
     Y un vehículo asignado "Pickup Toyota Hilux" con correlativo "INS-P-014",
       categoría de peaje "Categoría 1" y estimado de peajes congelado de "160.00" lempiras
     Y un motorista asignado "José Martínez"
+    Y que "Carlos Rodríguez" autorizó la Orden de Misión "OM-2026-0451" el "2026-09-12"
     Y un umbral de variación del estimado que exige reautorización del "20" por ciento
+
+  Escenario: Se rechaza sustituir al motorista por quien autorizó la misma misión
+    Dado un motorista entrante "Carlos Rodríguez" con licencia "04-1983-22910" categoría "C"
+      vigente hasta el "2028-04-30", disponible en la ventana y sin restricciones médicas
+    Cuando el Jefe de Transporte intenta sustituir a "José Martínez" por "Carlos Rodríguez"
+      con motivo "motorista no disponible"
+    Entonces el sistema rechaza la sustitución
+    Y muestra "Carlos Rodríguez autorizó la Orden de Misión OM-2026-0451 el 12/09/2026. Por incompatibilidad I-11 (RN-01) no puede ser asignado como motorista de esa misión. Es núcleo irreductible: no admite excepción."
+    Y no ofrece confirmación con motivo, advertencia superable ni excepción por urgencia
+    Y propone sustituir por otro motorista habilitado o escalar la autorización a otro puesto (RN-02)
+    Y la asignación de "José Martínez" permanece vigente
+    Y registra el intento con el par de incompatibilidad detectado
 
   Escenario: Se rechaza la sustitución sin motivo tipificado
     Cuando el Jefe de Transporte sustituye el motorista escribiendo solo "lo cambiaron"
@@ -86,8 +104,8 @@ Característica: Sustitución de recurso con la misión en PROGRAMADA
       del "2026-09-15" al "2026-09-16"
     Cuando el Jefe de Transporte intenta sustituir el "INS-P-014" por el "INS-P-021"
     Entonces el sistema rechaza la sustitución
-    Y muestra el conflicto con su titular: la misión "OM-2026-0460", la Unidad de Bienes y su franja
-    Y ofrece, en este orden: consolidar, asignar otro recurso, reprogramar, escalar la prioridad
+    Y muestra "El vehículo INS-P-021 está reservado por la Orden de Misión OM-2026-0460 de la Unidad de Bienes, del 15/09/2026 al 16/09/2026."
+    Y ofrece, en este orden: "Consolidar con OM-2026-0460", "Asignar otro recurso", "Reprogramar una de las dos", "Escalar la prioridad"
 
   Escenario: La sustitución de vehículo recalcula y deja asiento de la diferencia
     Dado un vehículo entrante "Microbús Toyota Coaster" con correlativo "INS-B-003",
@@ -144,4 +162,5 @@ Característica: Sustitución de recurso con la misión en PROGRAMADA
 - `[C]` **Umbral de variación del estimado que exige reautorización** — insumo #1 / #19.
 - `[C]` **Ventana de indisponibilidad estimada exigible** al enviar un vehículo a taller — insumo #59. Sin ella, el sistema no puede decir qué misiones programadas quedan afectadas.
 - `[C]` **Criterio de prelación** cuando el recurso sustituto está tomado — insumo #31.
+- Corregido por `HB34-19`: el rechazo del recurso entrante ya reservado tenía una **descripción de contenido** en lugar de un mensaje. El DoR exige el texto que ve el usuario, no la lista de lo que debe contener.
 - Si había permiso de circulación en día inhábil emitido para el vehículo saliente, **deja de cubrir la misión y hay que reemitirlo** ([CU-03](../casos-de-uso/CU-03-permiso-de-circulacion-en-dia-inhabil.md) E2).

@@ -6,7 +6,7 @@
 | **Actor** | ACT-04 Jefe de Transporte |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — bloqueada por `PROP-01` / insumo #7: la **periodicidad del fondo** decide si el objeto es de período o de misión. Es estructural, no un parámetro: sin ella no hay entidad *fondo* que solicitar |
 
 ## Historia
 

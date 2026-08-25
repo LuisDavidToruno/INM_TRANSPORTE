@@ -6,7 +6,7 @@
 | **Actor** | ACT-07 Encargado de Combustible |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta saber si la institución opera asignación **por misión o por período** (`PROP-01` / insumo #7): decide la entidad, no un parámetro. Faltan también el procedimiento de ampliación del rango de folios sin conectividad (insumo #1) y el formato en papel del vale vigente (insumo #2) |
 
 ## Historia
 

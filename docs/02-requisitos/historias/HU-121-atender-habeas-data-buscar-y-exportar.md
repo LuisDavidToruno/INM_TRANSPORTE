@@ -28,6 +28,14 @@ Lo que la hace no trivial es que la búsqueda por identidad **es en sí misma un
 - [RN-52](../../01-negocio/reglas/RN-52-registro-de-consultas-a-manifiestos.md) — La búsqueda por identidad se registra, incluso si no devuelve resultados
 - [RN-94](../../01-negocio/reglas/RN-94-fecha-de-corte-de-conocimiento-en-todo-reporte.md) — La exportación declara su fecha de corte de conocimiento
 
+## Casos especiales que la afectan
+
+> Sección incorporada por el hallazgo `HB34-13`: faltaba, y el `DoR` exige identificar los `CE-xx` que afectan a la historia **o dejar constancia explícita de que no hay ninguno**.
+
+- [CE-28](../casos-especiales/CE-28-hallazgo-posterior-sobre-mision-cerrada.md) — La solicitud de hábeas data puede alcanzar a una persona cuyo traslado está bajo un hallazgo abierto. La atención de la solicitud **no se suspende** por eso, y la exportación entregada al titular **no revela** la existencia del hallazgo: son dos expedientes distintos
+- [CE-27](../casos-especiales/CE-27-cierre-de-ejercicio-fiscal-con-hallazgo-abierto.md) — Una solicitud que llega después del cierre del ejercicio se atiende igual sobre los datos conservados; el cierre contable no cierra el derecho del titular
+- Los 26 `CE-xx` restantes **no tocan este flujo**: son incidencias de la operación del vehículo y de la misión. Constancia dejada
+
 ## Requisitos no funcionales relacionados
 
 - [RNF-17](../no-funcionales/RNF-17-retencion-y-depuracion-diferenciada.md) — **≤ 5 minutos** para localizar todos los registros de una persona identificada, desde la interfaz y sin intervención de desarrollo

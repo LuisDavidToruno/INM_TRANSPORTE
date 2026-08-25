@@ -6,7 +6,7 @@
 | **Actor** | ACT-04 Jefe de Transporte |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta el catálogo oficial de restricciones médicas de la DNVT, que se entrega **vacío** porque no se inventan valores (insumo #42), y el contrato de API de Talento Humano (insumo #17): si resultara mantener la categoría de licencia con el detalle requerido, se reconsidera de quién es el dato |
 
 ## Historia
 

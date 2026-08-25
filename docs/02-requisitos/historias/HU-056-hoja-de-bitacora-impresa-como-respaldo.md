@@ -6,7 +6,7 @@
 | **Actor** | ACT-06 Motorista |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — faltan los formatos en papel vigentes campo por campo (insumo #2), sin los cuales no hay paridad que verificar, y el parque real de impresoras de sede y delegaciones (insumo #70). Alcanzada además por el pendiente G, que decide si el QR del respaldo tiene a dónde apuntar |
 
 ## Historia
 

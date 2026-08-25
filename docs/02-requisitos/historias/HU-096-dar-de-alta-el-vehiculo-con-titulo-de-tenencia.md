@@ -6,7 +6,7 @@
 | **Actor** | ACT-14 Encargado de Bienes Institucionales |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta saber si la institución numera el correlativo institucional **por delegación** (insumo #34): de eso depende cuál es el identificador único del vehículo, que es el eje de la ficha. Faltan también la modalidad de alquiler vigente (insumo #57) y los formatos en papel del acta de recepción y de la tarjeta de responsabilidad (insumo #2) |
 
 ## Historia
 

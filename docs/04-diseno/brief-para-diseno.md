@@ -14,7 +14,7 @@ No gestiona "viajes de personas": gestiona **movilizaciones de recursos instituc
 |---|---|---|
 | 1 | [`docs/04-diseno/README.md`](README.md) | **Empieza acá.** El principio rector y el contexto de uso real. Es lo que decide si un mockup sirve o no |
 | 2 | [`docs/00-vision/glosario.md`](../00-vision/glosario.md) | Los nombres de las cosas. Un botón que dice "conductor" donde el formato dice "motorista" ya está mal |
-| 3 | [`inventario-de-pantallas.md`](inventario-de-pantallas.md) | Las 126 pantallas, con qué puedes diseñar hoy y qué está bloqueado |
+| 3 | [`inventario-de-pantallas.md`](inventario-de-pantallas.md) | Las **138 pantallas**, con qué puedes diseñar hoy y qué está bloqueado |
 | 4 | [`mapa-de-navegacion.md`](mapa-de-navegacion.md) | Cómo se recorren, por rol |
 | 5 | [`docs/01-negocio/actores-y-roles.md`](../01-negocio/actores-y-roles.md) §1 | Quién es cada quien. Solo la sección de actores |
 
@@ -42,7 +42,11 @@ Consecuencia directa: **el inventario está partido en dos**, y esa es la inform
 
 ## Qué puedes empezar hoy
 
-**91 pantallas no replican ningún papel.** Se diseñan libremente y no dependen de nadie.
+**99 pantallas no replican ningún papel.** Se diseñan libremente y no dependen de nadie.
+
+> **Ojo con dos cosas.** Nueve pantallas son **duales**: se usan en el cliente administrativo y en el de campo, y **hay que diseñarlas dos veces**. No existe "vista móvil" — son dos productos. Por eso las superficies de campo a diseñar son **34, no 25**.
+>
+> Y **seis pantallas están marcadas ⛔ en el inventario: no se envían a diseño todavía.** Son las del ciclo de vida del parámetro normativo y algunas de personas externas. No tienen criterio de aceptación escrito, y dibujarlas sin criterio **fija la regla por accidente**.
 
 Empieza por estas cinco, en este orden:
 
@@ -70,7 +74,7 @@ El mensaje debe decir **qué categoría se necesita**, porque el usuario tendrá
 
 ## Qué NO puedes empezar todavía
 
-**27 pantallas replican un formato en papel** y están bloqueadas hasta que la institución entregue los formatos vigentes (insumo #2). Otras 8 lo están parcialmente.
+**29 pantallas replican un formato en papel** y están bloqueadas hasta que la institución entregue los formatos vigentes (insumo #2). Otras **10** lo están parcialmente — en esas, una sección replica papel y el resto no, así que **se puede diseñar la parte libre**: el inventario dice cuál.
 
 Son las de captura: solicitud, bitácora, vale de combustible, liquidación, actas. **Es la mitad del sistema.**
 

@@ -6,7 +6,7 @@
 | **Actor** | ACT-07 Encargado de Combustible |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta si el sobrante se devuelve o se arrastra (`PROP-01` / insumo #7), que determina **cuándo nace la obligación** de reintegro, el `plazo_devolucion_saldo` en días hábiles (insumo #32) y si existe un tope de monto por debajo del cual no se formaliza obligación (insumo #1) |
 
 ## Historia
 

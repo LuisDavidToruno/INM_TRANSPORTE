@@ -28,6 +28,18 @@ Y hay un límite que no se negocia: la configuración **nunca** se resuelve tras
 ## Reglas que la gobiernan
 
 - [RN-67](../../01-negocio/reglas/RN-67-matriz-de-compatibilidad-objeto-objeto.md) — **Regla rectora**: matriz objeto × objeto evaluada par a par; **la ausencia de entrada bloquea**
+
+> **Delimitación de `RN-67` — hallazgo `HB34-15`.** La regla se aplica en tres momentos y ninguna de las tres historias lo declaraba. No hay contradicción de comportamiento —la ausencia de entrada bloquea en las tres—, faltaba la frontera:
+>
+> | Momento | Historia | Contra qué evalúa |
+> |---|---|---|
+> | Envío de la solicitud (M-06) | [`HU-002`](HU-002-bloqueo-de-compatibilidad-del-objeto-del-traslado.md) | El **tipo de vehículo requerido** y los objetos declarados |
+> | Asignación del vehículo (M-07) | [`HU-022`](HU-022-compatibilidad-vehiculo-objeto-del-traslado.md) | La **ficha técnica del vehículo concreto**, tramo por tramo |
+> | **Programación con personas externas** (M-17 · M-07) | **`HU-125`** | El par **personas externas × personal de la institución × carga**, con manifiesto, minimización y registro de consultas |
+>
+> Esta historia aporta lo que las otras dos no pueden: **personas externas son otro objeto de traslado**, con régimen propio. Sin ella, el par *personas externas × personal* no existe en ninguna matriz y el sistema lo trataría como *personas × personas*.
+>
+> **Sobre el veredicto DoR opuesto al de `HU-002`.** `HU-002` está `Refinada` con el mismo insumo #39 abierto, y las dos cosas son correctas: allá el `[C]` es el **contenido** de un catálogo con vigencia, que el `DoR` admite; aquí el `[C]` es **el régimen de custodia de personas externas**, que decide qué pares existen y con qué efecto. El dato *es* la lógica.
 - [RN-68](../../01-negocio/reglas/RN-68-compatibilidad-y-capacidad-por-tramo.md) — Compatibilidad y capacidad se evalúan por tramo, sobre la configuración real de cada tramo
 - [RN-21](../../01-negocio/reglas/RN-21-capacidad-de-pasajeros-y-carga.md) — No se excede la capacidad; el conteo incluye al motorista; la paila no es capacidad de pasajeros
 - [RN-20](../../01-negocio/reglas/RN-20-compatibilidad-vehiculo-objeto-del-traslado.md) — El tipo de vehículo debe ser compatible con cada objeto declarado

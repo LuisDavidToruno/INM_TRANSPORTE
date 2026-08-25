@@ -6,7 +6,7 @@
 | **Actor** | ACT-14 Encargado de Bienes Institucionales · ACT-13 Custodio del Vehículo |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — faltan los formatos en papel vigentes de la tarjeta de responsabilidad y del acta de entrega-recepción (insumo #2), el plazo configurable de custodia vacante antes de bloquear el despacho (insumo #1) y el régimen de asignación permanente de vehículo a funcionario y su efecto sobre la custodia (insumo #64) |
 
 ## Historia
 

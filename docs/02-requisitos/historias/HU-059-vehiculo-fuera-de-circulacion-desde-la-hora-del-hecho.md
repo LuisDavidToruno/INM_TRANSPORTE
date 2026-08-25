@@ -6,7 +6,7 @@
 | **Actor** | ACT-06 Motorista declara · ACT-11 Encargado de Mantenimiento recibe la orden de trabajo |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta la escala de severidad de fallas que decide si el vehículo va a `EN_TALLER`, a `NO_DISPONIBLE` o puede continuar (insumo #35), los receptores válidos de custodia fuera de sede cuando no hay predio institucional cerca (insumo #51) y el plazo de la obligación de recuperación |
 
 ## Historia
 

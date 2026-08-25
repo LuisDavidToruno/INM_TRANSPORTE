@@ -6,7 +6,7 @@
 | **Actor** | ACT-04 Jefe de Transporte · ACT-10 Encargado de Delegación en su ámbito |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta la designación previa del puesto de sede que actúa como respaldo de cada delegación (insumo #1, ver `DP-002`). Sin ese respaldo, el bloqueo por segregación deja a la delegación sin poder liquidar y el control se convierte en una parálisis |
 
 ## Historia
 

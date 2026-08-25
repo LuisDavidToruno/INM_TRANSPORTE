@@ -6,7 +6,7 @@
 | **Actor** | ACT-10 Encargado de Delegación |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta el plazo máximo de digitación diferida y desde cuándo corre el plazo de liquidación (insumo #32), el pronunciamiento de Auditoría Interna sobre si puede digitar quien después liquida esa misma misión (insumo #47) y los formatos en papel vigentes campo por campo (insumo #2) |
 
 ## Historia
 

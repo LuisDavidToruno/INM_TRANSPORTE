@@ -6,7 +6,7 @@
 | **Actor** | ACT-14 Encargado de Bienes Institucionales |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — bloqueada por un hallazgo abierto: **el estado terminal `RETIRADO_DE_FLOTA` no existe todavía en la máquina de estados del vehículo**, y sin él la devolución al comodante no tiene desenlace válido. Falta además cómo se registra hoy esa devolución (insumo #58) y la modalidad de alquiler vigente con sus condiciones de sustitución (insumo #57) |
 
 ## Historia
 
@@ -69,10 +69,11 @@ Característica: Fin de tenencia de un bien ajeno
     Y el historial no se elimina ni se transfiere al titular del bien
 
   Escenario: Se rechaza el retiro con misiones abiertas
-    Dado 1 misión de "TR-0092" en estado "RETORNADA"
+    Dado 1 misión "OM-2026-0488" de "TR-0092" en estado "RETORNADA"
     Cuando el Encargado de Bienes intenta registrar la devolución
     Entonces el sistema rechaza la acción
-    Y lista la misión no terminal que lo impide
+    Y muestra "TR-0092 tiene 1 misión sin terminar: OM-2026-0488, en estado RETORNADA desde el 12/12/2026. Liquídela y ciérrela antes de devolver el vehículo al comodante."
+    Y la lista de misiones no terminales indica, por cada una, su folio, su estado y su fecha
 
   Escenario: La liquidación de daños se evalúa contra los rubros asumidos
     Dado un título de comodato con rubros de combustible y peajes a cargo de la institución, y daños a cargo del comodante
@@ -111,3 +112,4 @@ Característica: Fin de tenencia de un bien ajeno
 - `[C]` **Cómo se registra hoy la devolución al comodante** — insumo **#58**
 - `[C]` Modalidad de alquiler vigente y condiciones de sustitución de unidad — insumo **#57**
 - `[C]` Formato en papel del acta de devolución — insumo **#2**
+- Corregido por `HB34-19`: el rechazo por misiones abiertas no tenía mensaje especificado. Es un bloqueo que el Encargado de Bienes resuelve con una gestión administrativa, y necesita saber **cuál** misión y **en qué estado**; sin eso el bloqueo es una pared sin puerta.

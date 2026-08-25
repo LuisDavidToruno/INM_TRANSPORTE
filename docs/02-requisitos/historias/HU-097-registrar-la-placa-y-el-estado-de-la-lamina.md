@@ -6,7 +6,7 @@
 | **Actor** | ACT-14 Encargado de Bienes Institucionales |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta el catálogo de documentos sustitutivos que la institución acepta como respaldo por falta de lámina (insumo #60), que se entrega **vacío** porque no se inventa, y qué documento emite hoy la institución para amparar la circulación sin lámina (insumo #2) |
 
 ## Historia
 

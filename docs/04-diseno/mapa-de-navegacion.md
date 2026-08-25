@@ -6,7 +6,19 @@
 | **Para quién está escrito** | El diseñador externo que va a producir los mockups **sin haber leído los 200 documentos anteriores** |
 | **Artefacto hermano** | [`inventario-de-pantallas.md`](inventario-de-pantallas.md) — la lista completa con su trazabilidad |
 | **Autoridad** | Este documento **no crea reglas**. Donde una pantalla bloquea, la autoridad es [`docs/03-arquitectura/estados/`](../03-arquitectura/estados/orden-de-mision.md); donde decide quién ve qué, es [`actores-y-roles.md`](../01-negocio/actores-y-roles.md) |
-| **Última actualización** | 2026-08-18 |
+| **Última actualización** | 2026-08-25 |
+
+## Correcciones aplicadas en esta versión
+
+De [`H-B34-002`](../05-calidad/hallazgos/H-B34-002-revision-arquitectura-bloque-4.md), Parte 2. Cada una está anotada además en su sección.
+
+| Hallazgo | Qué se corrigió | Dónde |
+|---|---|---|
+| `HB34-68` | `ACT-05` recorría `PT-039 → PT-040 → PT-041` sin ningún bloqueo entre medio, entregando él mismo el fondo. La matriz se lo niega, `I-08` lo bloquea duro y `EF-04` lo prohíbe literalmente | §5 |
+| `HB34-69` | La navegación de `ACT-10` daba por operativo el **régimen de excepción que `DP-002` suspendió**. El escalamiento a sede pasa a ser el camino por defecto, no la excepción | §8.2 |
+| `HB34-70` | `PT-104` se usaba como raíz del motorista **y** como raíz de la delegación. Se separa: nace `PT-127` «Mi delegación hoy» | §6, §8.2, §10 |
+| `HB34-71` | *«Ninguna [de las cinco difíciles] replica papel»* era falso para `PT-105` | §7 |
+| — | Las once pantallas nuevas de M-17 (`HB34-66`) entran en los flujos de `ACT-05`, `ACT-06` y `ACT-12` | §5, §6, §8.4 |
 
 ---
 
@@ -181,9 +193,11 @@ flowchart TD
     B --> C["PT-026 Asignar vehículo"]
     C --> C1{"Compatibilidad<br/>tipo de vehículo vs. objeto"}
     C1 -->|No| C2["Bloqueo con el tipo requerido"]
+    C1 -->|"Sí, y lleva<br/>personas externas"| C5["PT-138 Compatibilidad par a par<br/>y tramo a tramo: externas,<br/>personal y carga"]
     C1 -->|Sí| C3{"Documentación<br/>y estado operativo"}
+    C5 --> C3
     C3 -->|"Vencida / en taller"| C4["Bloqueo o advertencia<br/>según parámetro institucional"]
-    C3 -->|Sí| D["PT-027 Declarar conductores<br/>titular y relevos"]
+    C3 -->|Sí| D["PT-027 Declarar quién conduce<br/>motorista titular y relevos"]
 
     D --> D1{"Licencia habilitante,<br/>vigente en todo el rango,<br/>sin restricción incompatible"}
     D1 -->|No| D2["PT-028 RECHAZO POR LICENCIA<br/>dice qué categoría se necesita"]
@@ -249,7 +263,7 @@ flowchart TD
     C1 -->|Limpio| D["Kilometraje de salida<br/>+ inspección visual"]
 
     D --> E["PT-040 Acta de entrega<br/>y traslado de custodia · REPLICA PAPEL"]
-    E --> F["PT-041 Entrega del fondo<br/>contra firma · REPLICA PAPEL"]
+    E --> F["ESPERA: el fondo lo entrega ACT-07<br/>PT-041 no es pantalla de ACT-05<br/>I-08 · bloqueo duro"]
     F --> G["Transferir paquete de misión<br/>al dispositivo del motorista"]
     G --> H["Misión DESPACHADA<br/>bitácora abierta"]
 
@@ -259,12 +273,16 @@ flowchart TD
     I --> I3["PT-043 Retorno sin vehículo<br/>el bien queda en sitio"]
 
     B --> J["PT-094 Manifiesto de personas externas<br/>solo el día del despacho · consulta registrada"]
+    J --> J1["PT-129 Persona sin documento<br/>identificación alternativa<br/>o NO IDENTIFICADA"]
+    J --> J2["PT-130 Cerrar el manifiesto al despachar<br/>lista de abordo con folio y QR"]
+    J2 --> G
 
     B --> K["PT-121 Salida sin conectividad<br/>CLIENTE DE CAMPO"]
 
     style E fill:#f5f0c0
-    style F fill:#f5f0c0
+    style F fill:#f5c0c0
     style I fill:#f5f0c0
+    style J2 fill:#f5f0c0
     style C2 fill:#f5c0c0
     style C3 fill:#f5c0c0
 ```
@@ -272,7 +290,11 @@ flowchart TD
 Notas:
 
 - **La revalidación al despachar no es una repetición decorativa de la del día de la programación.** Entre programar y salir pasan días: una licencia pudo vencer anoche. La pantalla debe mostrar *qué se revalidó y cuándo*, no solo el resultado.
+- **`PT-041` no es una pantalla de `ACT-05` — corrección `HB34-68`.** El diagrama anterior lo llevaba de `PT-039 → PT-040 → PT-041` sin ningún nodo de bloqueo entre medio, y eso es exactamente lo que las tres autoridades prohíben: la matriz de permisos da a `ACT-05` **`–` sin acceso** en la acción 10; `I-08` «Despacha × Entrega fondo» sobre la misma misión es **bloqueo duro**; y `EF-04` dice que *quien entrega no puede ser quien despacha ni el motorista*. En pantalla, el despachador **ve el estado de la entrega y espera**; no tiene el botón. Quien lo tiene es `ACT-07`, presente en el mismo acto — ver §8.1.
+- **Este es el bloqueo más fácil de dibujar mal**, porque en la vida real las dos personas están una al lado de la otra en el predio a las cinco y media de la mañana. Que estén juntas no las vuelve la misma función: el acta de entrega la firman **dos** personas, y esa es toda la razón por la que existe.
 - El despachador ve el manifiesto de personas externas **el día del despacho y nada más**, y su consulta se registra. La pantalla debe decírselo — que la consulta queda registrada no es información oculta.
+- **El manifiesto se cierra al despachar (`PT-130`, `RN-53`) y a partir de ahí no se edita.** Lo que pase después es novedad (`PT-131`), y esa distinción es lo que convierte al manifiesto en una declaración en lugar de un resumen ajustado a posteriori.
+- **`PT-129` es el caso frecuente, no el borde**: la persona que no trae tarjeta de identidad. La salida es identificación alternativa o el registro expreso como *no identificada* — nunca dejar el campo en blanco ni inventarlo.
 - `PT-121` pertenece al cliente de campo aunque el usuario sea el mismo. Es la misma función con red y sin red, y **no es la misma pantalla**.
 
 ---
@@ -283,7 +305,7 @@ La navegación más importante del sistema y la más corta. **Si el motorista no
 
 ```mermaid
 flowchart TD
-    A["PT-103 Ingreso sin red<br/>credenciales del paquete de misión"] --> B["PT-104 MI MISIÓN<br/>raíz única · sin menú"]
+    A["PT-103 Ingreso sin red<br/>credenciales del paquete de misión"] --> B["PT-104 MI MISIÓN<br/>raíz única del MOTORISTA · sin menú"]
 
     B --> C["ACCIÓN PRINCIPAL, UN TOQUE<br/>PT-105 Registrar dónde estoy"]
     C --> C1["Llegué"]
@@ -321,14 +343,22 @@ flowchart TD
     B --> K["PT-118 Relevo: entrego el volante"]
     B --> L["PT-113 Me piden ir a otro lado<br/>solicitar ampliación de alcance"]
 
+    B --> M["PT-095 Ver a quiénes llevo<br/>necesidad de conocer · consulta registrada"]
+    M --> M1["PT-131 NOVEDAD del manifiesto<br/>no se presentó · subió otro · bajó antes<br/>NO se edita el manifiesto"]
+    B --> N["PT-106 Entregué en destino<br/>quién recibe: nombre, puesto,<br/>institución, lugar y hora"]
+
     style B fill:#c0f5c0
     style C fill:#c0f5c0
     style F fill:#f5e0c0
+    style M1 fill:#f5e0c0
 ```
 
 Notas para el diseñador — esto es lo que decide la adopción:
 
-- **`PT-104` es la única raíz. No hay menú, no hay pestañas, no hay perfil.** El motorista tiene exactamente una misión activa. Si tiene dos, algo se hizo mal antes.
+- **`PT-104` es la única raíz del motorista. No hay menú, no hay pestañas, no hay perfil.** El motorista tiene exactamente una misión activa. Si tiene dos, algo se hizo mal antes.
+- **Corrección `HB34-70`:** `PT-104` **no** es la raíz del Encargado de Delegación. El §8.2 la usaba también con el nombre «Mi delegación hoy», que es una pantalla de propósito opuesto —varias misiones y una cola de digitación contra una misión sin menú—. Esa raíz es ahora `PT-127`. Los `PT-xxx` no se reciclan **ni se comparten**.
+- **La cadena de custodia se cierra en el destino (`PT-106`, `HU-115`)**: quién recibe a las personas trasladadas, con nombre, puesto, institución, lugar y hora. Es el mismo gesto que la entrega de carga, y por eso es la misma pantalla — no dos.
+- **`PT-131` es la pantalla donde el control se gana o se pierde.** La tentación natural es corregir el manifiesto para que cuadre con lo que pasó. La pantalla **no ofrece editar**: ofrece declarar la novedad. Un manifiesto editable deja de ser una declaración.
 - **La acción más frecuente está a un toque desde la raíz** y ocupa el tercio superior de la pantalla, que es donde llega el pulgar con guante.
 - Cada registro pide **un dato y una confirmación**. El resto se infiere: hora del hecho, punto de la ruta, misión, autor, secuencia del dispositivo. `ocurrido_en` y `capturado_en` son campos distintos y **ninguno de los dos se le pregunta**.
 - **Nada bloquea una captura por falta de red, de comprobante o de foto.** Lo que falte se marca como pendiente y se resuelve después. El motorista sin señal no puede resolver nada: solo puede abandonar el sistema.
@@ -339,7 +369,14 @@ Notas para el diseñador — esto es lo que decide la adopción:
 
 ## 7. Las cinco pantallas difíciles
 
-Estas cinco no se resuelven con una lista de campos. Cada una tiene un **problema de fondo** que el diseñador tiene que entender antes de dibujar. Ninguna replica papel: **las cinco se pueden diseñar hoy**.
+Estas cinco no se resuelven con una lista de campos. Cada una tiene un **problema de fondo** que el diseñador tiene que entender antes de dibujar. **Las cinco se pueden empezar hoy.**
+
+> **Corrección `HB34-71` — «ninguna replica papel» era falso para `PT-105`.** Este documento y el `brief` decían *«las cinco se pueden diseñar hoy»* mientras el inventario la marcaba `Parc.`. Cuatro no replican papel en absoluto. La quinta, `PT-105`, tiene dos partes con estado distinto:
+>
+> - **Se diseña hoy:** los tres botones, el área táctil con guante, la legibilidad al sol, la confirmación de guardado sin red y el contador de pendientes. Nada de eso existe en el talonario.
+> - **Espera el insumo #2 —y el #46:** el bloque de campos que reproduce la hoja de bitácora por hito. El diseño ya la dibujó suponiendo que **el único dato obligatorio del hito es el odómetro** ([`mockups §3.1`](mockups/README.md)); si el talonario pide más, esa suposición cae y hay que rehacer ese bloque, no la pantalla entera.
+>
+> Que el diseñador descubra esto a mitad del trabajo es justo lo que la partición del inventario buscaba evitar. **`brief-para-diseno.md` sigue sin este matiz y hay que corregirlo con el mismo texto.**
 
 ### 7.1 `PT-053` / `PT-054` — Cola de conflictos de sincronización
 
@@ -469,6 +506,7 @@ flowchart TD
     C1 -->|Suficiente| C3{"¿El motorista<br/>debe reintegro?"}
     C3 -->|Sí| C4["Bloqueo con la misión<br/>y el monto pendiente"]
     C3 -->|No| D["PT-048 Entregar contra firma<br/>REPLICA PAPEL"]
+    D --> D3["PT-041 Entrega en el acto del despacho<br/>ACT-07 EJECUTA · ACT-05 presente<br/>y NO ejecuta · I-08"]
 
     B --> E["PT-049 Anular con acta<br/>solo si no fue canjeado"]
     B --> F["PT-051 Registrar canje<br/>y fuente del abastecimiento"]
@@ -485,41 +523,60 @@ flowchart TD
 
 Lo importante en pantalla: **el bloqueo `I-10` no se muestra como un botón deshabilitado.** La acción de liquidar simplemente no existe en su navegación, y si llega por enlace, la pantalla explica el par de incompatibilidad con la misión concreta.
 
+> **Nota `HB34-68`.** `PT-041` entra aquí, en la navegación de `ACT-07`, y no en la de `ACT-05`. Es el mismo acto físico —el predio, la firma, el efectivo o el vale— pero **ejecutado por otro puesto**. `PT-041` y `PT-048` pueden terminar siendo la misma pantalla en dos contextos ([`mockups §5.5`](mockups/README.md)): se resuelve al recibir el formato del insumo #2. Si se fusionan, **uno de los dos ID queda obsoleto y no se recicla**.
+
 ### 8.2 `ACT-10` Encargado de Delegación — **cliente de campo**, aunque tenga computadora
 
 Es el actor que rompe la aritmética de la segregación de funciones (una delegación de tres personas no puede cumplir cinco funciones incompatibles) y el que sostiene la operación donde no hay red. **Su cliente es el de campo**, aunque trabaje sentado: conectividad intermitente o nula es su condición de trabajo.
 
+> ### Lo primero que hay que entender de este actor — corrección `HB34-69`
+>
+> El diagrama anterior lo dibujaba capturando, despachando, entregando el fondo y registrando el retorno **desde una sola raíz y sin ninguna compuerta**. Eso describe una delegación operando de punta a punta, y **hoy no se puede construir.**
+>
+> En la matriz de permisos, las tres celdas que lo permitían —acción 6 despachar, acción 10 entregar fondo, acción 13 liquidar— están marcadas **`E⁴`**, y la nota 4 dice: *«solo bajo **régimen de excepción declarado** por insuficiencia de personal, con convalidación posterior»*.
+>
+> **Ese régimen no existe.** [`DP-002`](../07-gestion/decisiones-de-producto/DP-002-segregacion-en-delegaciones-pequenas.md) adoptó el **Nivel 1, escalamiento a sede**, y dejó el Nivel 2 diseñado pero **no implementable**; las acciones 27 y 28 de la matriz están tachadas con ⛔; y `RNF-14` lo dice sin rodeos: *«las delegaciones pequeñas no podrán despachar dentro del sistema mientras ese insumo siga abierto (#26). Es un riesgo de despliegue, no un detalle de configuración»*.
+>
+> **Consecuencia para el diseño:** el escalamiento es el **camino por defecto y normal** de esas tres ramas, no una excepción al final del diagrama. Se dibuja como el flujo principal; la ejecución local se dibuja, si acaso, como rama condicionada y apagada.
+>
+> **Y es el hallazgo con mayor consecuencia de despliegue de todo el bloque:** si el insumo #26 se resuelve en contra, hay que rediseñar la navegación del actor que sostiene la operación rural. No es un permiso que se ajusta.
+
 ```mermaid
 flowchart TD
-    A["Ingreso · funciona sin red"] --> B["PT-104 Mi delegación hoy<br/>raíz · misiones, pendientes, papeles por digitar"]
+    A["Ingreso · funciona sin red"] --> B["PT-127 Mi delegación hoy<br/>raíz · misiones, pendientes, papeles por digitar"]
 
     B --> C["PT-122 Capturar solicitud<br/>llegada en papel · sin red"]
     B --> D["PT-123 DIGITACIÓN DIFERIDA<br/>foto del original obligatoria"]
     B --> E["PT-037 Emisión anticipada<br/>folio pre-asignado del rango"]
-    B --> F["PT-121 Registrar salida"]
-    B --> G["PT-041 Entregar el fondo"]
-    B --> H["PT-042 Registrar retorno"]
+    B --> H["PT-042 Registrar retorno<br/>digitación diferida de bitácora"]
 
     D --> D1["Fecha del hecho ≠ fecha de captura<br/>ambas obligatorias y visibles"]
     D1 --> D2["Quién digitó · adjunto del original"]
+
+    B --> P{"¿Despachar, entregar el fondo<br/>o liquidar?"}
+    P -->|"Camino por defecto HOY"| N["ESCALAMIENTO A SEDE<br/>el acto lo consuma un puesto de sede<br/>queda pendiente en su bandeja<br/>y la pantalla dice de quién"]
+    P -.->|"CONDICIONADO al insumo #26<br/>DP-002 lo suspendió · NO se construye"| Q["PT-121 Registrar salida<br/>PT-041 Entregar el fondo<br/>Liquidar"]
+
+    N --> N1["Sin red: código de autorización<br/>fuera de línea del puesto de sede"]
 
     B --> I["PT-120 Estado del dispositivo<br/>pendientes de envío"]
     I --> J{"Al reconectar"}
     J -->|"Todo aplicado"| K["Confirmación registro por registro"]
     J -->|"Divergencia"| L["PT-053 Cola de conflictos<br/>de mi delegación"]
 
-    B --> M{"Acto que su puesto<br/>no puede consumar"}
-    M --> N["Bloqueo + escalamiento a sede<br/>queda pendiente en bandeja de alguien"]
-
     style D fill:#f5f0c0
     style C fill:#f5f0c0
-    style N fill:#f5c0c0
+    style N fill:#c0e0f5
+    style Q fill:#f5c0c0
 ```
 
 Notas:
 
 - **La pantalla de digitación diferida es donde se juega la adopción rural.** El encargado digita un formulario que ya está lleno en papel: la pantalla debe seguir el papel campo por campo, permitir adjuntar su fotografía, y **no estorbar con validaciones que el papel no tenía**. Fecha del hecho y fecha de captura son campos distintos y ambos se ven.
-- El escalamiento por segregación **nunca deja un callejón sin salida**: la misión queda visiblemente pendiente en la bandeja de alguien de sede, y la pantalla dice de quién.
+- **`PT-127` es su raíz, no `PT-104`** — corrección `HB34-70`. `PT-104` «Mi misión» es del motorista: una misión, sin menú. `PT-127` es lo contrario: **varias misiones, los pendientes de envío y la cola de papeles por digitar**. Compartían identificador y son pantallas de propósito opuesto.
+- **El escalamiento nunca deja un callejón sin salida**, y ésa es la parte que hay que diseñar bien: la misión queda visiblemente pendiente en la bandeja de un puesto de sede, la pantalla **dice de quién** y qué falta, y sin red opera el **código de autorización fuera de línea**. Un escalamiento que solo dice «no puede» es indistinguible de una falla.
+- **Lo que el diagrama dibuja punteado y en rojo no se construye.** Está ahí para que la decisión quede visible, igual que las acciones 27 y 28 se conservan tachadas en la matriz. Si `PT-121` o `PT-041` aparecen en un mockup como acciones normales de `ACT-10`, el mockup está adelantando una decisión que Auditoría Interna todavía no tomó.
+- **`PT-042` sí es suyo**: registrar el retorno es bitácora, y la acción 7 de la matriz le da `E⁶` por digitación diferida. No está condicionado.
 
 ### 8.3 `ACT-08` Gerencia Administrativa y `ACT-09` Máxima Autoridad — administrativo desde el celular
 
@@ -542,10 +599,14 @@ flowchart TD
     E --> E2["PT-071 Hallazgo posterior<br/>sobre misión CERRADA<br/>expediente nuevo, NO reapertura"]
 
     B --> F["PT-100 Aprobar puesta en vigencia<br/>de un parámetro normativo<br/>doble control con ACT-01"]
+    B --> G["PT-136 Exportación de transparencia<br/>SIN ningún dato personal"]
 
     style C2 fill:#f5f0c0
     style D2 fill:#f5c0c0
+    style F fill:#f5e0c0
 ```
+
+> **`PT-100` no se envía a diseño todavía — `HB34-67`.** Es la mitad del doble control del parámetro normativo y **no tiene caso de uso ni un solo criterio de aceptación**. Dibujarla ahora es fijar por accidente una regla de la que cuelga todo `RNF-05`. Ver [inventario §2.16](inventario-de-pantallas.md).
 
 **El salvoconducto es el documento más exigente del sistema** y condiciona esta rama entera: lo va a revisar un agente en carretera, de pie, posiblemente de noche, con una linterna. Ver la nota de §10.
 
@@ -567,23 +628,40 @@ flowchart TD
     B --> F["PT-093 Registro de consultas<br/>a datos de personas externas"]
     B --> G["PT-064 Conciliaciones<br/>y sus desviaciones"]
 
+    F --> F1["PT-133 Reporte de accesos<br/>y ALERTA DE PATRÓN ANÓMALO<br/>por usuario, registro y período"]
+
+    B --> R["PT-134 HÁBEAS DATA<br/>todo lo guardado sobre una persona<br/>≤ 5 min, sin intervención de desarrollo"]
+    R --> R1["PT-135 Rectificar<br/>SIN destruir el asiento original"]
+
     C --> H["PT-090 Exportar paquete de evidencia<br/>PDF con índice y sello de tiempo<br/>+ anexos + hoja de cálculo"]
     D --> H
     E --> H
+    R --> H
 
     A --> I["Toda consulta de ACT-12<br/>queda registrada · se le informa"]
 
     style B fill:#e0e0f5
+    style R fill:#e0e0f5
 ```
 
 Notas:
 
 - **Las versiones descartadas de la cola de conflictos son visibles para el auditor**, junto con la decisión que las descartó y su motivo. Es una de las razones por las que la versión descartada no se borra.
 - El paquete de evidencia se entrega **el mismo día y completo** ([RNF-18](../02-requisitos/no-funcionales/RNF-18-paquetes-de-evidencia-para-auditoria.md)). Esa es una restricción de diseño de la pantalla de exportación: no puede ser un botón que produce un CSV.
+- **`PT-134` y `PT-135` cuelgan aquí provisionalmente y hay que mirarlo de frente.** El actor que las historias `HU-121` y `HU-122` nombran es el **Oficial de Información Pública**, marcado `[C]` y **no catalogado** en `actores-y-roles.md`. Colgarlas del auditor tiene un problema de fondo: el auditor es **solo lectura, sin excepciones**, y `PT-135` rectifica. Mientras el actor no exista, esta rama del diagrama es una hipótesis, no una decisión. Registrado como pregunta abierta en el [inventario §7.4](inventario-de-pantallas.md).
+- **`PT-133` es lo que hace útil al registro de consultas de `RN-52`.** Un registro que nadie mira no es un control: la alerta de patrón anómalo —el mismo usuario consultando manifiestos que no le tocan— es la razón por la que se registra.
 
 ### 8.5 `ACT-01` Administrador del Sistema — administrativo, sin acceso al negocio
 
 Su navegación es corta y **no tiene ninguna puerta hacia una transacción de negocio**. Administra estructura, usuarios, puestos, roles, catálogos y carga de parámetros; ejecuta respaldos. **Carga el parámetro pero no lo pone en vigencia** — eso lo aprueba `ACT-08` (doble control). Incluye el panel de salud del sistema de [RNF-20](../02-requisitos/no-funcionales/RNF-20-observabilidad-y-diagnostico.md): **una sola pantalla que dice qué está mal y qué hacer**, escrita para alguien sin especialización, porque en muchas instituciones no hay equipo de TI.
+
+Tres pantallas suyas nacen con las historias de M-17 (`HB34-66`) y ninguna de las tres es de trámite:
+
+- **`PT-128` fundamentación del campo sensible.** Activar un campo de salud, etnia, situación migratoria o condición de vulnerabilidad en el manifiesto **obliga** a registrar base legal y necesidad operativa. La pantalla no permite activarlo sin eso — es el punto donde `RNF-17` se cumple o se pierde.
+- **`PT-132` alcance de visibilidad por necesidad de conocer.** Quién ve listas de pasajeros, y dentro de qué ámbito.
+- **`PT-137` depuración al vencer el plazo.** Es la **única pantalla del sistema que destruye contenido**, con aviso previo obligatorio, y su criterio de éxito es doble: cero datos personales sobrevivientes y la cadena de auditoría verificando después. `ACT-12` la verifica; no la ejecuta.
+
+> Las tres, y también `PT-096`, `PT-098`, `PT-099`, **no tienen caso de uso** (`HB34-67`). Se necesita el `CU-19` antes de dibujarlas.
 
 ---
 
@@ -620,11 +698,13 @@ flowchart LR
     end
 
     subgraph CMP["Cliente de campo"]
-        B1["PT-104 Mi misión"]
+        B1["PT-104 Mi misión<br/>raíz del motorista"]
         B2["PT-120 Estado del dispositivo"]
+        B3["PT-127 Mi delegación hoy<br/>raíz de ACT-10"]
     end
 
-    A1 -->|"PUENTE 1<br/>paquete de misión:<br/>expediente, documentos,<br/>paquete normativo congelado,<br/>peajes con tarifa esperada,<br/>padrón de conductores,<br/>guía de accidente"| B1
+    B3 --> B2
+    A1 -->|"PUENTE 1<br/>paquete de misión:<br/>expediente, documentos,<br/>paquete normativo congelado,<br/>peajes con tarifa esperada,<br/>padrón de quienes pueden conducir,<br/>guía de accidente"| B1
     B2 -->|"PUENTE 2<br/>envío al reconectar,<br/>solo y reanudable"| A3
     A3 -->|"PUENTE 3<br/>lo que no aplicó"| A2
     A2 -->|"resolución con motivo"| A3
@@ -646,3 +726,6 @@ flowchart LR
 - **No fija el orden de los campos de las pantallas que replican papel.** Ese orden lo fija el formato de la institución (insumo #2), no el diseñador. Ver la columna correspondiente del [inventario](inventario-de-pantallas.md).
 - **No define el sistema visual** — tipografía, paleta, espaciado. Eso es del diseñador externo, con las restricciones de [RNF-12](../02-requisitos/no-funcionales/RNF-12-uso-en-campo.md) para el cliente de campo y [RNF-16](../02-requisitos/no-funcionales/RNF-16-idioma-accesibilidad-y-mensajes.md) para los mensajes.
 - **No cubre M-11 Mantenimiento ni M-02 Catálogos con el mismo detalle** que el resto, porque el Bloque 3 no escribió historias para ellos todavía. Sus pantallas están en el inventario marcadas como tales.
+- **No dibuja la navegación del parámetro normativo** (`PT-099` → `PT-100` → `PT-092`) más allá de los dos nodos que ya aparecen en §8.3 y §8.5, porque **no hay `CU-19` ni historias** que digan cómo se recorre (`HB34-67`). Dibujarla sería inventar el doble control.
+- **No dibuja la raíz del Oficial de Información Pública**, porque ese actor no está catalogado. `PT-134` y `PT-135` cuelgan provisionalmente del auditor. Ver §8.4.
+- **No decide si `ACT-10` podrá despachar.** Eso lo decide Auditoría Interna a través del insumo #26 y de `DP-002`. Lo que este mapa hace es dibujar lo que **hoy** se construye —el escalamiento— y dejar visible lo que no.

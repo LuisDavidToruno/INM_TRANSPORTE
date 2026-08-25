@@ -6,7 +6,7 @@
 | **Actor** | ACT-04 Jefe de Transporte · ACT-05 Encargado de Despacho · ACT-01 Administrador del Sistema |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — faltan los contratos de API de ARGOS y de Talento Humano (insumos #16 y #17), sin los cuales el espejo es especulación de esquema, y los umbrales de antigüedad por tipo de entidad con la periodicidad de la reconciliación (insumos #68 y #72) |
 
 ## Historia
 

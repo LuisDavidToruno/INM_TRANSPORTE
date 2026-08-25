@@ -6,7 +6,7 @@
 | **Actor** | ACT-04 Jefe de Transporte · ACT-10 Encargado de Delegación |
 | **Prioridad** | Media |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta la frecuencia de reporte de posición aceptable y quién asume el consumo de datos que genera (insumo #74), y el umbral de antigüedad a partir del cual el tablero degrada explícitamente el dato (insumo #68) |
 
 ## Historia
 

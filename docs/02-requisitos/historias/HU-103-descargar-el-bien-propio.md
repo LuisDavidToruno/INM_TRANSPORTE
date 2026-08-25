@@ -6,7 +6,7 @@
 | **Actor** | ACT-14 Encargado de Bienes Institucionales (propone) · ACT-08 Gerencia Administrativa (aprueba) |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta saber si existe una unidad de Bienes separada en la institución: si no existe, desaparece la separación proponer/aprobar del descargo y hay que activar el control compensatorio. Falta también qué formato de acta de descargo usa la institución (insumo #2) |
 
 ## Historia
 

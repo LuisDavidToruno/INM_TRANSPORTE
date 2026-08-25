@@ -6,7 +6,7 @@
 | **Actor** | ACT-06 Motorista · ACT-10 Encargado de Delegación |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta el enlace real de sede y delegaciones para fijar el umbral de tiempo de sincronización (insumo #68) y el volumen operativo por misión (insumo #67); sin ellos el compromiso de «3 minutos sobre 3G» no es verificable |
 
 ## Historia
 
@@ -83,6 +83,24 @@ Característica: Sincronización automática, reanudable e idempotente
     Y lo envía a la cola de resolución humana
     Y muestra al responsable "El evento dice que ocurrió después de haberse registrado. Alguien tiene que revisarlo."
 
+  Escenario: Se rechaza aplicar una transición cuyo estado origen no coincide con el del servidor
+    Dado un registro que declara estado origen "DESPACHADA" para la Orden de Misión "OM-2026-0451"
+    Y que en el servidor "OM-2026-0451" está en estado "ANULADA"
+    Cuando el servidor procesa ese registro
+    Entonces no lo aplica
+    Y no lo descarta
+    Y lo envía a la cola de resolución humana con las dos versiones
+    Y muestra al responsable "El dispositivo registró una salida sobre OM-2026-0451, que en oficina figura anulada desde el 15/09/2026. Alguien tiene que decidir cuál de las dos ocurrió."
+
+  Escenario: Se rechaza aplicar un registro cuya transición predecesora no ha llegado
+    Dado que llegan los registros "38", "39" y "41" del dispositivo "DEL-CHO-03"
+    Y que falta el registro "40", que es el odómetro de salida
+    Cuando el servidor procesa el diario
+    Entonces aplica el "38" y el "39"
+    Y no aplica el "41" ni lo rechaza: lo retiene en espera de su predecesor
+    Y muestra "El registro 41 de DEL-CHO-03 espera al 40, que no ha llegado. No se aplica una transición saltando una faltante."
+    Y nunca produce una misión "RETORNADA" sin odómetro de salida
+
   Escenario: Sincronización de una misión completa con 20 fotografías
     Dada una Orden de Misión con "34" registros y "20" fotografías pendientes
     Cuando el dispositivo sincroniza sobre una conexión 3G
@@ -102,3 +120,5 @@ Característica: Sincronización automática, reanudable e idempotente
 - `[C]` Enlace real de sede y delegaciones —tipo, ancho de banda, estabilidad— para fijar el umbral de tiempo de sincronización — insumo #68
 - `[C]` Volumen operativo: cuántas misiones al mes y cuántos registros por misión — insumo #67
 - `[I]` La tolerancia del desfase de reloj es parámetro con vigencia por fecha, no un número fijo
+- Corregido por `HB34-20`: la historia no tenía **ningún camino de rechazo**. Los dos agregados hacen observable lo que la historia ya afirmaba sin probarlo —*«no aplica ninguna transición saltando una faltante»* y *«verifica en cada uno el estado origen esperado»*—, y cierran el hueco que `HB34-09` describe: sin la regla de retención escrita aquí, aplicar el registro 41 sin el 40 produce una misión `RETORNADA` sin odómetro de salida, y descartarlo viola `RN-45`
+- La **presentación** del resultado al responsable y la cola con resolución humana son [HU-067](HU-067-resultado-registro-por-registro-y-hueco-de-secuencia.md) y [HU-068](HU-068-cola-de-conflictos-dos-versiones-lado-a-lado.md). Esta historia fija **el comportamiento del servidor**; sin él, los mensajes de aquellas no tienen qué mostrar. La dependencia invertida entre sprints está reportada en `HB34-09` y se corrige en el backlog

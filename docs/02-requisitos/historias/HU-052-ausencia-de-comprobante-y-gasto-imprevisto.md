@@ -6,7 +6,7 @@
 | **Actor** | ACT-06 Motorista |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta el pronunciamiento de Auditoría Interna sobre si se admite constancia como descargo, con qué tope de monto y qué umbral de hallazgo (insumo #1). Ahí el dato **es** la lógica: sin él no se sabe si el gasto sin comprobante se descarga o se convierte en obligación de reintegro |
 
 ## Historia
 

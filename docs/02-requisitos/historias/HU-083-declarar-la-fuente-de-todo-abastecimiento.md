@@ -6,7 +6,7 @@
 | **Actor** | ACT-06 Motorista |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta si la institución reintegra combustible pagado de peculio propio y bajo qué circuito (insumo #37), si existe control de cisterna institucional y con qué documento se despacha desde ella (insumo #1), y si el fondo de combustible puede absorber un gasto en ruta como una grúa o una llanta (insumo #1) |
 
 ## Historia
 

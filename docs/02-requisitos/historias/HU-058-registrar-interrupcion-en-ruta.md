@@ -6,7 +6,7 @@
 | **Actor** | ACT-06 Motorista |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta la escala de severidad de fallas del vehículo, cuál es incapacitante y cuál no (insumo #35): es lo que decide el desenlace de la interrupción. Falta también el catálogo mínimo autorizado de datos de terceros de siniestro, que `NRM-07` deja `[C]` |
 
 ## Historia
 

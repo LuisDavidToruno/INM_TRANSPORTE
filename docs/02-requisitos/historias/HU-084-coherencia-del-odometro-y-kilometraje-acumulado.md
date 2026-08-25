@@ -6,7 +6,7 @@
 | **Actor** | ACT-06 Motorista (captura) · ACT-11 Encargado de Mantenimiento (acta de intervención) · ACT-04 Jefe de Transporte (resuelve) |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — faltan `salto_maximo_km_por_dia` y `salto_maximo_km_por_hora` por tipo de vehículo (insumo #1), el plazo máximo de operación con el odómetro averiado (insumo #1) y si hay unidades con tablero en millas en la flota (insumo #5): asumir kilómetros produce un error del 60 % que nadie detecta hasta que la conciliación es absurda |
 
 ## Historia
 

@@ -45,6 +45,17 @@ Estas dos cosas son distintas y conviene no confundirlas: el **identificador int
    - Cada uno emite 100 documentos de tres tipos, incluidas 10 anulaciones.
    - Se sincronizan todos, en orden desordenado y con una sincronización interrumpida a la mitad.
    - Se verifica: 0 duplicados, 0 colisiones, 0 folios reciclados, y que el reporte de huecos coincide exactamente con las 50 anulaciones.
+
+1b. **Prueba de varios dispositivos en la misma delegación** — **la que realmente rompe**:
+   - **Tres dispositivos de la misma delegación**, los tres desconectados, emitiendo **el mismo tipo de documento**.
+   - Cada uno emite 50 documentos y 5 anulaciones sin ver lo que hacen los otros dos.
+   - Se sincronizan los tres y se verifica: **0 folios repetidos entre dispositivos de la misma delegación**.
+
+   > **Corrección — hallazgo `HB34-52`.** La prueba 1 estaba escrita con **un dispositivo por delegación**, así que no podía detectar el defecto que existía: el rango de folios se asignaba a la delegación, no al dispositivo, y cuatro dispositivos de la misma delegación sin red **emitían los mismos números**.
+   >
+   > Una prueba que no puede fallar donde el sistema falla no es una prueba. El modelo de datos ya incorporó `subrango_de_folio` por dispositivo; esta prueba es la que lo verifica.
+   >
+   > `[C]` Tamaño del subrango y procedimiento de ampliación sin conectividad — insumo #83.
 2. **Prueba del comprobante duplicado**: dos delegaciones registran, sin red, un consumo con el mismo número de comprobante del mismo proveedor. Al sincronizar, ambos deben llegar, ninguno debe perderse, y el conflicto debe aparecer en la cola con las dos versiones y su contexto ([`CE-25`](../casos-especiales/CE-25-comprobante-perdido-o-estacion-sin-factura.md)).
 3. **Prueba de agotamiento de rango**: se consume el 85 % del rango de una delegación y se verifica el aviso; se agota completamente estando sin red y se verifica que el mensaje explica que la reposición requiere conexión y qué hacer mientras tanto —incluida la vía en papel, que es la que hoy existe.
 4. **Prueba de anulación**: se anula un documento emitido y se verifica que su folio no vuelve a ofrecerse, que aparece en el reporte de control como anulado con motivo y autor, y que el hueco queda explicado.

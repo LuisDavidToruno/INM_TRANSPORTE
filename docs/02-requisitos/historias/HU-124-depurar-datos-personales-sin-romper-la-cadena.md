@@ -35,6 +35,15 @@ Y hay una consecuencia que no se puede posponer: **el costo de separar el segmen
 - [RN-39](../../01-negocio/reglas/RN-39-parametros-normativos-con-vigencia.md) — Los plazos de retención son parámetros con vigencia, **nunca constantes en el código**
 - [RN-94](../../01-negocio/reglas/RN-94-fecha-de-corte-de-conocimiento-en-todo-reporte.md) — Un reporte reproducido a su fecha de corte no cambia por una depuración posterior
 
+## Casos especiales que la afectan
+
+> Sección incorporada por el hallazgo `HB34-13`, que la señaló como *«el caso que más incomoda»*: esta historia depura datos personales en su plazo y **no declaraba relación con `CE-27` ni con `CE-28`**, que son exactamente el cruce que hay que haber pensado.
+
+- [CE-28](../casos-especiales/CE-28-hallazgo-posterior-sobre-mision-cerrada.md) — **El cruce crítico**: depurar el manifiesto de una misión sobre la que después se abre un hallazgo. Regla de resolución adoptada: la depuración **no se revierte** —los datos personales ya no están y no se pueden reconstruir—, pero el hallazgo sigue siendo investigable porque lo que la depuración conserva es precisamente lo que la investigación necesita: conteo, origen, destino, vehículo, misión, costos, la cadena de asientos y el registro de consultas con el identificador seudonimizado. Lo que se pierde es la **identidad de la persona trasladada**, que no es materia del hallazgo contable. `[C]` **reversible**: si Auditoría Interna determina que necesita la identidad de los trasladados para investigar, la salida no es no depurar, sino **suspender la depuración de las misiones bajo hallazgo abierto** mediante una marca de retención por expediente. Registrado en el insumo #71
+- [CE-27](../casos-especiales/CE-27-cierre-de-ejercicio-fiscal-con-hallazgo-abierto.md) — El cierre del ejercicio con hallazgo abierto **no dispara ni adelanta** la depuración: los plazos de depuración corren por su propio calendario, no por el contable. Un ejercicio cerrado con hallazgo abierto mantiene su marca de retención hasta que el hallazgo se resuelva
+- [CE-09](../casos-especiales/CE-09-bitacora-en-papel-digitada-dias-despues.md) — Un dispositivo de campo que no ha sincronizado conserva datos que el servidor ya depuró; la depuración se aplica en cada dispositivo al siguiente contacto y el estado por dispositivo es visible
+- Los 25 `CE-xx` restantes **no tocan este flujo**. Constancia dejada
+
 ## Requisitos no funcionales relacionados
 
 - [RNF-17](../no-funcionales/RNF-17-retencion-y-depuracion-diferenciada.md) — **Requisito rector de esta historia**
@@ -102,6 +111,21 @@ Característica: Depuración diferenciada de datos personales de manifiestos
     Entonces los "26" registros de consulta se conservan
     Y referencian el identificador seudonimizado de la persona consultada
     Y siguen permitiendo demostrar quién vio esos datos y cuándo
+
+  Escenario: Se rechaza depurar el manifiesto de una misión con hallazgo abierto
+    Dado un plazo de depuración de datos personales de "2" años, configurado como ejemplo
+    Y una Orden de Misión "OM-2026-0451" cerrada con hallazgo abierto desde el "2027-03-04"
+    Cuando el Administrador del Sistema ejecuta la depuración del ejercicio "2026" el "2029-01-15"
+    Entonces el sistema excluye "OM-2026-0451" de la depuración
+    Y muestra "1 manifiesto queda retenido: OM-2026-0451 tiene un hallazgo abierto desde el 04/03/2027. La retención se levanta cuando el hallazgo se resuelva."
+    Y depura los "411" manifiestos restantes
+    Y la marca de retención es por expediente, no por ejercicio completo
+
+  Escenario: El cierre del ejercicio fiscal no adelanta ni dispara la depuración
+    Dado un ejercicio "2026" cerrado el "2027-01-31" con "3" hallazgos abiertos
+    Cuando llega la fecha de cierre contable del ejercicio
+    Entonces el sistema no ejecuta ninguna depuración por esa causa
+    Y muestra en la pantalla de estado "El cierre del ejercicio no depura datos personales. La depuración corre por el plazo configurado, no por el calendario contable."
 
   Escenario: La depuración alcanza los dispositivos de campo
     Dado "9" dispositivos de campo con manifiestos del ejercicio "2026" en su almacén local

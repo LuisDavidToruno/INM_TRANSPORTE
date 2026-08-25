@@ -738,7 +738,9 @@ La regla de vigencia es la misma que en `BD-02`: **durante todo el rango**, no s
 
 **Se evalúa en** `T-12`, y en `T-17` cuando la prórroga extiende la misión a franja inhábil.
 
-**Regla.** Si cualquier parte de la ventana de la misión cae en día inhábil u hora inhábil según el calendario configurable de la delegación, debe existir un **permiso de circulación emitido por ACT-09 Máxima Autoridad**, vigente para esa ventana, ese vehículo y esa ruta, y su **salvoconducto impreso** debe emitirse junto con la Orden de Misión.
+**Regla.** Si cualquier parte de la ventana de la misión cae en día inhábil u hora inhábil según el calendario configurable de la delegación, debe existir un **permiso de circulación emitido por ACT-09 Máxima Autoridad**, vigente para **ese vehículo, ese motorista, esa ruta y esa ventana**, y su **salvoconducto impreso** debe emitirse junto con la Orden de Misión.
+
+**Un relevo de motorista invalida el permiso** y obliga a reemitirlo para el tramo restante.
 
 **Excepción — vehículo de servicio exceptuado.** No aplica a los vehículos marcados como de **servicio exceptuado** (emergencia, seguridad, defensa, salud), que [NRM-02](../../01-negocio/normativa/NRM-02-bienes-del-estado.md) exime `[V]` y que [`RN-24`](../../01-negocio/reglas/RN-24-vehiculo-de-servicio-exceptuado.md) ya reconocía. La excepción es **atributo del vehículo con vigencia**, no del viaje, y su uso queda registrado.
 
@@ -748,11 +750,15 @@ La regla de vigencia es la misma que en `BD-02`: **durante todo el rango**, no s
 >
 > **`HB3-07`:** qué ampara el salvoconducto tenía tres redacciones — `BD-04` decía "vehículo y ventana", `PC-03` "vehículo, motorista y ventana", `RN-23` "vehículo, motorista, ruta y ventana". No es cosmético: decide si un relevo de motorista invalida el permiso frente al agente que lo revisa en carretera.
 >
-> **Resolución adoptada:** el permiso ampara **vehículo, ruta y ventana**. El motorista figura en el salvoconducto pero **un relevo documentado no lo invalida**, siempre que el motorista entrante esté habilitado (`BD-02`) y el relevo quede registrado.
+> **Resolución adoptada — corregida el 2026-08-25:** el permiso ampara **vehículo, motorista, ruta y ventana**, la lectura más exigente, que es la que [`RN-23`](../../01-negocio/reglas/RN-23-permiso-de-circulacion-en-dia-inhabil.md) ya tenía escrita. **Un relevo de motorista invalida el permiso** y obliga a reemitirlo para el tramo restante.
 >
-> La razón es operativa y hay que decirla: si el relevo invalidara el permiso, un motorista incapacitado un domingo en carretera dejaría el vehículo varado sin salida legal — y la institución tendría un bien del Estado abandonado en la vía, que es peor que el riesgo que el permiso pretende controlar.
+> **Una versión anterior de esta corrección adoptó la lectura contraria** —vehículo, ruta y ventana, con el relevo sin invalidar— por un argumento operativo: que si el relevo invalidara el permiso, un motorista incapacitado un domingo dejaría el vehículo varado esperando otra firma de la máxima autoridad.
 >
-> `[C]` **Confirmar con Auditoría Interna.** `NRM-02` no precisa el alcance del permiso; la lectura es nuestra. Si la institución exige que sea nominativo por motorista, se revierte y hay que diseñar la salida para el relevo en día inhábil.
+> **Ese argumento era erróneo, y la salida ya existía.** El **código de autorización fuera de línea** (sección 6.6, y `DP-001` D-04) permite justamente eso: la máxima autoridad autoriza por teléfono con un código que el motorista ingresa sin conectividad. El vehículo no queda varado.
+>
+> Y la razón de fondo pesa más: **el salvoconducto lo lee un agente en carretera que compara el nombre del papel con quien va al volante.** Si no coinciden, el documento no sirve para lo único que existe. Un permiso que ampara a cualquiera que conduzca no es un permiso nominativo.
+>
+> `[C]` Confirmar con Auditoría Interna el alcance literal: `NRM-02` no lo precisa.
 
 **Cómo se determina "inhábil".**
 - Calendario de días hábiles, feriados y horario laboral **configurable por institución y por delegación** ([NRM-09](../../01-negocio/normativa/NRM-09-realidad-operativa.md)). Los feriados se espejan de Talento Humano ([DP-001, D-07](../../07-gestion/decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md)).

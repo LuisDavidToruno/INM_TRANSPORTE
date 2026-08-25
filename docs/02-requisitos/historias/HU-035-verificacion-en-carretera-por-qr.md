@@ -6,8 +6,20 @@
 | **Actor** | ACT-15 Verificador en Carretera (**no autenticado**) |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Refinada |
+| **Estado** | **Borrador — bajada por `HB34-06`**: bloqueada por el pendiente G (exposición de punto público con despliegue on-premise), el mismo `[C]` por el que [HU-019](HU-019-verificacion-del-salvoconducto-en-carretera.md) está en borrador. El mismo insumo abierto no puede producir dos veredictos opuestos |
 | **Deriva de** | [CU-05](../casos-de-uso/CU-05-emitir-orden-de-mision-y-documentos.md) paso 15 y A3 |
+
+## Nota de corrección — hallazgo `HB34-06`
+
+> **Duplicación con [HU-019](HU-019-verificacion-del-salvoconducto-en-carretera.md).** Mismo actor no autenticado, mismo módulo, misma regla rectora `RN-25`, mismos cuatro estados, mismo mínimo verificable. Ninguna se excluía de la otra.
+>
+> **Delimitación adoptada:** `HU-035` manda en **el mecanismo genérico** —contrato de respuesta mínima, registro de consultas, minimización, un solo punto de verificación para Orden de Misión, vale de combustible, hoja de bitácora y manifiesto—. `HU-019` manda en **el salvoconducto**: qué lo invalida, qué estados devuelve y qué se muestra de él. Los escenarios de salvoconducto de esta historia se conservan como **casos de ejercicio del mecanismo**, y su semántica la fija `HU-019`.
+>
+> **Qué produce `DESACTUALIZADO`.** Esta historia decía *«cambió de motorista»*; `HU-019` decía *«cambió la ruta»*; `HU-045` seguía a `BD-04` y concluía que el relevo no invalidaba nada. `HB3-07` ya había adoptado **la lectura más exigente**, la de [`RN-23`](../../01-negocio/reglas/RN-23-permiso-de-circulacion-en-dia-inhabil.md): **vehículo, motorista, ruta y ventana**. Se aplica: cualquiera de los cuatro que cambie después de la impresión desactualiza el documento. El motorista sigue siendo uno de ellos, así que el escenario de esta historia era correcto pero **incompleto**.
+>
+> **Mensaje de folio inexistente.** Esta historia respondía *«Folio no encontrado. Este documento no fue emitido por la institución.»* — una afirmación sobre el emisor que `HU-019` evita a propósito. **Manda la redacción de `HU-019`**: se responde *«Folio no encontrado»* y **no se revela si el rango de folios existe**. Un punto público que confirma qué rangos son válidos enseña a fabricar folios verosímiles.
+>
+> **Veredicto DoR.** Esta historia declaraba **el mismo** `[C]` bloqueante que `HU-019` —pendiente G— y estaba `Refinada` mientras `HU-019` estaba en borrador. Sin esa decisión el QR no apunta a nada: el `[C]` **es** la lógica, no un parámetro. Baja a borrador.
 
 ## Historia
 
@@ -29,6 +41,7 @@ Y hay un cuarto estado que casi siempre se olvida: **desactualizado**. Cuando la
 - [RN-51](../../01-negocio/reglas/RN-51-minimizacion-de-datos-de-personas-externas.md) — Minimización: la verificación pública no expone identidades
 - [RN-52](../../01-negocio/reglas/RN-52-registro-de-consultas-a-manifiestos.md) — Toda consulta se registra: quién vio qué y cuándo
 - [RN-04](../../01-negocio/reglas/RN-04-anulacion-como-asiento-reverso.md) — La anulación se refleja de inmediato en la verificación
+- [RN-23](../../01-negocio/reglas/RN-23-permiso-de-circulacion-en-dia-inhabil.md) — Para el salvoconducto, lo amparado es **vehículo, motorista, ruta y ventana**: los cuatro producen `DESACTUALIZADO`. La semántica la fija [HU-019](HU-019-verificacion-del-salvoconducto-en-carretera.md); aquí solo se ejercita el mecanismo (`HB34-06`)
 
 ## Casos especiales que la afectan
 
@@ -48,7 +61,8 @@ Característica: Verificación pública de documentos por QR
 
   Escenario: Se rechaza una consulta de folio inexistente y queda registrada
     Cuando un Verificador en Carretera consulta el folio "SC-2026-9999"
-    Entonces el sistema responde "Folio no encontrado. Este documento no fue emitido por la institución."
+    Entonces el sistema responde "Folio no encontrado"
+    Y no revela si el rango de folios existe ni afirma nada sobre el emisor
     Y registra la consulta fallida con el folio consultado, el momento y el origen de la consulta
 
   Escenario: Un documento anulado se reporta como anulado de inmediato
@@ -64,12 +78,19 @@ Característica: Verificación pública de documentos por QR
     Entonces el sistema responde estado "VENCIDO"
     Y muestra "Este documento amparó del 19/09/2026 22:00 al 20/09/2026 14:00."
 
-  Escenario: Un documento cuyo expediente cambió después de imprimirse se reporta como desactualizado
-    Dado que la Orden de Misión vinculada cambió de motorista el "2026-09-19 23:00",
+  Esquema del escenario: Cualquier elemento amparado que cambie tras la impresión se reporta como desactualizado
+    Dado que la Orden de Misión vinculada cambió "<elemento>" el "2026-09-19 23:00",
       posterior a la impresión del documento
     Cuando un Verificador en Carretera escanea el QR de "SC-2026-0087"
     Entonces el sistema responde estado "DESACTUALIZADO"
     Y muestra "El expediente de esta misión se modificó después de la impresión. Solicite el documento vigente."
+
+    Ejemplos:
+      | elemento         |
+      | de vehículo      |
+      | de motorista     |
+      | de ruta amparada |
+      | de ventana       |
 
   Escenario: Un documento vigente devuelve solo el mínimo verificable
     Cuando un Verificador en Carretera escanea el QR de "SC-2026-0087"
@@ -95,6 +116,7 @@ Característica: Verificación pública de documentos por QR
 ## Fuera de alcance
 
 - La emisión de los documentos y su contenido — es [HU-031](HU-031-consumo-del-folio-y-emision-del-juego-documental.md)
+- **Lo propio del salvoconducto** —qué elementos ampara, qué lo invalida y qué se muestra de él— es [HU-019](HU-019-verificacion-del-salvoconducto-en-carretera.md). Aquí el salvoconducto aparece solo como caso de ejercicio del mecanismo genérico (delimitación de `HB34-06`)
 - El acceso al expediente por parte del Auditor Interno, que sí es usuario autenticado — es de M-14
 - La verificación telefónica y el contraste visual de la huella cuando el verificador no tiene datos móviles: se documentan como procedimiento, no como funcionalidad `[I]`
 

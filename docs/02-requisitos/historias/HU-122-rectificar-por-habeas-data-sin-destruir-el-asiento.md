@@ -35,6 +35,15 @@ El error caro sería permitir editar el manifiesto cerrado. Un manifiesto editab
 - [RN-52](../../01-negocio/reglas/RN-52-registro-de-consultas-a-manifiestos.md) — La rectificación es también un acceso y se registra
 - [RN-94](../../01-negocio/reglas/RN-94-fecha-de-corte-de-conocimiento-en-todo-reporte.md) — Un reporte reproducido a una fecha de corte anterior sigue mostrando el valor de entonces
 
+## Casos especiales que la afectan
+
+> Sección incorporada por el hallazgo `HB34-13`: faltaba, y el `DoR` exige identificar los `CE-xx` que afectan a la historia **o dejar constancia explícita de que no hay ninguno**.
+
+- [CE-28](../casos-especiales/CE-28-hallazgo-posterior-sobre-mision-cerrada.md) — **El cruce que hay que haber pensado.** Rectificar el dato de una persona en el manifiesto de una misión sobre la que después se abre un hallazgo: la rectificación es un **asiento nuevo**, nunca una edición, y el asiento original queda intacto y consultable para la investigación. Rectificar no borra lo que se registró en su momento
+- [CE-27](../casos-especiales/CE-27-cierre-de-ejercicio-fiscal-con-hallazgo-abierto.md) — Una rectificación posterior al cierre del ejercicio no altera ningún reporte ya emitido a su fecha de corte (`RN-94`)
+- [CE-09](../casos-especiales/CE-09-bitacora-en-papel-digitada-dias-despues.md) — El dato a rectificar puede estar en un dispositivo de campo que aún no sincronizó; la rectificación alcanza también a esa copia al siguiente contacto
+- Los 25 `CE-xx` restantes **no tocan este flujo**. Constancia dejada
+
 ## Requisitos no funcionales relacionados
 
 - [RNF-17](../no-funcionales/RNF-17-retencion-y-depuracion-diferenciada.md) — **0** rectificaciones de hábeas data aplicadas sobre el registro original

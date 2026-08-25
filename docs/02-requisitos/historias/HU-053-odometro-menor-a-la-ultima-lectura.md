@@ -6,7 +6,7 @@
 | **Actor** | ACT-06 Motorista |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta el plazo máximo de operación con odómetro averiado antes de que el vehículo salga de circulación (insumo registrado desde `RN-90`). Sin él, el estado *odómetro averiado* no tiene salida y se vuelve permanente |
 
 ## Historia
 

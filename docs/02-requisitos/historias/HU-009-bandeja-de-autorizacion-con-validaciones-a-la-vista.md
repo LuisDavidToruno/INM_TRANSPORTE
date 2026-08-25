@@ -6,7 +6,19 @@
 | **Actor** | ACT-03 Jefatura Inmediata |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Refinada |
+| **Estado** | **Borrador — reabierta por `HB34-03`**: retiraba la acción de autorizar donde `RN-50` prohíbe bloquear. Corregida abajo; vuelve a refinamiento |
+
+## Nota de corrección — hallazgo `HB34-03`
+
+> **Qué estaba mal.** Esta historia **no ofrecía la acción de autorizar** cuando el espejo de la estructura de ARGOS superaba las 72 horas, **y citaba [`RN-50`](../../01-negocio/reglas/RN-50-degradacion-por-sincronizacion-detenida.md) como fundamento del bloqueo que `RN-50` niega**. No ofrecer la acción es bloquear con otro nombre.
+>
+> `RN-50` es la autoridad: *«La operación no se impide: se marca»*, **Tipo: Advertencia con acuse registrado**, y nombra *autorizar una orden de misión* entre las operaciones sensibles a las que aplica ese tratamiento — no un tratamiento distinto.
+>
+> **El caso.** La Delegación Choluteca lleva cuatro días sin enlace. Con esta historia en el código, **ninguna jefatura de esa delegación puede autorizar nada** hasta que vuelva el enlace: los expedientes se acumulan y la operación se detiene. Es exactamente lo que la premisa rectora 5 y `NRM-09` mandan evitar.
+>
+> **Qué se corrige.** El primer escenario pasa a advertencia con **acuse nominativo y con motivo**, asentada en el diario y visible en el impreso, en línea con [HU-026](HU-026-disponibilidad-del-motorista-contra-el-espejo.md) y con la propia frase de esta historia: *«Una advertencia que nadie ve no es un control»*. Se elimina el umbral de bloqueo; queda solo el de advertencia.
+>
+> **Lo que sí sigue bloqueando y no cambia:** la misión sin liquidar del solicitante **cuando la institución configuró ese control como bloqueo**. Ese es un parámetro institucional expresamente previsto, no la desincronización del espejo.
 
 ## Historia
 
@@ -25,7 +37,7 @@ Una advertencia que nadie ve no es un control. Por eso, cuando la institución c
 ## Reglas que la gobiernan
 
 - [RN-35](../../01-negocio/reglas/RN-35-estimacion-de-peajes-antes-de-aprobar.md) — El estimado desglosado por punto se pone a la vista de quien autoriza
-- [RN-50](../../01-negocio/reglas/RN-50-degradacion-por-sincronizacion-detenida.md) — Se declara la antigüedad del espejo de ARGOS antes de permitir continuar
+- [RN-50](../../01-negocio/reglas/RN-50-degradacion-por-sincronizacion-detenida.md) — Se declara la antigüedad del espejo de ARGOS antes de permitir continuar, **se exige acuse nominativo y se registra. La autorización no se impide por antigüedad del espejo: se marca** (corregido por `HB34-03`)
 - [RN-49](../../01-negocio/reglas/RN-49-reconciliacion-periodica-del-espejo.md) — Cada entidad espejada muestra su última sincronización
 - [RN-23](../../01-negocio/reglas/RN-23-permiso-de-circulacion-en-dia-inhabil.md) — Los tramos inhábiles se muestran señalados; la aprobación **no** se bloquea por ellos
 - [RN-08](../../01-negocio/reglas/RN-08-cadena-de-trazabilidad-para-cierre.md) — Las misiones sin liquidar del solicitante son dato de control, con su antigüedad
@@ -49,14 +61,18 @@ Característica: Bandeja de autorización con el contexto completo del expedient
     Y un expediente "CHO-2026-00087" en estado "SOLICITADA" con salida prevista el "2026-03-20 07:00"
     Y una fecha del sistema del "2026-03-14 08:00"
 
-  Escenario: Se bloquea la autorización con el espejo de la jerarquía detenido más allá del umbral
+  Escenario: La jefatura de una delegación sin enlace sigue pudiendo autorizar, con acuse nominativo
     Dado un espejo de la estructura de ARGOS sincronizado por última vez el "2026-03-10 06:00"
-    Y un umbral de bloqueo de "72" horas
-    Cuando "Rolando Discua" abre el expediente "CHO-2026-00087"
-    Entonces el sistema no ofrece la acción de autorizar
-    Y muestra "La estructura de autorización lleva 98 horas sin sincronizar y el umbral de bloqueo es de 72. No se autoriza contra una jerarquía que puede ya no existir (RN-50)."
+    Y un umbral configurable de advertencia por sincronización detenida de "24" horas
+    Cuando "Rolando Discua" autoriza el expediente "CHO-2026-00087"
+    Entonces el sistema muestra, antes de ejecutar la autorización, "Su competencia se resolvió con una estructura de 98 horas de antigüedad. Un cambio de jefatura posterior no se ve aquí. Si continúa, quedará registrado que usted autorizó con este dato."
+    Y exige el acuse de "Rolando Discua" con motivo antes de continuar
+    Y ejecuta la autorización
+    Y el expediente muestra "Autorizado por Rolando Discua sobre estructura de autorización de 98 horas de antigüedad."
+    Y esa constancia es visible en el expediente y en su versión impresa
+    Y en ningún momento retira ni oculta la acción de autorizar por antigüedad del espejo
 
-  Escenario: Se advierte la antigüedad del espejo bajo el umbral de bloqueo y queda asentada
+  Escenario: Se advierte la antigüedad del espejo bajo el umbral y queda asentada
     Dado un espejo de la estructura de ARGOS sincronizado por última vez el "2026-03-12 06:00"
     Y un umbral de advertencia de "24" horas
     Cuando "Rolando Discua" abre el expediente "CHO-2026-00087"
@@ -106,6 +122,6 @@ Característica: Bandeja de autorización con el contexto completo del expedient
 ## Notas y pendientes
 
 - `[C]` Si las misiones sin liquidar **bloquean o advierten**, y el plazo máximo de liquidación — insumos #1 y #32
-- `[C]` Umbrales de advertencia y de bloqueo por sincronización detenida del espejo — insumo #16
+- `[C]` **Umbral de advertencia** por sincronización detenida del espejo, por conjunto de datos y por delegación — insumo #16. **No hay umbral de bloqueo**: `RN-50` lo retiró y su reintroducción es decisión abierta del PO en la regla, no en esta historia (`HB34-03`)
 - `[C]` Antelación mínima que marca una solicitud como urgente y nivel adicional que su autorización exige — insumo #32
 - Trazabilidad: [CU-02](../casos-de-uso/CU-02-autorizar-solicitud-de-transporte.md) pasos 1 a 4 y excepción E5; puntos de control `PC-15`, `PC-02`

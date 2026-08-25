@@ -6,7 +6,7 @@
 | **Actor** | ACT-10 Encargado de Delegación · ACT-05 Encargado de Despacho |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta el plazo máximo de digitación diferida antes de que la misión cierre con hallazgo (insumo #32) y el pronunciamiento de Auditoría Interna sobre si puede digitar formularios en papel quien después liquida esa misma misión (insumo #47). Si la respuesta es no, nace una incompatibilidad nueva en la matriz de actores |
 
 ## Historia
 

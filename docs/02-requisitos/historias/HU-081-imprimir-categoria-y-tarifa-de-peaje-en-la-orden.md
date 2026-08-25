@@ -6,7 +6,7 @@
 | **Actor** | ACT-06 Motorista (destinatario) · ACT-07 Encargado de Combustible (emite el paquete) |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta el texto del Artículo 51 de la Ley de Tránsito, criterio legal de liviano frente a pesado, cuyo PDF oficial es un escaneo sin capa de texto (insumo #23), la lista oficial de exoneraciones (insumo #22) y si la institución opera con tag prepago (insumo #24): con tag no hay ticket y la Orden debe indicarlo |
 
 ## Historia
 

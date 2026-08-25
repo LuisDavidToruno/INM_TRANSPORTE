@@ -28,6 +28,14 @@ Por eso [RN-51](../../01-negocio/reglas/RN-51-minimizacion-de-datos-de-personas-
 - [RN-52](../../01-negocio/reglas/RN-52-registro-de-consultas-a-manifiestos.md) — La consulta agregada o anonimizada **no** entra al registro de consultas, porque por construcción no expone a nadie
 - [RN-94](../../01-negocio/reglas/RN-94-fecha-de-corte-de-conocimiento-en-todo-reporte.md) — Todo reporte declara su fecha de corte y es reproducible a esa fecha
 
+## Casos especiales que la afectan
+
+> Sección incorporada por el hallazgo `HB34-13`: faltaba, y el `DoR` exige identificar los `CE-xx` que afectan a la historia **o dejar constancia explícita de que no hay ninguno**.
+
+- [CE-27](../casos-especiales/CE-27-cierre-de-ejercicio-fiscal-con-hallazgo-abierto.md) — La publicación de transparencia de un ejercicio con hallazgos abiertos se emite con su **fecha de corte** (`RN-94`) y no se retiene a la espera de que los hallazgos se resuelvan: no publicar por prudencia también es una decisión que hay que poder defender
+- [CE-28](../casos-especiales/CE-28-hallazgo-posterior-sobre-mision-cerrada.md) — Un hallazgo posterior **no modifica** una publicación ya emitida; se publica el ajuste como un dato nuevo con su propia fecha de corte
+- Los 26 `CE-xx` restantes **no tocan este flujo**. Constancia dejada
+
 ## Requisitos no funcionales relacionados
 
 - [RNF-17](../no-funcionales/RNF-17-retencion-y-depuracion-diferenciada.md) — Lo que sobrevive a la depuración es exactamente lo que este reporte publica: conteo, condición agregada, origen, destino, vehículo, misión y costos

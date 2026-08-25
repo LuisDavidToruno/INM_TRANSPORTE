@@ -6,7 +6,7 @@
 | **Actor** | ACT-07 Encargado de Combustible |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta confirmar si un Encargado de Delegación puede recibir el instrumento en nombre del motorista, previsto en `RN-32` numeral 3 y **no confirmado** (insumo #1), y el formato en papel de la constancia de recepción del vale (insumo #2) |
 
 ## Historia
 

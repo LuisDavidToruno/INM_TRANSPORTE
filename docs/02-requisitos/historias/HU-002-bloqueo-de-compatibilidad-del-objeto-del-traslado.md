@@ -107,6 +107,20 @@ Característica: Compatibilidad entre lo declarado y el tipo de vehículo requer
 - El mantenimiento del catálogo de tipos de vehículo y de la matriz — es M-02
 - La reducción de carga por objeto principal cuando el peso efectivo excede lo declarado: ocurre en ejecución, no aquí
 
+## Delimitación de `RN-67` — hallazgo `HB34-15`
+
+> `RN-67` se aplica en **tres momentos distintos** y ninguna de las tres historias lo decía. El comportamiento coincide en lo esencial —la ausencia de entrada en la matriz bloquea, nunca se interpreta como permiso—, así que no hay contradicción; lo que faltaba era la frontera.
+>
+> | Momento | Historia | Contra qué evalúa |
+> |---|---|---|
+> | **Envío de la solicitud** (M-06) | **`HU-002`** | El **tipo de vehículo requerido** y los objetos declarados por el solicitante. No hay vehículo concreto ni motorista |
+> | **Asignación del vehículo** (M-07) | [`HU-022`](HU-022-compatibilidad-vehiculo-objeto-del-traslado.md) | La **ficha técnica del vehículo concreto**, plazas y kilogramos reales, tramo por tramo |
+> | **Programación con personas externas** (M-17 · M-07) | [`HU-125`](HU-125-personas-externas-junto-con-carga-y-personal.md) | El par **personas externas × personal de la institución × carga**, con manifiesto y minimización de datos |
+>
+> **Frontera con `RN-68`.** Esta historia ofrece *«declarar la configuración por tramo»* como salida al bloqueo, que es el objeto de `RN-68` y de `HU-125`. Aquí la declaración por tramo es solo **una forma de capturar la solicitud**; la evaluación tramo a tramo con recursos concretos es de `HU-022` y `HU-125`. Esta historia no la reimplementa.
+>
+> **Sobre los veredictos DoR opuestos.** Esta historia está `Refinada` y `HU-125` en borrador con el mismo insumo #39 abierto, y ambas cosas son correctas: aquí el `[C]` es el **contenido** de la matriz —un catálogo con vigencia que se carga después, sin tocar la lógica—, y el criterio del `DoR` lo admite expresamente. En `HU-125` el `[C]` es **el régimen de custodia de personas externas**, que decide qué pares existen: ahí el dato *es* la lógica. Lo que no se sostiene es que **nadie sea dueño de poblar la matriz**: es catálogo de M-02 y M-02 no tiene ninguna historia (`HB34-05`).
+
 ## Notas y pendientes
 
 - `[C]` Contenido inicial de la matriz objeto × objeto. La institución debe declarar los pares que su operación real produce — insumos #1 y #39

@@ -6,7 +6,7 @@
 | **Actor** | ACT-06 Motorista marca la discrepancia · ACT-04 Jefe de Transporte gestiona el reclamo |
 | **Prioridad** | Media |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta ante quién se presenta el reclamo, con qué formato y en qué plazo: `NRM-10` no cubre el procedimiento de reclamación. Y falta qué puesto queda responsable del reclamo en la institución; sin dueño, el reclamo nace muerto |
 
 ## Historia
 

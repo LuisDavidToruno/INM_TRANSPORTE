@@ -118,7 +118,7 @@ Característica: Estado operativo y documentación del vehículo al programar
 
 ## Fuera de alcance
 
-- La captura de la ficha del vehículo y de sus vencimientos — es de M-03 y M-04
+- La captura de la ficha del vehículo, sus vencimientos y **la definición del parámetro de bloqueo por régimen de tenencia** — es [HU-101](HU-101-alertar-vencimientos-documentales-al-puesto.md). Delimitación escrita por `HB34-12`: esta historia manda en **el acto de asignar** y consume el parámetro; `HU-101` manda en **el dato y su ciclo de vida**. `HU-101` lo modelaba como interruptor único y quedó corregida
 - La declaración del estado operativo `EN_TALLER`, que ejecuta el Encargado de Mantenimiento — es de M-11
 - El desenlace de las reservas ya constituidas cuando el vehículo entra a taller — es [HU-043](HU-043-sustituir-vehiculo-o-motorista-en-programada.md)
 - La verificación física de la rotulación en el predio con fecha y foto — es [HU-040](HU-040-acta-de-entrega-y-traslado-de-custodia.md)

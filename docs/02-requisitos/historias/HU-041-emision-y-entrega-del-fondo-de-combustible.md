@@ -6,7 +6,7 @@
 | **Actor** | ACT-07 Encargado de Combustible · ACT-06 Motorista (recibe) · ACT-05 Encargado de Despacho |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Refinada |
+| **Estado** | **Borrador — reabierta por `HB34-04`**: cita `RN-26` —*«sin fondo vigente aprobado no hay asignación»*— y `RN-88` —saldo proyectado—, y tiene escenarios que **no se pueden ejecutar** hasta que exista la entidad *fondo*, que producen [HU-071](HU-071-solicitar-fondo-de-combustible-del-periodo.md), [HU-072](HU-072-aprobar-fondo-verificando-cuota-trimestral.md) y [HU-074](HU-074-entregar-el-fondo-y-registrar-su-custodia.md). Está además alcanzada por `PROP-01` / insumo #7, que el propio backlog declara bloqueante de construcción. La corrección es de secuencia y se hace en el backlog: mover esta historia junto al núcleo del fondo, o adelantar ese núcleo |
 | **Deriva de** | [CU-04](../casos-de-uso/CU-04-programar-mision-asignar-vehiculo-y-motorista.md) paso 11 · [CU-06](../casos-de-uso/CU-06-despachar-y-registrar-salida.md) paso 9, A1, E5 · `V-01`, `V-02` · `EF-04` |
 
 ## Historia

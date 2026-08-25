@@ -6,7 +6,7 @@
 | **Actor** | ACT-08 Gerencia Administrativa · ACT-12 Auditor Interno (puede requerirlo) |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — faltan los umbrales de los criterios configurables (insumos #1 y #19), la decisión sobre si los hallazgos reiterados de un mismo motorista o vehículo **bloquean o advierten** antes de nuevas asignaciones (insumo #1) y los informes previos de Auditoría Interna o del TSC sobre flota, que son el catálogo real de tipos de hallazgo (insumo #19) |
 
 ## Historia
 

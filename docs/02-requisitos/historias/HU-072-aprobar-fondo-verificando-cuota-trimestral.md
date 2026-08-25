@@ -6,7 +6,7 @@
 | **Actor** | ACT-08 Gerencia Administrativa |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — bloqueada por `PROP-01` / insumo #7 como todo el ciclo del fondo, y además falta saber si ARGOS expone cuota y comprometido del trimestre por unidad ejecutora (insumo #16): de eso depende que el control de cuota pueda pasar de advertir a bloquear |
 
 ## Historia
 

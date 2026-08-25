@@ -6,7 +6,7 @@
 | **Actor** | ACT-04 Jefe de Transporte |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta definir con Auditoría Interna qué eslabones son exigibles para el cierre y cuál es el mínimo no desactivable (insumo #1): eso **es** la lógica de la propuesta de cierre, no un parámetro. Faltan también el plazo de liquidación en días hábiles (insumo #32) y el `plazo_convalidacion` de actos sin autorización previa (insumo #1) |
 
 ## Historia
 

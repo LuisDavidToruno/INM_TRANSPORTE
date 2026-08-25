@@ -6,7 +6,7 @@
 | **Actor** | ACT-04 Jefe de Transporte |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta si la institución admite la figura de **motorista eventual** (insumo #48) y si la póliza de seguro cubre a un conductor no registrado como motorista (insumo #49). La primera decide si la historia existe; la segunda puede cerrarla antes de empezar |
 
 ## Historia
 

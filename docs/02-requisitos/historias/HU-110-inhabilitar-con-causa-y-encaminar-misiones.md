@@ -6,7 +6,7 @@
 | **Actor** | ACT-04 Jefe de Transporte |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta qué ocurre con un empleado dado de baja en Talento Humano que tiene misiones abiertas en SIGTI, pendiente expreso de `ADR-001`: es exactamente el desenlace que esta historia debe encaminar. Faltan también el catálogo `tipo_ausencia` con su efecto sobre la asignación (insumo #1) y si la reevaluación de aptitud tras un evento de salud inhabilita hasta dictamen (insumo #50) |
 
 ## Historia
 

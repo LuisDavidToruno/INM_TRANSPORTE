@@ -164,6 +164,24 @@ Ninguno de estos se cierra del todo — se documenta qué se consiguió y qué q
 | 42 | Catálogo de restricciones médicas | Sin fuente pública. **Se confirma que la vía documental no existe**; es consulta a la DNVT |
 | 43 | *"El Acuerdo 303 describe franjas en puertas laterales, que una moto no tiene"* | **La premisa del insumo puede ser falsa.** Las fuentes dicen *"partes laterales"*. Contradicción abierta, ninguna fuente primaria |
 
+
+## Abiertos — surgidos de la corrección de hallazgos del 2026-08-25
+
+Detectados al corregir los 46 hallazgos de las revisiones de los Bloques 3 y 4. Cada uno está declarado dentro del artefacto que lo espera.
+
+| # | Insumo | Qué desbloquea | Origen |
+|---|---|---|---|
+| 83 | **Tamaño del subrango de folios por dispositivo**, y procedimiento de ampliación sin conectividad | `subrango_de_folio` existe pero sin tamaño no se puede dimensionar. Complementa al #1, que solo cubre el rango de la delegación | `HB34-52` |
+| 84 | **Plazo de retención propio del tercero de siniestro y del dato de salud**, distintos del plazo del manifiesto | El #71 fija el plazo general; falta la diferenciación por categoría de dato, que es lo que `RNF-17` exige | `HB34-53` |
+| 85 | **Catálogos `grado_de_cumplimiento` y `causa_de_incumplimiento`**, y si el cumplimiento se declara al retornar o al liquidar | `RN-78` es bloqueo duro para cerrar y la entidad recién existe | `HB34-61` |
+| 86 | **Fechas de corte legal y operativa del ejercicio fiscal**, y criterio de imputación entre ejercicios | `RN-96` lo marca dependiente de SIAFI, que está diferido | `HB34-61` |
+| 87 | **¿La constatación de peso y ocupación efectivos al despachar bloquea, o solo deja indicador?** | Decide si `T-12` gana una precondición más | `HB34-61` |
+| 88 | **Solape máximo en días entre titular saliente y entrante** de un puesto | Hoy solo está citado en `actores-y-roles §2.3`, sin entrada propia. Condiciona el traspaso de custodias | `HU-128` |
+| 89 | **Alcance de datos durante un préstamo de vehículo**: qué ve la institución receptora y por cuánto tiempo | El índice de reglas lo remite a `actores-y-roles.md` y ese documento no lo trata. Es un hueco sin dueño | `HU-132` |
+| 90 | **Plazo de aprobación de un parámetro cargado**, con alerta al vencerse | Un parámetro cargado y nunca aprobado no se aplica, y hoy nada avisa | `HU-145` |
+| 91 | **¿Qué hacer cuando informática y Gerencia Administrativa recaen en la misma persona?** `I-13` es núcleo irreductible y en una institución chica no se puede cumplir por aritmética | Mismo problema que el #26, en otro par. Requiere pronunciamiento | `HU-146` |
+| 92 | **Actor no catalogado: el Oficial de Información Pública.** Lo necesitan cuatro historias de M-17 y tres pantallas | Hoy cuelgan del auditor, que es **solo lectura** — y una de ellas rectifica. Es una contradicción con `I-12` | `HB34-66`, `HU-121`–`HU-123` |
+
 ## Resueltos en la revisión del 2026-08-06
 
 | # | Insumo original | Resolución |

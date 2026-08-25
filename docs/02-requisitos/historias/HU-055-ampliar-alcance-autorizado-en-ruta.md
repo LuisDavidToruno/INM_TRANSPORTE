@@ -6,7 +6,7 @@
 | **Actor** | ACT-06 Motorista solicita y registra · ACT-04 Jefe de Transporte genera el código |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta la magnitud de la extensión que escala el nivel autorizante (insumo #49) y quién convalida un acto ejecutado sin autorización previa y en qué plazo (insumo #32). Sin lo segundo, la ampliación en ruta no tiene desenlace administrativo |
 
 ## Historia
 

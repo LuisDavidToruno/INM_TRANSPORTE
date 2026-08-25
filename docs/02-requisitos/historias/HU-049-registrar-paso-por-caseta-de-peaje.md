@@ -6,7 +6,7 @@
 | **Actor** | ACT-06 Motorista |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta saber si la institución opera con tags de peaje y qué documento emite el concesionario (insumo #24), y si el peaje se financia con el viático de ARGOS o es gasto de misión separado (insumo #25). Si va en el viático, este registro cambia de dueño |
 
 ## Historia
 

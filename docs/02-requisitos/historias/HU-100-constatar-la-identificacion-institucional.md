@@ -6,7 +6,7 @@
 | **Actor** | ACT-13 Custodio del Vehículo · ACT-14 Encargado de Bienes Institucionales |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta cómo se rotula una motocicleta del Estado, ya que el acuerdo describe franjas en puertas laterales que una moto no tiene (insumo #43), qué vehículos tienen excepción de rotulación y quién la concede (insumo #44), y si la rotulación aplica a vehículos en comodato y alquiler (insumo #55, zona gris expresa de `NRM-02`) |
 
 ## Historia
 

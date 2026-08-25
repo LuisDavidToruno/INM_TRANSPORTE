@@ -6,7 +6,7 @@
 | **Actor** | ACT-04 Jefe de Transporte · ACT-10 Encargado de Delegación en su ámbito |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta si el sobrante se devuelve o se arrastra (`PROP-01` / insumo #7): decide la tipificación misma del sobrante, no un parámetro. Faltan también el `plazo_devolucion_saldo` y el plazo de liquidación en días hábiles (insumo #32) |
 
 ## Historia
 

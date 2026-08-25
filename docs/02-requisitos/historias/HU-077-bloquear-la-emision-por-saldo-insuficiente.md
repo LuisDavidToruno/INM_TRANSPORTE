@@ -6,7 +6,7 @@
 | **Actor** | ACT-07 Encargado de Combustible |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta la decisión sobre si la institución admite despachar una misión **sin fondo asignado** (insumo #1): el punto de control `PC-08` lo deja abierto y de ello depende si el saldo insuficiente bloquea o marca. Falta también si una asignación puede imputarse a un fondo de otro ámbito (insumo #27) |
 
 ## Historia
 

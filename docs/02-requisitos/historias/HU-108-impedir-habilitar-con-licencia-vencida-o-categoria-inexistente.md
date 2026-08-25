@@ -6,7 +6,7 @@
 | **Actor** | ACT-04 Jefe de Transporte |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta el texto de la reforma al Art. 48 (2025) sobre las categorías `CD` y `CE` (insumos #20 y #23): sin él no se sabe qué categorías existen, y esta historia bloquea precisamente por categoría inexistente |
 
 ## Historia
 

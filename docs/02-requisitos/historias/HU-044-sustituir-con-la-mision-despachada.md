@@ -115,6 +115,15 @@ Característica: Reversión de una misión despachada que no salió
 - La obligación de reintegro por saldo no devuelto — es de M-13 y [`RN-86`](../../01-negocio/reglas/RN-86-obligacion-de-reintegro-por-saldo-no-devuelto.md)
 - La interrupción con la misión ya `EN_RUTA` — es del caso de uso de interrupción en ruta
 - La sustitución antes del despacho — es [HU-043](HU-043-sustituir-vehiculo-o-motorista-en-programada.md)
+- **El ciclo del instrumento de combustible** —acta de devolución folio por folio, no reciclado del folio anulado, asiento reverso contra el asiento de entrega, plazo de devolución del saldo— es [HU-080](HU-080-anular-la-asignacion-de-combustible.md)
+
+## Delimitación con `HU-080` — hallazgo `HB34-16`
+
+> Ambas historias cubren [`CE-20`](../casos-especiales/CE-20-mision-cancelada-con-combustible-ya-entregado.md) y llegan a la misma conclusión correcta —**con consumo no se anula, se liquida**—, pero con **dos textos distintos para el mismo bloqueo** y sin estar en la tabla de solapamientos del [`README`](README.md).
+>
+> **Delimitación adoptada:** `HU-044` manda en **la reversión de la misión** —qué pasa con la Orden, la custodia, los documentos impresos y el estado—; `HU-080` manda en **el ciclo del instrumento** —el folio de la asignación, el acta de devolución, el asiento reverso y el plazo—.
+>
+> **El mensaje del bloqueo es propiedad de esta historia**, porque lo que se impide es anular **la misión**. `HU-080` usa la misma redacción con sus propios datos. Un mismo bloqueo con dos textos es un bloqueo que el usuario cree que son dos controles distintos.
 
 ## Notas y pendientes
 

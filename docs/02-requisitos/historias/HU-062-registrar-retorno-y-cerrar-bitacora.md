@@ -6,7 +6,7 @@
 | **Actor** | ACT-06 Motorista |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta el plazo de liquidación, desde cuándo corre y en qué calendario de días hábiles (insumo #32), quién puede ordenar el retorno anticipado (insumo #50) y los umbrales de desviación de kilometraje que disparan hallazgo (insumo #1) |
 
 ## Historia
 

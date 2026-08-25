@@ -6,7 +6,7 @@
 | **Actor** | ACT-04 Jefe de Transporte |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — faltan el texto de la reforma al Art. 48 (2025), del que depende la matriz definitiva licencia↔vehículo, y el contenido literal del Art. 51, criterio legal de liviano frente a pesado (insumos #20 y #23). Ambos son escaneos sin capa de texto y requieren OCR. Sin ellos, la ficha técnica no puede derivar ni la habilitación ni la categoría de peaje |
 
 ## Historia
 

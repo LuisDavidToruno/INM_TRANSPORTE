@@ -29,6 +29,14 @@ Los umbrales son **parámetros con vigencia** ([RN-39](../../01-negocio/reglas/R
 - [RN-94](../../01-negocio/reglas/RN-94-fecha-de-corte-de-conocimiento-en-todo-reporte.md) — El reporte declara su fecha de corte de conocimiento y es reproducible a esa fecha
 - [RN-04](../../01-negocio/reglas/RN-04-anulacion-como-asiento-reverso.md) — La resolución de una alerta es un asiento, no una edición
 
+## Casos especiales que la afectan
+
+> Sección incorporada por el hallazgo `HB34-13`: faltaba, y el `DoR` exige identificar los `CE-xx` que afectan a la historia **o dejar constancia explícita de que no hay ninguno**.
+
+- [CE-09](../casos-especiales/CE-09-bitacora-en-papel-digitada-dias-despues.md) — Los accesos generados sin conectividad llegan **en lote y con fecha del hecho anterior a la de captura**. El detector de patrón anómalo no puede tratar ese lote como una ráfaga sospechosa: es un dispositivo que sincronizó, no alguien consultando 40 manifiestos seguidos
+- [CE-28](../casos-especiales/CE-28-hallazgo-posterior-sobre-mision-cerrada.md) — Un hallazgo posterior dispara consultas legítimas y concentradas sobre misiones cerradas del período investigado; el reporte debe poder distinguirlas de un patrón anómalo por el expediente que las ampara
+- Los 26 `CE-xx` restantes **no tocan este flujo**. Constancia dejada
+
 ## Requisitos no funcionales relacionados
 
 - [RNF-14](../no-funcionales/RNF-14-control-de-acceso-por-puesto-y-registro-de-consultas.md) — Control de acceso por puesto y registro de consultas

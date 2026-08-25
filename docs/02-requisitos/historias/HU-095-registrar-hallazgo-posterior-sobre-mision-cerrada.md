@@ -6,7 +6,7 @@
 | **Actor** | ACT-08 Gerencia Administrativa · ACT-12 Auditor Interno |
 | **Prioridad** | Alta |
 | **Sprint** | sin asignar |
-| **Estado** | Borrador |
+| **Estado** | Borrador — falta el catálogo `tipo_de_hallazgo_posterior` (insumo #1, con Auditoría Interna) y las fechas de corte legal y operativa del ejercicio fiscal con su vigencia (insumo #1), sin las cuales no se puede decidir a qué ejercicio se imputa un hallazgo que cruza el cierre |
 
 ## Historia
 

@@ -33,6 +33,14 @@ Tres detalles que se pierden si no se escriben aquí:
 - [RN-04](../../01-negocio/reglas/RN-04-anulacion-como-asiento-reverso.md) — Ningún registro de consulta se borra
 - [RN-25](../../01-negocio/reglas/RN-25-salvoconducto-con-folio-y-qr.md) — El documento impreso lleva folio, que es lo que ata la consulta al objeto físico
 
+## Casos especiales que la afectan
+
+> Sección incorporada por el hallazgo `HB34-13`: faltaba, y el `DoR` exige identificar los `CE-xx` que afectan a la historia **o dejar constancia explícita de que no hay ninguno**.
+
+- [CE-09](../casos-especiales/CE-09-bitacora-en-papel-digitada-dias-despues.md) — La consulta hecha en campo sin conectividad: el registro se genera en el dispositivo y sincroniza después, y hasta que sincronice la institución no puede responder por ese acceso. El tratamiento lo desarrolla [HU-120](HU-120-consultar-el-manifiesto-sin-conectividad.md)
+- [CE-28](../casos-especiales/CE-28-hallazgo-posterior-sobre-mision-cerrada.md) — Cuando se abre un hallazgo sobre una misión ya cerrada, el registro de consultas es la prueba de quién accedió al manifiesto de esa misión. Por eso `RN-52` exige que **sobreviva** a la depuración de los datos consultados ([HU-124](HU-124-depurar-datos-personales-sin-romper-la-cadena.md))
+- Los 26 `CE-xx` restantes **no tocan este flujo**: describen incidencias de la operación del vehículo y de la misión, no del acceso a datos. Constancia dejada
+
 ## Requisitos no funcionales relacionados
 
 - [RNF-14](../no-funcionales/RNF-14-control-de-acceso-por-puesto-y-registro-de-consultas.md) — Control de acceso por puesto y registro de consultas
