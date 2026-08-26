@@ -12,7 +12,8 @@ namespace Sigti.Pruebas.Datos;
 ///
 /// Esta es la prueba que separa «funciona con un usuario» de «funciona en producción».
 /// </summary>
-public class EscritorDeBitacoraPruebas : IClassFixture<BaseDePruebas>
+[Collection(ColeccionDeBaseDeDatos.Nombre)]
+public class EscritorDeBitacoraPruebas
 {
     private readonly BaseDePruebas _base;
     private static readonly DateTimeOffset Momento =

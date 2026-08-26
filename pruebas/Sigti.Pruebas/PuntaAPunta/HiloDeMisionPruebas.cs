@@ -17,8 +17,8 @@ namespace Sigti.Pruebas.PuntaAPunta;
 /// No prueba un módulo completo. Prueba que el hilo camina, que es lo que valida el
 /// stack antes de invertir en él.
 /// </summary>
+[Collection(ColeccionDeBaseDeDatos.Nombre)]
 public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
-    : IClassFixture<BaseDePruebas>, IClassFixture<WebApplicationFactory<Program>>
 {
     private static readonly DateTimeOffset Momento =
         new(2026, 3, 12, 9, 0, 0, TimeSpan.FromHours(-6));
@@ -77,17 +77,21 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
             .OrderBy(t => t.Orden)
             .ToListAsync();
 
-        Assert.Equal(7, transiciones.Count);
-        Assert.Equal("T-19", transiciones[^1].Transicion);
+        // T-01 crear · T-02 enviar · T-05 aprobar · T-08 programar · T-12 despachar
+        // T-14 iniciar ruta · T-18 retornar · T-19 liquidar.
+        // Son ocho, y que sean ocho y no nueve es la prueba de que el intento bloqueado
+        // por BD-01 no dejó rastro: no ocurrió.
+        Assert.Equal(
+            new[] { "T-01", "T-02", "T-05", "T-08", "T-12", "T-14", "T-18", "T-19" },
+            transiciones.Select(t => t.Transicion));
 
-        // Y cada transición dejó su asiento encadenado. El intento bloqueado por BD-01
-        // NO dejó asiento: no ocurrió, así que no hay nada que asentar.
+        // Y cada transición dejó su asiento encadenado, uno por una.
         var asientos = await contexto.Asientos
             .Where(a => a.Cola == $"mision:{id}")
             .OrderBy(a => a.Secuencia)
             .ToListAsync();
 
-        Assert.Equal(7, asientos.Count);
+        Assert.Equal(transiciones.Count, asientos.Count);
 
         var cadena = asientos.Select(a => new EslabonDeCadena(a.Contenido, a.Hash)).ToList();
         Assert.True(CadenaDeHash.Verificar(cadena),

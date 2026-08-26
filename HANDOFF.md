@@ -8,7 +8,9 @@ Punto único de entrada para saber en qué va el proyecto. Si algo figura acá c
 
 **Sprint 0 cerrado. Los cinco bloques están escritos, revisados y corregidos.**
 
-**Hay stack, y hay autorización para programar.** La [designación de LOKI del 2026-08-26](docs/07-gestion/designaciones/2026-08-26-stack-y-arranque.md) fijó el stack y el PO autorizó el arranque. Eso activa la cláusula de revisión que [`ADR-000`](docs/03-arquitectura/adr/ADR-000-diferir-seleccion-de-stack.md) escribió para sí mismo: **`ADR-000` queda superado de hecho, pero todavía no de derecho** — el `ADR-002` que lo supera no está escrito.
+**Hay stack, y hay autorización para programar.** La [designación de LOKI del 2026-08-26](docs/07-gestion/designaciones/2026-08-26-stack-y-arranque.md) fijó el stack y el PO autorizó el arranque. Eso activó la cláusula de revisión que [`ADR-000`](docs/03-arquitectura/adr/ADR-000-diferir-seleccion-de-stack.md) escribió para sí mismo, y [`ADR-002`](docs/03-arquitectura/adr/ADR-002-adoptar-el-stack-tecnologico.md) lo supera formalmente.
+
+**Ya hay código, y camina.** El walking skeleton atraviesa API → Aplicación → Dominio → SQL Server → bitácora encadenada, con **16 pruebas verdes**.
 
 | Bloque | Qué produjo | Estado |
 |---|---|---|
@@ -18,35 +20,29 @@ Punto único de entrada para saber en qué va el proyecto. Si algo figura acá c
 | 3 — Requisitos | 18 casos de uso, **150 historias** con Gherkin, 21 no funcionales, backlog | ✅ Revisado y corregido en `3f4ced4` |
 | 4 — Diseño | Modelo de datos bitemporal con 43 entidades, 126 pantallas, **41 maquetadas** | ✅ Revisado y corregido en `3f4ced4` |
 
-**398 documentos versionados, 47,604 líneas, 22 commits.**
+**410 documentos y 48,723 líneas de documentación · 25 archivos y 1,552 líneas de C# · 30 commits.**
 
 El stack, en una línea: **.NET 10 + EF Core sobre SQL Server 2014 Standard** (restricción institucional, fuera de soporte), **React 19 + Vite** en oficina, **React Native + SQLite cifrado** en campo. El detalle, las funciones que 2014 no tiene y con qué se reemplazan están en la designación.
 
 ## Lo que está abierto
 
-### 🔴 Smart App Control bloquea toda ejecución de .NET en la máquina del PO
+### ⚠️ Smart App Control puede volver a bloquear la ejecución de .NET
 
-**Es lo primero que hay que resolver, y no se resuelve escribiendo código.**
+En `DESKTOP-GR4SG52` (Windows 11), Smart App Control está **activo** — `VerifiedAndReputablePolicyState = 1` en `HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy`.
 
-En `C--Users-David` (Windows 11), Smart App Control está **activo** — `VerifiedAndReputablePolicyState = 1` en `HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy`. Bloquea la carga de **cualquier binario .NET recién compilado**, con `0x800711C7`:
+El 2026-08-26 bloqueó durante horas la carga de **cualquier binario .NET recién compilado** con `0x800711C7`: `dotnet test`, `dotnet run` y `dotnet ef` fallaban por igual, y solo `dotnet build` funcionaba. **Se destrabó solo**, sin cambiar ninguna configuración: SAC consulta reputación en la nube y la actualizó.
 
-- `dotnet test` → el runner de xunit no puede cargar `Sigti.Pruebas.dll`
-- `dotnet run` → tampoco arranca un ejecutable propio
-- `dotnet ef` → no puede cargar `Sigti.Datos`, así que **no hay migraciones ni script para 2014**
+**Puede repetirse con cualquier binario nuevo.** Si vuelve a aparecer `0x800711C7`, no es el código: es SAC evaluando un ensamblado que todavía no tiene reputación. Las salidas son esperar, trabajar en otra máquina, o instalar WSL2 — **apagar SAC es irreversible** sin reinstalar Windows, así que no es la primera opción.
 
-`dotnet build` **sí** funciona. En esa máquina se puede escribir y compilar, no ejecutar.
+### Tres precondiciones de bloqueo duro que el esqueleto todavía no evalúa
 
-No lo causamos: SAC arranca en modo evaluación y se activó solo a mitad de la sesión del 2026-08-26 — las primeras 14 pruebas sí habían corrido.
+El hilo camina, pero **despacha sin verificar nada del vehículo ni del motorista**. Están declaradas en [`estados/orden-de-mision.md`](docs/03-arquitectura/estados/orden-de-mision.md) y no implementadas:
 
-**Antes de decidir apagarlo, tener presente que es irreversible:** una vez apagado, Microsoft solo permite reactivarlo reinstalando o restableciendo Windows. Las tres salidas son: apagarlo, trabajar en la otra máquina, o instalar WSL2 (no hay WSL ni Docker instalados hoy).
+- **`BD-02`** — licencia habilitante y vigente durante todo el rango. **Es la que traslada responsabilidad directa a quien autorizó**
+- **`BD-03`** — documentación del vehículo vigente
+- **`BD-07`** — estado y compatibilidad del vehículo
 
-**Consecuencia directa:** todo lo commiteado desde `23dedd0` está **escrito y compilado, pero no ejecutado**. Lo primero que hay que hacer en una máquina que sí ejecute es correr `dotnet test` y ver qué se cae.
-
-### La decisión que el PO no ha tomado, y que va antes del primer módulo
-
-**¿Clean Architecture con ceremonia o sin ella?** La regla dura —`Sigti.Dominio` sin referencias a EF Core ni ASP.NET, con prueba de arquitectura que falla— se adopta sin discusión. Lo que está en duda es la ceremonia: interfaz por agregado, DTO en cada frontera, caso de uso como clase. La designación la descarta y la evidencia medida la respalda; con 19 módulos y `RNF-15` hablando de rotación de personal, el argumento contrario no es ridículo.
-
-[`ADR-009`](docs/03-arquitectura/adr/ADR-009-modulos-verticales.md) **se escribió sin ceremonia**, que es la opción respaldada por la evidencia, para no bloquear el arranque. **Sigue siendo la única decisión del lote que el PO podría querer al revés, y hay que resolverla antes del primer módulo.** Si la cambia, no se edita `ADR-009`: se escribe el que lo supera.
+Se cierran con `M-03` (ficha del vehículo) y `M-05` (motorista y matriz de licencias), que son las dos piezas siguientes.
 
 ### Cinco preguntas de la designación que bloquean
 
@@ -105,22 +101,24 @@ Los cinco archivos de [`docs/05-calidad/hallazgos/`](docs/05-calidad/hallazgos/)
 
 ## Cómo seguir
 
-**Lo primero, en una máquina que pueda ejecutar .NET:**
+**El walking skeleton está cerrado y verificado.** `dotnet test` → **16 de 16 verdes**, salida limpia. Necesita SQL Server en `localhost` con autenticación integrada; la suite crea y borra `SIGTI_Pruebas` sola.
 
-```bash
-dotnet test
-```
+Lo que el esqueleto dejó probado, y que antes solo estaba escrito en un ADR:
 
-Hay **16 pruebas escritas**; **14 se han visto pasar**. Las otras dos nunca corrieron, y son justamente las que valen: `Veinte_escrituras_concurrentes_no_bifurcan_la_cadena` y `Una_mision_recorre_el_hilo_completo_y_deja_su_rastro_encadenado`.
+| Unión | Estado |
+|---|---|
+| La cadena de hash no se bifurca con 20 escritores concurrentes sobre la misma cola | ✅ Verificado |
+| EF Core en nivel 120 emite DDL que SQL Server 2014 acepta | ⚠️ Revisado por inspección del script, **no aplicado contra una instancia 2014 real** |
+| ULID como clave agrupada en `binary(16)` | ✅ Persiste y recupera |
+| El expediente se reconstruye desde su diario, sin columna de estado | ✅ Verificado de punta a punta |
+| `BD-01` bloquea al solicitante de derecho, y el bloqueo sobrevive el viaje por la API | ✅ Verificado |
 
-> El mensaje del commit `72a4e54` dice «22 pruebas», y es un conteo equivocado. El bueno es 16. Después, generar la migración inicial y el script para 2014:
-
-```bash
-dotnet ef migrations add Inicial -p src/Sigti.Datos -s src/Sigti.Datos -o Migraciones
-```
+La migración inicial está en `src/Sigti.Datos/Migraciones/` y el script idempotente en [`entrega/sql/sigti-inicial.sql`](entrega/sql/sigti-inicial.sql).
 
 **Lo que ya está ratificado:** `ADR-009` sin ceremonia de Clean, confirmado por el PO el 2026-08-26.
 
-**Lo que sigue después del esqueleto:** el resto del walking skeleton del Sprint 2 — **una orden de misión de punta a punta**, solicitud → despacho → ejecución → liquidación, con su asiento en bitácora. Un hilo delgado que toca todas las capas, no un módulo completo. En ese mismo esqueleto se mide **`RNF-12`: ≤ 25 % de batería en 8 h con seguimiento activo, en gama baja**, que es el número que puede obligar a bajar el seguimiento a un módulo nativo. Hay que saberlo en el Sprint 2, no en el 6.
+**Lo que sigue: músculo sobre el esqueleto.** Las dos primeras piezas son la **ficha del vehículo** (`M-03`) y el **motorista con su matriz de licencias** (`M-05`), porque `BD-02`, `BD-03` y `BD-07` son precondiciones que el esqueleto **todavía no evalúa**: hoy despacha sin verificar licencia habilitante, documentación vigente ni compatibilidad del vehículo. Están declaradas en el documento de estados y no implementadas — y `BD-02` es la que traslada responsabilidad directa a quien autorizó.
 
-**Lo que hay que gestionar en paralelo:** la sesión de levantamiento con la institución. El paquete está listo en [`docs/07-gestion/levantamiento/`](docs/07-gestion/levantamiento/) — guion de dos horas, los 19 formatos, 12 preguntas ordenadas por impacto, y los 28 casos especiales redactados para leerle a un motorista. Al mismo tiempo, confirmar en la instancia real la edición exacta de SQL Server, el Service Pack y el cifrado de respaldo.
+**Lo que falta medir, y no puede esperar al Sprint 6:** **`RNF-12` — ≤ 25 % de batería en 8 h con seguimiento activo, en gama baja.** Es el único número donde React Native es medible peor que Kotlin, y [`ADR-003`](docs/03-arquitectura/adr/ADR-003-cliente-de-campo-instalado.md) tiene la contingencia escrita: bajar el seguimiento a un módulo nativo, sin reescribir la aplicación. Esa contingencia sirve si el número llega ahora.
+
+**Lo que hay que gestionar en paralelo:** la sesión de levantamiento con la institución. El paquete está listo en [`docs/07-gestion/levantamiento/`](docs/07-gestion/levantamiento/) — guion de dos horas, los 19 formatos, 12 preguntas ordenadas por impacto, y los 28 casos especiales redactados para leerle a un motorista. Al mismo tiempo, confirmar en la instancia real la edición exacta de SQL Server, el Service Pack y el cifrado de respaldo — **sin esa instancia, el paso de CI que sostiene toda la estrategia del motor no existe.**
