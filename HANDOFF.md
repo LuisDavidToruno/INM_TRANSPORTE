@@ -10,7 +10,7 @@ Punto único de entrada para saber en qué va el proyecto. Si algo figura acá c
 
 **Hay stack, y hay autorización para programar.** La [designación de LOKI del 2026-08-26](docs/07-gestion/designaciones/2026-08-26-stack-y-arranque.md) fijó el stack y el PO autorizó el arranque. Eso activó la cláusula de revisión que [`ADR-000`](docs/03-arquitectura/adr/ADR-000-diferir-seleccion-de-stack.md) escribió para sí mismo, y [`ADR-002`](docs/03-arquitectura/adr/ADR-002-adoptar-el-stack-tecnologico.md) lo supera formalmente.
 
-**Ya hay código, y camina.** El walking skeleton atraviesa API → Aplicación → Dominio → SQL Server → bitácora encadenada, con **16 pruebas verdes**.
+**Ya hay código, y camina.** El walking skeleton atraviesa API → Aplicación → Dominio → SQL Server → bitácora encadenada, con **29 pruebas verdes**. `BD-01`, `BD-02` y `BD-03` se evalúan de verdad.
 
 | Bloque | Qué produjo | Estado |
 |---|---|---|
@@ -20,7 +20,7 @@ Punto único de entrada para saber en qué va el proyecto. Si algo figura acá c
 | 3 — Requisitos | 18 casos de uso, **150 historias** con Gherkin, 21 no funcionales, backlog | ✅ Revisado y corregido en `3f4ced4` |
 | 4 — Diseño | Modelo de datos bitemporal con 43 entidades, 126 pantallas, **41 maquetadas** | ✅ Revisado y corregido en `3f4ced4` |
 
-**410 documentos y 48,723 líneas de documentación · 25 archivos y 1,552 líneas de C# · 30 commits.**
+**410 documentos y 48,723 líneas de documentación · 39 archivos y 2,821 líneas de C# · 31 commits.**
 
 El stack, en una línea: **.NET 10 + EF Core sobre SQL Server 2014 Standard** (restricción institucional, fuera de soporte), **React 19 + Vite** en oficina, **React Native + SQLite cifrado** en campo. El detalle, las funciones que 2014 no tiene y con qué se reemplazan están en la designación.
 
@@ -34,15 +34,20 @@ El 2026-08-26 bloqueó durante horas la carga de **cualquier binario .NET recié
 
 **Puede repetirse con cualquier binario nuevo.** Si vuelve a aparecer `0x800711C7`, no es el código: es SAC evaluando un ensamblado que todavía no tiene reputación. Las salidas son esperar, trabajar en otra máquina, o instalar WSL2 — **apagar SAC es irreversible** sin reinstalar Windows, así que no es la primera opción.
 
-### Tres precondiciones de bloqueo duro que el esqueleto todavía no evalúa
+### `BD-07` sigue sin evaluarse, y `BD-04` a `BD-11` tampoco
 
-El hilo camina, pero **despacha sin verificar nada del vehículo ni del motorista**. Están declaradas en [`estados/orden-de-mision.md`](docs/03-arquitectura/estados/orden-de-mision.md) y no implementadas:
+`BD-02` y `BD-03` ya están implementadas y probadas. **`BD-07` no** — estado y compatibilidad del vehículo. Necesita dos cosas que todavía no existen:
 
-- **`BD-02`** — licencia habilitante y vigente durante todo el rango. **Es la que traslada responsabilidad directa a quien autorizó**
-- **`BD-03`** — documentación del vehículo vigente
-- **`BD-07`** — estado y compatibilidad del vehículo
+- La **matriz de compatibilidad** entre el objeto del traslado y el tipo de vehículo (`M-02`)
+- La **categoría de peaje** resuelta por vehículo (`M-18`, `NRM-10`) — sin ella el estimado de peajes no es verificable, y quien autoriza no puede comprobar el cálculo
 
-Se cierran con `M-03` (ficha del vehículo) y `M-05` (motorista y matriz de licencias), que son las dos piezas siguientes.
+Tampoco están `BD-04` (día u hora inhábil), `BD-05` (coherencia del odómetro), `BD-06` (segregación operativa), `BD-08` a `BD-11`. Todas declaradas en [`estados/orden-de-mision.md`](docs/03-arquitectura/estados/orden-de-mision.md) §4.
+
+### La matriz licencia↔vehículo en uso **no es normativa**
+
+`ParametrosProvisionales` en `Sigti.Aplicacion/M02_Parametros/` devuelve una matriz con versión `PROVISIONAL-SIN-FUENTE-OFICIAL`, y sus valores **no salen de ninguna fuente**. Están ahí para que el esqueleto camine, marcados como tales.
+
+La matriz oficial de la DNVT es uno de los **cuatro PDF que se pueden descargar sin la institución** — *veinte minutos con un navegador*. Cuando llegue, se carga por el catálogo con vigencia de `M-02` (`HU-144` a `HU-150`, con doble control) y esa clase se borra.
 
 ### Cinco preguntas de la designación que bloquean
 
@@ -101,7 +106,7 @@ Los cinco archivos de [`docs/05-calidad/hallazgos/`](docs/05-calidad/hallazgos/)
 
 ## Cómo seguir
 
-**El walking skeleton está cerrado y verificado.** `dotnet test` → **16 de 16 verdes**, salida limpia. Necesita SQL Server en `localhost` con autenticación integrada; la suite crea y borra `SIGTI_Pruebas` sola.
+**El walking skeleton está cerrado y verificado.** `dotnet test` → **29 de 29 verdes**, salida limpia. Necesita SQL Server en `localhost` con autenticación integrada; la suite crea y borra `SIGTI_Pruebas` sola.
 
 Lo que el esqueleto dejó probado, y que antes solo estaba escrito en un ADR:
 
@@ -117,7 +122,7 @@ La migración inicial está en `src/Sigti.Datos/Migraciones/` y el script idempo
 
 **Lo que ya está ratificado:** `ADR-009` sin ceremonia de Clean, confirmado por el PO el 2026-08-26.
 
-**Lo que sigue: músculo sobre el esqueleto.** Las dos primeras piezas son la **ficha del vehículo** (`M-03`) y el **motorista con su matriz de licencias** (`M-05`), porque `BD-02`, `BD-03` y `BD-07` son precondiciones que el esqueleto **todavía no evalúa**: hoy despacha sin verificar licencia habilitante, documentación vigente ni compatibilidad del vehículo. Están declaradas en el documento de estados y no implementadas — y `BD-02` es la que traslada responsabilidad directa a quien autorizó.
+**Lo que sigue: `M-02`.** Es lo que destraba `BD-07` —matriz de compatibilidad y categoría de peaje por vehículo— y lo que reemplaza la matriz provisional de licencias por el catálogo real con vigencia y doble control. Los parámetros normativos de `M-02` son la pieza con más invariantes duros que queda sin construir.
 
 **Lo que falta medir, y no puede esperar al Sprint 6:** **`RNF-12` — ≤ 25 % de batería en 8 h con seguimiento activo, en gama baja.** Es el único número donde React Native es medible peor que Kotlin, y [`ADR-003`](docs/03-arquitectura/adr/ADR-003-cliente-de-campo-instalado.md) tiene la contingencia escrita: bajar el seguimiento a un módulo nativo, sin reescribir la aplicación. Esa contingencia sirve si el número llega ahora.
 
