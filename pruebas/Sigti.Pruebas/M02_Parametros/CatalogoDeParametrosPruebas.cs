@@ -15,6 +15,11 @@ public class CatalogoDeParametrosPruebas
     private static readonly IdPersona Carlos = new("P-CARLOS");
     private static readonly IdPersona Gerencia = new("P-GERENCIA");
 
+    private static readonly RespaldoDocumental Respaldo = new(
+        Adjunto: Ulid.NewUlid(),
+        Fuente: "Fuente de prueba",
+        FechaDeVerificacion: new DateOnly(2026, 1, 1));
+
     private const string Zambrano = "peaje:zambrano:liviana";
 
     [Fact]
@@ -113,5 +118,6 @@ public class CatalogoDeParametrosPruebas
             RegistradoDesde: new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.FromHours(-6)),
             RegistradoHasta: null,
             CargadoPor: Carlos,
-            AprobadoPor: Gerencia);
+            AprobadoPor: Gerencia)
+        { Respaldo = Respaldo };
 }

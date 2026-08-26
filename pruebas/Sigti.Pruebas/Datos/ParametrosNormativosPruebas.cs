@@ -16,6 +16,11 @@ public class ParametrosNormativosPruebas(BaseDePruebas baseDePruebas)
     private static readonly IdPersona Carlos = new("P-CARLOS");
     private static readonly IdPersona Gerencia = new("P-GERENCIA");
 
+    private static readonly RespaldoDocumental Respaldo = new(
+        Adjunto: Ulid.NewUlid(),
+        Fuente: "Fuente de prueba",
+        FechaDeVerificacion: new DateOnly(2026, 1, 1));
+
     [Fact]
     public async Task Una_correccion_retroactiva_sobrevive_el_viaje_a_la_base()
     {
@@ -56,5 +61,6 @@ public class ParametrosNormativosPruebas(BaseDePruebas baseDePruebas)
             RegistradoDesde: registradoDesde,
             RegistradoHasta: registradoHasta,
             CargadoPor: Carlos,
-            AprobadoPor: Gerencia);
+            AprobadoPor: Gerencia)
+        { Respaldo = Respaldo };
 }

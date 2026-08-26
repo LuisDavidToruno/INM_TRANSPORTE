@@ -152,3 +152,40 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260826202507_RespaldoDocumental'
+)
+BEGIN
+    ALTER TABLE [catalogo].[VersionDeParametro] ADD [RespaldoAdjunto] binary(16) NOT NULL DEFAULT 0x;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260826202507_RespaldoDocumental'
+)
+BEGIN
+    ALTER TABLE [catalogo].[VersionDeParametro] ADD [RespaldoFuente] nvarchar(512) NOT NULL DEFAULT N'';
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260826202507_RespaldoDocumental'
+)
+BEGIN
+    ALTER TABLE [catalogo].[VersionDeParametro] ADD [RespaldoVerificadoEl] date NOT NULL DEFAULT '0001-01-01';
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260826202507_RespaldoDocumental'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20260826202507_RespaldoDocumental', N'10.0.11');
+END;
+
+COMMIT;
+GO
+

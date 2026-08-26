@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Sigti.Aplicacion.M02_Parametros;
 using Sigti.Aplicacion.M07_ProgramacionYDespacho;
 using Sigti.Datos;
+using Sigti.Dominio.M02_Parametros;
 using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M05_Motoristas;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
@@ -24,6 +25,7 @@ constructor.Services.ConfigureHttpJsonOptions(opciones =>
     opciones.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 constructor.Services.AddScoped<ServicioDeMisiones>();
+constructor.Services.AddScoped<ServicioDeParametros>();
 constructor.Services.AddSingleton<IParametrosDeLaInstitucion, ParametrosProvisionales>();
 constructor.Services.AddOpenApi();
 
@@ -45,8 +47,12 @@ app.UseExceptionHandler(rama => rama.Run(async contexto =>
             (object)new { precondicion = b.Precondicion, mensaje = b.Message }),
         TransicionInvalida t => (StatusCodes.Status409Conflict,
             new { transicion = t.Transicion, estadoActual = t.EstadoActual.ToString(), mensaje = t.Message }),
+        CargaRechazada c => (StatusCodes.Status409Conflict,
+            new { motivo = c.Motivo.ToString(), mensaje = c.Message }),
         ExpedienteNoEncontrado n => (StatusCodes.Status404NotFound,
             new { mensaje = n.Message }),
+        VersionNoEncontrada v => (StatusCodes.Status404NotFound,
+            new { mensaje = v.Message }),
         _ => (StatusCodes.Status500InternalServerError, new { mensaje = "Error no controlado." })
     };
 
@@ -74,6 +80,41 @@ Transicion("aprobar", (e, quien, cuando) => e.Aprobar(quien, cuando));
 Transicion("iniciar-ruta", (e, quien, cuando) => e.IniciarRuta(quien, cuando));
 Transicion("retornar", (e, quien, cuando) => e.Retornar(quien, cuando));
 Transicion("liquidar", (e, quien, cuando) => e.Liquidar(quien, cuando));
+
+var parametros = app.MapGroup("/parametros");
+
+// HU-144: la carga nace PENDIENTE. Una carga que ya resolviera volvería decorativo el
+// doble control de HU-145.
+parametros.MapPost("/", async (CargarParametro peticion, ServicioDeParametros servicio) =>
+{
+    var id = await servicio.CargarAsync(
+        new SolicitudDeCarga(
+            peticion.Clave,
+            peticion.Valor,
+            peticion.VigenteDesde,
+            peticion.VigenteHasta,
+            peticion.RespaldoAdjunto is null
+                ? null
+                : new RespaldoDocumental(
+                    Ulid.Parse(peticion.RespaldoAdjunto),
+                    peticion.Fuente ?? "",
+                    peticion.VerificadoEl ?? default),
+            new IdPersona(peticion.CargadoPor)),
+        peticion.Momento);
+
+    return Results.Created($"/parametros/{id}", new { id = id.ToString(), estado = "PENDIENTE" });
+});
+
+// HU-146: responde 200 en los dos casos, con `concedida`. El rechazo no es un error del
+// sistema — es el control funcionando, y queda asentado en la bitácora igual.
+parametros.MapPost("/{id}/aprobar", async (
+    string id, EjecutarTransicion peticion, ServicioDeParametros servicio) =>
+{
+    var intento = await servicio.AprobarAsync(
+        Ulid.Parse(id), new IdPersona(peticion.Ejecuta), peticion.Momento);
+
+    return Results.Ok(new { id, concedida = intento.Concedida, motivo = intento.MotivoDelRechazo });
+});
 
 // Programar y despachar llevan la asignación en el cuerpo: son las dos transiciones que
 // evalúan BD-02 y BD-03, y se revalidan en cada una con los datos del momento.
@@ -167,6 +208,23 @@ internal sealed record AsignarYTransicionar(
     DateOnly? VencePoliza,
     DateOnly? VenceRevisionMecanica,
     bool IdentificacionInstitucionalVerificada);
+
+/// <summary>
+/// Carga de un parámetro normativo. El respaldo y la fuente son <b>obligatorios</b>:
+/// «un parámetro sin respaldo no se puede sostener ante el Tribunal Superior de Cuentas».
+/// Se reciben como opcionales para poder <b>rechazar con el mensaje correcto</b> en lugar
+/// de devolver un error de formato que no explica nada.
+/// </summary>
+internal sealed record CargarParametro(
+    string Clave,
+    string Valor,
+    DateOnly VigenteDesde,
+    DateOnly? VigenteHasta,
+    string? RespaldoAdjunto,
+    string? Fuente,
+    DateOnly? VerificadoEl,
+    string CargadoPor,
+    DateTimeOffset Momento);
 
 /// <summary>Expuesto para que las pruebas de punta a punta puedan levantar la aplicación.</summary>
 public partial class Program;

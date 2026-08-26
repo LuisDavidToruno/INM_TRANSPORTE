@@ -36,6 +36,15 @@ public sealed record VersionDeParametro(
     IdPersona? AprobadoPor) : IConVigencia
 {
     /// <summary>
+    /// De dónde salió el dato. <b>Obligatorio</b>: «un parámetro sin respaldo no se puede
+    /// sostener ante el Tribunal Superior de Cuentas» (`HU-144`).
+    ///
+    /// Es propiedad y no parámetro posicional porque EF Core no puede enlazar un tipo
+    /// complejo a través del constructor de copia de un `record`.
+    /// </summary>
+    public required RespaldoDocumental Respaldo { get; init; }
+
+    /// <summary>
     /// Identidad de <b>esta versión</b>, no del parámetro. Dos versiones de la misma
     /// tarifa son dos filas distintas que conviven: la corrección no reemplaza a la
     /// anterior, la sucede en el eje de transacción.

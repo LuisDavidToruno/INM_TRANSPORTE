@@ -15,6 +15,11 @@ public class ReglasDeDobleControlPruebas
     private static readonly IdPersona Carlos = new("P-CARLOS");
     private static readonly IdPersona Gerencia = new("P-GERENCIA");
 
+    private static readonly RespaldoDocumental Respaldo = new(
+        Adjunto: Ulid.NewUlid(),
+        Fuente: "Fuente de prueba",
+        FechaDeVerificacion: new DateOnly(2026, 1, 1));
+
     private static readonly DateTimeOffset Momento =
         new(2026, 9, 18, 11, 0, 0, TimeSpan.FromHours(-6));
 
@@ -77,5 +82,6 @@ public class ReglasDeDobleControlPruebas
         RegistradoDesde: Momento,
         RegistradoHasta: null,
         CargadoPor: Carlos,
-        AprobadoPor: null);
+        AprobadoPor: null)
+    { Respaldo = Respaldo };
 }

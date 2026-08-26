@@ -44,6 +44,22 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             parametro.Property(p => p.RegistradoDesde).IsRequired();
             parametro.Property(p => p.RegistradoHasta);
 
+            // El respaldo documental es obligatorio: «un parámetro sin respaldo no se
+            // puede sostener ante el Tribunal Superior de Cuentas» (HU-144). El archivo
+            // vive fuera de la base (ADR-004); acá va su referencia.
+            parametro.ComplexProperty(p => p.Respaldo, respaldo =>
+            {
+                respaldo.Property(r => r.Adjunto)
+                    .HasColumnName("RespaldoAdjunto")
+                    .HasConversion(UlidABinario).HasColumnType("binary(16)").IsRequired();
+
+                respaldo.Property(r => r.Fuente)
+                    .HasColumnName("RespaldoFuente").HasMaxLength(512).IsRequired();
+
+                respaldo.Property(r => r.FechaDeVerificacion)
+                    .HasColumnName("RespaldoVerificadoEl").IsRequired();
+            });
+
             parametro.Property(p => p.CargadoPor)
                 .HasConversion(id => id.Valor, valor => new IdPersona(valor))
                 .HasMaxLength(64).IsRequired();
