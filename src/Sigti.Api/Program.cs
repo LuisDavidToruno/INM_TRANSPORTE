@@ -142,7 +142,7 @@ void ConAsignacion(
         var asignacion = new AsignacionDeMision(
             new Licencia(peticion.NumeroDeLicencia, peticion.CategoriaDeLicencia,
                 peticion.VenceLicencia, peticion.RestriccionesDeLicencia ?? []),
-            new FichaTecnica(peticion.TipoDeVehiculo, peticion.PesoBrutoKg,
+            new FichaTecnica(peticion.TipoDeVehiculo, peticion.ClaseNormativa, peticion.PesoBrutoKg,
                 peticion.CapacidadPasajeros, peticion.LlevaRemolque),
             new DocumentacionDelVehiculo
             {
@@ -199,6 +199,7 @@ internal sealed record AsignarYTransicionar(
     DateOnly VenceLicencia,
     IReadOnlyList<string>? RestriccionesDeLicencia,
     string TipoDeVehiculo,
+    ClaseNormativa ClaseNormativa,
     int PesoBrutoKg,
     int CapacidadPasajeros,
     bool LlevaRemolque,

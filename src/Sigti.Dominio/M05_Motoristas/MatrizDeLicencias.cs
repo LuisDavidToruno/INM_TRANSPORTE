@@ -9,8 +9,15 @@ namespace Sigti.Dominio.M05_Motoristas;
 /// Lleva los dos ejes de `ADR-006` como cualquier otro parámetro normativo. La matriz no
 /// es una constante del programa: es reglamento, y el reglamento cambia.
 /// </summary>
+/// <param name="Clase">
+/// Qué clase de vehículo cubre esta entrada. Es lo que permite expresar `A` y `B1`, que
+/// el Artículo 4 define por clase y no por umbral, y lo que impide que una licencia `B`
+/// habilite una motocicleta — texto de la norma: «automóviles livianos <b>no comprendidos
+/// en la categoría A y B1</b>».
+/// </param>
 public sealed record EntradaDeMatriz(
     CategoriaDeLicencia Categoria,
+    ClaseNormativa Clase,
     int PesoBrutoMaximoKg,
     int CapacidadMaximaPasajeros,
     bool PermiteRemolque,
@@ -58,6 +65,7 @@ public sealed class MatrizDeLicencias
         ReglasDeVigencia
             .TodasLasVigentesA(_entradas.Where(e => e.Categoria == categoria), fechaDelHecho, conocidoAl)
             .Any(e =>
+                e.Clase == ficha.Clase &&
                 ficha.PesoBrutoKg <= e.PesoBrutoMaximoKg &&
                 ficha.CapacidadPasajeros <= e.CapacidadMaximaPasajeros &&
                 (!ficha.LlevaRemolque || e.PermiteRemolque));

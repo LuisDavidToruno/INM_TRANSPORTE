@@ -20,6 +20,7 @@ public class ReglasDeHabilitacionPruebas
 
     private static readonly FichaTecnica Pickup = new(
         TipoDeVehiculo: "PICKUP",
+        Clase: ClaseNormativa.Automovil,
         PesoBrutoKg: 2_800,
         CapacidadPasajeros: 5,
         LlevaRemolque: false);
@@ -27,9 +28,39 @@ public class ReglasDeHabilitacionPruebas
     /// <summary>Matriz de prueba: la categoría B habilita hasta 3.500 kg y 8 pasajeros.</summary>
     private static readonly MatrizDeLicencias Matriz = MatrizDeLicencias.Con("PRUEBA-01",
     [
-        EntradaVigente(CategoriaDeLicencia.B, hasta: 3_500,
+        EntradaVigente(CategoriaDeLicencia.B, ClaseNormativa.Automovil, hasta: 3_500,
             desde: new DateOnly(2026, 1, 1), hastaFecha: null)
     ]);
+
+    [Fact]
+    public void La_licencia_A_habilita_una_motocicleta_y_la_B_no()
+    {
+        // El Artículo 4 define A y B1 POR CLASE DE VEHÍCULO, no por umbral: con masa,
+        // pasajeros y remolque no se distingue una moto de un automóvil liviano.
+        //
+        // Y que la B no habilite una moto es texto de la norma, no inferencia: «Tipo B:
+        // todo tipo automóviles livianos NO COMPRENDIDOS EN LA CATEGORÍA A Y B1».
+        var matriz = MatrizDeLicencias.Con("ACUERDO-1012-2021",
+        [
+            EntradaVigente(CategoriaDeLicencia.A, ClaseNormativa.Motocicleta, hasta: 1_000,
+                desde: new DateOnly(2026, 1, 1), hastaFecha: null),
+            EntradaVigente(CategoriaDeLicencia.B, ClaseNormativa.Automovil, hasta: 3_500,
+                desde: new DateOnly(2026, 1, 1), hastaFecha: null)
+        ]);
+
+        var moto = new FichaTecnica("MOTOCICLETA", ClaseNormativa.Motocicleta,
+            PesoBrutoKg: 180, CapacidadPasajeros: 1, LlevaRemolque: false);
+
+        var licenciaA = Vigente(hasta: new DateOnly(2028, 1, 1)) with { Categoria = CategoriaDeLicencia.A };
+        var licenciaB = Vigente(hasta: new DateOnly(2028, 1, 1));
+
+        Assert.True(ReglasDeHabilitacion.Evaluar(licenciaA, moto, Ventana, matriz, Conocido).Habilita);
+        Assert.False(ReglasDeHabilitacion.Evaluar(licenciaB, moto, Ventana, matriz, Conocido).Habilita);
+
+        // Y a la inversa: la A tampoco habilita un automóvil, aunque pese poco.
+        var liviano = Pickup with { PesoBrutoKg = 900 };
+        Assert.False(ReglasDeHabilitacion.Evaluar(licenciaA, liviano, Ventana, matriz, Conocido).Habilita);
+    }
 
     [Fact]
     public void Un_pickup_con_remolque_exige_BE_y_no_le_basta_la_B()
@@ -41,9 +72,9 @@ public class ReglasDeHabilitacionPruebas
         // Este es el caso que el enumerado de ocho categorías dejaba pasar.
         var matriz = MatrizDeLicencias.Con("ACUERDO-1012-2021",
         [
-            EntradaVigente(CategoriaDeLicencia.B, hasta: 3_500,
+            EntradaVigente(CategoriaDeLicencia.B, ClaseNormativa.Automovil, hasta: 3_500,
                 desde: new DateOnly(2026, 1, 1), hastaFecha: null),
-            EntradaVigente(CategoriaDeLicencia.BE, hasta: 3_500,
+            EntradaVigente(CategoriaDeLicencia.BE, ClaseNormativa.Automovil, hasta: 3_500,
                 desde: new DateOnly(2026, 1, 1), hastaFecha: null, remolque: true)
         ]);
 
@@ -69,9 +100,9 @@ public class ReglasDeHabilitacionPruebas
         // se sigue evaluando con el límite de marzo — aunque se capture en agosto.
         var matriz = MatrizDeLicencias.Con("PRUEBA-02",
         [
-            EntradaVigente(CategoriaDeLicencia.B, hasta: 3_500,
+            EntradaVigente(CategoriaDeLicencia.B, ClaseNormativa.Automovil, hasta: 3_500,
                 desde: new DateOnly(2026, 1, 1), hastaFecha: new DateOnly(2026, 6, 30)),
-            EntradaVigente(CategoriaDeLicencia.B, hasta: 4_000,
+            EntradaVigente(CategoriaDeLicencia.B, ClaseNormativa.Automovil, hasta: 4_000,
                 desde: new DateOnly(2026, 7, 1), hastaFecha: null)
         ]);
 
@@ -89,9 +120,9 @@ public class ReglasDeHabilitacionPruebas
         new(2026, 9, 1, 0, 0, 0, TimeSpan.FromHours(-6));
 
     private static EntradaDeMatriz EntradaVigente(
-        CategoriaDeLicencia categoria, int hasta, DateOnly desde, DateOnly? hastaFecha,
-        bool remolque = false) =>
-        new(categoria, PesoBrutoMaximoKg: hasta, CapacidadMaximaPasajeros: 8, PermiteRemolque: remolque,
+        CategoriaDeLicencia categoria, ClaseNormativa clase, int hasta, DateOnly desde,
+        DateOnly? hastaFecha, bool remolque = false) =>
+        new(categoria, clase, PesoBrutoMaximoKg: hasta, CapacidadMaximaPasajeros: 8, PermiteRemolque: remolque,
             VigenteDesde: desde, VigenteHasta: hastaFecha,
             RegistradoDesde: new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.FromHours(-6)),
             RegistradoHasta: null);

@@ -10,7 +10,7 @@ Punto único de entrada para saber en qué va el proyecto. Si algo figura acá c
 
 **Hay stack, y hay autorización para programar.** La [designación de LOKI del 2026-08-26](docs/07-gestion/designaciones/2026-08-26-stack-y-arranque.md) fijó el stack y el PO autorizó el arranque. Eso activó la cláusula de revisión que [`ADR-000`](docs/03-arquitectura/adr/ADR-000-diferir-seleccion-de-stack.md) escribió para sí mismo, y [`ADR-002`](docs/03-arquitectura/adr/ADR-002-adoptar-el-stack-tecnologico.md) lo supera formalmente.
 
-**Ya hay código, y camina.** El walking skeleton atraviesa API → Aplicación → Dominio → SQL Server → bitácora encadenada, con **52 pruebas verdes**. `BD-01`, `BD-02` y `BD-03` se evalúan de verdad, y los parámetros normativos son bitemporales con doble control.
+**Ya hay código, y camina.** El walking skeleton atraviesa API → Aplicación → Dominio → SQL Server → bitácora encadenada, con **53 pruebas**. `BD-01`, `BD-02` y `BD-03` se evalúan de verdad, y los parámetros normativos son bitemporales con doble control.
 
 | Bloque | Qué produjo | Estado |
 |---|---|---|
@@ -43,21 +43,11 @@ El 2026-08-26 bloqueó durante horas la carga de **cualquier binario .NET recié
 
 Tampoco están `BD-04` (día u hora inhábil), `BD-05` (coherencia del odómetro), `BD-06` (segregación operativa), `BD-08` a `BD-11`. Todas declaradas en [`estados/orden-de-mision.md`](docs/03-arquitectura/estados/orden-de-mision.md) §4.
 
-### 🔴 Las licencias `A` y `B1` no habilitan nada — **el despacho de motos está bloqueado**
+### La matriz licencia↔vehículo **está completa y es normativa**
 
-Apareció al cargar la matriz real del Acuerdo 1012-2021 el 2026-08-26.
+Las **nueve** categorías del **Artículo 4 del Acuerdo 1012-2021** `[V]`, con la fuente en [`fuentes/`](docs/01-negocio/normativa/fuentes/acuerdo-1012-2021-permisos-de-conducir.pdf). Versión `ACUERDO-1012-2021-ART-4`.
 
-El Artículo 4 define `A` —*ciclomotores y motocicletas*— y `B1` —*triciclos y cuadriciclos de motor*— **por clase de vehículo, no por umbral numérico**. La matriz implementada resuelve por masa, pasajeros y remolque, y con esos tres atributos **no hay forma de distinguir una motocicleta de un automóvil liviano**.
-
-No se les inventó un umbral: sería inventar norma. Pero como *«una categoría sin entrada no habilita»*, hoy **una licencia `A` o `B1` no habilita ningún vehículo**. La frase que define el producto dice *«SIGTI cuida de todo lo referente a los vehículos — **motos**, buses, pickups, camiones»*, así que esto hay que cerrarlo antes de operar.
-
-**La salida es una clase normativa en la ficha técnica** —motocicleta · triciclo-cuadriciclo · automóvil · camión · autobús—, que **no es lo mismo** que el nombre del tipo de vehículo del catálogo institucional. `BD-02` prohíbe resolver *«por nombre del tipo de vehículo»*, y con razón: `PICKUP` es texto libre de la institución. La clase normativa es un conjunto cerrado que sale del Artículo 4.
-
-Toca `BD-02` otra vez, y por eso queda como hallazgo en lugar de resolverlo por mi cuenta.
-
-### La matriz licencia↔vehículo **ya tiene vigencia y sus valores ya son normativos**
-
-Los valores son los del **Artículo 4 del Acuerdo 1012-2021** `[V]`, con la fuente en [`fuentes/`](docs/01-negocio/normativa/fuentes/acuerdo-1012-2021-permisos-de-conducir.pdf). Versión `ACUERDO-1012-2021-ART-4`.
+`A` y `B1` se expresan por **clase normativa** —`MOTOCICLETA`, `TRICICLO_CUADRICICLO`, `AUTOMOVIL`, `CAMION`, `AUTOBUS`—, que es conjunto cerrado de la norma y **no es el tipo de vehículo del catálogo institucional**. Donde el Acuerdo no fija techo de masa o pasajeros, la entrada tampoco lo fija: el límite real lo pone la ficha técnica.
 
 **Lo que queda abierto es el camino, no el dato:** el circuito de carga existe (`POST /parametros` y `POST /parametros/{id}/aprobar`, con doble control y asiento en bitácora), pero la matriz **no entra por él** — está escrita en C# en `ParametrosProvisionales`. Cargarla por el circuito y borrar esa clase es lo que le da doble control.
 
@@ -118,7 +108,7 @@ Los cinco archivos de [`docs/05-calidad/hallazgos/`](docs/05-calidad/hallazgos/)
 
 ## Cómo seguir
 
-**El walking skeleton está cerrado y verificado.** `dotnet test` → **52 de 52 verdes**, salida limpia. Necesita SQL Server en `localhost` con autenticación integrada; la suite crea y borra `SIGTI_Pruebas` sola.
+**El walking skeleton está cerrado y verificado.** `dotnet test` → **53 pruebas**, salida limpia. Necesita SQL Server en `localhost` con autenticación integrada; la suite crea y borra `SIGTI_Pruebas` sola.
 
 Lo que el esqueleto dejó probado, y que antes solo estaba escrito en un ADR:
 

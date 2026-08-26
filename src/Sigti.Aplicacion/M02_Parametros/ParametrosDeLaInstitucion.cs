@@ -31,51 +31,60 @@ public sealed class ParametrosProvisionales : IParametrosDeLaInstitucion
 
     private static readonly DateOnly EnVigencia = new(2021, 7, 19);
 
+    /// <summary>
+    /// Las nueve categorías del Artículo 4. Ninguna lleva umbral inventado: donde el
+    /// Acuerdo no fija techo, la entrada no lo fija tampoco y el límite real lo pone la
+    /// ficha técnica del vehículo.
+    /// </summary>
     private static readonly MatrizDeLicencias Matriz = MatrizDeLicencias.Con("ACUERDO-1012-2021-ART-4",
     [
+        // TIPO A: ciclomotores y motocicletas, de motor o eléctricas. La norma no fija
+        // masa ni pasajeros: la clase es todo el criterio.
+        Entrada(CategoriaDeLicencia.A, ClaseNormativa.Motocicleta),
+
+        // TIPO B1: todo tipo de triciclos y cuadriciclos de motor. Igual que A.
+        Entrada(CategoriaDeLicencia.B1, ClaseNormativa.TricicloCuadriciclo),
+
         // TIPO B: livianos, masa máxima autorizada ≤ 3,500 kg, diseñados para no más de
-        // ocho (8) personas además del conductor.
-        Entrada(CategoriaDeLicencia.B, kg: 3_500, pasajeros: 8),
+        // ocho (8) personas además del conductor. «No comprendidos en la categoría A y B1».
+        Entrada(CategoriaDeLicencia.B, ClaseNormativa.Automovil, kg: 3_500, pasajeros: 8),
 
         // TIPO BE: automóviles de la categoría B enganchados a un remolque.
-        Entrada(CategoriaDeLicencia.BE, kg: 3_500, pasajeros: 8, remolque: true),
+        Entrada(CategoriaDeLicencia.BE, ClaseNormativa.Automovil, kg: 3_500, pasajeros: 8, remolque: true),
 
-        // TIPO C1: automóviles no comprendidos en B, masa máxima autorizada ≤ 7,500 kg.
-        Entrada(CategoriaDeLicencia.C1, kg: 7_500, pasajeros: 8),
+        // TIPO C1: no comprendidos en B, masa máxima autorizada ≤ 7,500 kg.
+        Entrada(CategoriaDeLicencia.C1, ClaseNormativa.Camion, kg: 7_500),
 
-        // TIPO C: vehículos de carga superiores a 7,500 kg, no articulados. El Acuerdo no
-        // fija techo superior; el techo real lo pone la ficha técnica del vehículo.
-        Entrada(CategoriaDeLicencia.C, kg: int.MaxValue, pasajeros: 8),
+        // TIPO C: vehículos de carga superiores a 7,500 kg, no articulados.
+        Entrada(CategoriaDeLicencia.C, ClaseNormativa.Camion),
 
         // TIPO CE: categoría C enganchada a remolque o semirremolque (cisternas,
         // plataformas, furgones).
-        Entrada(CategoriaDeLicencia.CE, kg: int.MaxValue, pasajeros: 8, remolque: true),
+        Entrada(CategoriaDeLicencia.CE, ClaseNormativa.Camion, remolque: true),
 
         // TIPO D1: autobuses hasta 25 pasajeros. TIPO D: superiores a 26.
-        Entrada(CategoriaDeLicencia.D1, kg: int.MaxValue, pasajeros: 25),
-        Entrada(CategoriaDeLicencia.D, kg: int.MaxValue, pasajeros: int.MaxValue)
+        Entrada(CategoriaDeLicencia.D1, ClaseNormativa.Autobus, pasajeros: 25),
+        Entrada(CategoriaDeLicencia.D, ClaseNormativa.Autobus)
     ]);
-
-    // ⚠️ FALTAN `A` y `B1`, y no es un olvido.
-    //
-    // El Artículo 4 define esas dos por CLASE DE VEHÍCULO, no por umbral numérico:
-    // «A: ciclomotores y motocicletas», «B1: triciclos y cuadriciclos de motor». Esta
-    // matriz resuelve por masa, pasajeros y remolque, y con esos tres atributos no hay
-    // forma de distinguir una motocicleta de un automóvil liviano.
-    //
-    // Inventarles un umbral seria inventar norma. Consecuencia mientras tanto: una
-    // licencia `A` o `B1` NO HABILITA NADA, porque la ausencia de entrada se trata como
-    // negativa. SIGTI cubre motos explícitamente, así que esto bloquea el despacho de
-    // motocicletas y hay que cerrarlo antes de operar. Registrado en HANDOFF.md.
 
     public MatrizDeLicencias MatrizVigenteAl(DateOnly fecha) => Matriz;
 
     /// <summary>Póliza y revisión apagadas: no son obligatorias por ley vigente (`DP-001, D-13`).</summary>
     public PoliticaDeDocumentacion PoliticaVigenteAl(DateOnly fecha) => PoliticaDeDocumentacion.PorDefecto;
 
+    /// <summary>
+    /// Omitir <c>kg</c> o <c>pasajeros</c> significa <b>que el Acuerdo no fija ese
+    /// techo</b>, no que sea infinito por descuido. El límite real lo pone la ficha
+    /// técnica del vehículo que se asigne.
+    /// </summary>
     private static EntradaDeMatriz Entrada(
-        CategoriaDeLicencia categoria, int kg, int pasajeros, bool remolque = false) =>
+        CategoriaDeLicencia categoria,
+        ClaseNormativa clase,
+        int kg = int.MaxValue,
+        int pasajeros = int.MaxValue,
+        bool remolque = false) =>
         new(categoria,
+            Clase: clase,
             PesoBrutoMaximoKg: kg,
             CapacidadMaximaPasajeros: pasajeros,
             PermiteRemolque: remolque,

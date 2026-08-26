@@ -709,7 +709,9 @@ Bloqueo duro significa: **el sistema no ofrece la acción, y si se intenta por c
 
 **Regla, en tres condiciones que deben cumplirse las tres.**
 
-1. **Habilitación por categoría.** La categoría de la licencia del motorista habilita el vehículo asignado según la matriz licencia↔vehículo **vigente a la fecha de salida prevista**. La matriz no se resuelve por número de ejes ni por nombre del tipo de vehículo, sino por los atributos de la ficha técnica: tipo, **peso bruto vehicular en kg**, capacidad de pasajeros y **si va enganchado a un remolque o semirremolque** ([NRM-06](../../01-negocio/normativa/NRM-06-transito-y-licencias.md)).
+1. **Habilitación por categoría.** La categoría de la licencia del motorista habilita el vehículo asignado según la matriz licencia↔vehículo **vigente a la fecha de salida prevista**. La matriz no se resuelve por número de ejes ni por nombre del tipo de vehículo, sino por los atributos de la ficha técnica: **clase normativa**, **peso bruto vehicular en kg**, capacidad de pasajeros y **si va enganchado a un remolque o semirremolque** ([NRM-06](../../01-negocio/normativa/NRM-06-transito-y-licencias.md)).
+
+**La clase normativa es un conjunto cerrado** que sale del Artículo 4 del Acuerdo 1012-2021: `MOTOCICLETA` · `TRICICLO_CUADRICICLO` · `AUTOMOVIL` · `CAMION` · `AUTOBUS`. **No es el tipo de vehículo del catálogo de M-02**, que es texto libre de cada institución —*«pick-up»*, *«microbús»*, *«cisterna»*— y por eso no sirve para resolver la matriz.
 
 > **Corrección — verificación contra el Acuerdo 1012-2021, 2026-08-26.** Este punto decía *«y si es articulado»*, y **no es lo mismo**. El Artículo 4 del Acuerdo crea dos categorías por remolque: **`BE`** —automóviles de la categoría B enganchados a un remolque— y **`CE`** —vehículos de la categoría C enganchados a remolque o semirremolque—.
 >
@@ -718,6 +720,10 @@ Bloqueo duro significa: **el sistema no ofrece la acción, y si se intenta por c
 > El atributo correcto es **si lleva remolque**. La fuente está en [`fuentes/acuerdo-1012-2021-permisos-de-conducir.pdf`](../../01-negocio/normativa/fuentes/acuerdo-1012-2021-permisos-de-conducir.pdf), y el nivel de verificación sube de `[P]` a **`[V]`**.
 >
 > `CLAUDE.md` enumeraba ocho categorías; **son nueve.** No existe ninguna `DE`.
+>
+> **Segunda corrección, del mismo día.** Al cargar la matriz real apareció que este punto tampoco podía expresar `A` ni `B1`: el Artículo 4 las define **por clase de vehículo** —*ciclomotores y motocicletas*, *triciclos y cuadriciclos de motor*—, no por umbral numérico. Con masa, pasajeros y remolque **no se distingue una motocicleta de un automóvil liviano**, así que una licencia `A` no habilitaba nada y el despacho de motos quedaba bloqueado. De ahí la **clase normativa** de arriba.
+>
+> El Artículo 4 también dice que `B` cubre *«automóviles livianos no comprendidos en la categoría A y B1»*: **una licencia `B` no habilita una motocicleta**, y eso es texto de la norma, no inferencia.
 2. **Vigencia en todo el rango.** `fecha_vencimiento_licencia ≥ fin de la ventana de la misión, incluida la holgura posterior`. **No basta que esté vigente el día de salida.** Una licencia que vence el miércoles no habilita una misión que retorna el viernes: el motorista conduciría sin licencia dos días, con responsabilidad directa de quien autorizó.
 3. **Restricciones médicas compatibles.** Si la licencia tiene restricciones registradas — corrección visual, prohibición de conducción nocturna, u otras — y la misión las contradice, bloquea. `[C]` catálogo de restricciones que usa la DNVT — insumo #23.
 

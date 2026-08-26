@@ -1,6 +1,37 @@
 namespace Sigti.Dominio.M03_Flota;
 
 /// <summary>
+/// La clase de vehículo del <b>Artículo 4 del Acuerdo 1012-2021</b> `[V]`. Conjunto
+/// cerrado, y no ampliable por configuración: sale de la norma.
+///
+/// <b>No confundir con el tipo de vehículo del catálogo de `M-02`</b>, que es texto libre
+/// de cada institución —«pick-up», «microbús», «cisterna»— y por eso no sirve para
+/// resolver la matriz. `BD-02` es explícito en que la matriz no se resuelve por nombre
+/// del tipo de vehículo.
+///
+/// Existe porque el Artículo 4 define `A` y `B1` <b>por clase</b> y no por umbral
+/// numérico: con masa, pasajeros y remolque no se distingue una motocicleta de un
+/// automóvil liviano, y sin esta distinción una licencia `A` no habilitaba nada.
+/// </summary>
+public enum ClaseNormativa
+{
+    /// <summary>Ciclomotores y motocicletas, de motor o eléctricas. Categoría `A`.</summary>
+    Motocicleta,
+
+    /// <summary>Triciclos y cuadriciclos de motor —mototaxi, cuatrimoto—. Categoría `B1`.</summary>
+    TricicloCuadriciclo,
+
+    /// <summary>Automóviles livianos no comprendidos en `A` ni `B1`. Categorías `B` y `BE`.</summary>
+    Automovil,
+
+    /// <summary>Vehículos de carga no articulados (camiones). Categorías `C1`, `C` y `CE`.</summary>
+    Camion,
+
+    /// <summary>Vehículos de transporte de pasajeros (autobuses). Categorías `D1` y `D`.</summary>
+    Autobus
+}
+
+/// <summary>
 /// Los atributos del vehículo contra los que se resuelve la matriz licencia↔vehículo.
 ///
 /// `BD-02` es explícito en que la matriz <b>no se resuelve por número de ejes ni por
@@ -16,8 +47,13 @@ namespace Sigti.Dominio.M03_Flota;
 /// enganchada requiere `BE` y no es articulado en ningún sentido. Confundirlos deja pasar
 /// exactamente el caso que `BD-02` existe para impedir.
 /// </param>
+/// <param name="TipoDeVehiculo">
+/// El tipo del catálogo institucional —«PICKUP», «MICROBÚS»—. Es el eje de compatibilidad
+/// de `BD-07`, que es otra pregunta: <b>la matriz de licencias no lo usa</b>.
+/// </param>
 public sealed record FichaTecnica(
     string TipoDeVehiculo,
+    ClaseNormativa Clase,
     int PesoBrutoKg,
     int CapacidadPasajeros,
     bool LlevaRemolque);
