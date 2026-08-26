@@ -29,8 +29,32 @@ public sealed class EscritorDeBitacora(SigtiDbContext contexto)
         DateTimeOffset momento,
         CancellationToken cancelacion = default)
     {
-        await using var transaccion = await contexto.Database.BeginTransactionAsync(cancelacion);
+        // Si ya hay una transacción en curso, el asiento entra en ella: la transición del
+        // expediente y su asiento tienen que confirmarse juntos o no confirmarse. Abrir una
+        // transacción anidada, además, lanza excepción en EF Core.
+        var transaccionPropia = contexto.Database.CurrentTransaction is null
+            ? await contexto.Database.BeginTransactionAsync(cancelacion)
+            : null;
 
+        try
+        {
+            var asiento = await EscribirEnLaTransaccionAsync(cola, contenido, momento, cancelacion);
+
+            if (transaccionPropia is not null)
+                await transaccionPropia.CommitAsync(cancelacion);
+
+            return asiento;
+        }
+        finally
+        {
+            if (transaccionPropia is not null)
+                await transaccionPropia.DisposeAsync();
+        }
+    }
+
+    private async Task<Asiento> EscribirEnLaTransaccionAsync(
+        string cola, string contenido, DateTimeOffset momento, CancellationToken cancelacion)
+    {
         await TomarBloqueoDeCola(cola, cancelacion);
 
         var ultimo = await contexto.Asientos
@@ -54,7 +78,6 @@ public sealed class EscritorDeBitacora(SigtiDbContext contexto)
 
         contexto.Asientos.Add(asiento);
         await contexto.SaveChangesAsync(cancelacion);
-        await transaccion.CommitAsync(cancelacion);
 
         return asiento;
     }

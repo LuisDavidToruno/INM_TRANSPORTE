@@ -24,6 +24,24 @@ El stack, en una línea: **.NET 10 + EF Core sobre SQL Server 2014 Standard** (r
 
 ## Lo que está abierto
 
+### 🔴 Smart App Control bloquea toda ejecución de .NET en la máquina del PO
+
+**Es lo primero que hay que resolver, y no se resuelve escribiendo código.**
+
+En `C--Users-David` (Windows 11), Smart App Control está **activo** — `VerifiedAndReputablePolicyState = 1` en `HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy`. Bloquea la carga de **cualquier binario .NET recién compilado**, con `0x800711C7`:
+
+- `dotnet test` → el runner de xunit no puede cargar `Sigti.Pruebas.dll`
+- `dotnet run` → tampoco arranca un ejecutable propio
+- `dotnet ef` → no puede cargar `Sigti.Datos`, así que **no hay migraciones ni script para 2014**
+
+`dotnet build` **sí** funciona. En esa máquina se puede escribir y compilar, no ejecutar.
+
+No lo causamos: SAC arranca en modo evaluación y se activó solo a mitad de la sesión del 2026-08-26 — las primeras 14 pruebas sí habían corrido.
+
+**Antes de decidir apagarlo, tener presente que es irreversible:** una vez apagado, Microsoft solo permite reactivarlo reinstalando o restableciendo Windows. Las tres salidas son: apagarlo, trabajar en la otra máquina, o instalar WSL2 (no hay WSL ni Docker instalados hoy).
+
+**Consecuencia directa:** todo lo commiteado desde `23dedd0` está **escrito y compilado, pero no ejecutado**. Lo primero que hay que hacer en una máquina que sí ejecute es correr `dotnet test` y ver qué se cae.
+
 ### La decisión que el PO no ha tomado, y que va antes del primer módulo
 
 **¿Clean Architecture con ceremonia o sin ella?** La regla dura —`Sigti.Dominio` sin referencias a EF Core ni ASP.NET, con prueba de arquitectura que falla— se adopta sin discusión. Lo que está en duda es la ceremonia: interfaz por agregado, DTO en cada frontera, caso de uso como clase. La designación la descarta y la evidencia medida la respalda; con 19 módulos y `RNF-15` hablando de rotación de personal, el argumento contrario no es ridículo.
@@ -87,8 +105,20 @@ Los cinco archivos de [`docs/05-calidad/hallazgos/`](docs/05-calidad/hallazgos/)
 
 ## Cómo seguir
 
-**Lo inmediato, y es una respuesta del PO, no trabajo:** Clean con ceremonia o sin ella. `ADR-009` ya está escrito sin ceremonia; ratificarlo o revertirlo destraba el primer módulo.
+**Lo primero, en una máquina que pueda ejecutar .NET:**
 
-**Lo que sigue:** el walking skeleton del Sprint 2 — **una orden de misión de punta a punta**, solicitud → despacho → ejecución → liquidación, con su asiento en bitácora. Un hilo delgado que toca todas las capas, no un módulo completo. En ese mismo esqueleto se mide **`RNF-12`: ≤ 25 % de batería en 8 h con seguimiento activo, en gama baja**, que es el número que puede obligar a bajar el seguimiento a un módulo nativo. Hay que saberlo en el Sprint 2, no en el 6.
+```bash
+dotnet test
+```
+
+Hay **22 pruebas escritas**; solo **14 se han visto pasar**. Las otras ocho —el escritor de bitácora bajo concurrencia y el hilo de punta a punta— nunca corrieron. Después, generar la migración inicial y el script para 2014:
+
+```bash
+dotnet ef migrations add Inicial -p src/Sigti.Datos -s src/Sigti.Datos -o Migraciones
+```
+
+**Lo que ya está ratificado:** `ADR-009` sin ceremonia de Clean, confirmado por el PO el 2026-08-26.
+
+**Lo que sigue después del esqueleto:** el resto del walking skeleton del Sprint 2 — **una orden de misión de punta a punta**, solicitud → despacho → ejecución → liquidación, con su asiento en bitácora. Un hilo delgado que toca todas las capas, no un módulo completo. En ese mismo esqueleto se mide **`RNF-12`: ≤ 25 % de batería en 8 h con seguimiento activo, en gama baja**, que es el número que puede obligar a bajar el seguimiento a un módulo nativo. Hay que saberlo en el Sprint 2, no en el 6.
 
 **Lo que hay que gestionar en paralelo:** la sesión de levantamiento con la institución. El paquete está listo en [`docs/07-gestion/levantamiento/`](docs/07-gestion/levantamiento/) — guion de dos horas, los 19 formatos, 12 preguntas ordenadas por impacto, y los 28 casos especiales redactados para leerle a un motorista. Al mismo tiempo, confirmar en la instancia real la edición exacta de SQL Server, el Service Pack y el cifrado de respaldo.

@@ -24,6 +24,7 @@ public class OrdenDeMisionPruebas
     public void Un_expediente_recien_creado_esta_en_borrador()
     {
         var expediente = OrdenDeMision.Crear(
+            id: Ulid.NewUlid(),
             capturadaPor: Asistente,
             solicitanteDeDerecho: Jefe,
             momento: Momento);
@@ -37,7 +38,7 @@ public class OrdenDeMisionPruebas
         // El caso cotidiano que BD-01 no cubría antes del hallazgo HB3-01: la asistente
         // captura la solicitud para su jefe. Formalmente el jefe no creó ni envió nada
         // — pero es el solicitante, y la incompatibilidad I-01 sí se está violando.
-        var expediente = OrdenDeMision.Crear(Asistente, Jefe, Momento);
+        var expediente = OrdenDeMision.Crear(Ulid.NewUlid(), Asistente, Jefe, Momento);
         expediente.Enviar(Asistente, Momento);
 
         var bloqueo = Assert.Throws<BloqueoDuro>(() => expediente.Aprobar(Jefe, Momento));
@@ -69,9 +70,12 @@ public class OrdenDeMisionPruebas
         var original = HiloCompleto();
 
         var reconstruido = OrdenDeMision.Reconstruir(
+            original.Id,
             original.CapturadaPor,
             original.SolicitanteDeDerecho,
             original.Diario);
+
+        Assert.Equal(original.Id, reconstruido.Id);
 
         Assert.Equal(EstadoDeMision.Liquidada, original.Estado);
         Assert.Equal(original.Estado, reconstruido.Estado);
@@ -93,7 +97,7 @@ public class OrdenDeMisionPruebas
     /// <summary>Un expediente aprobado por la jefatura, que no es ni capturador ni solicitante.</summary>
     private static OrdenDeMision Aprobada()
     {
-        var expediente = OrdenDeMision.Crear(Asistente, Jefe, Momento);
+        var expediente = OrdenDeMision.Crear(Ulid.NewUlid(), Asistente, Jefe, Momento);
         expediente.Enviar(Asistente, Momento);
         expediente.Aprobar(Jefatura, Momento);
         return expediente;

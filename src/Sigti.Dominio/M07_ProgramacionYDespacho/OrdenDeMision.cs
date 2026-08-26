@@ -14,11 +14,26 @@ public sealed class OrdenDeMision
 {
     private readonly List<Transicion> _diario = [];
 
-    private OrdenDeMision(IdPersona capturadaPor, IdPersona solicitanteDeDerecho)
+    private OrdenDeMision(Ulid id, IdPersona capturadaPor, IdPersona solicitanteDeDerecho)
     {
+        Id = id;
         CapturadaPor = capturadaPor;
         SolicitanteDeDerecho = solicitanteDeDerecho;
     }
+
+    /// <summary>
+    /// Identificador ULID generado en el cliente (`ADR-005`). Nace con el expediente,
+    /// en el dispositivo, para que la parada pueda referenciar a la salida antes de que
+    /// exista ningún servidor de por medio.
+    ///
+    /// <b>No es el folio.</b> El folio es el número impreso que la institución cita en su
+    /// descargo, lo asigna el servidor contra el rango de la delegación, y nunca se
+    /// muestra este identificador en su lugar.
+    /// </summary>
+    public Ulid Id { get; }
+
+    /// <summary>La cola de bitácora a la que pertenecen los asientos de este expediente.</summary>
+    public string ColaDeBitacora => $"mision:{Id}";
 
     /// <summary>Quién digitó la solicitud. Puede no ser el solicitante — ver `BD-01`.</summary>
     public IdPersona CapturadaPor { get; }
@@ -36,11 +51,12 @@ public sealed class OrdenDeMision
 
     /// <summary>`T-01` — Creación del expediente en borrador.</summary>
     public static OrdenDeMision Crear(
+        Ulid id,
         IdPersona capturadaPor,
         IdPersona solicitanteDeDerecho,
         DateTimeOffset momento)
     {
-        var expediente = new OrdenDeMision(capturadaPor, solicitanteDeDerecho);
+        var expediente = new OrdenDeMision(id, capturadaPor, solicitanteDeDerecho);
 
         expediente._diario.Add(new Transicion(
             Id: "T-01",
@@ -58,11 +74,12 @@ public sealed class OrdenDeMision
     /// estado no viaja, viajan las transiciones</b> (P-1).
     /// </summary>
     public static OrdenDeMision Reconstruir(
+        Ulid id,
         IdPersona capturadaPor,
         IdPersona solicitanteDeDerecho,
         IEnumerable<Transicion> diario)
     {
-        var expediente = new OrdenDeMision(capturadaPor, solicitanteDeDerecho);
+        var expediente = new OrdenDeMision(id, capturadaPor, solicitanteDeDerecho);
         expediente._diario.AddRange(diario);
 
         if (expediente._diario.Count == 0)
