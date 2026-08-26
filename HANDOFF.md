@@ -10,7 +10,7 @@ Punto único de entrada para saber en qué va el proyecto. Si algo figura acá c
 
 **Hay stack, y hay autorización para programar.** La [designación de LOKI del 2026-08-26](docs/07-gestion/designaciones/2026-08-26-stack-y-arranque.md) fijó el stack y el PO autorizó el arranque. Eso activó la cláusula de revisión que [`ADR-000`](docs/03-arquitectura/adr/ADR-000-diferir-seleccion-de-stack.md) escribió para sí mismo, y [`ADR-002`](docs/03-arquitectura/adr/ADR-002-adoptar-el-stack-tecnologico.md) lo supera formalmente.
 
-**Ya hay código, y camina.** El walking skeleton atraviesa API → Aplicación → Dominio → SQL Server → bitácora encadenada, con **42 pruebas verdes**. `BD-01`, `BD-02` y `BD-03` se evalúan de verdad, y los parámetros normativos son bitemporales con doble control.
+**Ya hay código, y camina.** El walking skeleton atraviesa API → Aplicación → Dominio → SQL Server → bitácora encadenada, con **51 pruebas verdes**. `BD-01`, `BD-02` y `BD-03` se evalúan de verdad, y los parámetros normativos son bitemporales con doble control.
 
 | Bloque | Qué produjo | Estado |
 |---|---|---|
@@ -20,7 +20,7 @@ Punto único de entrada para saber en qué va el proyecto. Si algo figura acá c
 | 3 — Requisitos | 18 casos de uso, **150 historias** con Gherkin, 21 no funcionales, backlog | ✅ Revisado y corregido en `3f4ced4` |
 | 4 — Diseño | Modelo de datos bitemporal con 43 entidades, 126 pantallas, **41 maquetadas** | ✅ Revisado y corregido en `3f4ced4` |
 
-**410 documentos y 48,723 líneas de documentación · 50 archivos y 3,781 líneas de C# · 36 commits.**
+**410 documentos y 48,723 líneas de documentación · 56 archivos y 4,628 líneas de C# · 38 commits.**
 
 El stack, en una línea: **.NET 10 + EF Core sobre SQL Server 2014 Standard** (restricción institucional, fuera de soporte), **React 19 + Vite** en oficina, **React Native + SQLite cifrado** en campo. El detalle, las funciones que 2014 no tiene y con qué se reemplazan están en la designación.
 
@@ -49,7 +49,9 @@ Tampoco están `BD-04` (día u hora inhábil), `BD-05` (coherencia del odómetro
 
 **Abierto:** `ParametrosProvisionales` en `Sigti.Aplicacion/M02_Parametros/` devuelve una matriz con versión `PROVISIONAL-SIN-FUENTE-OFICIAL`, y sus valores **no salen de ninguna fuente**. Están ahí para que el esqueleto camine, marcados como tales en el código.
 
-La matriz oficial de la DNVT es uno de los **cuatro PDF descargables sin la institución** — *veinte minutos con un navegador*. Y falta el circuito de carga: hoy las entradas se escriben en código, no se cargan por `HU-144` con su doble control.
+La matriz oficial de la DNVT es uno de los **cuatro PDF descargables sin la institución** — *veinte minutos con un navegador*.
+
+**El circuito de carga ya existe** (`POST /parametros` y `POST /parametros/{id}/aprobar`, con doble control y asiento en bitácora), pero **la matriz todavía no entra por él**: `ParametrosProvisionales` la devuelve escrita en C#. Falta conectar los dos, y para eso conviene tener antes los valores reales.
 
 ### Cinco preguntas de la designación que bloquean
 
@@ -108,7 +110,7 @@ Los cinco archivos de [`docs/05-calidad/hallazgos/`](docs/05-calidad/hallazgos/)
 
 ## Cómo seguir
 
-**El walking skeleton está cerrado y verificado.** `dotnet test` → **42 de 42 verdes**, salida limpia. Necesita SQL Server en `localhost` con autenticación integrada; la suite crea y borra `SIGTI_Pruebas` sola.
+**El walking skeleton está cerrado y verificado.** `dotnet test` → **51 de 51 verdes**, salida limpia. Necesita SQL Server en `localhost` con autenticación integrada; la suite crea y borra `SIGTI_Pruebas` sola.
 
 Lo que el esqueleto dejó probado, y que antes solo estaba escrito en un ADR:
 
@@ -126,10 +128,12 @@ La migración inicial está en `src/Sigti.Datos/Migraciones/` y el script idempo
 
 **`M-02` está construido y persistido**: catálogo bitemporal en `catalogo.VersionDeParametro`, resolución a la fecha del hecho con bloqueo cuando no hay vigencia, doble control que registra también los intentos rechazados, y la vigencia extraída a [`Reglas/ReglasDeVigencia.cs`](src/Sigti.Dominio/Reglas/ReglasDeVigencia.cs) para que ningún módulo implemente un eje y suponga que el otro viene puesto.
 
+**`M-02` está cerrado de punta a punta:** carga con respaldo obligatorio, reglas de solape y de hueco, doble control con asiento del intento rechazado, bitemporalidad persistida y resolución a la fecha del hecho.
+
 **Lo que sigue, en orden:**
 
-1. **Bajar los cuatro PDF oficiales.** Veinte minutos, sin depender de nadie. Convierte la matriz provisional en normativa y destraba también el expediente del motorista y los códigos presupuestarios
-2. **El circuito de carga y aprobación de `M-02`** — `HU-144` y `HU-145`. Las reglas de doble control existen; lo que falta es el camino por el que un parámetro entra al sistema. Hoy las entradas de la matriz se escriben en código
+1. **Bajar los cuatro PDF oficiales.** Veinte minutos, sin depender de nadie. Convierte la matriz provisional en normativa y destraba también el expediente del motorista y los códigos presupuestarios. **Es lo que más rinde por lo que cuesta**
+2. **Cargar la matriz por el circuito** en lugar de tenerla en C#, y borrar `ParametrosProvisionales`
 3. **`BD-07`**, que necesita la matriz de compatibilidad objeto↔vehículo y la categoría de peaje por vehículo (`M-18`, `NRM-10`)
 4. **Aplicar el script contra una instancia 2014 real.** Sigue siendo el único control que atrapa una migración que el destino rechaza, y no existe
 
