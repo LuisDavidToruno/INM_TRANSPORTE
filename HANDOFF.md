@@ -10,7 +10,7 @@ Punto único de entrada para saber en qué va el proyecto. Si algo figura acá c
 
 **Hay stack, y hay autorización para programar.** La [designación de LOKI del 2026-08-26](docs/07-gestion/designaciones/2026-08-26-stack-y-arranque.md) fijó el stack y el PO autorizó el arranque. Eso activó la cláusula de revisión que [`ADR-000`](docs/03-arquitectura/adr/ADR-000-diferir-seleccion-de-stack.md) escribió para sí mismo, y [`ADR-002`](docs/03-arquitectura/adr/ADR-002-adoptar-el-stack-tecnologico.md) lo supera formalmente.
 
-**Ya hay código, y camina.** El walking skeleton atraviesa API → Aplicación → Dominio → SQL Server → bitácora encadenada, con **29 pruebas verdes**. `BD-01`, `BD-02` y `BD-03` se evalúan de verdad.
+**Ya hay código, y camina.** El walking skeleton atraviesa API → Aplicación → Dominio → SQL Server → bitácora encadenada, con **38 pruebas verdes**. `BD-01`, `BD-02` y `BD-03` se evalúan de verdad, y los parámetros normativos son bitemporales con doble control.
 
 | Bloque | Qué produjo | Estado |
 |---|---|---|
@@ -20,7 +20,7 @@ Punto único de entrada para saber en qué va el proyecto. Si algo figura acá c
 | 3 — Requisitos | 18 casos de uso, **150 historias** con Gherkin, 21 no funcionales, backlog | ✅ Revisado y corregido en `3f4ced4` |
 | 4 — Diseño | Modelo de datos bitemporal con 43 entidades, 126 pantallas, **41 maquetadas** | ✅ Revisado y corregido en `3f4ced4` |
 
-**410 documentos y 48,723 líneas de documentación · 39 archivos y 2,821 líneas de C# · 31 commits.**
+**410 documentos y 48,723 líneas de documentación · 44 archivos y 3,181 líneas de C# · 34 commits.**
 
 El stack, en una línea: **.NET 10 + EF Core sobre SQL Server 2014 Standard** (restricción institucional, fuera de soporte), **React 19 + Vite** en oficina, **React Native + SQLite cifrado** en campo. El detalle, las funciones que 2014 no tiene y con qué se reemplazan están en la designación.
 
@@ -43,11 +43,13 @@ El 2026-08-26 bloqueó durante horas la carga de **cualquier binario .NET recié
 
 Tampoco están `BD-04` (día u hora inhábil), `BD-05` (coherencia del odómetro), `BD-06` (segregación operativa), `BD-08` a `BD-11`. Todas declaradas en [`estados/orden-de-mision.md`](docs/03-arquitectura/estados/orden-de-mision.md) §4.
 
-### La matriz licencia↔vehículo en uso **no es normativa**
+### La matriz licencia↔vehículo en uso **no es normativa**, y todavía no pasa por el catálogo
 
-`ParametrosProvisionales` en `Sigti.Aplicacion/M02_Parametros/` devuelve una matriz con versión `PROVISIONAL-SIN-FUENTE-OFICIAL`, y sus valores **no salen de ninguna fuente**. Están ahí para que el esqueleto camine, marcados como tales.
+Dos cosas distintas, y las dos abiertas:
 
-La matriz oficial de la DNVT es uno de los **cuatro PDF que se pueden descargar sin la institución** — *veinte minutos con un navegador*. Cuando llegue, se carga por el catálogo con vigencia de `M-02` (`HU-144` a `HU-150`, con doble control) y esa clase se borra.
+**1. Los valores no son normativos.** `ParametrosProvisionales` en `Sigti.Aplicacion/M02_Parametros/` devuelve una matriz con versión `PROVISIONAL-SIN-FUENTE-OFICIAL`, y sus valores **no salen de ninguna fuente**. Están ahí para que el esqueleto camine, marcados como tales. La matriz oficial de la DNVT es uno de los **cuatro PDF descargables sin la institución** — *veinte minutos con un navegador*.
+
+**2. No usa el catálogo bitemporal, aunque ya exista.** `CatalogoDeParametros` resuelve valores escalares —una tarifa, un umbral— y la matriz es una estructura, no un escalar. Falta decidir cómo se versiona: entrada por entrada como parámetros independientes, o la matriz completa como una versión. **Mientras eso no se resuelva, la matriz no tiene vigencia ni doble control**, que es justamente lo que `M-02` existe para darle.
 
 ### Cinco preguntas de la designación que bloquean
 
@@ -106,7 +108,7 @@ Los cinco archivos de [`docs/05-calidad/hallazgos/`](docs/05-calidad/hallazgos/)
 
 ## Cómo seguir
 
-**El walking skeleton está cerrado y verificado.** `dotnet test` → **29 de 29 verdes**, salida limpia. Necesita SQL Server en `localhost` con autenticación integrada; la suite crea y borra `SIGTI_Pruebas` sola.
+**El walking skeleton está cerrado y verificado.** `dotnet test` → **38 de 38 verdes**, salida limpia. Necesita SQL Server en `localhost` con autenticación integrada; la suite crea y borra `SIGTI_Pruebas` sola.
 
 Lo que el esqueleto dejó probado, y que antes solo estaba escrito en un ADR:
 
@@ -122,7 +124,14 @@ La migración inicial está en `src/Sigti.Datos/Migraciones/` y el script idempo
 
 **Lo que ya está ratificado:** `ADR-009` sin ceremonia de Clean, confirmado por el PO el 2026-08-26.
 
-**Lo que sigue: `M-02`.** Es lo que destraba `BD-07` —matriz de compatibilidad y categoría de peaje por vehículo— y lo que reemplaza la matriz provisional de licencias por el catálogo real con vigencia y doble control. Los parámetros normativos de `M-02` son la pieza con más invariantes duros que queda sin construir.
+**El núcleo de `M-02` está construido**: catálogo bitemporal, resolución a la fecha del hecho con bloqueo cuando no hay vigencia, y doble control que registra también los intentos rechazados.
+
+**Lo que sigue, en orden:**
+
+1. **Bajar los cuatro PDF oficiales.** Veinte minutos, sin depender de nadie. Es lo que convierte la matriz provisional en normativa y destraba también el expediente del motorista y los códigos presupuestarios
+2. **Decidir cómo se versiona la matriz** dentro del catálogo — entrada por entrada, o la matriz completa como una versión. Sin eso, la matriz sigue sin vigencia ni doble control
+3. **Persistir `M-02`**: hoy el catálogo vive solo en memoria. La bitemporalidad tiene que llegar al esquema, y `ADR-006` advierte que agregar el eje de vigencia después obliga a inventar una historia que no se tiene
+4. **`BD-07`**, que además de la matriz de compatibilidad necesita la categoría de peaje por vehículo (`M-18`, `NRM-10`)
 
 **Lo que falta medir, y no puede esperar al Sprint 6:** **`RNF-12` — ≤ 25 % de batería en 8 h con seguimiento activo, en gama baja.** Es el único número donde React Native es medible peor que Kotlin, y [`ADR-003`](docs/03-arquitectura/adr/ADR-003-cliente-de-campo-instalado.md) tiene la contingencia escrita: bajar el seguimiento a un módulo nativo, sin reescribir la aplicación. Esa contingencia sirve si el número llega ahora.
 
