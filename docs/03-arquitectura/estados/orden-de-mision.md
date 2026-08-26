@@ -709,7 +709,15 @@ Bloqueo duro significa: **el sistema no ofrece la acción, y si se intenta por c
 
 **Regla, en tres condiciones que deben cumplirse las tres.**
 
-1. **Habilitación por categoría.** La categoría de la licencia del motorista habilita el vehículo asignado según la matriz licencia↔vehículo **vigente a la fecha de salida prevista**. La matriz no se resuelve por número de ejes ni por nombre del tipo de vehículo, sino por los atributos de la ficha técnica: tipo, **peso bruto vehicular en kg**, capacidad de pasajeros y si es articulado ([NRM-06](../../01-negocio/normativa/NRM-06-transito-y-licencias.md)).
+1. **Habilitación por categoría.** La categoría de la licencia del motorista habilita el vehículo asignado según la matriz licencia↔vehículo **vigente a la fecha de salida prevista**. La matriz no se resuelve por número de ejes ni por nombre del tipo de vehículo, sino por los atributos de la ficha técnica: tipo, **peso bruto vehicular en kg**, capacidad de pasajeros y **si va enganchado a un remolque o semirremolque** ([NRM-06](../../01-negocio/normativa/NRM-06-transito-y-licencias.md)).
+
+> **Corrección — verificación contra el Acuerdo 1012-2021, 2026-08-26.** Este punto decía *«y si es articulado»*, y **no es lo mismo**. El Artículo 4 del Acuerdo crea dos categorías por remolque: **`BE`** —automóviles de la categoría B enganchados a un remolque— y **`CE`** —vehículos de la categoría C enganchados a remolque o semirremolque—.
+>
+> Un pick-up de 2,800 kg **con una plataforma enganchada** no es articulado en ningún sentido, y aun así requiere `BE`. Con *«articulado»* como único atributo, ese caso **pasa el bloqueo duro** — que es precisamente el escenario de siniestro con responsabilidad institucional que `BD-02` existe para impedir.
+>
+> El atributo correcto es **si lleva remolque**. La fuente está en [`fuentes/acuerdo-1012-2021-permisos-de-conducir.pdf`](../../01-negocio/normativa/fuentes/acuerdo-1012-2021-permisos-de-conducir.pdf), y el nivel de verificación sube de `[P]` a **`[V]`**.
+>
+> `CLAUDE.md` enumeraba ocho categorías; **son nueve.** No existe ninguna `DE`.
 2. **Vigencia en todo el rango.** `fecha_vencimiento_licencia ≥ fin de la ventana de la misión, incluida la holgura posterior`. **No basta que esté vigente el día de salida.** Una licencia que vence el miércoles no habilita una misión que retorna el viernes: el motorista conduciría sin licencia dos días, con responsabilidad directa de quien autorizó.
 3. **Restricciones médicas compatibles.** Si la licencia tiene restricciones registradas — corrección visual, prohibición de conducción nocturna, u otras — y la misión las contradice, bloquea. `[C]` catálogo de restricciones que usa la DNVT — insumo #23.
 

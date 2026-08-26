@@ -85,7 +85,8 @@ Ramas: `RECHAZADA`, `ANULADA`, `CERRADA_CON_HALLAZGO`. Cada transición registra
 Las fichas completas están en [docs/01-negocio/normativa/](docs/01-negocio/normativa/). Lo que nunca debes olvidar al diseñar:
 
 - **Segregación de funciones (MARCI/TSC)**: quien solicita ≠ quien autoriza ≠ quien despacha ≠ quien entrega combustible ≠ quien liquida. Es bloqueo duro, no advertencia.
-- **Matriz licencia ↔ vehículo** (categorías A, B, B1, C1, C, D1, D, CE). Asignar un motorista sin licencia habilitante o vencida traslada responsabilidad directa a quien autorizó. Bloqueo duro.
+- **Matriz licencia ↔ vehículo** — **nueve** categorías: `A`, `B1`, `B`, `C1`, `C`, `D1`, `D`, **`BE`** y `CE`. `[V]` Artículo 4 del [Acuerdo 1012-2021](docs/01-negocio/normativa/fuentes/acuerdo-1012-2021-permisos-de-conducir.pdf). **`BE` es B enganchada a remolque**, y no existe ninguna `DE`. Asignar un motorista sin licencia habilitante o vencida traslada responsabilidad directa a quien autorizó. Bloqueo duro.
+  - **El eje del remolque no es «articulado».** Un pick-up con plataforma enganchada requiere `BE` y no es articulado. Confundirlos deja pasar el caso que el bloqueo existe para impedir.
 - **Días y horas inhábiles**: circular requiere permiso firmado por la máxima autoridad. Genera salvoconducto impreso.
 - **Sin placa metálica es un estado válido** — hay desabastecimiento nacional. Un campo `placa` obligatorio y único rompe el sistema.
 - **Seguro y revisión mecánica no son obligatorios por ley vigente**: rastreables y alertables, pero el bloqueo es **regla configurable**.

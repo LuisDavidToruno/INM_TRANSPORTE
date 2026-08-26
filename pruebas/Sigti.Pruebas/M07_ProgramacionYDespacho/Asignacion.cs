@@ -14,11 +14,11 @@ internal static class Asignacion
         new(new DateOnly(2026, 3, 12), new DateOnly(2026, 3, 14), HolguraDias: 1);
 
     public static readonly FichaTecnica Pickup =
-        new("PICKUP", PesoBrutoKg: 2_800, CapacidadPasajeros: 5, EsArticulado: false);
+        new("PICKUP", PesoBrutoKg: 2_800, CapacidadPasajeros: 5, LlevaRemolque: false);
 
     public static readonly MatrizDeLicencias Matriz = MatrizDeLicencias.Con("PRUEBA-01",
     [
-        new EntradaDeMatriz(CategoriaDeLicencia.B, 3_500, 8, PermiteArticulado: false,
+        new EntradaDeMatriz(CategoriaDeLicencia.B, 3_500, 8, PermiteRemolque: false,
             VigenteDesde: new DateOnly(2026, 1, 1), VigenteHasta: null,
             RegistradoDesde: new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.FromHours(-6)),
             RegistradoHasta: null)

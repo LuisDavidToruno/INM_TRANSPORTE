@@ -131,7 +131,7 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
             TipoDeVehiculo = "PICKUP",
             PesoBrutoKg = 2_800,
             CapacidadPasajeros = 5,
-            EsArticulado = false,
+            LlevaRemolque = false,
             Placa = (string?)null,
             TieneConstanciaSustitutaDePlaca = true,
             VenceMatricula = new DateOnly(2027, 1, 1),

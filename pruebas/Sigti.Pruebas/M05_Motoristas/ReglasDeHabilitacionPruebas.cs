@@ -22,7 +22,7 @@ public class ReglasDeHabilitacionPruebas
         TipoDeVehiculo: "PICKUP",
         PesoBrutoKg: 2_800,
         CapacidadPasajeros: 5,
-        EsArticulado: false);
+        LlevaRemolque: false);
 
     /// <summary>Matriz de prueba: la categoría B habilita hasta 3.500 kg y 8 pasajeros.</summary>
     private static readonly MatrizDeLicencias Matriz = MatrizDeLicencias.Con("PRUEBA-01",
@@ -30,6 +30,36 @@ public class ReglasDeHabilitacionPruebas
         EntradaVigente(CategoriaDeLicencia.B, hasta: 3_500,
             desde: new DateOnly(2026, 1, 1), hastaFecha: null)
     ]);
+
+    [Fact]
+    public void Un_pickup_con_remolque_exige_BE_y_no_le_basta_la_B()
+    {
+        // Artículo 4 del Acuerdo 1012-2021: `BE` es «automóviles de la categoría B
+        // enganchados a un remolque». Un pick-up de 2,800 kg con plataforma NO es
+        // articulado en ningún sentido, y aun así no lo habilita la `B`.
+        //
+        // Este es el caso que el enumerado de ocho categorías dejaba pasar.
+        var matriz = MatrizDeLicencias.Con("ACUERDO-1012-2021",
+        [
+            EntradaVigente(CategoriaDeLicencia.B, hasta: 3_500,
+                desde: new DateOnly(2026, 1, 1), hastaFecha: null),
+            EntradaVigente(CategoriaDeLicencia.BE, hasta: 3_500,
+                desde: new DateOnly(2026, 1, 1), hastaFecha: null, remolque: true)
+        ]);
+
+        var conPlataforma = Pickup with { LlevaRemolque = true };
+        var licenciaB = Vigente(hasta: new DateOnly(2028, 1, 1));
+        var licenciaBE = licenciaB with { Categoria = CategoriaDeLicencia.BE };
+
+        var conB = ReglasDeHabilitacion.Evaluar(licenciaB, conPlataforma, Ventana, matriz, Conocido);
+        Assert.False(conB.Habilita);
+        Assert.Equal(MotivoDeNoHabilitacion.CategoriaNoHabilitaElVehiculo, conB.Motivo);
+
+        Assert.True(ReglasDeHabilitacion.Evaluar(licenciaBE, conPlataforma, Ventana, matriz, Conocido).Habilita);
+
+        // Y sin remolque, la B sigue bastando: BE no reemplaza a B, la complementa.
+        Assert.True(ReglasDeHabilitacion.Evaluar(licenciaB, Pickup, Ventana, matriz, Conocido).Habilita);
+    }
 
     [Fact]
     public void La_matriz_se_resuelve_a_la_fecha_de_salida_prevista()
@@ -59,8 +89,9 @@ public class ReglasDeHabilitacionPruebas
         new(2026, 9, 1, 0, 0, 0, TimeSpan.FromHours(-6));
 
     private static EntradaDeMatriz EntradaVigente(
-        CategoriaDeLicencia categoria, int hasta, DateOnly desde, DateOnly? hastaFecha) =>
-        new(categoria, PesoBrutoMaximoKg: hasta, CapacidadMaximaPasajeros: 8, PermiteArticulado: false,
+        CategoriaDeLicencia categoria, int hasta, DateOnly desde, DateOnly? hastaFecha,
+        bool remolque = false) =>
+        new(categoria, PesoBrutoMaximoKg: hasta, CapacidadMaximaPasajeros: 8, PermiteRemolque: remolque,
             VigenteDesde: desde, VigenteHasta: hastaFecha,
             RegistradoDesde: new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.FromHours(-6)),
             RegistradoHasta: null);

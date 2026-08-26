@@ -143,7 +143,7 @@ void ConAsignacion(
             new Licencia(peticion.NumeroDeLicencia, peticion.CategoriaDeLicencia,
                 peticion.VenceLicencia, peticion.RestriccionesDeLicencia ?? []),
             new FichaTecnica(peticion.TipoDeVehiculo, peticion.PesoBrutoKg,
-                peticion.CapacidadPasajeros, peticion.EsArticulado),
+                peticion.CapacidadPasajeros, peticion.LlevaRemolque),
             new DocumentacionDelVehiculo
             {
                 Placa = peticion.Placa,
@@ -201,7 +201,7 @@ internal sealed record AsignarYTransicionar(
     string TipoDeVehiculo,
     int PesoBrutoKg,
     int CapacidadPasajeros,
-    bool EsArticulado,
+    bool LlevaRemolque,
     string? Placa,
     bool TieneConstanciaSustitutaDePlaca,
     DateOnly VenceMatricula,

@@ -13,7 +13,7 @@ public sealed record EntradaDeMatriz(
     CategoriaDeLicencia Categoria,
     int PesoBrutoMaximoKg,
     int CapacidadMaximaPasajeros,
-    bool PermiteArticulado,
+    bool PermiteRemolque,
     DateOnly VigenteDesde,
     DateOnly? VigenteHasta,
     DateTimeOffset RegistradoDesde,
@@ -60,5 +60,5 @@ public sealed class MatrizDeLicencias
             .Any(e =>
                 ficha.PesoBrutoKg <= e.PesoBrutoMaximoKg &&
                 ficha.CapacidadPasajeros <= e.CapacidadMaximaPasajeros &&
-                (!ficha.EsArticulado || e.PermiteArticulado));
+                (!ficha.LlevaRemolque || e.PermiteRemolque));
 }

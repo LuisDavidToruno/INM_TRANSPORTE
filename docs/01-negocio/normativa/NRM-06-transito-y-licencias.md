@@ -50,21 +50,23 @@ Fuentes concordantes: editorial jurídica que transcribe el reglamento, portal o
 |---|---|---|
 | **A** | Ciclomotores y motocicletas de motor o eléctricas | `[V]` |
 | **B1** | Triciclos y cuadriciclos motorizados (mototaxi, cuatrimoto) | `[V]` |
-| **B** | Vehículos livianos cuya **masa máxima autorizada no exceda de 3,500 kg**, no comprendidos en A ni B1 | `[V]` categoría / `[P]` el umbral de 3,500 kg |
-| **BE** | Vehículos de la **categoría B enganchados a remolque** | `[P]` **categoría nueva — ver hallazgo abajo** |
-| **C1** | Vehículos de carga **no articulados** cuya masa máxima **no exceda de 7,500 kg** | `[V]` / `[P]` umbral |
-| **C** | Vehículos de carga **no articulados superiores a 7,500 kg** | `[V]` / `[P]` umbral |
+| **B** | Vehículos livianos, **masa máxima autorizada ≤ 3,500 kg**, diseñados para **no más de 8 personas además del conductor**, no comprendidos en A ni B1 | `[V]` |
+| **BE** | Vehículos de la **categoría B enganchados a un remolque** | `[V]` |
+| **C1** | Vehículos de carga **no articulados** cuya masa máxima **no exceda de 7,500 kg** | `[V]` |
+| **C** | Vehículos de carga **no articulados superiores a 7,500 kg** | `[V]` |
 | **CE** | Vehículos de la **categoría C enganchados a remolque o semirremolque** (cisternas, plataformas, furgones) | `[V]` |
 | **D1** | Autobuses de **hasta 25 pasajeros** | `[V]` |
 | **D** | Autobuses de **26 pasajeros o más** | `[V]` — precisión nueva: la ficha anterior decía solo "autobuses" |
 
-> ### ⚠️ Hallazgo: falta la categoría **BE** en el marco del proyecto
+**Fuente en el repositorio:** [`fuentes/acuerdo-1012-2021-permisos-de-conducir.pdf`](fuentes/acuerdo-1012-2021-permisos-de-conducir.pdf) — La Gaceta No. 35,661 del 19 de julio de 2021, **Artículo 4**. Descargado del sitio del TSC el 2026-08-26; tiene capa de texto.
+
+> ### ✅ Resuelto el 2026-08-26: la categoría **BE** existe, y **no hay `DE`**
 >
-> `CLAUDE.md` enumera ocho categorías — A, B, B1, C1, C, D1, D, CE — y **omite BE**. El Acuerdo 1012-2021 la contempla como categoría propia `[P]`.
+> El hallazgo decía que `CLAUDE.md` enumeraba ocho categorías y omitía `BE`, con la categoría en `[P]`. **Confirmado contra la fuente oficial**: el Artículo 4 crea `BE` bajo el epígrafe *«PERMISOS PARA CONDUCIR VEHÍCULOS CON REMOLQUES O SEMIREMOLQUES»*. Son **nueve** categorías, y **ninguna `DE`** — el epígrafe solo contempla `BE` y `CE`.
 >
-> No es un detalle cosmético: un pickup institucional que remolca una plataforma, un generador o una lancha **cae en BE, no en B**. Si la matriz se cablea con ocho categorías, el sistema autorizará un remolque que la licencia no habilita, y el bloqueo duro que el PO pidió como protección legal fallará justo en el caso en que más se necesita.
+> Lo que el hallazgo no había visto, y es peor: **el eje normativo es *«enganchado a un remolque»*, no *«articulado»***. Un pick-up con plataforma enganchada requiere `BE` y no es articulado en ningún sentido. `BD-02` describía el atributo como *«si es articulado»* y con eso **ese caso pasaba el bloqueo duro**. Corregido en [`estados/orden-de-mision.md`](../../03-arquitectura/estados/orden-de-mision.md).
 >
-> **No corrijo `CLAUDE.md` ni las reglas `RN-xx` desde esta ficha.** Queda como hallazgo para el analista.
+> Corregidos también `CLAUDE.md` y el enumerado `CategoriaDeLicencia` del dominio.
 
 `[P]` Fuente concordante adicional: *los permisos tipo C, D y CE solo se expiden a quien ya es titular de C1 o D1 con al menos dos años de experiencia en esas categorías.* Esto convierte la matriz en un **grafo de prerrequisitos**, no en una lista plana — relevante si el sistema alguna vez valida progresión de categorías.
 
