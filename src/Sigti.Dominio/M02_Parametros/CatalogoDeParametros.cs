@@ -1,3 +1,5 @@
+using Sigti.Dominio.Reglas;
+
 namespace Sigti.Dominio.M02_Parametros;
 
 /// <summary>
@@ -40,16 +42,13 @@ public sealed class CatalogoDeParametros(IReadOnlyList<VersionDeParametro> versi
     /// </param>
     public ValorResuelto Resolver(string clave, DateOnly fechaDelHecho, DateTimeOffset conocidoAl)
     {
-        var version = versiones
-            .Where(v => v.Clave == clave)
-            .Where(v => v.EstaAprobada)
-            .Where(v => v.RegiaEl(fechaDelHecho))
-            .Where(v => v.EraConocidaAl(conocidoAl))
-            // Si dos versiones aprobadas se solapan, manda la de vigencia más reciente.
-            // No debería ocurrir —`HU-144` no admite solapes— y aun así se resuelve de
-            // forma determinista en lugar de depender del orden de la consulta.
-            .OrderByDescending(v => v.VigenteDesde)
-            .FirstOrDefault()
+        // Los dos ejes los resuelve ReglasDeVigencia, compartida con todo lo demás que
+        // tiene vigencia. Lo propio de acá es el filtro de aprobación: una carga
+        // pendiente no resuelve, o el doble control de `HU-145` sería decorativo.
+        var version = ReglasDeVigencia.VigenteA(
+            versiones.Where(v => v.Clave == clave && v.EstaAprobada),
+            fechaDelHecho,
+            conocidoAl)
             ?? throw new ParametroSinVigencia(clave, fechaDelHecho);
 
         return new ValorResuelto(clave, version.Valor, fechaDelHecho, conocidoAl, version.VigenteDesde);

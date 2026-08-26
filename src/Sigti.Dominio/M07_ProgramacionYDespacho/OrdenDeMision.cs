@@ -119,7 +119,7 @@ public sealed class OrdenDeMision
         DateTimeOffset momento)
     {
         ExigirEstado(EstadoDeMision.Aprobada, "T-08");
-        var evidencia = ExigirHabilitacionYDocumentacion(asignacion, matriz, politica);
+        var evidencia = ExigirHabilitacionYDocumentacion(asignacion, matriz, politica, momento);
 
         Registrar("T-08", EstadoDeMision.Programada, ejecuta, momento, evidencia);
     }
@@ -141,7 +141,7 @@ public sealed class OrdenDeMision
         DateTimeOffset momento)
     {
         ExigirEstado(EstadoDeMision.Programada, "T-12");
-        var evidencia = ExigirHabilitacionYDocumentacion(asignacion, matriz, politica);
+        var evidencia = ExigirHabilitacionYDocumentacion(asignacion, matriz, politica, momento);
 
         Registrar("T-12", EstadoDeMision.Despachada, ejecuta, momento, evidencia);
     }
@@ -154,10 +154,10 @@ public sealed class OrdenDeMision
     /// fin de rango evaluado. Es lo que se muestra ante un siniestro.
     /// </summary>
     private static string ExigirHabilitacionYDocumentacion(
-        AsignacionDeMision asignacion, MatrizDeLicencias matriz, PoliticaDeDocumentacion politica)
+        AsignacionDeMision asignacion, MatrizDeLicencias matriz, PoliticaDeDocumentacion politica, DateTimeOffset conocidoAl)
     {
         var habilitacion = ReglasDeHabilitacion.Evaluar(
-            asignacion.Licencia, asignacion.Vehiculo, asignacion.Ventana, matriz);
+            asignacion.Licencia, asignacion.Vehiculo, asignacion.Ventana, matriz, conocidoAl);
 
         if (!habilitacion.Habilita)
             throw new BloqueoDuro("BD-02",

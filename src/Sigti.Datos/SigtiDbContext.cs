@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Sigti.Datos.M07_ProgramacionYDespacho;
 using Sigti.Dominio.Bitacora;
+using Sigti.Dominio.M02_Parametros;
+using Sigti.Dominio.Organizacion;
 
 namespace Sigti.Datos;
 
@@ -13,6 +15,7 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
 {
     public DbSet<Asiento> Asientos => Set<Asiento>();
     public DbSet<FilaDeExpediente> Expedientes => Set<FilaDeExpediente>();
+    public DbSet<VersionDeParametro> Parametros => Set<VersionDeParametro>();
 
     /// <summary>
     /// ULID en binary(16) y no en texto: 16 bytes contra 26, y conserva la monotonía que
@@ -24,6 +27,38 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
 
     protected override void OnModelCreating(ModelBuilder modelo)
     {
+        modelo.Entity<VersionDeParametro>(parametro =>
+        {
+            parametro.ToTable("VersionDeParametro", schema: "catalogo");
+
+            parametro.HasKey(p => p.Id);
+            parametro.Property(p => p.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            parametro.Property(p => p.Clave).HasMaxLength(128).IsRequired();
+            parametro.Property(p => p.Valor).HasMaxLength(512).IsRequired();
+
+            // Los cuatro campos de la bitemporalidad. Ninguno es nativo del motor:
+            // SQL Server 2014 no tiene temporal tables, y aunque las tuviera darían el
+            // eje de transacción, no el de vigencia normativa (ADR-006).
+            parametro.Property(p => p.VigenteDesde).IsRequired();
+            parametro.Property(p => p.VigenteHasta);
+            parametro.Property(p => p.RegistradoDesde).IsRequired();
+            parametro.Property(p => p.RegistradoHasta);
+
+            parametro.Property(p => p.CargadoPor)
+                .HasConversion(id => id.Valor, valor => new IdPersona(valor))
+                .HasMaxLength(64).IsRequired();
+
+            parametro.Property(p => p.AprobadoPor)
+                .HasConversion(
+                    id => id == null ? null : id.Value.Valor,
+                    valor => valor == null ? null : new IdPersona(valor))
+                .HasMaxLength(64);
+
+            // Consultar el catálogo de una clave es la única lectura que hace el sistema
+            // sobre esta tabla, y ocurre en cada cálculo.
+            parametro.HasIndex(p => new { p.Clave, p.VigenteDesde });
+        });
+
         modelo.Entity<FilaDeExpediente>(expediente =>
         {
             expediente.ToTable("Expediente", schema: "mision");

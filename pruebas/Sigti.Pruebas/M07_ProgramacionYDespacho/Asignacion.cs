@@ -16,10 +16,13 @@ internal static class Asignacion
     public static readonly FichaTecnica Pickup =
         new("PICKUP", PesoBrutoKg: 2_800, CapacidadPasajeros: 5, EsArticulado: false);
 
-    public static readonly MatrizDeLicencias Matriz = MatrizDeLicencias.Con(
-        vigenteDesde: new DateOnly(2026, 1, 1),
-        version: "PRUEBA-01",
-        entradas: [new EntradaDeMatriz(CategoriaDeLicencia.B, 3_500, 8, false)]);
+    public static readonly MatrizDeLicencias Matriz = MatrizDeLicencias.Con("PRUEBA-01",
+    [
+        new EntradaDeMatriz(CategoriaDeLicencia.B, 3_500, 8, PermiteArticulado: false,
+            VigenteDesde: new DateOnly(2026, 1, 1), VigenteHasta: null,
+            RegistradoDesde: new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.FromHours(-6)),
+            RegistradoHasta: null)
+    ]);
 
     public static AsignacionDeMision Valida() => ConLicenciaHasta(new DateOnly(2027, 1, 1));
 

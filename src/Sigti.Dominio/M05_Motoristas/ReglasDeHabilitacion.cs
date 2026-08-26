@@ -38,14 +38,21 @@ public sealed record ResultadoDeHabilitacion(
 /// </summary>
 public static class ReglasDeHabilitacion
 {
+    /// <param name="conocidoAl">
+    /// Desde qué momento se mira la matriz. Reevaluar una misión vieja con el instante de
+    /// entonces reproduce la decisión que se tomó; con el instante actual da la decisión
+    /// correcta a la luz de una corrección posterior. Las dos preguntas son legítimas.
+    /// </param>
     public static ResultadoDeHabilitacion Evaluar(
         Licencia licencia,
         FichaTecnica vehiculo,
         VentanaDeMision ventana,
         MatrizDeLicencias matriz,
+        DateTimeOffset conocidoAl,
         IReadOnlyList<string>? restriccionesQueLaMisionContradice = null)
     {
-        var motivo = Determinar(licencia, vehiculo, ventana, matriz, restriccionesQueLaMisionContradice ?? []);
+        var motivo = Determinar(
+            licencia, vehiculo, ventana, matriz, conocidoAl, restriccionesQueLaMisionContradice ?? []);
 
         return new ResultadoDeHabilitacion(
             Habilita: motivo == MotivoDeNoHabilitacion.Ninguno,
@@ -63,10 +70,12 @@ public static class ReglasDeHabilitacion
         FichaTecnica vehiculo,
         VentanaDeMision ventana,
         MatrizDeLicencias matriz,
+        DateTimeOffset conocidoAl,
         IReadOnlyList<string> contradichas)
     {
-        // 1. Habilitación por categoría, contra los atributos de la ficha técnica.
-        if (!matriz.Habilita(licencia.Categoria, vehiculo))
+        // 1. Habilitación por categoría, contra los atributos de la ficha técnica y la
+        //    matriz vigente A LA FECHA DE SALIDA PREVISTA, no a la de captura.
+        if (!matriz.Habilita(licencia.Categoria, vehiculo, ventana.Salida, conocidoAl))
             return MotivoDeNoHabilitacion.CategoriaNoHabilitaElVehiculo;
 
         // 2. Vigencia en TODO el rango, no solo el día de salida.

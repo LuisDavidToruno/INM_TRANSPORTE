@@ -104,3 +104,51 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260826201408_ParametrosNormativos'
+)
+BEGIN
+    IF SCHEMA_ID(N'catalogo') IS NULL EXEC(N'CREATE SCHEMA [catalogo];');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260826201408_ParametrosNormativos'
+)
+BEGIN
+    CREATE TABLE [catalogo].[VersionDeParametro] (
+        [Id] binary(16) NOT NULL,
+        [Clave] nvarchar(128) NOT NULL,
+        [Valor] nvarchar(512) NOT NULL,
+        [VigenteDesde] date NOT NULL,
+        [VigenteHasta] date NULL,
+        [RegistradoDesde] datetimeoffset NOT NULL,
+        [RegistradoHasta] datetimeoffset NULL,
+        [CargadoPor] nvarchar(64) NOT NULL,
+        [AprobadoPor] nvarchar(64) NULL,
+        CONSTRAINT [PK_VersionDeParametro] PRIMARY KEY ([Id])
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260826201408_ParametrosNormativos'
+)
+BEGIN
+    CREATE INDEX [IX_VersionDeParametro_Clave_VigenteDesde] ON [catalogo].[VersionDeParametro] ([Clave], [VigenteDesde]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260826201408_ParametrosNormativos'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20260826201408_ParametrosNormativos', N'10.0.11');
+END;
+
+COMMIT;
+GO
+

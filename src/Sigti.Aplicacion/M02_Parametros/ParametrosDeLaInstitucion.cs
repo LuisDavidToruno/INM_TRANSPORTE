@@ -27,14 +27,14 @@ public interface IParametrosDeLaInstitucion
 /// </summary>
 public sealed class ParametrosProvisionales : IParametrosDeLaInstitucion
 {
-    private static readonly MatrizDeLicencias Matriz = MatrizDeLicencias.Con(
-        vigenteDesde: new DateOnly(2026, 1, 1),
-        version: "PROVISIONAL-SIN-FUENTE-OFICIAL",
-        entradas:
-        [
-            new EntradaDeMatriz(CategoriaDeLicencia.B, PesoBrutoMaximoKg: 3_500,
-                CapacidadMaximaPasajeros: 8, PermiteArticulado: false)
-        ]);
+    private static readonly MatrizDeLicencias Matriz = MatrizDeLicencias.Con("PROVISIONAL-SIN-FUENTE-OFICIAL",
+    [
+        new EntradaDeMatriz(CategoriaDeLicencia.B, PesoBrutoMaximoKg: 3_500,
+            CapacidadMaximaPasajeros: 8, PermiteArticulado: false,
+            VigenteDesde: new DateOnly(2026, 1, 1), VigenteHasta: null,
+            RegistradoDesde: new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.FromHours(-6)),
+            RegistradoHasta: null)
+    ]);
 
     public MatrizDeLicencias MatrizVigenteAl(DateOnly fecha) => Matriz;
 

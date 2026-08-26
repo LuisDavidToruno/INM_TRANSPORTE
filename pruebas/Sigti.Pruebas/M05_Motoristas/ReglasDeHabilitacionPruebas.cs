@@ -25,14 +25,45 @@ public class ReglasDeHabilitacionPruebas
         EsArticulado: false);
 
     /// <summary>Matriz de prueba: la categoría B habilita hasta 3.500 kg y 8 pasajeros.</summary>
-    private static readonly MatrizDeLicencias Matriz = MatrizDeLicencias.Con(
-        vigenteDesde: new DateOnly(2026, 1, 1),
-        version: "PRUEBA-01",
-        entradas:
+    private static readonly MatrizDeLicencias Matriz = MatrizDeLicencias.Con("PRUEBA-01",
+    [
+        EntradaVigente(CategoriaDeLicencia.B, hasta: 3_500,
+            desde: new DateOnly(2026, 1, 1), hastaFecha: null)
+    ]);
+
+    [Fact]
+    public void La_matriz_se_resuelve_a_la_fecha_de_salida_prevista()
+    {
+        // BD-02: «la matriz licencia↔vehículo vigente a la fecha de salida prevista».
+        // Si el reglamento sube el límite de la categoría B en julio, una misión de marzo
+        // se sigue evaluando con el límite de marzo — aunque se capture en agosto.
+        var matriz = MatrizDeLicencias.Con("PRUEBA-02",
         [
-            new EntradaDeMatriz(CategoriaDeLicencia.B, PesoBrutoMaximoKg: 3_500,
-                CapacidadMaximaPasajeros: 8, PermiteArticulado: false)
+            EntradaVigente(CategoriaDeLicencia.B, hasta: 3_500,
+                desde: new DateOnly(2026, 1, 1), hastaFecha: new DateOnly(2026, 6, 30)),
+            EntradaVigente(CategoriaDeLicencia.B, hasta: 4_000,
+                desde: new DateOnly(2026, 7, 1), hastaFecha: null)
         ]);
+
+        var licencia = Vigente(hasta: new DateOnly(2028, 1, 1));
+        var camioneta = Pickup with { PesoBrutoKg = 3_800 };
+
+        var enMarzo = new VentanaDeMision(new DateOnly(2026, 3, 12), new DateOnly(2026, 3, 14), 1);
+        var enAgosto = new VentanaDeMision(new DateOnly(2026, 8, 12), new DateOnly(2026, 8, 14), 1);
+
+        Assert.False(ReglasDeHabilitacion.Evaluar(licencia, camioneta, enMarzo, matriz, Conocido).Habilita);
+        Assert.True(ReglasDeHabilitacion.Evaluar(licencia, camioneta, enAgosto, matriz, Conocido).Habilita);
+    }
+
+    private static readonly DateTimeOffset Conocido =
+        new(2026, 9, 1, 0, 0, 0, TimeSpan.FromHours(-6));
+
+    private static EntradaDeMatriz EntradaVigente(
+        CategoriaDeLicencia categoria, int hasta, DateOnly desde, DateOnly? hastaFecha) =>
+        new(categoria, PesoBrutoMaximoKg: hasta, CapacidadMaximaPasajeros: 8, PermiteArticulado: false,
+            VigenteDesde: desde, VigenteHasta: hastaFecha,
+            RegistradoDesde: new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.FromHours(-6)),
+            RegistradoHasta: null);
 
     [Fact]
     public void Una_licencia_que_vence_dentro_del_rango_de_la_mision_no_habilita()
@@ -48,7 +79,7 @@ public class ReglasDeHabilitacionPruebas
 
         var ventana = new VentanaDeMision(Salida, new DateOnly(2026, 3, 14), HolguraDias: 0);
 
-        var resultado = ReglasDeHabilitacion.Evaluar(licencia, Pickup, ventana, Matriz);
+        var resultado = ReglasDeHabilitacion.Evaluar(licencia, Pickup, ventana, Matriz, Conocido);
 
         Assert.False(resultado.Habilita);
         Assert.Equal(MotivoDeNoHabilitacion.LicenciaVenceDentroDelRango, resultado.Motivo);
@@ -62,7 +93,7 @@ public class ReglasDeHabilitacionPruebas
         var licencia = Vigente(hasta: new DateOnly(2026, 3, 14));
         var ventana = new VentanaDeMision(Salida, new DateOnly(2026, 3, 13), HolguraDias: 2);
 
-        var resultado = ReglasDeHabilitacion.Evaluar(licencia, Pickup, ventana, Matriz);
+        var resultado = ReglasDeHabilitacion.Evaluar(licencia, Pickup, ventana, Matriz, Conocido);
 
         Assert.False(resultado.Habilita);
         Assert.Equal(new DateOnly(2026, 3, 15), resultado.FinDeRangoEvaluado);
@@ -75,7 +106,7 @@ public class ReglasDeHabilitacionPruebas
         // categoría A puede conducir un pickup, no puede.
         var licencia = Vigente(hasta: new DateOnly(2027, 1, 1)) with { Categoria = CategoriaDeLicencia.A };
 
-        var resultado = ReglasDeHabilitacion.Evaluar(licencia, Pickup, Ventana, Matriz);
+        var resultado = ReglasDeHabilitacion.Evaluar(licencia, Pickup, Ventana, Matriz, Conocido);
 
         Assert.False(resultado.Habilita);
         Assert.Equal(MotivoDeNoHabilitacion.CategoriaNoHabilitaElVehiculo, resultado.Motivo);
@@ -89,8 +120,8 @@ public class ReglasDeHabilitacionPruebas
         var licencia = Vigente(hasta: new DateOnly(2027, 1, 1));
         var pesado = Pickup with { PesoBrutoKg = 3_501 };
 
-        Assert.True(ReglasDeHabilitacion.Evaluar(licencia, Pickup, Ventana, Matriz).Habilita);
-        Assert.False(ReglasDeHabilitacion.Evaluar(licencia, pesado, Ventana, Matriz).Habilita);
+        Assert.True(ReglasDeHabilitacion.Evaluar(licencia, Pickup, Ventana, Matriz, Conocido).Habilita);
+        Assert.False(ReglasDeHabilitacion.Evaluar(licencia, pesado, Ventana, Matriz, Conocido).Habilita);
     }
 
     [Fact]
@@ -100,7 +131,7 @@ public class ReglasDeHabilitacionPruebas
         // igual cuando la evaluación es favorable: es lo que se muestra ante un siniestro.
         var licencia = Vigente(hasta: new DateOnly(2027, 1, 1));
 
-        var resultado = ReglasDeHabilitacion.Evaluar(licencia, Pickup, Ventana, Matriz);
+        var resultado = ReglasDeHabilitacion.Evaluar(licencia, Pickup, Ventana, Matriz, Conocido);
 
         Assert.True(resultado.Habilita);
         Assert.Equal("0801-1990-01234", resultado.NumeroDeLicencia);

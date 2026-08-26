@@ -1,4 +1,5 @@
 using Sigti.Dominio.Organizacion;
+using Sigti.Dominio.Reglas;
 
 namespace Sigti.Dominio.M02_Parametros;
 
@@ -32,15 +33,15 @@ public sealed record VersionDeParametro(
     DateTimeOffset RegistradoDesde,
     DateTimeOffset? RegistradoHasta,
     IdPersona CargadoPor,
-    IdPersona? AprobadoPor)
+    IdPersona? AprobadoPor) : IConVigencia
 {
+    /// <summary>
+    /// Identidad de <b>esta versión</b>, no del parámetro. Dos versiones de la misma
+    /// tarifa son dos filas distintas que conviven: la corrección no reemplaza a la
+    /// anterior, la sucede en el eje de transacción.
+    /// </summary>
+    public Ulid Id { get; init; } = Ulid.NewUlid();
+
+    /// <summary>Una versión sin aprobar no resuelve: el doble control de `HU-145` sería decorativo.</summary>
     public bool EstaAprobada => AprobadoPor is not null;
-
-    /// <summary>¿Regía normativamente en la fecha del hecho?</summary>
-    public bool RegiaEl(DateOnly fechaDelHecho) =>
-        VigenteDesde <= fechaDelHecho && (VigenteHasta is null || fechaDelHecho <= VigenteHasta);
-
-    /// <summary>¿El sistema ya conocía esta versión en ese instante?</summary>
-    public bool EraConocidaAl(DateTimeOffset instante) =>
-        RegistradoDesde <= instante && (RegistradoHasta is null || instante < RegistradoHasta);
 }

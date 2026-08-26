@@ -1,53 +1,64 @@
 using Sigti.Dominio.M03_Flota;
+using Sigti.Dominio.Reglas;
 
 namespace Sigti.Dominio.M05_Motoristas;
 
 /// <summary>
-/// Qué habilita cada categoría, resuelto por los atributos de la ficha técnica.
+/// Un renglón de la matriz: hasta dónde llega una categoría, y <b>desde cuándo</b>.
 ///
-/// Es un <b>parámetro normativo con vigencia</b> (`ADR-006`), no una tabla cableada: la
-/// matriz oficial de la DNVT es insumo abierto `[C]`, y cuando llegue tiene que poder
-/// cargarse sin recompilar. La versión se conserva porque `BD-02` exige registrar
-/// <b>con qué versión de la matriz</b> se evaluó.
+/// Lleva los dos ejes de `ADR-006` como cualquier otro parámetro normativo. La matriz no
+/// es una constante del programa: es reglamento, y el reglamento cambia.
+/// </summary>
+public sealed record EntradaDeMatriz(
+    CategoriaDeLicencia Categoria,
+    int PesoBrutoMaximoKg,
+    int CapacidadMaximaPasajeros,
+    bool PermiteArticulado,
+    DateOnly VigenteDesde,
+    DateOnly? VigenteHasta,
+    DateTimeOffset RegistradoDesde,
+    DateTimeOffset? RegistradoHasta) : IConVigencia;
+
+/// <summary>
+/// Qué habilita cada categoría, resuelto por los atributos de la ficha técnica y
+/// <b>a la fecha del hecho</b>.
+///
+/// Es un catálogo con vigencia (`M-02`), no una tabla cableada: la matriz oficial de la
+/// DNVT es insumo abierto `[C]`, y cuando llegue tiene que poder cargarse sin recompilar.
+/// La versión se conserva porque `BD-02` exige registrar <b>con qué versión de la matriz</b>
+/// se evaluó.
 /// </summary>
 public sealed class MatrizDeLicencias
 {
     private readonly IReadOnlyList<EntradaDeMatriz> _entradas;
 
-    private MatrizDeLicencias(DateOnly vigenteDesde, string version, IReadOnlyList<EntradaDeMatriz> entradas)
+    private MatrizDeLicencias(string version, IReadOnlyList<EntradaDeMatriz> entradas)
     {
-        VigenteDesde = vigenteDesde;
         Version = version;
         _entradas = entradas;
     }
 
-    public DateOnly VigenteDesde { get; }
-
     /// <summary>Identifica qué versión de la matriz respaldó una evaluación.</summary>
     public string Version { get; }
 
-    public static MatrizDeLicencias Con(
-        DateOnly vigenteDesde, string version, IReadOnlyList<EntradaDeMatriz> entradas) =>
-        new(vigenteDesde, version, entradas);
+    public static MatrizDeLicencias Con(string version, IReadOnlyList<EntradaDeMatriz> entradas) =>
+        new(version, entradas);
 
     /// <summary>
-    /// ¿Esta categoría habilita este vehículo?
+    /// ¿Esta categoría habilita este vehículo, según lo que el reglamento decía en la
+    /// fecha del hecho?
     ///
-    /// Una categoría sin entrada en la matriz <b>no habilita</b>. La ausencia se trata
-    /// como negativa, nunca como permiso: si nadie declaró que la categoría A puede
-    /// conducir un camión, no puede.
+    /// Una categoría <b>sin entrada vigente no habilita</b>. La ausencia se trata como
+    /// negativa, nunca como permiso: si nadie declaró que la categoría A puede conducir
+    /// un camión, no puede — y si la entrada que lo permitía dejó de estar vigente,
+    /// tampoco.
     /// </summary>
-    public bool Habilita(CategoriaDeLicencia categoria, FichaTecnica ficha) =>
-        _entradas.Any(e =>
-            e.Categoria == categoria &&
-            ficha.PesoBrutoKg <= e.PesoBrutoMaximoKg &&
-            ficha.CapacidadPasajeros <= e.CapacidadMaximaPasajeros &&
-            (!ficha.EsArticulado || e.PermiteArticulado));
+    public bool Habilita(
+        CategoriaDeLicencia categoria, FichaTecnica ficha, DateOnly fechaDelHecho, DateTimeOffset conocidoAl) =>
+        ReglasDeVigencia
+            .TodasLasVigentesA(_entradas.Where(e => e.Categoria == categoria), fechaDelHecho, conocidoAl)
+            .Any(e =>
+                ficha.PesoBrutoKg <= e.PesoBrutoMaximoKg &&
+                ficha.CapacidadPasajeros <= e.CapacidadMaximaPasajeros &&
+                (!ficha.EsArticulado || e.PermiteArticulado));
 }
-
-/// <summary>Un renglón de la matriz: hasta dónde llega una categoría.</summary>
-public sealed record EntradaDeMatriz(
-    CategoriaDeLicencia Categoria,
-    int PesoBrutoMaximoKg,
-    int CapacidadMaximaPasajeros,
-    bool PermiteArticulado);
