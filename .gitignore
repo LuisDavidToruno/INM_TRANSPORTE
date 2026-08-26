@@ -1,0 +1,31 @@
+# Compilación .NET
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+.vs/
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Base de datos local y respaldos
+*.mdf
+*.ldf
+*.bak
+
+# Secretos y configuración local — nunca se versionan
+appsettings.Development.json
+appsettings.Local.json
+*.env
+.env.*
+
+# Almacén de archivos de desarrollo (ADR-004): los adjuntos no van al repositorio
+almacen-archivos/
+
+# Sistema operativo
+Thumbs.db
+desktop.ini

@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/pruebas/">
+    <Project Path="pruebas/Sigti.Pruebas/Sigti.Pruebas.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Sigti.Api/Sigti.Api.csproj" />
+    <Project Path="src/Sigti.Aplicacion/Sigti.Aplicacion.csproj" />
+    <Project Path="src/Sigti.Datos/Sigti.Datos.csproj" />
+    <Project Path="src/Sigti.Dominio/Sigti.Dominio.csproj" />
+  </Folder>
+</Solution>

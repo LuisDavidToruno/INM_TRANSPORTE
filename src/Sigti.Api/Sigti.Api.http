@@ -1,0 +1,6 @@
+@Sigti.Api_HostAddress = http://localhost:5072
+
+GET {{Sigti.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
