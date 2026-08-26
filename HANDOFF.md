@@ -24,25 +24,11 @@ El stack, en una línea: **.NET 10 + EF Core sobre SQL Server 2014 Standard** (r
 
 ## Lo que está abierto
 
-### Los nueve documentos de arquitectura que la designación pide — ninguno escrito
-
-Es lo inmediato y no depende de nadie externo.
-
-| Documento | Qué fija |
-|---|---|
-| `ADR-002` | Adoptar el stack. **Debe decir que 2014 no se eligió, se encontró**, y llevar el riesgo de motor sin parches a deuda aceptada, firmada por el PO |
-| `ADR-003` | El cliente de campo es aplicación instalada, no web |
-| `ADR-004` | Fotografías y adjuntos fuera de la base |
-| `ADR-005` | Los identificadores se generan en el cliente |
-| `ADR-006` | Bitemporalidad desde el modelo inicial |
-| `ADR-007` | Marcas de tiempo en UTC con el desfase del dispositivo |
-| `ADR-008` | Los permisos se publican como capacidad, nunca como rol |
-| `ADR-009` | Módulos verticales con reglas compartidas puras y guardas |
-| `docs/03-arquitectura/c4/` | Contexto y contenedores |
-
 ### La decisión que el PO no ha tomado, y que va antes del primer módulo
 
-**¿Clean Architecture con ceremonia o sin ella?** La regla dura —`Sigti.Dominio` sin referencias a EF Core ni ASP.NET, con prueba de arquitectura que falla— se adopta sin discusión. Lo que está en duda es la ceremonia: interfaz por agregado, DTO en cada frontera, caso de uso como clase. La designación la descarta y la evidencia medida la respalda; con 19 módulos y `RNF-15` hablando de rotación de personal, el argumento contrario no es ridículo. **Preguntarle al PO antes de escribir el primer módulo**, y si decide lo contrario, registrarlo en `ADR-009` con su motivo.
+**¿Clean Architecture con ceremonia o sin ella?** La regla dura —`Sigti.Dominio` sin referencias a EF Core ni ASP.NET, con prueba de arquitectura que falla— se adopta sin discusión. Lo que está en duda es la ceremonia: interfaz por agregado, DTO en cada frontera, caso de uso como clase. La designación la descarta y la evidencia medida la respalda; con 19 módulos y `RNF-15` hablando de rotación de personal, el argumento contrario no es ridículo.
+
+[`ADR-009`](docs/03-arquitectura/adr/ADR-009-modulos-verticales.md) **se escribió sin ceremonia**, que es la opción respaldada por la evidencia, para no bloquear el arranque. **Sigue siendo la única decisión del lote que el PO podría querer al revés, y hay que resolverla antes del primer módulo.** Si la cambia, no se edita `ADR-009`: se escribe el que lo supera.
 
 ### Cinco preguntas de la designación que bloquean
 
@@ -73,11 +59,13 @@ Registro completo en [`docs/07-gestion/insumos-pendientes.md`](docs/07-gestion/i
 4. **¿El reclamo de peaje cierra la misión o la marca con hallazgo?** — resuelto provisionalmente a favor de lo primero
 5. **Sesión de refinamiento** sobre las historias en borrador. Los cuatro analistas aplicaron el criterio de forma distinta; la mayoría pasaría sin tocarse
 
-### Documentación exigida por LOKI — destrabada, no escrita
+### Documentación exigida por LOKI — falta la de raíz
 
-Auditado el 2026-08-25, cuando la causa de las cuatro brechas era la misma: no había stack. **Ya lo hay**, así que **`ARQUITECTURA.md` y `DESPLIEGUE.md` se pueden escribir**, y `README.md` y `CLAUDE.md` pueden salir de `Parcial`. Nada de eso está hecho todavía.
+Auditado el 2026-08-25, cuando la causa de las cuatro brechas era la misma: no había stack. Ya lo hay, y `CLAUDE.md` ya refleja el stack en su sección *Estado actual*.
 
-`CLAUDE.md` además quedó desactualizado en su sección *Estado actual*: sigue diciendo que el stack está diferido al Sprint 2.
+Siguen ausentes **`ARQUITECTURA.md`** y **`DESPLIEGUE.md`** en la raíz. Ahora sí se pueden escribir — y el criterio lo fija la propia designación: **índice consolidado que remite a `docs/`, nunca contenido duplicado que después diverge.** Es el patrón con que ya se resolvieron `DECISIONES.md` y `HANDOFF.md`, y LOKI lo reconoció como correcto.
+
+`DESPLIEGUE.md` tiene una dependencia real: el procedimiento de respaldo y restauración es **de dos piezas** —base más almacén de archivos, consistentes entre sí ([`ADR-004`](docs/03-arquitectura/adr/ADR-004-adjuntos-fuera-de-la-base.md))— y `RNF-09` exige que lo ejecute personal no especialista en ≤ 2 h. Escribirlo sin la instancia real confirmada sería escribir la mitad.
 
 ### Los informes de hallazgos siguen diciendo «Abierto»
 
@@ -87,7 +75,8 @@ Los cinco archivos de [`docs/05-calidad/hallazgos/`](docs/05-calidad/hallazgos/)
 
 **No confundir con lo anterior.** Esto ya se resolvió y no debe volver a listarse como pendiente:
 
-- **La selección de stack.** Cerrada por la designación del 2026-08-26, con autorización del PO para programar. Falta el `ADR-002` que lo formalice, no la decisión
+- **Los ocho ADR y el C4 que la designación pedía.** Escritos el 2026-08-26: [`ADR-002`](docs/03-arquitectura/adr/ADR-002-adoptar-el-stack-tecnologico.md) a [`ADR-009`](docs/03-arquitectura/adr/ADR-009-modulos-verticales.md), más [`c4/contexto.md`](docs/03-arquitectura/c4/contexto.md) y [`c4/contenedores.md`](docs/03-arquitectura/c4/contenedores.md). `ADR-000` quedó marcado **Reemplazada por `ADR-002`**, sin editar su texto. Índice en [`adr/README.md`](docs/03-arquitectura/adr/README.md), con las **cinco decisiones irreversibles** señaladas
+- **La selección de stack.** Cerrada por la designación del 2026-08-26, con autorización del PO para programar, y formalizada en `ADR-002`
 - **Los 46 hallazgos de los Bloques 3 y 4**, incluidos los cinco críticos del Bloque 3 y las cuatro correcciones estructurales del Bloque 4 —`HB34-50` bitemporalidad, `HB34-51` alcance de la cadena de auditoría, `HB34-52` folio por dispositivo, `HB34-53` adjuntos clasificados y depurables—. Corregidos en `3f4ced4`, verificados en el texto de los artefactos. **M-01 y M-02 dejaron de estar sin cobertura**: las historias `HU-134` a `HU-150` cerraron el hueco y el total subió de 125 a 150
 - **Los 48 hallazgos de la revisión del Bloque 1**, incluidos los 8 críticos. Corregidos en `fd12ba5` y commits siguientes
 - **Los 19 hallazgos de los casos de uso** (`H-B3-001`), corregidos en `c8cb324`, en una sola pasada sobre los artefactos autoridad
@@ -98,10 +87,8 @@ Los cinco archivos de [`docs/05-calidad/hallazgos/`](docs/05-calidad/hallazgos/)
 
 ## Cómo seguir
 
-**Lo inmediato, y no depende de nadie externo:** escribir los ocho ADR y el C4. `ADR-002`, `ADR-005` y `ADR-006` van primero — son los tres que la designación marca como imposibles de cambiar después: la clave agrupada, las dos parejas de fechas y el nivel de compatibilidad 120.
+**Lo inmediato, y es una respuesta del PO, no trabajo:** Clean con ceremonia o sin ella. `ADR-009` ya está escrito sin ceremonia; ratificarlo o revertirlo destraba el primer módulo.
 
-**Lo que hay que preguntarle al PO antes del primer módulo:** Clean con ceremonia o sin ella.
-
-**Después de los ADR:** el walking skeleton del Sprint 2 — **una orden de misión de punta a punta**, solicitud → despacho → ejecución → liquidación, con su asiento en bitácora. Un hilo delgado que toca todas las capas, no un módulo completo. En ese mismo esqueleto se mide **`RNF-12`: ≤ 25 % de batería en 8 h con seguimiento activo, en gama baja**, que es el número que puede obligar a bajar el seguimiento a un módulo nativo. Hay que saberlo en el Sprint 2, no en el 6.
+**Lo que sigue:** el walking skeleton del Sprint 2 — **una orden de misión de punta a punta**, solicitud → despacho → ejecución → liquidación, con su asiento en bitácora. Un hilo delgado que toca todas las capas, no un módulo completo. En ese mismo esqueleto se mide **`RNF-12`: ≤ 25 % de batería en 8 h con seguimiento activo, en gama baja**, que es el número que puede obligar a bajar el seguimiento a un módulo nativo. Hay que saberlo en el Sprint 2, no en el 6.
 
 **Lo que hay que gestionar en paralelo:** la sesión de levantamiento con la institución. El paquete está listo en [`docs/07-gestion/levantamiento/`](docs/07-gestion/levantamiento/) — guion de dos horas, los 19 formatos, 12 preguntas ordenadas por impacto, y los 28 casos especiales redactados para leerle a un motorista. Al mismo tiempo, confirmar en la instancia real la edición exacta de SQL Server, el Service Pack y el cifrado de respaldo.

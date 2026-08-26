@@ -2,10 +2,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Estado** | Aceptada |
+| **Estado** | **Reemplazada por [ADR-002](ADR-002-adoptar-el-stack-tecnologico.md)** el 2026-08-26 |
 | **Fecha** | 2026-08-06 |
 | **Decide** | Product Owner |
 | **Sprint** | 0 |
+
+> **Nota de reemplazo — 2026-08-26.** Esta decisión se cumplió y llegó a su término por la vía que ella misma previó: la cláusula de revisión de abajo decía *«se reconsidera si la institución impone un stack por política de TI antes del Sprint 2»*, y eso fue exactamente lo que pasó. El texto original **no se edita** — el diferimiento fue correcto mientras duró, y por qué lo fue es parte de la documentación.
 
 ## Contexto
 

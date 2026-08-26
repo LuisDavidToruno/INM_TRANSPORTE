@@ -8,19 +8,26 @@ Cómo se estructura el sistema y por qué.
 |---|---|---|
 | `modelo-datos/` | Bloque 4 | Modelo conceptual, lógico y diccionario de datos |
 | `estados/` | Bloque 1 | Máquinas de estado: Orden de Misión, vale de combustible, viático, vehículo |
-| `adr/` | Sprint 2+ | Decisiones de arquitectura `ADR-xxx` |
-| `c4/` | Sprint 2 | Contexto, contenedores y componentes |
+| [`adr/`](adr/README.md) | Sprint 0 | Decisiones de arquitectura `ADR-000` a `ADR-009` |
+| [`c4/`](c4/README.md) | Sprint 0 | Contexto y contenedores. Componentes queda para el primer módulo |
 | `seguridad/` | Sprint 2 | Autenticación, autorización, auditoría, cifrado, firma electrónica |
 
-## El stack está diferido al Sprint 2 — deliberadamente
+## El stack está decidido desde el 2026-08-26
 
-Hasta el Sprint 2 no se nombra ningún lenguaje, framework ni motor de base de datos. Si surge una pregunta de tecnología antes, se responde en términos de **capacidades requeridas**.
+`ADR-000` difirió la selección mientras las restricciones determinantes se descubrían. Las dos condiciones de su cláusula de revisión se cumplieron —los 21 `RNF` están escritos y la institución impuso el motor—, así que **[`ADR-002`](adr/ADR-002-adoptar-el-stack-tecnologico.md) lo supera**.
 
-La razón: elegir stack antes de conocer el dominio produce arquitecturas que pelean con el problema. Las restricciones que realmente van a decidir el stack — offline-first en campo, auditoría append-only, impresión de formatos oficiales, despliegue on-premise sin equipo de TI dedicado en las delegaciones — todavía se están descubriendo.
+| Capa | Qué |
+|---|---|
+| Campo | React Native + SQLite cifrado (SQLCipher) |
+| Oficina | React 19 + Vite + TypeScript + Tailwind |
+| Backend | .NET 10 + ASP.NET Core + EF Core, `UseCompatibilityLevel(120)` |
+| Base | SQL Server 2014 Standard — **restricción institucional dada, no elección** |
 
-## Capacidades ya identificadas como determinantes
+El detalle, las funciones que 2014 no tiene, con qué se reemplazan y la deuda aceptada están en `ADR-002`.
 
-Se registran aquí para que el `ADR-001` de selección de stack tenga contra qué evaluarse:
+## Capacidades identificadas como determinantes
+
+Se registraron a medida que aparecían, y son contra lo que se evaluó el stack en `ADR-002`:
 
 | Capacidad | Origen | Impacto |
 |---|---|---|
@@ -51,7 +58,7 @@ Surgieron al fijar umbrales verificables. Ver [`docs/02-requisitos/no-funcionale
 | **Autoría histórica inmutable frente a reorganizaciones**: persona, puesto y vigencia separados | [`RNF-15`](../02-requisitos/no-funcionales/RNF-15-continuidad-ante-rotacion-de-personal.md) | Alto — condiciona el modelo de datos |
 | **Mismo artefacto de despliegue para toda institución**, con parámetros vacíos y bloqueantes cuando el dato real está `[C]` | [`RNF-19`](../02-requisitos/no-funcionales/RNF-19-configurabilidad-multi-institucion.md) | Alto |
 
-**Los nueve `RNF` determinantes** contra los que debe evaluarse el `ADR` de stack del Sprint 2 están listados en el [índice de requisitos no funcionales](../02-requisitos/no-funcionales/README.md#los-nueve-que-van-a-decidir-el-stack).
+**Los nueve `RNF` determinantes** contra los que se evaluó el stack en [`ADR-002`](adr/ADR-002-adoptar-el-stack-tecnologico.md) están listados en el [índice de requisitos no funcionales](../02-requisitos/no-funcionales/README.md#los-nueve-que-van-a-decidir-el-stack).
 
 ## Máquina de estados principal
 

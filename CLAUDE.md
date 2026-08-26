@@ -32,7 +32,18 @@ El expediente del vehículo es una entidad de primera clase con ciclo de vida co
 
 ## Estado actual
 
-**Sprint 0 — Descubrimiento y definición.** No hay código. **El stack tecnológico está deliberadamente diferido al Sprint 2.** Si surge una pregunta de tecnología antes de eso, respóndela en términos de *capacidades requeridas*, no de productos.
+**Sprint 0 cerrado. Hay stack y hay autorización para programar** — designación de LOKI del 2026-08-26, fijada en [`ADR-002`](docs/03-arquitectura/adr/ADR-002-adoptar-el-stack-tecnologico.md). Todavía no hay código.
+
+| Capa | Qué |
+|---|---|
+| Campo | React Native + SQLite cifrado (SQLCipher) |
+| Oficina | React 19 + Vite + TypeScript + Tailwind |
+| Backend | .NET 10 + ASP.NET Core + EF Core, `UseCompatibilityLevel(120)` |
+| Base | **SQL Server 2014 Standard** — restricción institucional dada, no elección. Fuera de soporte desde el 2024-07-09 |
+
+Las diez decisiones de arquitectura están en [`docs/03-arquitectura/adr/`](docs/03-arquitectura/adr/README.md). **Las cinco irreversibles** —clave agrupada ULID, nivel de compatibilidad 120 en EF Core y en la base de desarrollo, las dos parejas de fechas de la bitemporalidad, y rangos de folio por delegación— están marcadas ahí. No las contradigas sin escribir el ADR que las supere.
+
+`ADR-000` (diferir el stack) queda **reemplazado**. No lo edites: se marca y se supera, nunca se reescribe.
 
 ## Módulos
 
