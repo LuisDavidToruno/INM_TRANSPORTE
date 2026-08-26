@@ -111,7 +111,9 @@ Los cinco archivos de [`docs/05-calidad/hallazgos/`](docs/05-calidad/hallazgos/)
 dotnet test
 ```
 
-Hay **22 pruebas escritas**; solo **14 se han visto pasar**. Las otras ocho —el escritor de bitácora bajo concurrencia y el hilo de punta a punta— nunca corrieron. Después, generar la migración inicial y el script para 2014:
+Hay **16 pruebas escritas**; **14 se han visto pasar**. Las otras dos nunca corrieron, y son justamente las que valen: `Veinte_escrituras_concurrentes_no_bifurcan_la_cadena` y `Una_mision_recorre_el_hilo_completo_y_deja_su_rastro_encadenado`.
+
+> El mensaje del commit `72a4e54` dice «22 pruebas», y es un conteo equivocado. El bueno es 16. Después, generar la migración inicial y el script para 2014:
 
 ```bash
 dotnet ef migrations add Inicial -p src/Sigti.Datos -s src/Sigti.Datos -o Migraciones
