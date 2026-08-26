@@ -59,8 +59,15 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
         Assert.Contains("BD-01", await bloqueada.Content.ReadAsStringAsync());
 
         await Transicionar(cliente, id, "aprobar", "P-JEFATURA");
-        await Transicionar(cliente, id, "programar", "P-TRANSPORTE");
-        await Transicionar(cliente, id, "despachar", "P-ENCARGADO");
+
+        // BD-02 al despachar: una licencia que vence antes del fin del rango bloquea,
+        // aunque esté vigente el día de salida.
+        var vencida = await Asignar(cliente, id, "programar", "P-TRANSPORTE",
+            venceLicencia: new DateOnly(2026, 3, 14), esperado: HttpStatusCode.Conflict);
+        Assert.Contains("BD-02", await vencida.Content.ReadAsStringAsync());
+
+        await Asignar(cliente, id, "programar", "P-TRANSPORTE", venceLicencia: new DateOnly(2027, 1, 1));
+        await Asignar(cliente, id, "despachar", "P-ENCARGADO", venceLicencia: new DateOnly(2027, 1, 1));
         await Transicionar(cliente, id, "iniciar-ruta", "P-MOTORISTA");
         await Transicionar(cliente, id, "retornar", "P-MOTORISTA");
         var final = await Transicionar(cliente, id, "liquidar", "P-TRANSPORTE");
@@ -96,6 +103,45 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
         var cadena = asientos.Select(a => new EslabonDeCadena(a.Contenido, a.Hash)).ToList();
         Assert.True(CadenaDeHash.Verificar(cadena),
             "La bitácora del hilo completo no verifica: la cadena está rota.");
+    }
+
+    /// <summary>
+    /// Programar y despachar llevan la asignación. La <b>placa va nula a propósito</b>:
+    /// sin placa metálica es estado válido y no debe bloquear (`BD-03`).
+    /// </summary>
+    private static async Task<HttpResponseMessage> Asignar(
+        HttpClient cliente,
+        string id,
+        string ruta,
+        string ejecuta,
+        DateOnly venceLicencia,
+        HttpStatusCode esperado = HttpStatusCode.OK)
+    {
+        var respuesta = await cliente.PostAsJsonAsync($"/misiones/{id}/{ruta}", new
+        {
+            Ejecuta = ejecuta,
+            Momento,
+            Salida = new DateOnly(2026, 3, 12),
+            Retorno = new DateOnly(2026, 3, 14),
+            HolguraDias = 1,
+            NumeroDeLicencia = "0801-1990-01234",
+            CategoriaDeLicencia = "B",
+            VenceLicencia = venceLicencia,
+            RestriccionesDeLicencia = (string[]?)null,
+            TipoDeVehiculo = "PICKUP",
+            PesoBrutoKg = 2_800,
+            CapacidadPasajeros = 5,
+            EsArticulado = false,
+            Placa = (string?)null,
+            TieneConstanciaSustitutaDePlaca = true,
+            VenceMatricula = new DateOnly(2027, 1, 1),
+            VencePoliza = new DateOnly(2027, 1, 1),
+            VenceRevisionMecanica = new DateOnly(2027, 1, 1),
+            IdentificacionInstitucionalVerificada = true
+        });
+
+        Assert.Equal(esperado, respuesta.StatusCode);
+        return respuesta;
     }
 
     private static async Task<HttpResponseMessage> Transicionar(

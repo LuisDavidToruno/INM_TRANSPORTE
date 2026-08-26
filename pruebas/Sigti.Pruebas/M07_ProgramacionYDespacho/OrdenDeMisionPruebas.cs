@@ -1,3 +1,4 @@
+using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
 using Sigti.Dominio.Organizacion;
 
@@ -55,10 +56,43 @@ public class OrdenDeMisionPruebas
         var expediente = Aprobada();
 
         var fallo = Assert.Throws<TransicionInvalida>(
-            () => expediente.Despachar(Encargado, Momento));
+            () => expediente.Despachar(Encargado, Asignacion.Valida(), Asignacion.Matriz,
+                                       PoliticaDeDocumentacion.PorDefecto, Momento));
 
         Assert.Equal(EstadoDeMision.Programada, fallo.EstadoRequerido);
         Assert.Equal(EstadoDeMision.Aprobada, expediente.Estado);
+    }
+
+    [Fact]
+    public void No_se_programa_con_una_licencia_que_vence_dentro_del_rango()
+    {
+        // BD-02 se evalúa en T-08. Es la precondición que traslada responsabilidad
+        // directa a quien autorizó, y no admite excepción configurable.
+        var expediente = Aprobada();
+        var asignacion = Asignacion.ConLicenciaHasta(new DateOnly(2026, 3, 13));
+
+        var bloqueo = Assert.Throws<BloqueoDuro>(
+            () => expediente.Programar(Transporte, asignacion, Asignacion.Matriz,
+                                       PoliticaDeDocumentacion.PorDefecto, Momento));
+
+        Assert.Equal("BD-02", bloqueo.Precondicion);
+        Assert.Equal(EstadoDeMision.Aprobada, expediente.Estado);
+    }
+
+    [Fact]
+    public void Programar_deja_la_evidencia_de_BD_02_en_el_diario()
+    {
+        // «Guardar solo "verificado" no defiende a nadie.» La evidencia va al diario,
+        // que es lo que sobrevive para una auditoría.
+        var expediente = Aprobada();
+        expediente.Programar(Transporte, Asignacion.Valida(), Asignacion.Matriz,
+                             PoliticaDeDocumentacion.PorDefecto, Momento);
+
+        var programacion = expediente.Diario.Single(t => t.Id == "T-08");
+
+        Assert.NotNull(programacion.Motivo);
+        Assert.Contains("0801-1990-01234", programacion.Motivo);
+        Assert.Contains("PRUEBA-01", programacion.Motivo);
     }
 
     [Fact]
@@ -86,8 +120,10 @@ public class OrdenDeMisionPruebas
     private static OrdenDeMision HiloCompleto()
     {
         var expediente = Aprobada();
-        expediente.Programar(Transporte, Momento);
-        expediente.Despachar(Encargado, Momento);
+        expediente.Programar(Transporte, Asignacion.Valida(), Asignacion.Matriz,
+                             PoliticaDeDocumentacion.PorDefecto, Momento);
+        expediente.Despachar(Encargado, Asignacion.Valida(), Asignacion.Matriz,
+                             PoliticaDeDocumentacion.PorDefecto, Momento);
         expediente.IniciarRuta(Motorista, Momento);
         expediente.Retornar(Motorista, Momento);
         expediente.Liquidar(Transporte, Momento);

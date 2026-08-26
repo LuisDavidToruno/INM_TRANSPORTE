@@ -1,3 +1,5 @@
+using Sigti.Dominio.M03_Flota;
+using Sigti.Dominio.M05_Motoristas;
 using Sigti.Dominio.Organizacion;
 
 namespace Sigti.Dominio.M07_ProgramacionYDespacho;
@@ -109,21 +111,82 @@ public sealed class OrdenDeMision
     }
 
     /// <summary>`T-08` — APROBADA → PROGRAMADA. Aquí se reserva vehículo y motorista (`EF-01`).</summary>
-    public void Programar(IdPersona ejecuta, DateTimeOffset momento)
+    public void Programar(
+        IdPersona ejecuta,
+        AsignacionDeMision asignacion,
+        MatrizDeLicencias matriz,
+        PoliticaDeDocumentacion politica,
+        DateTimeOffset momento)
     {
         ExigirEstado(EstadoDeMision.Aprobada, "T-08");
-        Registrar("T-08", EstadoDeMision.Programada, ejecuta, momento, motivo: null);
+        var evidencia = ExigirHabilitacionYDocumentacion(asignacion, matriz, politica);
+
+        Registrar("T-08", EstadoDeMision.Programada, ejecuta, momento, evidencia);
     }
 
     /// <summary>
     /// `T-12` — PROGRAMADA → DESPACHADA. Exige estado PROGRAMADA: §3.4 prohíbe
     /// APROBADA → DESPACHADA, porque sin programación no hay verificación de licencia,
     /// documentación ni reserva.
+    ///
+    /// `BD-02` y `BD-03` <b>se revalidan acá con los datos del momento</b>. Entre programar
+    /// y despachar pueden pasar días, y una licencia no deja de vencerse porque ya la
+    /// hayamos verificado una vez.
     /// </summary>
-    public void Despachar(IdPersona ejecuta, DateTimeOffset momento)
+    public void Despachar(
+        IdPersona ejecuta,
+        AsignacionDeMision asignacion,
+        MatrizDeLicencias matriz,
+        PoliticaDeDocumentacion politica,
+        DateTimeOffset momento)
     {
         ExigirEstado(EstadoDeMision.Programada, "T-12");
-        Registrar("T-12", EstadoDeMision.Despachada, ejecuta, momento, motivo: null);
+        var evidencia = ExigirHabilitacionYDocumentacion(asignacion, matriz, politica);
+
+        Registrar("T-12", EstadoDeMision.Despachada, ejecuta, momento, evidencia);
+    }
+
+    /// <summary>
+    /// Evalúa `BD-02` y `BD-03`, y devuelve la evidencia que va al diario.
+    ///
+    /// Se registra <b>con todos sus insumos</b>, no un «verificado» a secas: número de
+    /// licencia, categoría, vencimiento, versión de la matriz, atributos del vehículo y
+    /// fin de rango evaluado. Es lo que se muestra ante un siniestro.
+    /// </summary>
+    private static string ExigirHabilitacionYDocumentacion(
+        AsignacionDeMision asignacion, MatrizDeLicencias matriz, PoliticaDeDocumentacion politica)
+    {
+        var habilitacion = ReglasDeHabilitacion.Evaluar(
+            asignacion.Licencia, asignacion.Vehiculo, asignacion.Ventana, matriz);
+
+        if (!habilitacion.Habilita)
+            throw new BloqueoDuro("BD-02",
+                $"La licencia no habilita esta misión: {habilitacion.Motivo}. " +
+                $"Licencia {habilitacion.NumeroDeLicencia}, categoría {habilitacion.Categoria}, " +
+                $"vence {habilitacion.VencimientoDeLicencia:yyyy-MM-dd}, " +
+                $"rango evaluado hasta {habilitacion.FinDeRangoEvaluado:yyyy-MM-dd}.");
+
+        var documentacion = ReglasDeDocumentacion.Evaluar(
+            asignacion.Documentacion, asignacion.Ventana, politica);
+
+        if (!documentacion.Habilita)
+            throw new BloqueoDuro("BD-03",
+                $"La documentación del vehículo no habilita esta misión: {documentacion.Motivo}, " +
+                $"con rango evaluado hasta {documentacion.FinDeRangoEvaluado:yyyy-MM-dd}.");
+
+        var advertencias = documentacion.Advertencias.Count == 0
+            ? ""
+            : " · advertencias: " + string.Join(", ", documentacion.Advertencias);
+
+        return
+            $"BD-02 verificada · licencia {habilitacion.NumeroDeLicencia} " +
+            $"categoría {habilitacion.Categoria} vence {habilitacion.VencimientoDeLicencia:yyyy-MM-dd} · " +
+            $"matriz {habilitacion.VersionDeMatriz} · " +
+            $"vehículo {habilitacion.AtributosDelVehiculo.TipoDeVehiculo} " +
+            $"{habilitacion.AtributosDelVehiculo.PesoBrutoKg} kg " +
+            $"{habilitacion.AtributosDelVehiculo.CapacidadPasajeros} pasajeros · " +
+            $"rango hasta {habilitacion.FinDeRangoEvaluado:yyyy-MM-dd} · " +
+            $"BD-03 verificada{advertencias}";
     }
 
     /// <summary>`T-14` — DESPACHADA → EN_RUTA. La ejecuta el motorista, y opera desconectado.</summary>
