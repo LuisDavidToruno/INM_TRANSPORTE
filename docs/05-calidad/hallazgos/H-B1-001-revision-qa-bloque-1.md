@@ -8,7 +8,7 @@
 | **Fecha** | 2026-08-06 |
 | **Sprint / Bloque** | Sprint 0 / Bloque 1 |
 | **Hallazgos** | 28 — 5 Críticas, 9 Altas, 10 Medias, 4 Bajas |
-| **Estado** | **17 de 28 corregidos y verificados. 11 siguen abiertos** — desglose en la sección siguiente |
+| **Estado** | **18 de 28 corregidos y verificados. 10 siguen abiertos** — desglose en la sección siguiente |
 | **Verificación de cierre** | 2026-08-26, contra los artefactos vivos. No contra el mensaje del commit que dijo haberlos corregido |
 
 
@@ -16,10 +16,11 @@
 
 Este informe se emitió el 2026-08-06 y se quedó diciendo *«Abierto»* mientras las correcciones se aplicaban. **La verificación se hizo contra los artefactos vivos**, hallazgo por hallazgo, no contra el mensaje del commit que declaró el lote cerrado. Once no estaban corregidos.
 
-### Corregidos y verificados — 17
+### Corregidos y verificados — 18
 
 | Hallazgo | Dónde se comprueba |
 |---|---|
+| `HB1-01` | **Cerrado el 2026-08-26.** El Nivel 2 ya estaba suspendido con ⛔ y [`DP-002`](../../07-gestion/decisiones-de-producto/DP-002-segregacion-en-delegaciones-pequenas.md); **faltaba el Nivel 3**, que seguía diciendo *«el sistema no lo bloquea»*. Reescrito en [`actores-y-roles`](../../01-negocio/actores-y-roles.md) §5.4 apoyándose en el principio **P-2** de la máquina de estados, que separa lo que este nivel mezclaba: los bloqueos duros rigen `T-05`, `T-08` y `T-12` —también en emergencia—, y nunca impiden **registrar el hecho**. La salida sin red es el **código de autorización fuera de línea** del [`§6.6`](../../03-arquitectura/estados/orden-de-mision.md), que la propia autoridad nombra como la respuesta a la segregación en delegaciones pequeñas. Se alinearon además la nota 4 de la matriz de permisos y el cierre de §5.2, y las dos `RN-xx propuesta` se sustituyeron por [`RN-01`](../../01-negocio/reglas/RN-01-segregacion-de-funciones.md) y [`RN-73`](../../01-negocio/reglas/RN-73-convalidacion-de-actos-sin-autorizacion-previa.md), que ya existen. **Queda declarado el hueco `[C]`**: si a las 03:15 la única persona disponible es el propio motorista, `I-11` no se levanta y ese caso no tiene salida escrita |
 | `HB1-02` | [`RN-14`](../../01-negocio/reglas/RN-14-sustitucion-de-motorista.md) lleva el acta de corrección: el caso límite es hoy bloqueo duro, coherente con `I-11`. [`RN-01`](../../01-negocio/reglas/RN-01-segregacion-de-funciones.md) cita `I-11` |
 | `HB1-03` · `HB1-12` | [`RN-06`](../../01-negocio/reglas/RN-06-transiciones-de-estado-de-la-orden.md) |
 | `HB1-04` | [`RN-05`](../../01-negocio/reglas/RN-05-registro-cerrado-no-se-edita.md): *«No existe la reapertura»*. Se retiró el `[C]` que preguntaba quién podía reabrir — era la pregunta equivocada |
@@ -35,11 +36,10 @@ Este informe se emitió el 2026-08-06 y se quedó diciendo *«Abierto»* mientra
 | `HB1-21` | [`RN-24`](../../01-negocio/reglas/RN-24-vehiculo-de-servicio-exceptuado.md) |
 | `HB1-22` | `PC-11` distingue el retorno ordinario del **retorno constatado en oficina**, donde no bloquea. Corregido por la vía de `HB3-04` |
 
-### Siguen abiertos — 11
+### Siguen abiertos — 10
 
 | Hallazgo | Sev. | Qué falta, comprobado hoy |
 |---|---|---|
-| `HB1-01` | Crítica | **Corregido a medias.** El Nivel 2 de [`actores-y-roles`](../../01-negocio/actores-y-roles.md) §5.4 quedó suspendido con ⛔ y `DP-002`, y las acciones 27–28 tachadas. **El Nivel 3 sobrevive intacto** y sigue diciendo *«el sistema no lo bloquea»* para la emergencia — contra `RN-01` (*«La emergencia no es excepción»*) y contra `BD-06`, que no tiene salida por emergencia. La tercera posición que el hallazgo denunció sigue escrita |
 | `HB1-15` | Media | La lista de criterios de hallazgo sigue siendo `H-01`–`H-08` y sigue declarada cerrada (*«si y solo si»*, *«no es un cajón de sastre»*). Los cinco criterios de `RN-08`, `RN-21`, `RN-29`, `RN-32` y `RN-47` siguen sin `H-nn`. Se evaluó abrir `H-09` y **se descartó** al resolver `HB3-02`, pero solo para el caso del peaje |
 | `HB1-17` | Media | `T-08` sigue diciendo *«el estimado congelado en la aprobación»* mientras `INV-07` y `T-02` lo congelan **en el envío**, y [`RN-41`](../../01-negocio/reglas/RN-41-congelamiento-del-valor-al-autorizar.md) sigue enunciando el congelamiento al autorizar. Tres momentos, un solo valor |
 | `HB1-18` | Media | **Corregido a medias.** De 97 reglas, **4** citan la tabla `I-01`–`I-17`. Es más que las cero de entonces, y sigue sin ser la cobertura que el hallazgo pedía |

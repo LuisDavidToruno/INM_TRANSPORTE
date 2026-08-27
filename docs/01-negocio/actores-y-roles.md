@@ -398,7 +398,7 @@ Dos ajustes que la práctica impone y que un modelo puramente jerárquico no res
 1. `[C]` **¿Quién solicita y quién autoriza la misión de la máxima autoridad?** Su despacho captura la solicitud, pero `ACT-09` no puede autorizarse a sí misma sin romper la segregación. Requiere definición institucional; hasta entonces, el sistema la trata como cualquier solicitud y **escala** — sección 5.3.
 2. `[C]` Escalamiento por umbral de monto, destino, duración o tipo de carga. **Los niveles de autorización son propiedad de ARGOS** — DP-001 D-05. No se cablea ningún umbral.
 3. Informa disponibilidad y estado técnico; no decide la asignación.
-4. Solo bajo **régimen de excepción declarado** por insuficiencia de personal, con convalidación posterior — sección 5.4.
+4. ⛔ **Suspendida.** Dependía del régimen de excepción declarado del Nivel 2, que [`DP-002`](../07-gestion/decisiones-de-producto/DP-002-segregacion-en-delegaciones-pequenas.md) dejó sin implementar — sección 5.4. Mientras el insumo #26 siga abierto, la vía es el **escalamiento a sede** del Nivel 1.
 5. Apertura y cierre de bitácora en el punto de despacho: kilometraje de salida y de retorno.
 6. **Digitación diferida** de formatos llenados en papel, con fecha del hecho distinta de la fecha de captura, quién digitó y adjunto del original — NRM-01 y NRM-09.
 7. Firma la recepción del fondo y aporta los comprobantes; **no liquida su propia misión**.
@@ -497,7 +497,7 @@ Se evalúan **sobre la persona, no sobre el puesto** — una persona con tres pu
 >
 > **Consecuencia operativa que hay que mirar de frente:** `I-18` puede dejar sin salida a una delegación de tres personas donde el único que sabe de licencias es también el que conduce. Mientras el insumo #26 siga abierto, el tratamiento es el mismo que el resto: **escalamiento a sede**, no excepción local. Si Auditoría Interna dice otra cosa, se ajusta.
 
-**El núcleo irreductible (I-07, I-10, I-11, I-12, I-13) no se levanta nunca**: ni por régimen de excepción, ni por delegación, ni por resolución de la máxima autoridad. Todo lo demás admite el tratamiento de la sección 5.4.
+**El núcleo irreductible (I-07, I-10, I-11, I-12, I-13) no se levanta nunca**: ni por régimen de excepción, ni por delegación, ni por emergencia, ni por resolución de la máxima autoridad. Para todo lo demás, el tratamiento vigente es el **Nivel 1 de la sección 5.4 — escalamiento a sede**, con el código de autorización fuera de línea cuando no hay red. El Nivel 2 está suspendido por [`DP-002`](../07-gestion/decisiones-de-producto/DP-002-segregacion-en-delegaciones-pequenas.md), y la emergencia del Nivel 3 **no levanta ningún par**: cambia por dónde llega la autorización, no si hace falta.
 
 ### 5.3 Qué hace el sistema al detectar el conflicto
 
@@ -576,18 +576,32 @@ Un régimen **declarado, acotado y compensado**. No es una casilla que el usuari
 
 > `[C]` **Confirmar con Auditoría Interna y con la Gerencia Administrativa de la institución si aceptan el régimen de excepción con controles compensatorios, y bajo qué formalidad.** Esto no está decidido y **no debe presentarse a la institución como si lo estuviera.** Si la respuesta es que no, la única salida es el Nivel 1 reforzado con dotación de personal, y esa es una decisión institucional, no de diseño.
 
-#### Nivel 3 — Convalidación de emergencia *(el caso que igual va a ocurrir)*
+#### Nivel 3 — La emergencia real *(el caso que igual va a ocurrir)*
 
-Emergencia real: un traslado de salud, un operativo, un vehículo averiado que hay que rescatar de noche. No hay régimen declarado y no hay señal.
-
-- El encargado ejecuta y registra el acto como **de emergencia**, con motivo obligatorio y clasificación de la causal.
-- El sistema **no lo bloquea**, pero lo marca, notifica a `ACT-08` y a `ACT-12` en la primera sincronización, y exige **convalidación en un plazo parametrizable** `[C]`.
-- **Si no se convalida en plazo, la misión se cierra como `CERRADA_CON_HALLAZGO`** y entra en el reporte de auditoría. Nunca desaparece ni se cierra en silencio.
-- La emergencia **tampoco levanta el núcleo irreductible.**
-
-> `RN-xx propuesta:` *Los actos ejecutados en régimen de excepción o por emergencia impiden el cierre de la misión hasta ser convalidados por un puesto de sede central; vencido el plazo, la misión se cierra con hallazgo.*
+> ### Corregido tras el hallazgo `HB1-01`
 >
-> `RN-xx propuesta:` *El núcleo irreductible de incompatibilidades (I-07, I-10, I-11, I-12, I-13) no admite excepción, emergencia ni delegación.*
+> **Este nivel decía que ante una emergencia «el sistema no lo bloquea».** Era la tercera de las tres posiciones incompatibles que denunció [`H-B1-001`](../05-calidad/hallazgos/H-B1-001-revision-qa-bloque-1.md): [`RN-01`](reglas/RN-01-segregacion-de-funciones.md) dice *«La emergencia no es excepción»*, [`orden-de-mision.md`](../03-arquitectura/estados/orden-de-mision.md) tiene `BD-06` como bloqueo duro sin salida por emergencia, y esta sección decía lo contrario. Al suspenderse el Nivel 2 con [`DP-002`](../07-gestion/decisiones-de-producto/DP-002-segregacion-en-delegaciones-pequenas.md), el Nivel 3 quedó sosteniendo solo la posición que los otros dos artefactos ya habían descartado.
+>
+> **Lo que estaba mezclado.** *Registrar el hecho* y *ejercer dos funciones de control incompatibles* son cosas distintas, y este nivel las trataba como una. El principio **P-2** de la máquina de estados —autoridad en bloqueos duros— las separa: los bloqueos se aplican a las transiciones que **autorizan, reservan o entregan** (`T-05`, `T-08`, `T-12` y las de cierre económico); a las que **registran hechos consumados** se les exige justificación y se las marca, **pero nunca se impide el registro**.
+>
+> Con esa separación, la emergencia deja de necesitar una excepción a la segregación: necesita una vía de autorización que funcione sin red. Y esa vía ya existe.
+
+Emergencia real: un traslado de salud, un operativo, un vehículo averiado que hay que rescatar de noche. No hay régimen declarado y no hay señal. Es la variante `V-05` de `PR-01`, y su resolución completa vive en [`CE-01`](../02-requisitos/casos-especiales/CE-01-salida-de-emergencia-convalidada.md).
+
+**Lo que el sistema sí bloquea, también en emergencia.** `T-05`, `T-08` y `T-12` siguen sujetas a `BD-06`: quien autoriza ≠ quien despacha ≠ quien conduce ≠ quien entrega el combustible ≠ quien liquida. La emergencia no levanta ningún par, ni del núcleo irreductible ni del resto. Un bloqueo que cede ante la urgencia es un bloqueo que solo actúa cuando nadie tiene prisa.
+
+**La salida sin red no es ejecutar por cuenta propia: es el código de autorización fuera de línea.** [`orden-de-mision.md §6.6`](../03-arquitectura/estados/orden-de-mision.md) lo nombra expresamente como *«la respuesta al problema de segregación en delegaciones pequeñas»*: la función incompatible **se ejerce desde la sede, por teléfono o radio**, sin que el sistema esté en línea. El autorizador competente genera el código sobre **una transición concreta de una misión concreta**, con ventana corta; el dispositivo lo verifica sin conectividad; queda registrado quién lo generó, para qué, quién lo usó y en qué dispositivo. Es lo mismo que ya decidió [`DP-002`](../07-gestion/decisiones-de-producto/DP-002-segregacion-en-delegaciones-pequenas.md) al adoptar el Nivel 1: *«Sin conectividad, opera el código de autorización fuera de línea.»*
+
+**Lo que el sistema no bloquea, y por qué no debe hacerlo.** El registro del hecho. Si el vehículo ya salió —porque nadie en la delegación puede impedir físicamente una emergencia—, el expediente se captura con marca `EMERGENCIA` y causal tipificada, con `ocurrido_en` real y modo de captura `digitación diferida`. La diferencia entre la hora del hecho y la de captura **queda visible, no se disimula**, y la autorización posterior se registra como **convalidación**, nunca como autorización previa. Negarse a registrarlo no evita la salida: produce el expediente antedatado fuera del sistema, que es exactamente lo que se quiere eliminar.
+
+**Y no cierra en silencio.** La falta de convalidación bloquea `T-21`; vencido el plazo, la misión cierra por `T-22` como `CERRADA_CON_HALLAZGO` y entra en el reporte de control interno de `ACT-08` y `ACT-12`. La **frecuencia** de salidas en emergencia por delegación y por mes es un indicador expuesto: si esta variante se vuelve la vía normal para saltarse a `ACT-03`, el control desapareció y hay que poder verlo en un número.
+
+> `[C]` **El hueco que sigue abierto, declarado y no tapado.** Si a las 03:15 la única persona disponible es el propio motorista, el par `I-11` no se levanta —ni en emergencia— y **ese caso no tiene salida escrita**. Está registrado así en [`CE-01`](../02-requisitos/casos-especiales/CE-01-salida-de-emergencia-convalidada.md). No se resuelve inventando una excepción: se resuelve decidiendo qué puesto de sede queda de turno para emitir el código, que es el insumo **#32** y el pendiente **D**.
+
+> **Las dos reglas que este nivel proponía ya están escritas.** No se dejan como candidatas:
+>
+> - [`RN-73`](reglas/RN-73-convalidacion-de-actos-sin-autorizacion-previa.md) — el acto ejecutado sin autorización previa se convalida dentro de un plazo configurable; vencido el plazo **la convalidación no se rechaza**, se registra igual y la misión cierra con hallazgo. Incluye la cláusula de **cronología declarada**: ningún acto se presenta como previo si fue posterior.
+> - [`RN-01`](reglas/RN-01-segregacion-de-funciones.md) — el núcleo irreductible no se levanta *«ni por régimen de excepción, ni por delegación, ni por emergencia, ni por resolución de la máxima autoridad»*.
 
 ---
 
@@ -709,7 +723,7 @@ Una incapacidad súbita no viene con delegación previa firmada.
 
 ## 8. Reglas de negocio candidatas derivadas de este documento
 
-Se nombran como candidatas y **sin número definitivo**: la numeración `RN-xx` la fija quien escribe las reglas.
+Se nombran como candidatas y **sin número definitivo**: la numeración `RN-xx` la fija quien escribe las reglas. Las marcadas ✅ ya se escribieron. **Solo se auditaron las dos de la sección 5.4** al corregir `HB1-01`; las demás pueden estar igualmente escritas y no comprobadas.
 
 | # | Regla candidata | Origen | Sección |
 |---|---|---|---|
@@ -720,8 +734,8 @@ Se nombran como candidatas y **sin número definitivo**: la numeración `RN-xx` 
 | 5 | La anulación posterior al despacho obliga a resolver los vales entregados antes de consumarse | NRM-01 | 4.2 |
 | 6 | Ningún parámetro normativo entra en vigencia con la sola acción del administrador del sistema | NRM-01 | 4.3 |
 | 7 | Todo intento bloqueado por incompatibilidad se registra con el par detectado y genera tarea de resolución en el puesto competente | NRM-01 | 5.3 |
-| 8 | El núcleo irreductible de incompatibilidades no admite excepción, emergencia ni delegación | NRM-01 | 5.2, 5.4 |
-| 9 | Los actos en régimen de excepción o por emergencia impiden el cierre hasta ser convalidados; vencido el plazo, la misión se cierra con hallazgo | NRM-01, NRM-09 | 5.4 |
+| ~~8~~ | ✅ **Ya escrita — [`RN-01`](reglas/RN-01-segregacion-de-funciones.md).** El núcleo irreductible no admite excepción, emergencia ni delegación | NRM-01 | 5.2, 5.4 |
+| ~~9~~ | ✅ **Ya escrita — [`RN-73`](reglas/RN-73-convalidacion-de-actos-sin-autorizacion-previa.md).** Los actos ejecutados sin autorización previa impiden el cierre hasta ser convalidados; vencido el plazo, la misión cierra con hallazgo | NRM-01, NRM-09 | 5.4 |
 | 10 | Toda delegación de autorización tiene vigencia acotada y ámbito enumerado, y no levanta incompatibilidades | Práctica `[I]`, NRM-01 | 7.1 |
 | 11 | Las solicitudes pendientes de un puesto ausente escalan al puesto superior con registro diferenciado | DP-001 D-07 | 7.3 |
 | 12 | El administrador del sistema no ejecuta transacciones de negocio ni puede alterar la pista de auditoría | NRM-01 | 1 ACT-01, 5.2 |

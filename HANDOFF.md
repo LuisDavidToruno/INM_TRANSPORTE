@@ -131,25 +131,25 @@ Siguen ausentes **`ARQUITECTURA.md`** y **`DESPLIEGUE.md`** en la raíz. Ahora s
 
 `DESPLIEGUE.md` tiene una dependencia real: el procedimiento de respaldo y restauración es **de dos piezas** —base más almacén de archivos, consistentes entre sí ([`ADR-004`](docs/03-arquitectura/adr/ADR-004-adjuntos-fuera-de-la-base.md))— y `RNF-09` exige que lo ejecute personal no especialista en ≤ 2 h. Escribirlo sin la instancia real confirmada sería escribir la mitad.
 
-### Veinte hallazgos siguen abiertos, y hasta hoy figuraban como cerrados
+### Diecinueve hallazgos siguen abiertos, y hasta hoy figuraban como cerrados
 
 Los cinco informes de [`docs/05-calidad/hallazgos/`](docs/05-calidad/hallazgos/) conservaban el estado con que se emitieron —*«Abierto»*, *«Ninguna corrección aplicada»*, *«Pendiente de corrección»*—. Al verificarlos contra los artefactos vivos el 2026-08-26, **hallazgo por hallazgo y no contra el mensaje del commit**, apareció lo contrario de lo que se esperaba: el campo estaba mal, pero también lo estaba la suposición de que todo se había corregido.
 
 | Informe | Corregidos | **Abiertos** |
 |---|---|---|
-| [`H-B1-001`](docs/05-calidad/hallazgos/H-B1-001-revision-qa-bloque-1.md) QA del Bloque 1 | 17 | **11** |
+| [`H-B1-001`](docs/05-calidad/hallazgos/H-B1-001-revision-qa-bloque-1.md) QA del Bloque 1 | 18 | **10** |
 | [`H-B1-002`](docs/05-calidad/hallazgos/H-B1-002-revision-normativa-bloque-1.md) normativa del Bloque 1 | 13 | **7** |
 | [`H-B3-001`](docs/05-calidad/hallazgos/H-B3-001-hallazgos-de-casos-de-uso.md) casos de uso | 17 | **2** |
 | [`H-B34-001`](docs/05-calidad/hallazgos/H-B34-001-revision-qa-bloque-3.md) QA del Bloque 3 | 21 citados, verificados por muestreo | — |
 | [`H-B34-002`](docs/05-calidad/hallazgos/H-B34-002-revision-arquitectura-bloque-4.md) arquitectura del Bloque 4 | 25 citados, verificados por muestreo | — |
 
-Cada informe lleva ahora su desglose. **Los tres que hay que mirar antes de seguir programando:**
+Cada informe lleva ahora su desglose. **Los que hay que mirar antes de seguir programando** — el primero ya cerrado, los otros dos no:
 
-1. **`HB1-01` quedó corregido a medias.** El Nivel 2 del régimen de excepción se suspendió con `DP-002`, pero **el Nivel 3 sobrevive** y sigue diciendo que ante una emergencia *«el sistema no lo bloquea»* — contra `RN-01` y contra `BD-06`, que no tiene salida por emergencia. Es la tercera posición que el hallazgo denunció, todavía escrita.
+1. ✅ **`HB1-01` quedó cerrado el 2026-08-26.** Faltaba el Nivel 3 de [`actores-y-roles`](docs/01-negocio/actores-y-roles.md) §5.4, que seguía diciendo *«el sistema no lo bloquea»* ante una emergencia. Lo zanjó el principio **P-2** de la máquina de estados, que separa lo que ese nivel mezclaba: los bloqueos duros rigen `T-05`, `T-08` y `T-12` —también en emergencia— y **nunca impiden registrar el hecho**. La salida sin red es el **código de autorización fuera de línea** del `§6.6`, que la propia autoridad nombra como la respuesta a la segregación en delegaciones pequeñas. **Queda declarado un hueco `[C]`**: si a las 03:15 la única persona disponible es el propio motorista, `I-11` no se levanta y ese caso no tiene salida escrita — es decisión del PO, no de diseño.
 2. **`HN1-18` y `HN1-09` no tienen regla.** La constatación física de la flota es `[V]` —NOGECI V-15 y Circular CGR-010-2026— y no existe `RN-xx` que la implemente. El paquete de evidencia **por vehículo o por período** tampoco: el sistema entrega por misión y el TSC pide por vehículo.
 3. **`HN1-14` es una escalada de nivel viva.** `RN-52` marca `[V]` que el MARCI exige control de acceso y registro de consultas; la ficha `NRM-01` **no dice nada de eso**. Es el patrón que `CLAUDE.md` prohíbe expresamente, y sobrevivió a la corrección de `HN1-03`, que iba justamente sobre eso.
 
-Ninguno bloquea el código de hoy: `HB1-01` toca un régimen que no se implementa, y los otros son artefactos sin regla. **Sí bloquean cerrar el Sprint 0.**
+Los dos que siguen abiertos no bloquean el código de hoy —son artefactos sin regla—, pero **sí bloquean cerrar el Sprint 0**.
 
 ## Lo que está cerrado
 
