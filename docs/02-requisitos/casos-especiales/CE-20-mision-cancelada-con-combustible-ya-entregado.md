@@ -85,7 +85,7 @@ Encadenada a la misma Orden de Misión, la institución debe poder mostrar:
 - **Puntos de control:** `PC-08b` (entrega), `PC-09` (segregación de la entrega), `PC-13` (segregación de liquidación y cierre) de [PR-01](../../01-negocio/procesos/PR-01-movilizacion-institucional.md)
 - **Normas:** [NRM-01](../../01-negocio/normativa/NRM-01-control-interno-tsc.md) TSC-NOGECI V-14
 - **Actores:** ACT-04, ACT-06, ACT-07, ACT-08, ACT-13
-- **Casos relacionados:** [CE-25](CE-25-comprobante-perdido-o-estacion-sin-factura.md), [CE-26](CE-26-sobrante-o-faltante-al-liquidar.md), [CE-23](CE-23-fondo-agotado-a-mitad-de-periodo.md)
+- **Casos relacionados:** [CE-25](CE-25-comprobante-perdido-o-estacion-sin-factura.md), [CE-26](CE-26-sobrante-o-faltante-al-liquidar.md), [CE-23](CE-23-fondo-agotado-con-misiones-programadas.md)
 - **Insumos:** #1 (formatos en papel y plazos), #7 / `PROP-01` (¿el sobrante se devuelve o se arrastra?)
 
 > **Aviso de colisión de IDs.** La plantilla [`caso-especial.md`](../../plantillas/caso-especial.md) menciona en su ejemplo un `CE-13 — viaje cancelado con vales emitidos`. Si el lote `CE-01` a `CE-19` lo escribe, **es este mismo caso**: se consolida bajo `CE-20` y el otro ID queda marcado obsoleto. **No se recicla.**

@@ -797,7 +797,7 @@ La regla de vigencia es la misma que en `BD-02`: **durante todo el rango**, no s
 | Kilómetros recorridos < distancia estimada × factor configurable | **No bloquea.** Igual tratamiento: la desviación se vigila **en ambas direcciones** ([NRM-01](../../01-negocio/normativa/NRM-01-control-interno-tsc.md)) |
 | Salto imposible respecto al tiempo transcurrido | **No bloquea.** Marca para revisión |
 
-> **Corrección — hallazgo `HB3-04`.** Este bloqueo era incompatible con [`RN-79`](../../01-negocio/reglas/RN-79-retorno-constatado-libera-al-vehiculo.md), que establece que la constatación física del retorno *"se registra tal cual, se marca la inconsistencia y el vehículo se libera igual"*.
+> **Corrección — hallazgo `HB3-04`.** Este bloqueo era incompatible con [`RN-79`](../../01-negocio/reglas/RN-79-el-retorno-constatado-libera-al-vehiculo.md), que establece que la constatación física del retorno *"se registra tal cual, se marca la inconsistencia y el vehículo se libera igual"*.
 >
 > **Resolución:** se distingue el `T-18` **ordinario** —el motorista registra su propio retorno, con el vehículo delante— del subtipo **retorno constatado**, en el que un tercero verifica que el vehículo está de vuelta sin que el motorista haya podido cerrar la bitácora: incapacitado, sin dispositivo, o simplemente no volvió a la oficina.
 >

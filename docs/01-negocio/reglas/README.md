@@ -32,6 +32,8 @@ Nivel de verificación (`[V]` `[P]` `[C]` `[I]`) va dentro de cada regla, marcad
 | [RN-08](RN-08-cadena-de-trazabilidad-para-cierre.md) | Una Orden de Misión solo se cierra con su cadena de trazabilidad completa; incompleta, se cierra con hallazgo | M-13, M-14 | Bloqueo duro | Sí | NRM-01 |
 | [RN-73](RN-73-convalidacion-de-actos-sin-autorizacion-previa.md) | El acto ejecutado sin autorización previa se convalida en plazo, y la cronología se declara tal como ocurrió | M-06, M-07, M-08, M-14, M-15 | Bloqueo + hallazgo | Sí | NRM-01, CE-01 |
 | [RN-74](RN-74-sin-atribucion-de-responsabilidad-en-campo.md) | El registro de campo no captura atribución de responsabilidad; se determina en el expediente | M-12, M-08, M-16, M-17 | Bloqueo duro | No | NRM-01, NRM-07, CE-03 |
+| [RN-100](RN-100-permisos-por-puesto-no-por-persona.md) | Los permisos se conceden al **puesto**, nunca a la persona; la autoría histórica es de la persona y no se reasigna | M-01, M-14, M-03, M-07 | Bloqueo duro | No | NRM-09, `HN1-18` |
+| [RN-101](RN-101-cierre-de-asignacion-de-puesto.md) | Una asignación de puesto **no se cierra con custodias físicas activas**; lo demás pasa al puesto | M-01, M-03, M-09, M-13, M-14 | Bloqueo duro | No el bloqueo | NRM-02, NRM-09, `HN1-18` |
 
 ## Habilitación del motorista
 
@@ -75,6 +77,7 @@ Nivel de verificación (`[V]` `[P]` `[C]` `[I]`) va dentro de cada regla, marcad
 | [RN-66](RN-66-imputacion-externa-por-jerarquia-de-anclas.md) | Toda imputación externa se resuelve por jerarquía de anclas a la fecha del hecho, con la placa en último lugar | M-12, M-18, M-03, M-14, M-09 | Derivación + bloqueo | Sí | NRM-01, CE-17 |
 | [RN-89](RN-89-kilometraje-acumulado-invariante-del-expediente.md) | El kilometraje acumulado es atributo del expediente del vehículo, independiente de la lectura del instrumento | M-03, M-08, M-11, M-09 | Bloqueo + derivación | No | NRM-01, CE-22 |
 | [RN-90](RN-90-intervencion-del-instrumento-de-medicion.md) | Toda intervención del odómetro es evento con orden de trabajo y autorización nominativa | M-03, M-11, M-08, M-07 | Bloqueo duro | Sí | NRM-01, CE-22 |
+| [RN-99](RN-99-constatacion-fisica-de-la-flota.md) | La flota se **constata físicamente** con acta y comisión, y se concilia contra el registro de bienes | M-03, M-14, M-04, M-16 | Capacidad con efecto en estado operativo | Sí | NRM-01, NRM-02, `HN1-18` |
 
 ## Régimen de uso, tenencia y préstamo
 
@@ -202,6 +205,45 @@ Escrita tras el hallazgo `HN1-07`: `NRM-04` deja la cuota trimestral en alcance 
 | [RN-95](RN-95-conciliacion-contra-fuentes-externas.md) | El sistema concilia periódicamente contra fuentes externas, y cada diferencia abre expediente de hallazgo posterior | M-14, M-09, M-18, M-12, M-20 | Bloqueo duro | Sí | NRM-01, CE-28 |
 | [RN-96](RN-96-cierre-de-ejercicio-como-corte-de-imputacion.md) | El cierre de ejercicio es corte de imputación y de reporte; ningún expediente cambia de estado por una fecha | M-13, M-09, M-18, M-14, M-20 | Bloqueo duro | Sí | NRM-04, CE-27 |
 | [RN-97](RN-97-saldo-de-apertura-de-control-interno.md) | Lo no terminal al corte constituye el saldo de apertura del ejercicio siguiente, con antigüedad desde el hecho | M-14, M-13, M-12, M-03 | Bloqueo duro | No | NRM-01, CE-27 |
+| [RN-98](RN-98-paquete-de-evidencia-por-vehiculo-o-periodo.md) | La evidencia de auditoría se entrega también **por vehículo y por período**, no solo por misión | M-14, M-03, M-13, M-09, M-18, M-15 | Capacidad obligatoria | No la capacidad | NRM-01, `HN1-09` |
+| [RN-102](RN-102-reporte-publico-de-flota.md) | El **reporte público de flota** se produce sin depuración manual, agregado o anonimizado | M-14, M-17, M-03 | Capacidad obligatoria | Sí composición | NRM-07, DP-001 D-14, `HN1-18` |
+
+---
+
+## Qué cubren estas reglas y qué está deliberadamente diferido
+
+Incorporado al corregir el hallazgo `HN1-18` de [H-B1-002](../../05-calidad/hallazgos/H-B1-002-revision-normativa-bloque-1.md). El problema lo dijo el propio hallazgo:
+
+> *«El `README.md` de reglas no declara qué módulos cubre, así que no hay forma de distinguir un hueco de una postergación — y esa distinción es la que evita que un hueco sobreviva tres bloques.»*
+
+**Un hueco no declarado es indistinguible de una decisión.** Por eso lo que falta se dice aquí, con su motivo.
+
+### Cobertura real por módulo
+
+Los diecinueve módulos vigentes aparecen citados por alguna regla. **Citado no es gobernado**, y la diferencia importa:
+
+| Situación | Módulos |
+|---|---|
+| **Gobernados** — tienen reglas cuyo módulo principal es ése | M-01, M-02, M-03, M-04, M-05, M-06, M-07, M-08, M-09, M-13, M-14, M-15, M-16, M-17, M-18, M-20 |
+| **Tocados de refilón** — otras reglas los citan como módulo secundario, pero casi ninguna es suya | **M-11** (solo desde M-03 y M-09: indisponibilidad, orden de trabajo, intervención del odómetro) · **M-12** (dos reglas propias: [`RN-66`](RN-66-imputacion-externa-por-jerarquia-de-anclas.md) y [`RN-74`](RN-74-sin-atribucion-de-responsabilidad-en-campo.md); el resto lo cita de paso) · **M-19** (una sola regla propia: [`RN-76`](RN-76-estado-en-ruta-declarado-por-el-motorista.md)) |
+
+### Materias diferidas a un bloque posterior
+
+No son huecos. Pertenecen a módulos que todavía no se han trabajado, y se listan para que nadie las busque creyendo que se olvidaron.
+
+| Materia | Módulo | Estado |
+|---|---|---|
+| **Infracciones y multas de tránsito** asociadas a vehículo y motorista | M-12 | La ficha [NRM-06](../normativa/NRM-06-transito-y-licencias.md) lo exige. La regla se escribe con M-12, no antes |
+| **Pérdida, robo o siniestro** con denuncia y deducción de responsabilidad | M-12 | [`RN-75`](RN-75-bien-retenido-o-sustraido-no-sale-del-registro.md) cubre que el bien no salga del registro — es una parte, no el circuito |
+| **Mantenimiento preventivo y correctivo**, llantas, repuestos, órdenes de trabajo | M-11 | Las reglas existentes solo tratan su **efecto** sobre la disponibilidad del vehículo, no el taller |
+
+### Materias bloqueadas por un insumo pendiente
+
+Éstas sí se escribirían hoy si hubiera con qué. **Falta el dato de la institución, no la decisión.**
+
+| Materia | Ficha | Insumo que la bloquea |
+|---|---|---|
+| **TAG prepago** como instrumento institucional con ciclo de vida propio | [NRM-10](../normativa/NRM-10-peajes.md) | **#24** — si la institución usa TAG, con qué modalidad y quién lo administra. Aparece en `EF-04` de la [máquina de estados](../../03-arquitectura/estados/orden-de-mision.md) y en casos límite de [`RN-35`](RN-35-estimacion-de-peajes-antes-de-aprobar.md) y [`RN-36`](RN-36-discrepancia-de-clasificacion-en-caseta.md); **ninguna regla lo modela** |
 
 ---
 

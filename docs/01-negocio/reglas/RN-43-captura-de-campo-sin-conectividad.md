@@ -22,6 +22,14 @@ El cliente de campo **debe** permitir completar y almacenar localmente, **sin ni
 
 Ninguna de estas capturas **debe** requerir validación remota para guardarse. Ningún dato capturado **debe** perderse por falta de red, por cierre de la aplicación, por batería agotada o por falla de sincronización.
 
+### Y una capacidad que no es de captura sino de consulta — corrección del hallazgo `HN1-18`
+
+El cliente **debe** llevar a bordo, legible **sin ninguna conectividad**, la **guía de actuación en accidente**: qué hacer, a quién llamar, qué no firmar, qué fotografiar y en qué orden.
+
+[NRM-06](../normativa/NRM-06-transito-y-licencias.md) lo dice literalmente —*«proveer al motorista una guía de actuación en accidente accesible sin conexión desde el móvil, y capturar el reporte inicial offline»*— y la máquina de estados ya la transfiere con el paquete de misión en `T-12` ([orden-de-mision.md](../../03-arquitectura/estados/orden-de-mision.md)). **Faltaba en esta lista**, que es donde se declara qué tiene que funcionar sin red.
+
+Va aparte del resto porque es de naturaleza distinta: las demás son cosas que el motorista **escribe**; ésta es la única que el motorista **lee**, y la lee en el peor momento posible. Una guía que requiere señal para abrirse no existe: los accidentes no ocurren donde hay cobertura, y el minuto en que se necesita es el minuto en que nadie va a esperar a que cargue.
+
 ## Justificación
 
 Premisa rectora 5: *"Offline-first, no 'con soporte offline'."*
