@@ -10,7 +10,7 @@ Punto único de entrada para saber en qué va el proyecto. Si algo figura acá c
 
 **Hay stack, y hay autorización para programar.** La [designación de LOKI del 2026-08-26](docs/07-gestion/designaciones/2026-08-26-stack-y-arranque.md) fijó el stack y el PO autorizó el arranque. Eso activó la cláusula de revisión que [`ADR-000`](docs/03-arquitectura/adr/ADR-000-diferir-seleccion-de-stack.md) escribió para sí mismo, y [`ADR-002`](docs/03-arquitectura/adr/ADR-002-adoptar-el-stack-tecnologico.md) lo supera formalmente.
 
-**Ya hay código, camina, y se ve.** El backend atraviesa API → Aplicación → Dominio → SQL Server → bitácora encadenada, con **77 pruebas**. Y hay **seis pantallas de oficina conectadas a la API real**, no a datos de muestra.
+**Ya hay código, camina, y se ve.** El backend atraviesa API → Aplicación → Dominio → SQL Server → bitácora encadenada, con **80 pruebas**. Y hay **seis pantallas de oficina conectadas a la API real**, no a datos de muestra.
 
 El circuito que funciona hoy, de punta a punta y verificado contra SQL Server:
 
@@ -28,7 +28,7 @@ Con `BD-01`, `BD-02`, `BD-03`, `BD-06` y `BD-12` evaluándose de verdad, la cadu
 | 3 — Requisitos | 18 casos de uso, **150 historias** con Gherkin, 21 no funcionales, backlog | ✅ Revisado y corregido en `3f4ced4` |
 | 4 — Diseño | Modelo de datos bitemporal con 43 entidades, 126 pantallas, **41 maquetadas** | ✅ Revisado y corregido en `3f4ced4` |
 
-**406 documentos de análisis · 4,177 líneas de C# de producción y 1,965 de pruebas · 2,558 de TypeScript propio · **77 pruebas de backend y 19 del núcleo de campo** · 67 commits.** Las de C# excluyen las migraciones generadas; las de TypeScript, el sistema de diseño de LOKI. Las reglas de negocio son **103**.
+**406 documentos de análisis · 4,177 líneas de C# de producción y 1,965 de pruebas · 2,558 de TypeScript propio · **80 pruebas de backend y 19 del núcleo de campo** · 68 commits.** Las de C# excluyen las migraciones generadas; las de TypeScript, el sistema de diseño de LOKI. Las reglas de negocio son **103**.
 
 Las líneas de C# excluyen las migraciones de EF, que son generadas. El TypeScript excluye el sistema de diseño de LOKI, que se copió, no se escribió.
 
@@ -99,6 +99,25 @@ SAC **no tiene lista de exclusiones**: es activo / evaluación / apagado, y de a
 **Un defecto que solo apareció al pulsar el botón:** la pantalla seguía mostrando *«Liquidada»* y ofreciendo cerrar un expediente ya cerrado. Corregido — si el expediente dejó `LIQUIDADA`, la pantalla lo dice y ofrece volver a la cola.
 
 **Lo que falta para que esto sirva de verdad:** los criterios `H-01` a `H-13` **no se detectan todavía**. `M-09`, `M-13` y `M-18` no existen, así que no hay conciliación de combustible, ni de peajes, ni cadena que evaluar — y **todo expediente cierra limpio**. La función que los calcula está marcada como provisional y devuelve lista vacía, en lugar de fingir una evaluación que no ocurrió.
+
+### `M-03` y `M-04` — la flota salió del código y `BD-03` empezó a bloquear
+
+Mientras la flota vivía en un catálogo en código, **`BD-03` no podía bloquear**: la documentación provisional devolvía vencimientos de 2030 para todo, y el propio código lo declaraba en un comentario para no fingir que había verificado algo. `RN-103` estaba escrita y no se ejecutaba.
+
+| Pieza | Qué |
+|---|---|
+| `FilaDeVehiculo` | Ficha técnica y documentación con **vencimientos reales**, en `flota.Vehiculo` |
+| `ConsultaDeFlota` | Reemplaza al catálogo en la parte de vehículos |
+| `GET /flota` | Sale de la base |
+| `ResultadoDeDocumentacion.VenceElQueBloquea` | El mensaje de `BD-03` ahora dice **cuándo vence** |
+
+**Verificado contra la API real:** con matrícula al 2027 programa (**200**); con matrícula al 2026-03-21 y ventana hasta el 23, devuelve **409** con `BD-03` y la fecha. Eso era imposible ayer.
+
+**Un detalle que el mensaje cambió.** `BD-02` ya decía el vencimiento de la licencia y `BD-03` no decía nada — *«documentación vencida»* a secas. Con la fecha, quien programa sabe si le alcanza con esperar o tiene que cambiar de vehículo; sin ella tenía que ir a buscarla al expediente.
+
+**La placa no lleva índice único**, a propósito: *«sin placa»* es estado válido por el desabastecimiento nacional, y un índice único sobre nulos rompería la flota real (`RN-15`). Lo único con índice único son las **siglas**, que son la identidad estable del bien.
+
+**Lo que falta:** el **alta de vehículos** —hoy la flota se siembra solo en desarrollo, y esa siembra va en el arranque y no en una migración a propósito: una migración con datos los metería también en la instancia de la institución—. Y `M-04` completo: alertas de vencimiento (`RN-17`), renovaciones y adjuntos del documento.
 
 ### El cliente de campo arrancó por el núcleo, no por la pantalla
 
@@ -190,15 +209,15 @@ Las **nueve** categorías del **Artículo 4 del Acuerdo 1012-2021** `[V]`, con l
 
 **Lo que queda abierto es el camino, no el dato:** el circuito de carga existe (`POST /parametros` y `POST /parametros/{id}/aprobar`, con doble control y asiento en bitácora), pero la matriz **no entra por él** — está escrita en C# en `ParametrosProvisionales`. Cargarla por el circuito y borrar esa clase es lo que le da doble control.
 
-### Tres catálogos viven en código, y están marcados como provisionales
+### Dos catálogos siguen en código, y están marcados como provisionales
 
-Ninguno finge ser otra cosa: los tres llevan su aviso en el propio archivo.
+Eran tres. **La flota salió** — `M-03` y `M-04` están en la base, con vencimientos reales, y `BD-03` bloquea de verdad. Ninguno de los que quedan finge ser otra cosa: los dos llevan su aviso en el propio archivo.
 
 | Qué | Dónde | Qué falta para borrarlo |
 |---|---|---|
-| **Flota y padrón de motoristas** | `Sigti.Aplicacion/M03_Flota/CatalogoProvisionalDeFlota.cs` | `M-03` y `M-05` con sus repositorios. La firma que ve el cliente no cambia |
-| **Documentación del vehículo** | Devuelta **conforme por omisión** en `EvaluacionDeAsignacion` y en el endpoint de programar | `M-04`. Hoy `BD-03` no puede bloquear por un vencimiento que el sistema no conoce, y eso queda dicho en el código en vez de fingir que se verificó |
-| **El folio** | `ConsultaDeMisiones.FolioProvisional` — sale como `PROV-xxxxxx` | El circuito de rangos por delegación de `RNF-21`. Lleva prefijo para que nadie lo cite en un descargo |
+| **Padrón de motoristas** | `CatalogoProvisionalDeFlota` — ya solo los conductores | `M-05` |
+| **El folio** | `ConsultaDeMisiones.FolioProvisional` — sale como `PROV-xxxxxx` | El circuito de rangos por delegación. El **consumo** ya está en [`SubrangoDeFolios`](campo/nucleo/Folios.ts); falta **repartirlos**, que es de `M-01` |
+| **El catálogo de restricciones médicas** | `CatalogoProvisionalDeRestricciones` | Insumo **#42** — la DNVT no tiene fuente pública |
 
 ### Las validaciones de `HU-009` no las calcula el servidor
 

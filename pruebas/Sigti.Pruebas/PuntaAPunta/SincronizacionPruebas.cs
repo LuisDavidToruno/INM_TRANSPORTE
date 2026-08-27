@@ -46,6 +46,7 @@ public class SincronizacionPruebas(BaseDePruebas baseDePruebas)
     public async Task Reenviar_el_mismo_lote_no_duplica_la_transicion_en_el_diario()
     {
         var id = Ulid.NewUlid().ToString();
+        await using (var siembra = baseDePruebas.Contexto()) await FlotaSembrada.SembrarAsync(siembra);
         var idDeCaptura = Ulid.NewUlid().ToString();
         using var aplicacion = Aplicacion();
         using var cliente = aplicacion.CreateClient();
@@ -93,6 +94,7 @@ public class SincronizacionPruebas(BaseDePruebas baseDePruebas)
         // exactamente qué salió de su cola de pendientes. Un «200 OK» a secas lo deja
         // adivinando, y adivinar acá significa reenviar todo o perder algo.
         var id = Ulid.NewUlid().ToString();
+        await using (var siembra = baseDePruebas.Contexto()) await FlotaSembrada.SembrarAsync(siembra);
         var idDeCaptura = Ulid.NewUlid().ToString();
         using var aplicacion = Aplicacion();
         using var cliente = aplicacion.CreateClient();
@@ -156,7 +158,7 @@ public class SincronizacionPruebas(BaseDePruebas baseDePruebas)
         {
             Ejecuta = ejecuta,
             Momento,
-            IdVehiculo = "v-001",
+            IdVehiculo = FlotaSembrada.Pickup.ToString(),
             IdConductor = "c-001",
         });
         Assert.Equal(HttpStatusCode.OK, r.StatusCode);

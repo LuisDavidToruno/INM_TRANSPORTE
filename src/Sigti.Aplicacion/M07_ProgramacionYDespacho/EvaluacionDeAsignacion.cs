@@ -48,7 +48,8 @@ public sealed record ResultadoDeAsignacion(
 /// </summary>
 public sealed class EvaluacionDeAsignacion(
     SigtiDbContext contexto,
-    CatalogoProvisionalDeFlota flota,
+    CatalogoProvisionalDeFlota padron,
+    ConsultaDeFlota flota,
     CatalogoProvisionalDeRestricciones restricciones,
     IParametrosDeLaInstitucion parametros)
 {
@@ -63,8 +64,10 @@ public sealed class EvaluacionDeAsignacion(
         CancellationToken cancelacion = default)
     {
         var expediente = await _expedientes.BuscarAsync(idExpediente, cancelacion);
-        var vehiculo = flota.Vehiculo(idVehiculo);
-        var conductor = flota.Conductor(idConductor);
+        var vehiculo = Ulid.TryParse(idVehiculo, out var ulidVehiculo)
+            ? await flota.PorIdAsync(ulidVehiculo, cancelacion)
+            : null;
+        var conductor = padron.Conductor(idConductor);
 
         if (expediente is null || vehiculo is null || conductor is null) return null;
 
@@ -81,10 +84,10 @@ public sealed class EvaluacionDeAsignacion(
             conductor.Licencia, condiciones, restricciones.Vigente);
 
         var habilitacion = ReglasDeHabilitacion.Evaluar(
-            conductor.Licencia, vehiculo.Ficha, ventana, matriz, conocidoAl);
+            conductor.Licencia, vehiculo.Ficha(), ventana, matriz, conocidoAl);
 
         var documentacion = ReglasDeDocumentacion.Evaluar(
-            DocumentacionProvisional(vehiculo), ventana, politica);
+            vehiculo.Documentacion(), ventana, politica);
 
         return new ResultadoDeAsignacion(
             // Solo el bloqueo impide. La advertencia se acusa y se sigue.
@@ -97,7 +100,7 @@ public sealed class EvaluacionDeAsignacion(
             VenceLicencia: habilitacion.VencimientoDeLicencia,
             VersionDeMatriz: habilitacion.VersionDeMatriz,
             FinDeRangoEvaluado: habilitacion.FinDeRangoEvaluado,
-            CategoriaRequerida: CategoriaQueHabilita(vehiculo.Ficha, matriz, ventana, conocidoAl)?.ToString(),
+            CategoriaRequerida: CategoriaQueHabilita(vehiculo.Ficha(), matriz, ventana, conocidoAl)?.ToString(),
             EfectoDeLaRestriccion: restriccion.Efecto.ToString(),
             RestriccionEnConflicto: restriccion.RestriccionEnConflicto,
             CondicionQueActivaLaRestriccion: restriccion.CondicionQueLaActiva,
@@ -106,20 +109,20 @@ public sealed class EvaluacionDeAsignacion(
 
             // Las salidas van en la misma respuesta porque van en la misma pantalla:
             // el usuario no puede resolver un rechazo de BD-02 reintentando.
-            ConductoresQueHabilitan: flota.Conductores
+            ConductoresQueHabilitan: padron.Conductores
                 .Where(c => c.Id != conductor.Id)
                 .Where(c => ReglasDeHabilitacion.Evaluar(
-                    c.Licencia, vehiculo.Ficha, ventana, matriz, conocidoAl).Habilita
+                    c.Licencia, vehiculo.Ficha(), ventana, matriz, conocidoAl).Habilita
                     && ReglasDeRestriccionMedica.Evaluar(
                         c.Licencia, condiciones, restricciones.Vigente).Efecto != EfectoDeRestriccion.Bloqueo)
                 .Select(c => c.Id)
                 .ToList(),
 
-            VehiculosQueHabilita: flota.Vehiculos
+            VehiculosQueHabilita: (await flota.ParaEvaluarAsync(cancelacion))
                 .Where(v => v.Id != vehiculo.Id)
                 .Where(v => ReglasDeHabilitacion.Evaluar(
-                    conductor.Licencia, v.Ficha, ventana, matriz, conocidoAl).Habilita)
-                .Select(v => v.Id)
+                    conductor.Licencia, v.Ficha(), ventana, matriz, conocidoAl).Habilita)
+                .Select(v => v.Id.ToString())
                 .ToList());
     }
 
@@ -133,19 +136,4 @@ public sealed class EvaluacionDeAsignacion(
             .Cast<CategoriaDeLicencia?>()
             .FirstOrDefault(c => matriz.Habilita(c!.Value, ficha, ventana.Salida, conocidoAl));
 
-    /// <summary>
-    /// ⚠️ Provisional: `M-04` no está construido, así que no hay vencimientos reales de
-    /// matrícula, póliza ni revisión. Se devuelve documentación conforme para que
-    /// `BD-03` no bloquee por un dato que el sistema todavía no puede conocer —y eso
-    /// queda dicho, en lugar de fingir que se verificó.
-    /// </summary>
-    private static DocumentacionDelVehiculo DocumentacionProvisional(VehiculoDeFlota v) => new()
-    {
-        Placa = v.Placa,
-        TieneConstanciaSustitutaDePlaca = v.Placa is null,
-        VenceMatricula = new DateOnly(2030, 12, 31),
-        VencePoliza = new DateOnly(2030, 12, 31),
-        VenceRevisionMecanica = new DateOnly(2030, 12, 31),
-        IdentificacionInstitucionalVerificada = true,
-    };
 }

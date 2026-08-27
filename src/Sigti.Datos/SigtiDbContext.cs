@@ -17,6 +17,7 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     public DbSet<FilaDeExpediente> Expedientes => Set<FilaDeExpediente>();
     public DbSet<VersionDeParametro> Parametros => Set<VersionDeParametro>();
     public DbSet<FilaDeAdjunto> Adjuntos => Set<FilaDeAdjunto>();
+    public DbSet<FilaDeVehiculo> Vehiculos => Set<FilaDeVehiculo>();
 
     /// <summary>
     /// ULID en binary(16) y no en texto: 16 bytes contra 26, y conserva la monotonía que
@@ -121,6 +122,29 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             transicion.HasIndex(t => t.IdDeCaptura)
                 .IsUnique()
                 .HasFilter("[IdDeCaptura] IS NOT NULL");
+        });
+
+        modelo.Entity<FilaDeVehiculo>(vehiculo =>
+        {
+            vehiculo.ToTable("Vehiculo", schema: "flota");
+
+            vehiculo.HasKey(v => v.Id);
+            vehiculo.Property(v => v.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+
+            // Las siglas son la identidad estable del bien y se citan en el descargo.
+            vehiculo.Property(v => v.Siglas).HasMaxLength(32).IsRequired();
+            vehiculo.HasIndex(v => v.Siglas).IsUnique();
+
+            // La placa NO es unica ni obligatoria: "sin placa" es estado valido por el
+            // desabastecimiento nacional, y un indice unico sobre nulos rompe la flota real.
+            vehiculo.Property(v => v.Placa).HasMaxLength(16);
+
+            vehiculo.Property(v => v.TipoDeVehiculo).HasMaxLength(80).IsRequired();
+            vehiculo.Property(v => v.Clase).HasConversion<string>().HasMaxLength(32).IsRequired();
+
+            // Encontrar lo que vence pronto es lo que sostiene RN-17, y sin indice eso
+            // seria un recorrido completo de la flota cada vez que alguien abre la alerta.
+            vehiculo.HasIndex(v => v.VenceMatricula);
         });
 
         modelo.Entity<FilaDeAdjunto>(adjunto =>

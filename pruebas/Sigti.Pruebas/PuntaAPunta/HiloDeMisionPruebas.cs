@@ -38,6 +38,8 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
     public async Task Una_mision_recorre_el_hilo_completo_y_deja_su_rastro_encadenado()
     {
         var id = Ulid.NewUlid().ToString();
+        await using (var siembra = baseDePruebas.Contexto()) await FlotaSembrada.SembrarAsync(siembra);
+
         using var aplicacion = Aplicacion();
         using var cliente = aplicacion.CreateClient();
 
@@ -70,11 +72,11 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
         // aunque esté vigente el día de salida.
         // BD-02: la licencia B de José Ramón Cruz no habilita un camión de 12,000 kg.
         var noHabilita = await Asignar(cliente, id, "programar", "P-TRANSPORTE",
-            idVehiculo: "v-002", idConductor: "c-001", esperado: HttpStatusCode.Conflict);
+            idVehiculo: FlotaSembrada.Camion.ToString(), idConductor: "c-001", esperado: HttpStatusCode.Conflict);
         Assert.Contains("BD-02", await noHabilita.Content.ReadAsStringAsync());
 
-        await Asignar(cliente, id, "programar", "P-TRANSPORTE", idVehiculo: "v-001", idConductor: "c-001");
-        await Asignar(cliente, id, "despachar", "P-ENCARGADO", idVehiculo: "v-001", idConductor: "c-001");
+        await Asignar(cliente, id, "programar", "P-TRANSPORTE", idVehiculo: FlotaSembrada.Pickup.ToString(), idConductor: "c-001");
+        await Asignar(cliente, id, "despachar", "P-ENCARGADO", idVehiculo: FlotaSembrada.Pickup.ToString(), idConductor: "c-001");
         await Transicionar(cliente, id, "iniciar-ruta", "P-MOTORISTA");
         await Transicionar(cliente, id, "retornar", "P-MOTORISTA");
         var liquidada = await Transicionar(cliente, id, "liquidar", "P-TRANSPORTE");
@@ -135,6 +137,8 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
         // y podía declarar 2,800 kg de un camión de 12,000: BD-02 se evaluaba contra un
         // vehículo que no existe. Ahora ese error ni se puede expresar.
         var id = Ulid.NewUlid().ToString();
+        await using (var siembra = baseDePruebas.Contexto()) await FlotaSembrada.SembrarAsync(siembra);
+
         using var aplicacion = Aplicacion();
         using var cliente = aplicacion.CreateClient();
 
@@ -144,7 +148,7 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
-            IdVehiculo = "v-inexistente",
+            IdVehiculo = Ulid.NewUlid().ToString(),
             IdConductor = "c-001",
         });
 

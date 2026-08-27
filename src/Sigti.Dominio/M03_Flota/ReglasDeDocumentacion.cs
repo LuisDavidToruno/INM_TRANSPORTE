@@ -58,11 +58,21 @@ public enum MotivoDeDocumentacionInsuficiente
 /// Lo que no bloquea pero sí se registra y se alerta. Que la póliza esté vencida importa
 /// aunque la institución no bloquee por ello — y tiene que quedar por escrito.
 /// </param>
+/// <param name="VenceElQueBloquea">
+/// Cuándo vence el documento que bloqueó. <b>Nula si no bloqueó por vencimiento</b> —el
+/// caso de «sin placa ni constancia» no tiene fecha—.
+///
+/// Existe porque «documentación vencida» a secas no le sirve a quien programa: con la
+/// fecha sabe si le alcanza con esperar, y sin ella tiene que ir a buscarla al
+/// expediente del vehículo. `BD-02` ya decía el vencimiento de la licencia; esto cierra
+/// la asimetría.
+/// </param>
 public sealed record ResultadoDeDocumentacion(
     bool Habilita,
     MotivoDeDocumentacionInsuficiente Motivo,
     IReadOnlyList<MotivoDeDocumentacionInsuficiente> Advertencias,
-    DateOnly FinDeRangoEvaluado);
+    DateOnly FinDeRangoEvaluado,
+    DateOnly? VenceElQueBloquea = null);
 
 /// <summary>
 /// `BD-03` — Documentación del vehículo vigente.
@@ -80,9 +90,13 @@ public static class ReglasDeDocumentacion
         var fin = ventana.FinDelRango;
         var advertencias = new List<MotivoDeDocumentacionInsuficiente>();
         var bloqueo = MotivoDeDocumentacionInsuficiente.Ninguno;
+        DateOnly? venceElQueBloquea = null;
 
         if (documentacion.VenceMatricula < fin)
+        {
             bloqueo = MotivoDeDocumentacionInsuficiente.MatriculaVenceDentroDelRango;
+            venceElQueBloquea = documentacion.VenceMatricula;
+        }
 
         // Sin placa no bloquea; sin placa Y sin constancia sustituta, sí: entonces no hay
         // ningún documento que identifique al vehículo en carretera.
@@ -101,7 +115,8 @@ public static class ReglasDeDocumentacion
             Habilita: bloqueo == MotivoDeDocumentacionInsuficiente.Ninguno,
             Motivo: bloqueo,
             Advertencias: advertencias,
-            FinDeRangoEvaluado: fin);
+            FinDeRangoEvaluado: fin,
+            VenceElQueBloquea: venceElQueBloquea);
 
         void Evaluar(DateOnly? vence, bool bloquea, MotivoDeDocumentacionInsuficiente motivo)
         {
@@ -110,7 +125,10 @@ public static class ReglasDeDocumentacion
             if (vence is { } fecha && fecha >= fin) return;
 
             if (bloquea && bloqueo == MotivoDeDocumentacionInsuficiente.Ninguno)
+            {
                 bloqueo = motivo;
+                venceElQueBloquea = vence;
+            }
             else
                 advertencias.Add(motivo);
         }

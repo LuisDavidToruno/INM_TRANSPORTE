@@ -33,6 +33,7 @@ constructor.Services.AddScoped<ConsultaDeMisiones>();
 constructor.Services.AddScoped<EvaluacionDeAsignacion>();
 constructor.Services.AddScoped<ServicioDeSincronizacion>();
 constructor.Services.AddScoped<ServicioDeAdjuntos>();
+constructor.Services.AddScoped<ConsultaDeFlota>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
 constructor.Services.AddSingleton(new AlmacenDeArchivos(
@@ -89,6 +90,57 @@ app.UseExceptionHandler(rama => rama.Run(async contexto =>
     await contexto.Response.WriteAsJsonAsync(cuerpo);
 }));
 
+// ⚠️ SOLO EN DESARROLLO. Siembra una flota mínima para que las pantallas tengan algo
+// contra qué trabajar mientras `M-03` no tiene alta de vehículos.
+//
+// Va acá y no en una migración a propósito: una migración con datos los mete también en
+// la instancia de la institución, y una flota de prueba en producción es exactamente el
+// tipo de dato que después nadie sabe si borrar.
+if (app.Environment.IsDevelopment())
+{
+    using var ambito = app.Services.CreateScope();
+    var contextoDeSiembra = ambito.ServiceProvider.GetRequiredService<SigtiDbContext>();
+
+    if (!contextoDeSiembra.Vehiculos.Any())
+    {
+        contextoDeSiembra.Vehiculos.AddRange(
+            VehiculoDeDesarrollo("01JQ8Z000000000000000VEH01", "INS-P-014", "PBM8842",
+                "Pick-up doble cabina", ClaseNormativa.Automovil, 2_800, 5, false, new DateOnly(2027, 8, 31)),
+
+            // Sin placa metálica: estado válido por el desabastecimiento nacional.
+            VehiculoDeDesarrollo("01JQ8Z000000000000000VEH02", "INS-C-002", null,
+                "Camión de carga", ClaseNormativa.Camion, 12_000, 3, false, new DateOnly(2027, 5, 30)),
+
+            // Con plataforma enganchada: exige `BE`, y NO es articulado.
+            VehiculoDeDesarrollo("01JQ8Z000000000000000VEH03", "INS-P-021", "PCH1190",
+                "Pick-up con plataforma enganchada", ClaseNormativa.Automovil, 3_100, 5, true, new DateOnly(2027, 2, 28)),
+
+            VehiculoDeDesarrollo("01JQ8Z000000000000000VEH04", "INS-M-007", "MHA221",
+                "Motocicleta de mensajería", ClaseNormativa.Motocicleta, 180, 1, false, new DateOnly(2026, 11, 30)));
+
+        contextoDeSiembra.SaveChanges();
+    }
+}
+
+static FilaDeVehiculo VehiculoDeDesarrollo(
+    string id, string siglas, string? placa, string tipo,
+    ClaseNormativa clase, int kg, int pasajeros, bool remolque, DateOnly venceMatricula) => new()
+{
+    Id = Ulid.Parse(id),
+    Siglas = siglas,
+    Placa = placa,
+    TieneConstanciaSustitutaDePlaca = placa is null,
+    TipoDeVehiculo = tipo,
+    Clase = clase,
+    PesoBrutoKg = kg,
+    CapacidadPasajeros = pasajeros,
+    LlevaRemolque = remolque,
+    VenceMatricula = venceMatricula,
+    VencePoliza = null,
+    VenceRevisionMecanica = null,
+    IdentificacionInstitucionalVerificada = true,
+};
+
 var misiones = app.MapGroup("/misiones");
 
 // El identificador lo trae el cliente (ADR-005): el expediente nace con su ULID puesto,
@@ -127,9 +179,25 @@ Transicion("iniciar-ruta", (e, quien, cuando) => e.IniciarRuta(quien, cuando));
 Transicion("retornar", (e, quien, cuando) => e.Retornar(quien, cuando));
 Transicion("liquidar", (e, quien, cuando) => e.Liquidar(quien, cuando));
 
-// Catálogo provisional: M-03 y M-05 no existen. Va por el servidor y no por el
-// cliente para que la evaluación de BD-02 tenga UNA sola implementación.
-app.MapGet("/flota", (CatalogoProvisionalDeFlota flota) => Results.Ok(flota.Vehiculos));
+// La flota sale de la BASE (`M-03`). El padrón de conductores sigue provisional: es
+// `M-05` y no está construido. Los dos van por el servidor y no por el cliente para que
+// la evaluación de `BD-02` tenga UNA sola implementación.
+app.MapGet("/flota", async (ConsultaDeFlota flota) => Results.Ok(
+    (await flota.TodosAsync()).Select(v => new
+    {
+        id = v.Id.ToString(),
+        siglas = v.Siglas,
+        placa = v.Placa,
+        ficha = new
+        {
+            tipoDeVehiculo = v.TipoDeVehiculo,
+            clase = v.Clase.ToString(),
+            pesoBrutoKg = v.PesoBrutoKg,
+            capacidadPasajeros = v.CapacidadPasajeros,
+            llevaRemolque = v.LlevaRemolque,
+        },
+        venceMatricula = v.VenceMatricula,
+    })));
 app.MapGet("/conductores", (CatalogoProvisionalDeFlota flota) => Results.Ok(flota.Conductores));
 
 // Evalúa sin comprometer nada: la pantalla muestra el resultado AL ELEGIR, y sale del
@@ -334,32 +402,28 @@ void ConAsignacion(
         string id,
         AsignarYTransicionar peticion,
         ServicioDeMisiones servicio,
-        CatalogoProvisionalDeFlota flota,
+        CatalogoProvisionalDeFlota padron,
+        ConsultaDeFlota flota,
         IParametrosDeLaInstitucion parametros) =>
     {
         // El cliente manda IDENTIFICADORES, no la ficha técnica. Si mandara la ficha,
         // podría declarar 2,800 kg de un camión de 12,000 y BD-02 se evaluaría contra
         // un vehículo que no existe.
-        if (flota.Vehiculo(peticion.IdVehiculo) is not { } vehiculo)
+        if (!Identificador.Valido(peticion.IdVehiculo, out var idVehiculo, out var errorVehiculo))
+            return errorVehiculo;
+
+        if (await flota.PorIdAsync(idVehiculo) is not { } vehiculo)
             return Results.NotFound(new { mensaje = $"No existe el vehículo {peticion.IdVehiculo}." });
 
-        if (flota.Conductor(peticion.IdConductor) is not { } conductor)
+        if (padron.Conductor(peticion.IdConductor) is not { } conductor)
             return Results.NotFound(new { mensaje = $"No existe el conductor {peticion.IdConductor}." });
 
+        // La documentación sale de la BASE, con vencimientos reales. `BD-03` puede
+        // bloquear de verdad — antes no podía, y el código lo decía.
         var asignacion = new AsignacionDeMision(
             conductor.Licencia,
-            vehiculo.Ficha,
-            new DocumentacionDelVehiculo
-            {
-                Placa = vehiculo.Placa,
-                TieneConstanciaSustitutaDePlaca = vehiculo.Placa is null,
-                // ⚠️ M-04 no existe: no hay vencimientos reales. Queda dicho acá y en
-                // EvaluacionDeAsignacion, en lugar de fingir que se verificó.
-                VenceMatricula = new DateOnly(2030, 12, 31),
-                VencePoliza = new DateOnly(2030, 12, 31),
-                VenceRevisionMecanica = new DateOnly(2030, 12, 31),
-                IdentificacionInstitucionalVerificada = true,
-            });
+            vehiculo.Ficha(),
+            vehiculo.Documentacion());
 
         if (!Identificador.Valido(id, out var ulid, out var error)) return error;
 

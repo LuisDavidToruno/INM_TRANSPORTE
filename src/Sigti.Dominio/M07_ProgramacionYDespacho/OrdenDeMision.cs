@@ -226,8 +226,11 @@ public sealed class OrdenDeMision
 
         if (!documentacion.Habilita)
             throw new BloqueoDuro("BD-03",
-                $"La documentación del vehículo no habilita esta misión: {documentacion.Motivo}, " +
-                $"con rango evaluado hasta {documentacion.FinDeRangoEvaluado:yyyy-MM-dd}.");
+                $"La documentación del vehículo no habilita esta misión: {documentacion.Motivo}" +
+                // La fecha decide si esperar sirve o hay que cambiar de vehículo. Sin
+                // ella, quien programa tiene que ir a buscarla al expediente.
+                (documentacion.VenceElQueBloquea is { } vence ? $", vence {vence:yyyy-MM-dd}" : "") +
+                $", con rango evaluado hasta {documentacion.FinDeRangoEvaluado:yyyy-MM-dd}.");
 
         var advertencias = documentacion.Advertencias.Count == 0
             ? ""
