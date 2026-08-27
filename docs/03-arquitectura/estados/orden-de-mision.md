@@ -402,6 +402,7 @@ Es la transición con más precondiciones del sistema, y la que traslada respons
 **Precondiciones**
 - La aprobación no ha caducado.
 - `BD-02` **Licencia habilitante y vigente durante todo el rango de la misión.** Bloqueo duro sin excepción.
+- `BD-12` **Restricciones médicas compatibles con las condiciones declaradas de la misión.** Bloqueo si el catálogo tipifica la restricción como incompatibilizante; advertencia con acuse en los demás casos ([`RN-11`](../../01-negocio/reglas/RN-11-restricciones-medicas-del-motorista.md)).
 - `BD-03` **Documentación del vehículo vigente.** Matrícula bloqueante; seguro y revisión configurables.
 - `BD-07` **El vehículo está `DISPONIBLE`** y su tipo es compatible con lo que se va a mover.
 - `BD-10` **El motorista está disponible** según el espejo de Talento Humano — sin vacaciones, permiso ni incapacidad que se solapen con la ventana — y no tiene otra misión asignada en esa franja.
@@ -452,7 +453,7 @@ Es la transición con más precondiciones del sistema, y la que traslada respons
 **Precondiciones**
 - `BD-04` **Permiso de circulación en día u hora inhábil** emitido por ACT-09, si la ventana lo requiere. Bloqueo duro.
 - `BD-06` **Segregación:** quien despacha ≠ solicitante, ≠ autorizador, ≠ motorista, ≠ quien entrega el combustible.
-- Revalidación completa de `BD-02` y `BD-03` **al momento del despacho**, no la del momento de la programación. Entre programar y despachar pueden pasar días y una licencia puede haber vencido.
+- Revalidación completa de `BD-02`, `BD-03` y `BD-12` **al momento del despacho**, no la del momento de la programación. Entre programar y despachar pueden pasar días y una licencia puede haber vencido.
 - El vehículo está físicamente presente y su estado operativo sigue siendo `ASIGNADO`.
 - Existe acta de entrega con odómetro inicial, nivel de combustible, inventario de herramientas y accesorios, y verificación de la identificación institucional del vehículo — franjas, leyenda, siglas y correlativo, con fecha y fotografía. Es hallazgo frecuente de auditoría ([NRM-01](../../01-negocio/normativa/NRM-01-control-interno-tsc.md)).
 - Si hay diferencia de estimado de peajes por encima del umbral respecto a lo autorizado, existe la reautorización.
@@ -525,8 +526,8 @@ Cubre tres situaciones reales: la misión se extiende más allá de la ventana a
 
 **Precondiciones**
 - Autorización de ACT-04, o de ACT-09 si la extensión hace que la misión toque día u hora inhábil no cubierto por el salvoconducto vigente.
-- **En prórroga: se revalidan `BD-02` y `BD-03` contra la nueva fecha de fin**, con el paquete normativo congelado que lleva el dispositivo. Si la licencia del motorista en curso vence dentro de la ventana ampliada, la prórroga **se bloquea**: la salida es el relevo, o el retorno anticipado por `T-18`.
-- En relevo: el motorista entrante cumple `BD-02` contra el paquete normativo congelado, y existe acta de traspaso de custodia con odómetro.
+- **En prórroga: se revalidan `BD-02`, `BD-03` y `BD-12` contra la nueva fecha de fin** — la prórroga puede volver nocturna una misión que no lo era, con el paquete normativo congelado que lleva el dispositivo. Si la licencia del motorista en curso vence dentro de la ventana ampliada, la prórroga **se bloquea**: la salida es el relevo, o el retorno anticipado por `T-18`.
+- En relevo: el motorista entrante cumple `BD-02` y `BD-12` contra el paquete normativo congelado, y existe acta de traspaso de custodia con odómetro.
 
 > **Corrección — hallazgo detectado al escribir [CE-06](../../02-requisitos/casos-especiales/CE-06-la-mision-se-extiende-mas-dias-destinos-o-kilometros.md).** Esta transición revalidaba `BD-02` y `BD-03` **solo en el relevo**. Pero `BD-02` exige licencia habilitante y vigente **durante todo el rango de la misión**, y la prórroga es precisamente lo que mueve el fin de ese rango.
 >
@@ -726,7 +727,7 @@ Bloqueo duro significa: **el sistema no ofrece la acción, y si se intenta por c
 
 **Se evalúa en** `T-08`, `T-10`, `T-12`, y en `T-17` **tanto en el relevo como en la prórroga** — la prórroga mueve el fin del rango, y este bloqueo exige vigencia durante todo el rango. **Se revalida en cada una**, con los datos del momento.
 
-**Regla, en tres condiciones que deben cumplirse las tres.**
+**Regla, en dos condiciones que deben cumplirse las dos.** Eran tres: las restricciones médicas salieron a [`BD-12`](#bd-12--restricciones-médicas-compatibles-con-las-condiciones-de-la-misión) al corregir `HN1-13`, porque su efecto **sí** depende del catálogo y el «sin excepción configurable» de abajo nunca las cubrió.
 
 1. **Habilitación por categoría.** La categoría de la licencia del motorista habilita el vehículo asignado según la matriz licencia↔vehículo **vigente a la fecha de salida prevista**. La matriz no se resuelve por número de ejes ni por nombre del tipo de vehículo, sino por los atributos de la ficha técnica: **clase normativa**, **peso bruto vehicular en kg**, capacidad de pasajeros y **si va enganchado a un remolque o semirremolque** ([NRM-06](../../01-negocio/normativa/NRM-06-transito-y-licencias.md)).
 
@@ -744,7 +745,7 @@ Bloqueo duro significa: **el sistema no ofrece la acción, y si se intenta por c
 >
 > El Artículo 4 también dice que `B` cubre *«automóviles livianos no comprendidos en la categoría A y B1»*: **una licencia `B` no habilita una motocicleta**, y eso es texto de la norma, no inferencia.
 2. **Vigencia en todo el rango.** `fecha_vencimiento_licencia ≥ fin de la ventana de la misión, incluida la holgura posterior`. **No basta que esté vigente el día de salida.** Una licencia que vence el miércoles no habilita una misión que retorna el viernes: el motorista conduciría sin licencia dos días, con responsabilidad directa de quien autorizó.
-3. **Restricciones médicas compatibles.** Si la licencia tiene restricciones registradas — corrección visual, prohibición de conducción nocturna, u otras — y la misión las contradice, bloquea. `[C]` catálogo de restricciones que usa la DNVT — insumo #23.
+> **La condición 3 ya no está aquí.** Las restricciones médicas se evalúan en **`BD-12`**, con el efecto que el catálogo les asigne — bloqueo para las tipificadas como incompatibilizantes, advertencia con acuse para el resto ([`RN-11`](../../01-negocio/reglas/RN-11-restricciones-medicas-del-motorista.md)). Se evalúan en las mismas transiciones que `BD-02`, así que la asignación sigue verificándose igual; lo que cambia es que su efecto no se hereda de una decisión que no las mencionaba (`HN1-13`).
 
 **Sin excepción configurable.** Confirmado por el PO en [DP-001, D-12](../../07-gestion/decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md): *"nos tenemos que proteger con la ley también"*. Una excepción registrada sería evidencia en contra ante un siniestro.
 
@@ -864,6 +865,37 @@ El motorista no tiene, solapada con la ventana: vacaciones, permiso, incapacidad
 
 **Se evalúa en** `T-08`, `T-10`. Detalle del cálculo en `EF-01`.
 
+### `BD-12` — Restricciones médicas compatibles con las condiciones de la misión
+
+**Se evalúa en** `T-08`, `T-10`, `T-12`, y en `T-17` tanto en el relevo como en la prórroga — igual que `BD-02`, y por la misma razón: la prórroga puede volver nocturna una misión que no lo era.
+
+**El efecto lo decide el catálogo, no esta tabla.** Gobierna [`RN-11`](../../01-negocio/reglas/RN-11-restricciones-medicas-del-motorista.md):
+
+| Restricción | Efecto |
+|---|---|
+| Tipificada en el catálogo como **incompatibilizante** para la condición que la misión declara | **Bloqueo duro** |
+| Registrada pero no tipificada como incompatibilizante | **Advertencia que no se cierra sin acuse**: queda quién la vio, cuándo y con qué justificación continuó |
+| Registrada como texto libre, sin clasificar | **Advertencia genérica.** Nunca se ignora por no estar tipificada |
+
+**Si la misión no declara la condición evaluable, no se omite la evaluación: se exige declararla.** Sin ventana horaria no se puede contrastar una restricción de conducción diurna, y omitirla en silencio sería peor que no tener el dato.
+
+**Sí admite configuración, y por eso es un bloqueo aparte.** El catálogo `restriccion_medica` define por cada entrada su código, la condición de misión que evalúa, su efecto y su vigencia. Lo que **no** se puede es desactivar el efecto para una misión concreta.
+
+`[C]` **El catálogo oficial de restricciones de la DNVT no existe como fuente pública** — insumo **#42**, buscado el 2026-08-24 sin resultado; es consulta directa a la DNVT. Hasta obtenerlo, la institución carga las restricciones que aparecen en las licencias de su padrón y marca su efecto. **No se inventan códigos.**
+
+**Dato de salud.** El despachador ve *que existe una restricción operativa aplicable*, no el diagnóstico. El acceso es por necesidad de conocer y cada consulta se registra ([`RN-52`](../../01-negocio/reglas/RN-52-registro-de-consultas-a-manifiestos.md)).
+
+> ### Corrección — hallazgo `HN1-13`. Esto era la condición 3 de `BD-02`.
+>
+> `BD-02` la listaba como tercera condición de un bloqueo duro **«sin excepción configurable»**, y con eso le aplicaba una etiqueta que nadie le había dado. Fui a [`DP-001` D-12](../../07-gestion/decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md), que es de donde `BD-02` toma esa etiqueta, y decide exactamente dos cosas: **categoría que no cubre el vehículo** y **licencia que vence dentro del rango**. Las restricciones médicas nunca estuvieron en esa decisión.
+>
+> **No es que la regla le gane a la autoridad.** Es que esta parte de `BD-02` no tenía respaldo en la decisión que citaba. [`RN-11`](../../01-negocio/reglas/RN-11-restricciones-medicas-del-motorista.md) además razona mejor: *«las restricciones no son homogéneas — "usar lentes correctores" no se puede verificar por sistema y no debe bloquear; "conducción diurna únicamente" sí es contrastable contra la ventana horaria»*.
+>
+> Separarlo en un `BD-nn` propio, en vez de matizar dentro de `BD-02`, evita el daño colateral: **`BD-02` conserva íntegro su «sin excepción configurable»** para las dos condiciones donde el PO sí lo decidió. Mezclarlas habría obligado a debilitar la etiqueta de las tres o a mentir sobre una.
+>
+> Se corrigió también el insumo citado: decía **#23**, que está cerrado y era la descarga de los cuatro PDF. El correcto es el **#42**.
+
+---
 ---
 
 ## 5. Efectos colaterales que exigen diseño explícito

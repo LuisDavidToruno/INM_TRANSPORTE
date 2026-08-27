@@ -58,6 +58,21 @@ El 2026-08-26 bloqueó durante horas la carga de **cualquier binario .NET recié
 
 **Puede repetirse con cualquier binario nuevo.** Si vuelve a aparecer `0x800711C7`, no es el código: es SAC evaluando un ensamblado que todavía no tiene reputación. Las salidas son esperar, trabajar en otra máquina, o instalar WSL2 — **apagar SAC es irreversible** sin reinstalar Windows, así que no es la primera opción.
 
+### `BD-12` está corregido en los artefactos y a medias en el código
+
+Al cerrar `HN1-13` las restricciones médicas salieron de `BD-02` a un bloqueo propio, **`BD-12`**, con el efecto decidido por el catálogo en vez de bloqueo duro sin excepción. Los artefactos ya lo dicen; el código todavía no.
+
+| Pieza | Estado |
+|---|---|
+| [`orden-de-mision.md`](docs/03-arquitectura/estados/orden-de-mision.md) — autoridad | ✅ `BD-12` definido, listado en `T-08`, `T-12` y `T-17`; `BD-02` bajó a dos condiciones |
+| [`ReglasDeRestriccionMedica`](src/Sigti.Dominio/M05_Motoristas/ReglasDeRestriccionMedica.cs) | ✅ Escrita, con tres pruebas |
+| [`ReglasDeHabilitacion`](src/Sigti.Dominio/M05_Motoristas/ReglasDeHabilitacion.cs) | ⚠️ **Sigue evaluando la condición 3** y devolviendo `RestriccionMedicaIncompatible` como bloqueo sin excepción |
+| `EvaluacionDeAsignacion`, la API y `RechazoPorLicencia.tsx` | ⚠️ Dependen de ese motivo. Cambian con el anterior |
+
+**Qué falta:** retirar la condición 3 de `ReglasDeHabilitacion`, hacer que el servicio evalúe `BD-12` aparte, y que la pantalla distinga **bloqueo** de **advertencia con acuse** — hoy solo sabe rechazar. La clase lleva el aviso en su propio comentario para que nadie la lea como alineada.
+
+**Por qué quedó a medias:** Smart App Control volvió a bloquear la carga de `Sigti.Dominio.dll` recién compilada (`0x800711C7`) y la suite no corrió. El cambio toca tres capas y **no se hace a ciegas**. La verificación de las pruebas nuevas quedó así: la primera y la tercera se vieron fallar y la primera se vio pasar; **la tercera no se pudo confirmar en verde**.
+
 ### `BD-07` sigue sin evaluarse, y `BD-04` a `BD-11` tampoco
 
 `BD-02` y `BD-03` ya están implementadas y probadas. **`BD-07` no** — estado y compatibilidad del vehículo. Necesita dos cosas que todavía no existen:
@@ -131,14 +146,14 @@ Siguen ausentes **`ARQUITECTURA.md`** y **`DESPLIEGUE.md`** en la raíz. Ahora s
 
 `DESPLIEGUE.md` tiene una dependencia real: el procedimiento de respaldo y restauración es **de dos piezas** —base más almacén de archivos, consistentes entre sí ([`ADR-004`](docs/03-arquitectura/adr/ADR-004-adjuntos-fuera-de-la-base.md))— y `RNF-09` exige que lo ejecute personal no especialista en ≤ 2 h. Escribirlo sin la instancia real confirmada sería escribir la mitad.
 
-### Catorce hallazgos siguen abiertos, y hasta hoy figuraban como cerrados
+### Trece hallazgos siguen abiertos, y hasta hoy figuraban como cerrados
 
 Los cinco informes de [`docs/05-calidad/hallazgos/`](docs/05-calidad/hallazgos/) conservaban el estado con que se emitieron —*«Abierto»*, *«Ninguna corrección aplicada»*, *«Pendiente de corrección»*—. Al verificarlos contra los artefactos vivos el 2026-08-26, **hallazgo por hallazgo y no contra el mensaje del commit**, apareció lo contrario de lo que se esperaba: el campo estaba mal, pero también lo estaba la suposición de que todo se había corregido.
 
 | Informe | Corregidos | **Abiertos** |
 |---|---|---|
 | [`H-B1-001`](docs/05-calidad/hallazgos/H-B1-001-revision-qa-bloque-1.md) QA del Bloque 1 | 20 | **8** |
-| [`H-B1-002`](docs/05-calidad/hallazgos/H-B1-002-revision-normativa-bloque-1.md) normativa del Bloque 1 | 16 | **4** |
+| [`H-B1-002`](docs/05-calidad/hallazgos/H-B1-002-revision-normativa-bloque-1.md) normativa del Bloque 1 | 17 | **3** |
 | [`H-B3-001`](docs/05-calidad/hallazgos/H-B3-001-hallazgos-de-casos-de-uso.md) casos de uso | 17 | **2** |
 | [`H-B34-001`](docs/05-calidad/hallazgos/H-B34-001-revision-qa-bloque-3.md) QA del Bloque 3 | 21 citados, verificados por muestreo | — |
 | [`H-B34-002`](docs/05-calidad/hallazgos/H-B34-002-revision-arquitectura-bloque-4.md) arquitectura del Bloque 4 | 25 citados, verificados por muestreo | — |
@@ -149,7 +164,7 @@ Cada informe lleva ahora su desglose. **Los tres que se señalaron como priorita
 2. ✅ **`HN1-18` y `HN1-09` quedaron cerrados el 2026-08-26.** `HN1-18` eran **ocho** materias, no una. Cuatro pasaron a regla —[`RN-99`](docs/01-negocio/reglas/RN-99-constatacion-fisica-de-la-flota.md) constatación física de la flota, [`RN-100`](docs/01-negocio/reglas/RN-100-permisos-por-puesto-no-por-persona.md) permisos por puesto, [`RN-101`](docs/01-negocio/reglas/RN-101-cierre-de-asignacion-de-puesto.md) cierre de asignación con custodias, [`RN-102`](docs/01-negocio/reglas/RN-102-reporte-publico-de-flota.md) reporte público—, una entró en [`RN-43`](docs/01-negocio/reglas/RN-43-captura-de-campo-sin-conectividad.md), y **tres no eran huecos**: multas y siniestros son M-12, mantenimiento es M-11, y el TAG lo bloquea el insumo #24. El [`README` de reglas](docs/01-negocio/reglas/README.md) los declara ahora, que era lo que el hallazgo pedía de raíz. `HN1-09` se cierra con [`RN-98`](docs/01-negocio/reglas/RN-98-paquete-de-evidencia-por-vehiculo-o-periodo.md): la evidencia se entrega también por vehículo y por período, no solo por misión.
 3. ✅ **`HN1-14` quedó cerrado el 2026-08-26.** [`RN-52`](docs/01-negocio/reglas/RN-52-registro-de-consultas-a-manifiestos.md) declaraba `[V]` una exigencia del MARCI que `NRM-01` tiene `[C]` — **y su cabecera contradecía a su propio cuerpo**, que ya decía lo correcto. La verificación quedó separada en sus tres afirmaciones: `[V]` el hábeas data del Artículo 182, `[C]` la exigencia del MARCI, `[I]` que del hábeas data se siga registrar cada consulta. **Sigue siendo bloqueo duro y no configurable**, dicho expresamente en la regla. Se alinearon los otros cuatro artefactos que repetían la escalada.
 
-Quedan **catorce** repartidos entre los tres informes, todos de severidad media o baja. El que más pesa para cerrar el Sprint 0 es `HN1-13` —las restricciones médicas bloquean sin distinguir en la máquina de estados y son configurables por catálogo en [`RN-11`](docs/01-negocio/reglas/RN-11-restricciones-medicas-del-motorista.md)—. Le siguen `HB1-23`, que deja `PC-12` exigiendo el manifiesto antes de un despacho que lo emite como efecto, y `HB1-26`, que tiene el glosario sin definir ninguno de los diez estados del ciclo de vida.
+Quedan **trece** repartidos entre los tres informes, todos de severidad media o baja. `HN1-13` quedó cerrado en los artefactos el 2026-08-26, **pero su alineación en el código está a medias** — ver abajo. Los que siguen pesando son `HB1-23`, que deja `PC-12` exigiendo el manifiesto antes de un despacho que lo emite como efecto, y `HB1-26`, que tiene el glosario sin definir ninguno de los diez estados del ciclo de vida.
 
 **No confundir con lo anterior.** Esto ya se resolvió y no debe volver a listarse como pendiente.
 

@@ -34,7 +34,17 @@ public sealed record ResultadoDeHabilitacion(
 /// Pura: sin base de datos, sin reloj. Las fechas entran como parámetro, que es lo que
 /// `ADR-006` y `ADR-007` necesitan y lo que la guarda NingunaReglaLeeElReloj exige.
 ///
-/// <b>Sin excepción configurable</b> (`DP-001, D-12`).
+/// <b>Sin excepción configurable</b> (`DP-001, D-12`) — para las condiciones 1 y 2.
+///
+/// <b>⚠️ Esta clase todavía no refleja la corrección de `HN1-13`.</b> Sigue evaluando las
+/// restricciones médicas como condición 3 de `BD-02`, con bloqueo duro y sin excepción.
+/// La máquina de estados —autoridad— ya las sacó a <c>BD-12</c>, donde el efecto lo decide
+/// el catálogo: bloqueo solo para las tipificadas como incompatibilizantes, advertencia con
+/// acuse para el resto (`RN-11`). La evaluación nueva vive en
+/// <see cref="ReglasDeRestriccionMedica"/> y está probada; falta <b>retirar la condición 3
+/// de aquí</b> y propagar el cambio a <c>EvaluacionDeAsignacion</c>, a la API y a la
+/// pantalla de asignación. No se hizo en el mismo paso porque Smart App Control impidió
+/// correr la suite, y ese cambio rompe tres capas si sale mal.
 /// </summary>
 public static class ReglasDeHabilitacion
 {
