@@ -26,6 +26,7 @@ cd campo && npm run verificar
 | [`Conciliacion`](nucleo/Conciliacion.ts) | [`RN-45`](../docs/01-negocio/reglas/RN-45-cero-sobrescritura-silenciosa.md) — **cero sobrescritura silenciosa**. Dos versiones distintas del mismo hecho conservan las dos y van a cola humana |
 | [`SubrangoDeFolios`](nucleo/Folios.ts) | [`RN-44`](../docs/01-negocio/reglas/RN-44-identificadores-y-folios-en-el-cliente.md) y `RNF-21` — el folio se toma **sin consultar al servidor**, y el subrango es **del dispositivo, no de la delegación** |
 | [`AlmacenSqlite`](nucleo/AlmacenSqlite.ts) | [`ADR-003`](../docs/03-arquitectura/adr/ADR-003-cliente-de-campo-instalado.md) — **fuente de verdad local, no caché**. Lo capturado sobrevive a que Android mate el proceso, que en gama baja ocurre sin avisar |
+| [`ColaDeAdjuntos`](nucleo/ColaDeAdjuntos.ts) | [`RN-43`](../docs/01-negocio/reglas/RN-43-captura-de-campo-sin-conectividad.md) y [`ADR-004`](../docs/03-arquitectura/adr/ADR-004-adjuntos-fuera-de-la-base.md) — los adjuntos van en **su propia cola** y no retienen al hecho que respaldan |
 
 ### El corte del cifrado, dicho sin adornos
 
@@ -56,7 +57,8 @@ El caso concreto que esto atrapa: el motorista registra el retorno con 84.320 km
 | **La aplicación React Native** — pantallas, cámara, GPS en segundo plano | Necesita máquina con Android SDK y Java |
 | **El cifrado en reposo** | El esquema, las consultas y la durabilidad están probados; **que el archivo quede ilegible sin la clave, no**. Se verifica en el dispositivo |
 | **La asignación de subrangos** — quién los reparte, cuándo se recargan, y el aviso antes de que un dispositivo salga con el saldo bajo | El consumo ya está; **repartirlos es de `M-01`**, que no existe |
-| **Adjuntos diferidos** — ≥ 200 fotografías por dispositivo | [`ADR-004`](../docs/03-arquitectura/adr/ADR-004-adjuntos-fuera-de-la-base.md) |
+| **La subida de los adjuntos** — la cola existe; **nadie sube el binario todavía**. Y el servidor no tiene dónde recibirlo | `ADR-004` fija el almacén de archivos; no está construido |
+| **La compresión automática** que `RNF-03` exige para llegar a ≥ 200 fotografías | Es de la cámara, en el módulo nativo |
 | **La cola de resolución de conflictos** | El núcleo los **detecta** (`Conciliacion`) y el servidor todavía no los recibe: hoy solo sincronizan `T-14` y `T-18`, que un dispositivo no captura dos veces. La cola es de `M-16` |
 | **`RNF-12`** — ≤ 25 % de batería en 8 h, gama baja | **No se ha medido nada.** Es el requisito más ajustado del sistema |
 
