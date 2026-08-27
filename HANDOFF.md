@@ -10,15 +10,15 @@ Punto único de entrada para saber en qué va el proyecto. Si algo figura acá c
 
 **Hay stack, y hay autorización para programar.** La [designación de LOKI del 2026-08-26](docs/07-gestion/designaciones/2026-08-26-stack-y-arranque.md) fijó el stack y el PO autorizó el arranque. Eso activó la cláusula de revisión que [`ADR-000`](docs/03-arquitectura/adr/ADR-000-diferir-seleccion-de-stack.md) escribió para sí mismo, y [`ADR-002`](docs/03-arquitectura/adr/ADR-002-adoptar-el-stack-tecnologico.md) lo supera formalmente.
 
-**Ya hay código, camina, y se ve.** El backend atraviesa API → Aplicación → Dominio → SQL Server → bitácora encadenada, con **60 pruebas**. Y hay **cuatro pantallas de oficina conectadas a la API real**, no a datos de muestra.
+**Ya hay código, camina, y se ve.** El backend atraviesa API → Aplicación → Dominio → SQL Server → bitácora encadenada, con **71 pruebas**. Y hay **seis pantallas de oficina conectadas a la API real**, no a datos de muestra.
 
 El circuito que funciona hoy, de punta a punta y verificado contra SQL Server:
 
 ```
-solicitar → autorizar → cola de programación → asignar vehículo y motorista → programar
+solicitar → autorizar → programar → despachar → en ruta → retornar → liquidar → CERRAR
 ```
 
-Con `BD-01`, `BD-02` y `BD-03` evaluándose de verdad, la caducidad de la aprobación, y la anulación con motivo tipificado.
+Con `BD-01`, `BD-02`, `BD-03`, `BD-06` y `BD-12` evaluándose de verdad, la caducidad de la aprobación, y la anulación con motivo tipificado.
 
 | Bloque | Qué produjo | Estado |
 |---|---|---|
@@ -28,7 +28,7 @@ Con `BD-01`, `BD-02` y `BD-03` evaluándose de verdad, la caducidad de la aproba
 | 3 — Requisitos | 18 casos de uso, **150 historias** con Gherkin, 21 no funcionales, backlog | ✅ Revisado y corregido en `3f4ced4` |
 | 4 — Diseño | Modelo de datos bitemporal con 43 entidades, 126 pantallas, **41 maquetadas** | ✅ Revisado y corregido en `3f4ced4` |
 
-**406 documentos de análisis · 4,177 líneas de C# de producción y 1,965 de pruebas · 2,558 de TypeScript propio · 66 pruebas en verde · 58 commits.** Las de C# excluyen las migraciones generadas; las de TypeScript, el sistema de diseño de LOKI. Las reglas de negocio son **103**.
+**406 documentos de análisis · 4,177 líneas de C# de producción y 1,965 de pruebas · 2,558 de TypeScript propio · 71 pruebas en verde · 61 commits.** Las de C# excluyen las migraciones generadas; las de TypeScript, el sistema de diseño de LOKI. Las reglas de negocio son **103**.
 
 Las líneas de C# excluyen las migraciones de EF, que son generadas. El TypeScript excluye el sistema de diseño de LOKI, que se copió, no se escribió.
 
@@ -58,11 +58,41 @@ El 2026-08-26 bloqueó durante horas la carga de **cualquier binario .NET recié
 
 **Puede repetirse con cualquier binario nuevo.** Si vuelve a aparecer `0x800711C7`, no es el código: es SAC evaluando un ensamblado que todavía no tiene reputación. Las salidas son esperar, trabajar en otra máquina, o instalar WSL2 — **apagar SAC es irreversible** sin reinstalar Windows, así que no es la primera opción.
 
+> ### 🔑 Antes de culpar a SAC: **baje lo que levantó**
+>
+> Verificado el 2026-08-27. Con `Sigti.Api` corriendo, `dotnet test` falla; **al detenerla, pasa al primer intento**. Buena parte de lo que se atribuyó a Smart App Control durante horas era esto.
+>
+> Son **dos errores distintos** y el mensaje los distingue:
+>
+> | Error | Qué es | Qué hacer |
+> |---|---|---|
+> | `MSB3027` — *«el archivo se ha bloqueado por: Sigti.Api (NNNN)»* | La API viva tomando los DLL | **Bajarla.** Es lo primero que hay que mirar |
+> | `0x800711C7` — *«una directiva de Control de aplicaciones bloqueó este archivo»* | Smart App Control de verdad | Esperar, u otra máquina |
+>
+> **Regla operativa: al terminar de verificar en pantalla, detener la API antes de correr la suite.**
+
 **Lo que se aprendió el 2026-08-27, y acota las salidas.** El bloqueo puede durar **toda una sesión**: más de ochenta intentos, limpiando `bin`/`obj`, en Debug y en Release, y con la salida fuera del repositorio. **La ruta no importa** — SAC decide por reputación del binario, y cada compilación produce un hash nuevo.
 
 Y no afecta solo a las pruebas: `dotnet run` de la API falla igual, con `Sigti.Datos.dll`. **Compilar sí funciona; lo que se bloquea es cargar el ensamblado.** O sea que con SAC en este estado se puede escribir y compilar, pero no ejecutar nada del proyecto — ni pruebas, ni API, ni verificación en pantalla.
 
 SAC **no tiene lista de exclusiones**: es activo / evaluación / apagado, y de apagado no se vuelve. Con eso, las salidas reales son dos: **correrlo en la otra máquina**, o que el PO decida apagar SAC sabiendo que es de un solo sentido.
+
+### El ciclo de vida de la misión llega al final
+
+`T-20`, `T-21` y `T-22` están implementados y **verificados en pantalla contra la API real**. El sistema ya no se detiene en `LIQUIDADA`.
+
+| Pieza | Estado |
+|---|---|
+| `OrdenDeMision.Cerrar` y `DevolverLiquidacion` | 5 pruebas · el invariante de §7.2 es **estructural**: `Cerrar` no recibe el estado destino |
+| `POST /misiones/{id}/cerrar` · `/devolver-liquidacion` | Un solo endpoint para `T-21` y `T-22`, a propósito |
+| [Cola de cierre](oficina/src/modulos/M13_Cierre/Cola.tsx) · [Cierre](oficina/src/modulos/M13_Cierre/Cierre.tsx) | Quinta y sexta pantalla de la oficina |
+| Prueba de punta a punta | Recorre las **nueve** transiciones hasta `CERRADA` |
+
+**Verificado en el navegador, no solo en pruebas:** se creó un expediente real, se llevó a `LIQUIDADA`, se cerró desde la pantalla, y se comprobó en la base que quedó `Cerrada` con `T-21` en el diario. Contra la API: `BD-06` devuelve **409** a quien liquidó, y un cierre con hallazgo sin justificación devuelve **409** con el criterio nombrado.
+
+**Un defecto que solo apareció al pulsar el botón:** la pantalla seguía mostrando *«Liquidada»* y ofreciendo cerrar un expediente ya cerrado. Corregido — si el expediente dejó `LIQUIDADA`, la pantalla lo dice y ofrece volver a la cola.
+
+**Lo que falta para que esto sirva de verdad:** los criterios `H-01` a `H-13` **no se detectan todavía**. `M-09`, `M-13` y `M-18` no existen, así que no hay conciliación de combustible, ni de peajes, ni cadena que evaluar — y **todo expediente cierra limpio**. La función que los calcula está marcada como provisional y devuelve lista vacía, en lugar de fingir una evaluación que no ocurrió.
 
 ### `BD-12` cerrado en las tres capas, y verificado
 
@@ -200,7 +230,7 @@ Cada informe lleva ahora su desglose. **Los tres que se señalaron como priorita
 | **`M-02` bitemporal** — resolución a la fecha del hecho, bloqueo sin vigencia, doble control que registra también los intentos rechazados | `M02_Parametros/` |
 | **`ReglasDeVigencia`** — los dos ejes en un solo lugar, para que ningún módulo implemente uno y suponga que el otro viene puesto | `Sigti.Dominio/Reglas/` |
 
-### Cuatro pantallas de oficina, contra la API real
+### Seis pantallas de oficina, contra la API real
 
 | Pantalla | Qué resuelve |
 |---|---|
@@ -208,6 +238,8 @@ Cada informe lleva ahora su desglose. **Los tres que se señalaron como priorita
 | **`PT-014`** Expediente en decisión | En una sola pantalla, en el orden de la decisión. **No retira el botón de autorizar** con advertencias: `RN-50` lo prohíbe |
 | **`PT-025`** Cola de programación | Caducidad visible antes de intentar, y depuración con motivo del catálogo |
 | **`PT-026`/`PT-027`/`PT-028`** Asignación y rechazo | La evaluación corre **al elegir**. El rechazo nombra la categoría que se necesita y ofrece las salidas en la misma pantalla |
+| **Cola de cierre** | Los liquidados sin cerrar, con el aviso de que lo que no cierre al corte pasa al **saldo de apertura** del ejercicio siguiente (`RN-97`) |
+| **Cierre** | **No hay dos botones.** El criterio decide si el cierre lleva hallazgo; quien cierra confirma con su justificación. Y la salida que no es cerrar: devolver la liquidación |
 
 ### Decisiones que quedaron hechas estructura, no comprobación
 

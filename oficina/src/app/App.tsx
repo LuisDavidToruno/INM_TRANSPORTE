@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarClock, ClipboardCheck, Palette } from 'lucide-react';
+import { CalendarClock, ClipboardCheck, FileCheck2, Palette } from 'lucide-react';
 
 import { Avisos, Nota, Shell, avisar } from '../ui';
 import type { GrupoNav, Miga } from '../ui';
@@ -16,6 +16,8 @@ import Bandeja from '../modulos/M06_Autorizacion/Bandeja';
 import Expediente from '../modulos/M06_Autorizacion/Expediente';
 import Asignacion from '../modulos/M07_Programacion/Asignacion';
 import Cola from '../modulos/M07_Programacion/Cola';
+import ColaDeCierre from '../modulos/M13_Cierre/Cola';
+import Cierre from '../modulos/M13_Cierre/Cierre';
 import { bandejaDeAutorizacion, origenDeDatos } from '../api/misiones';
 
 /**
@@ -80,7 +82,12 @@ function Interior(): ReactElement {
       titulo: 'M-07 Programación y despacho',
       items: [
         { texto: 'Cola de programación', icono: <CalendarClock />, href: '/programacion' },
-        
+      ],
+    },
+    {
+      titulo: 'M-13 Liquidación y cierre',
+      items: [
+        { texto: 'Cola de cierre', icono: <FileCheck2 />, href: '/cierre' },
       ],
     },
     { items: [{ texto: 'Sistema de diseño', icono: <Palette />, href: '/sistema-diseno' }] },
@@ -114,6 +121,8 @@ function Interior(): ReactElement {
         <Route path="/programacion" element={<Cola />} />
         
         <Route path="/programacion/:id" element={<Asignacion />} />
+        <Route path="/cierre" element={<ColaDeCierre />} />
+        <Route path="/cierre/:id" element={<Cierre />} />
         <Route
           path="/sistema-diseno"
           element={
@@ -135,6 +144,8 @@ function migasDe(ruta: string): Miga[] {
   if (ruta === '/autorizacion') return ["Autorización"];
   if (ruta.startsWith('/programacion/')) return [{ texto: 'Programación', href: '/programacion' }, 'Asignación'];
   if (ruta === '/programacion') return ['Programación'];
+  if (ruta.startsWith('/cierre/')) return [{ texto: 'Cierre', href: '/cierre' }, 'Expediente'];
+  if (ruta === '/cierre') return ['Cierre'];
   if (ruta === '/sistema-diseno') return ["Sistema de diseño"];
   return [];
 }

@@ -7,6 +7,19 @@
       "runtimeArgs": ["run", "dev"],
       "cwd": "oficina",
       "port": 5180
+    },
+    {
+      "name": "api",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": [
+        "run",
+        "--project",
+        "src/Sigti.Api",
+        "--no-build",
+        "--urls",
+        "http://localhost:5199"
+      ],
+      "port": 5199
     }
   ]
 }

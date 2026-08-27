@@ -161,3 +161,55 @@ function conRetardo<T>(valor: T): Promise<T> {
 
 /** Para que la interfaz pueda decir de dónde vienen los datos, en vez de fingir. */
 export const origenDeDatos = BASE ? 'servidor' : 'muestra';
+
+/**
+ * Un criterio `H-nn` que se cumplió, con el caso concreto que lo demuestra.
+ *
+ * **El catálogo no se cablea acá.** `H-01` a `H-13` son parámetro con vigencia (`RN-39`),
+ * y quien los detecta es el servidor a partir de la conciliación — no esta pantalla.
+ */
+export interface CriterioDetectado {
+  criterio: string;
+  detalle: string;
+}
+
+/** Los expedientes liquidados esperando cierre. */
+export async function colaDeCierre(): Promise<Expediente[]> {
+  if (!BASE) return conRetardo([]);
+  const crudos = await pedir<ExpedienteDelServidor[]>('/misiones?estado=Liquidada');
+  return crudos.map(alExpediente);
+}
+
+/**
+ * `T-21` y `T-22` — **un solo acto**.
+ *
+ * <b>No se manda el estado destino</b>, y esa ausencia es la regla: `orden-de-mision.md`
+ * §7.2 dice que *«quien cierra no elige entre cerrar limpio o con hallazgo — el criterio
+ * decide y él lo confirma con su justificación»*. Si esta función recibiera el destino,
+ * la interfaz podría pedir el equivocado.
+ */
+export async function cerrar(
+  id: string,
+  ejecuta: string,
+  criterios: CriterioDetectado[],
+  justificacion: string | null,
+): Promise<void> {
+  if (!BASE) return conRetardo(undefined);
+  await pedir(`/misiones/${id}/cerrar`, {
+    method: 'POST',
+    body: JSON.stringify({ ejecuta, momento: new Date().toISOString(), criterios, justificacion }),
+  });
+}
+
+/** `T-20` — Devolver la liquidación para rehacerla. El motivo dice qué corregir. */
+export async function devolverLiquidacion(
+  id: string,
+  ejecuta: string,
+  motivo: string,
+): Promise<void> {
+  if (!BASE) return conRetardo(undefined);
+  await pedir(`/misiones/${id}/devolver-liquidacion`, {
+    method: 'POST',
+    body: JSON.stringify({ ejecuta, motivo, momento: new Date().toISOString() }),
+  });
+}
