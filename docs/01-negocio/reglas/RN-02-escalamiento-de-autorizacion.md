@@ -37,7 +37,26 @@ Aplica cuando se detecta identidad entre solicitante y autorizador en cualquier 
 ## Casos límite
 
 - **Toda la cadena está en la misma persona** (dependencia unipersonal). Bloqueo, con mensaje que identifica el punto de ruptura. `[C]` la institución debe designar un autorizador alterno por dependencia; sin eso, la dependencia no puede operar.
-- **El nivel superior está de vacaciones o incapacitado.** Se resuelve con [RN-07](RN-07-delegacion-de-autorizacion.md), delegación vigente; no con salto de nivel automático. Un salto automático a un nivel más alto sin acto de delegación deja la aprobación sin fundamento.
+- **El nivel superior está de vacaciones o incapacitado.** La solicitud **escala al inmediato superior de ése**, por la misma vía y con el mismo fundamento que el resto de esta regla. Lo que **no** ocurre es un salto que se brinque niveles ni la aparición de una competencia que la jerarquía no da.
+
+> **Corrección — hallazgo `HN1-16`. No eran dos posiciones incompatibles.**
+>
+> Este caso límite decía que la ausencia *«se resuelve con [`RN-07`](RN-07-delegacion-de-autorizacion.md), delegación vigente; **no con salto de nivel automático**»*, mientras [`actores-y-roles` §7.3](../actores-y-roles.md) prescribe que las solicitudes de un puesto ausente *«escalan automáticamente al puesto superior»*. El revisor las dio por irreconciliables y dejó la elección al PO.
+>
+> **Al leerlas juntas se ve que no chocan: mezclaban dos cosas distintas.**
+>
+> | | Qué hace | Qué necesita |
+> |---|---|---|
+> | **Delegar** ([`RN-07`](RN-07-delegacion-de-autorizacion.md)) | Da la facultad a alguien que **no la tendría** — un par, un subordinado, otro puesto | **Un acto**: vigencia, ámbito enumerado, autor |
+> | **Escalar** (esta regla) | **Enruta** la decisión a quien **ya es competente** por jerarquía | Nada nuevo: la competencia ya existe |
+>
+> Y esta misma regla ya escala al inmediato superior sin acto de delegación cuando el solicitante es el autorizador. **Si eso vale ahí, vale igual ante una ausencia registrada:** en ambos casos el autorizador natural no puede actuar, y en ambos la decisión va a quien la jerarquía ya faculta.
+>
+> Lo que `RN-02` protegía —*«una autorización necesita competencia, y la competencia nace de un acto»*— sigue protegido, porque **el acto es el nombramiento en el puesto**, no una delegación adicional. Lo que sí queda prohibido es lo que la frase decía mal: **saltarse niveles**.
+>
+> `actores-y-roles` §7.3 lo remata con la garantía que faltaba decir en voz alta: *«ninguna misión queda trabada por una ausencia; ninguna autorización aparece firmada por quien no la firmó»*. El superior autoriza **con su propia identidad**, y el expediente registra que llegó ahí por escalamiento y por qué ausencia.
+>
+> `[C]` El plazo tras el cual escala sigue pendiente — pendiente **H** de `actores-y-roles` §9. Y la cadena concreta es dato del espejo de ARGOS, insumo **#16**.
 - **La máxima autoridad solicita para sí.** No hay superior jerárquico. `[C]` confirmar con la institución quién autoriza: en la práctica suele ser el propio acuerdo de nombramiento o una instancia colegiada. Hasta que se confirme, el sistema exige registrar el **fundamento documental** del acto y marca la orden para revisión de ACT-12 Auditor Interno.
 - **El autorizador es el cónyuge, pariente o subordinado directo del solicitante.** El conflicto de interés por parentesco **no** se detecta automáticamente: SIGTI no conoce esos vínculos. Se resuelve con declaración de excusa del autorizador, que el sistema registra y que dispara el escalamiento por la misma vía. `[C]` confirmar si la institución tiene régimen de excusa formal.
 - **La cadena de ARGOS está desactualizada** porque la sincronización lleva días detenida. Aplica [RN-50](RN-50-degradacion-por-sincronizacion-detenida.md): se advierte y, superado el umbral, se bloquea la autorización antes que autorizar contra una jerarquía que ya no existe.

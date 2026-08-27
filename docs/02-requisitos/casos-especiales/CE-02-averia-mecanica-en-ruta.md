@@ -38,15 +38,23 @@ Además, la máquina de estados **no tiene salida para esto**: desde `EN_RUTA` s
 
 **1. Un evento de bitácora, no un estado nuevo.** El motorista registra el evento tipificado **`INTERRUPCION_EN_RUTA`** desde el cliente de campo, **sin conexión** (`RN-43`), con la mínima fricción posible: hora del hecho, ubicación descrita, odómetro, causa tipificada, y fotografías. La Orden de Misión **sigue en `EN_RUTA`** y recibe la **marca de situación "interrumpida"**, con la lista de pendientes visible. Es el mismo mecanismo que la máquina de estados ya usa para "anulación en trámite" en `T-15`: una marca sobre el expediente, no un estado inventado.
 
-**2. Registrar la interrupción congela la ejecución y habilita exactamente tres desenlaces.**
+**2. Registrar la interrupción congela la ejecución y abre los desenlaces que este caso admite.**
+
+> **Corrección — hallazgo `HB3-13`. «Pendiente de resolución» no es un desenlace: es su ausencia.**
+>
+> Esta sección listaba tres desenlaces y el tercero era *«queda pendiente de resolución»*. [`RN-70`](../../01-negocio/reglas/RN-70-interrupcion-en-ruta-con-desenlace-obligatorio.md) lista cuatro y **ninguno es ése** — porque esa misma regla exige *«desenlace explícito, tipificado y registrado»* y remata que ninguna misión con marca de interrupción **sin desenlace** puede quedar viva al cierre del período.
+>
+> **La consecuencia era medible y mala.** Un tablero que cuenta *«interrupciones con desenlace»* incluiría las que no lo tienen, y el Jefe de Transporte vería resueltas misiones que siguen abiertas. El indicador que existe para vigilar la cola la estaría escondiendo.
+>
+> **Este caso es un subconjunto de `RN-70`, y ahora lo dice.** No todos los desenlaces del catálogo aplican a una avería: *«continuar con el mismo vehículo y conductor»* está descartado por definición — el vehículo perdió los frenos.
 
 | Desenlace | Qué hace el sistema |
 |---|---|
-| **Continúa con vehículo sustituto** | Se abre un **tramo nuevo** bajo la misma Orden de Misión, con el vehículo y el motorista sustitutos, previa revalidación completa de `BD-02`, `BD-03` y `BD-07` contra el paquete normativo congelado que lleva el dispositivo (`RN-14`). La bitácora del vehículo original se cierra en el punto de la avería con su odómetro. Combustible, peajes y kilometraje se imputan **a cada vehículo por separado**. La categoría de peaje del vehículo entrante puede ser distinta: el estimado del tramo restante se recalcula con el paquete congelado (`RN-33`, `RN-34`, `RN-41`) |
+| **Continúa con vehículo sustituto** | Se abre un **tramo nuevo** bajo la misma Orden de Misión, con el vehículo y el motorista sustitutos, previa revalidación completa de `BD-02`, `BD-03` y `BD-12` |
 | **Se aborta la misión y se retorna** | `T-18` con subtipo **retorno anticipado**. Ver `CE-07`: la liquidación es por lo efectivamente ejecutado |
-| **Queda pendiente de resolución** | La marca "interrumpida" permanece, con responsable y fecha límite asignados. **No se puede cerrar el ejercicio con misiones en esta marca**, y el sistema las lista para `ACT-04` y `ACT-08` |
-
-**3. En los tres desenlaces, el vehículo sale de circulación.** El evento genera automáticamente la orden de trabajo correctiva en M-11 y lleva el vehículo a `EN_TALLER` o `NO_DISPONIBLE` con causa tipificada (`W-07`, `W-08` de la máquina de estado operativo; `RN-19`). Un vehículo averiado no puede aparecer como asignable para la misión de mañana.
+| **Retorno sin el vehículo**, resguardado o retenido en sitio | Es el caso probable de Catacamas: la unidad no puede moverse. [`RN-75`](../../01-negocio/reglas/RN-75-bien-retenido-o-sustraido-no-sale-del-registro.md) — **el bien no sale del registro** por estar lejos |
+| ~~Queda pendiente de resolución~~ | ⛔ **No es un desenlace.** Es el **estado mientras no hay ninguno**: la marca «interrumpida» permanece, con responsable y fecha límite, y **no se puede cerrar el ejercicio con misiones así** ([`RN-97`](../../01-negocio/reglas/RN-97-saldo-de-apertura-de-control-interno.md)). Cuenta como **pendiente**, nunca como resuelta |
+**3. En los tres desenlaces, y también mientras queda pendiente, el vehículo sale de circulación.** El evento genera automáticamente la orden de trabajo correctiva en M-11 y lleva el vehículo a `EN_TALLER` o `NO_DISPONIBLE` con causa tipificada (`W-07`, `W-08` de la máquina de estado operativo; `RN-19`). Un vehículo averiado no puede aparecer como asignable para la misión de mañana.
 
 **4. La custodia de la carga es un hecho registrable.** Si la carga se transborda al vehículo sustituto, se registra **acta de transbordo** con inventario, hora y firma de quien entrega y quien recibe. Si se resguarda en un tercer lugar, se registra dónde y bajo responsabilidad de quién. La cadena de custodia no se interrumpe porque el vehículo se haya averiado (`RN-22` para el vehículo; para la carga ver la regla candidata).
 

@@ -4,16 +4,16 @@
 |---|---|
 | **Módulos** | M-15, M-04, M-07 |
 | **Origen** | Norma [NRM-02](../normativa/NRM-02-bienes-del-estado.md) y [NRM-08](../normativa/NRM-08-firma-electronica.md); premisa rectora 4 de `CLAUDE.md` |
-| **Verificación** | `[V]` la exigencia de permiso portable y control físico en carretera |
+| **Verificación** | `[V]` la exigencia de **permiso portable y control físico en carretera** — [NRM-02](../normativa/NRM-02-bienes-del-estado.md). `[V]` que **no hay firma electrónica certificada** en el país y la autorización es interna — [NRM-08](../normativa/NRM-08-firma-electronica.md). `[I]` **el formato concreto** —folio, QR, hash, espacio de firma—: es diseño del equipo derivado de la premisa rectora 4 de [`CLAUDE.md`](../../../CLAUDE.md), que es premisa de proyecto y no norma. `[C]` **si la institución acepta exponer un punto de verificación público en internet**, siendo el despliegue on-premise — pendiente **G** |
 | **Tipo** | Bloqueo duro |
-| **Configurable** | No |
+| **Configurable** | No el documento ni sus seis elementos. **Sí el alcance del punto de verificación** — `alcance_verificacion` con valores *público en internet / interno de la institución* — y su valor lo decide el pendiente **G**, no esta regla |
 
 ## Enunciado
 
 Todo documento destinado al control físico en carretera — salvoconducto de circulación en día u hora inhábil, orden de misión, constancia de asignación de combustible, manifiesto — **debe** tener versión imprimible que incluya:
 
 1. **Folio único** dentro de la institución
-2. **Código QR** que resuelva a una página pública de verificación
+2. **Código QR** que resuelva a un **punto de verificación**, cuyo alcance —público en internet o interno de la institución— es **configuración**, no parte del bloqueo. Ver la nota de `HN1-17`
 3. Espacio para **firma y sello**
 4. **Huella (hash)** del documento electrónico en el pie
 5. Identificación del vehículo por correlativo institucional y placa si existe
@@ -22,6 +22,26 @@ Todo documento destinado al control físico en carretera — salvoconducto de ci
 La página de verificación **debe** informar autenticidad y estado — vigente, anulado, vencido — **sin exponer datos personales**.
 
 El despacho de una misión que requiere salvoconducto **debe** bloquearse si el salvoconducto no ha sido emitido.
+
+## Nota de corrección — hallazgo `HN1-17`
+
+> **Qué estaba mal.** Esta regla exigía, como **bloqueo duro sin configuración**, que el QR resolviera a *«una página pública de verificación»* — y que esa página exista. Pero [`actores-y-roles`](../actores-y-roles.md), en `ACT-15`, deja `[C]` la pregunta de fondo: *«si la institución acepta exponer un punto de verificación público en internet, siendo el despliegue on-premise»* — pendiente **G**.
+>
+> **Una regla no configurable que depende de una decisión institucional no tomada es una regla que se va a incumplir o a desactivar.** Y el supuesto de fondo —que hay internet publicable desde el servidor on-premise de la institución— es de los que este proyecto advierte que no deben darse por seguros.
+>
+> **Qué se corrigió, y qué no.** Se separó lo que está decidido de lo que no:
+>
+> | | Estado |
+> |---|---|
+> | Que el documento lleve **folio, QR, hash, firma, sello, vigencia e identificación** | **Bloqueo duro, sin configuración.** No cambia |
+> | Que exista un **punto de verificación** al que el QR resuelva | **Bloqueo duro.** Tampoco cambia |
+> | Que ese punto sea **público en internet** o **interno de la institución** | **Configuración** — `alcance_verificacion`, pendiente **G** |
+>
+> Lo que se retira no es el control: es la **suposición** de que el control solo puede ejercerse por una vía. Un QR que resuelve contra un punto interno sigue verificando el documento — lo que cambia es quién puede consultarlo, y eso es exactamente lo que la institución tiene que decidir.
+>
+> **El realismo que ya tenía esta regla, aplicado al otro lado.** Sus casos límite resuelven bien al verificador **sin señal en carretera** —código corto legible más contraste visual del hash—, que es el escenario real hondureño. Lo que faltaba era el mismo realismo del lado del servidor: no dar por hecho que hay un servidor publicable.
+>
+> **Corregido de paso el nivel de verificación.** Decía `[V]` a secas sobre un enunciado cuyo origen incluye *«la premisa rectora 4 de `CLAUDE.md`»*, que es premisa de proyecto y no norma. Lo `[V]` es la exigencia de permiso portable y la ausencia de firma electrónica certificada; **el formato concreto es `[I]`**.
 
 ## Justificación
 

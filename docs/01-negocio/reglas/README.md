@@ -11,7 +11,7 @@ Plantilla: [`docs/plantillas/regla-de-negocio.md`](../../plantillas/regla-de-neg
 | Columna | Significado |
 |---|---|
 | **Tipo** | `Bloqueo duro` impide la operación · `Advertencia` deja continuar con acuse registrado · `Cálculo` produce un valor · `Derivación` resuelve un atributo a partir de otros |
-| **Cfg.** | Qué se puede configurar. **`No`** = nada; ni el bloqueo ni su alcance se desactivan. **`Sí`** = hay parámetro, catálogo o umbral configurable, **pero el bloqueo en sí no se apaga** — es el valor de la mayoría de las filas. **`Sí*`** = **el bloqueo mismo es configurable** y se puede dejar apagado. Hoy **solo [RN-16](RN-16-seguro-y-revision-mecanica.md)** lo es, y lo dice en su ficha: el bloqueo por póliza y revisión nace **apagado por defecto** |
+| **Cfg.** | Qué se puede configurar. **`No`** = nada; ni el bloqueo ni su alcance se desactivan. **`Sí`** = hay parámetro, catálogo o umbral configurable, **pero el bloqueo en sí no se apaga** — es el valor de la mayoría de las filas. **`Sí*`** = **el bloqueo mismo es configurable** y se puede dejar apagado. Hoy son **dos, con el valor por defecto opuesto**: [RN-16](RN-16-seguro-y-revision-mecanica.md) nace **apagado** —póliza y revisión no son obligatorias por ley `[V]`— y [RN-103](RN-103-matricula-vigente-para-despachar.md) nace **encendido** —la matrícula sí es un trámite que la institución puede resolver, aunque el bloqueo sea `[I]`— |
 | **Origen** | Ficha normativa `NRM-xx`, decisión de producto `DP-001`, decisión de arquitectura `ADR-001`, o premisa rectora del proyecto |
 
 Nivel de verificación (`[V]` `[P]` `[C]` `[I]`) va dentro de cada regla, marcado en cada afirmación normativa.
@@ -78,6 +78,7 @@ Nivel de verificación (`[V]` `[P]` `[C]` `[I]`) va dentro de cada regla, marcad
 | [RN-89](RN-89-kilometraje-acumulado-invariante-del-expediente.md) | El kilometraje acumulado es atributo del expediente del vehículo, independiente de la lectura del instrumento | M-03, M-08, M-11, M-09 | Bloqueo + derivación | No | NRM-01, CE-22 |
 | [RN-90](RN-90-intervencion-del-instrumento-de-medicion.md) | Toda intervención del odómetro es evento con orden de trabajo y autorización nominativa | M-03, M-11, M-08, M-07 | Bloqueo duro | Sí | NRM-01, CE-22 |
 | [RN-99](RN-99-constatacion-fisica-de-la-flota.md) | La flota se **constata físicamente** con acta y comisión, y se concilia contra el registro de bienes | M-03, M-14, M-04, M-16 | Capacidad con efecto en estado operativo | Sí | NRM-01, NRM-02, `HN1-18` |
+| [RN-103](RN-103-matricula-vigente-para-despachar.md) | La **matrícula** debe estar vigente durante todo el rango de la misión, no solo el día de salida | M-04, M-03, M-07 | Bloqueo duro | Sí* | NRM-06, `HN1-11` |
 
 ## Régimen de uso, tenencia y préstamo
 

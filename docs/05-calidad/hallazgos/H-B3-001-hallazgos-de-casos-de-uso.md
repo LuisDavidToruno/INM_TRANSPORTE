@@ -4,7 +4,7 @@
 |---|---|
 | **Origen** | Bloque 3, redacción de `CU-01` a `CU-18` por cuatro analistas en paralelo |
 | **Fecha** | 2026-08-13 |
-| **Estado** | **17 de 19 corregidos y verificados. 2 siguen abiertos** — desglose en la sección siguiente |
+| **Estado** | ****Los 19 corregidos y verificados.** Ninguno abierto** — desglose en la sección siguiente |
 | **Verificación de cierre** | 2026-08-26, contra los artefactos vivos |
 
 
@@ -27,8 +27,8 @@ Diecisiete de los diecinueve están corregidos y verificados contra los artefact
 | `HB3-17` | Corregido | [`HU-104`](../../02-requisitos/historias/HU-104-retirar-de-flota-un-bien-ajeno.md) — devolver un comodato ya no obliga a un asiento falso sobre un bien ajeno |
 | `HB3-18` | Corregido | [`RN-25`](../../01-negocio/reglas/RN-25-salvoconducto-con-folio-y-qr.md) |
 | `HB3-19` | Corregido | [`RN-02`](../../01-negocio/reglas/RN-02-escalamiento-de-autorizacion.md) ya no usa *«puesto superior»*: el escalamiento se nombra por el nivel de la cadena |
-| **`HB3-13`** | **Abierto** | La interrupción sigue teniendo tres desenlaces en `CE-02` y cuatro en [`RN-70`](../../01-negocio/reglas/RN-70-interrupcion-en-ruta-con-desenlace-obligatorio.md), que trata *pendiente de resolución* como si fuera un desenlace. Sin zanjarlo, el tablero del Jefe de Transporte infla el conteo de misiones resueltas |
-| **`HB3-16`** | **Abierto** | [`mapa-de-procesos`](../../01-negocio/mapa-de-procesos.md) `PR-02` sigue admitiendo que aprueben el descargo `ACT-08` **o** `ACT-09`; la máquina de estados dice `ACT-08`. `NRM-02` sigue `[P]`, así que la norma no zanja: **es decisión de producto** |
+| `HB3-13` | Corregido | **«Pendiente de resolución» no es un desenlace: es su ausencia.** [`CE-02`](../../02-requisitos/casos-especiales/CE-02-averia-mecanica-en-ruta.md) lo listaba como el tercero de tres; [`RN-70`](../../01-negocio/reglas/RN-70-interrupcion-en-ruta-con-desenlace-obligatorio.md) exige *«desenlace explícito, tipificado y registrado»* y ninguno de sus cuatro es ése. **La consecuencia era medible**: un tablero que contara «interrupciones con desenlace» habría incluido las que no lo tienen, y el Jefe de Transporte vería resueltas misiones abiertas — el indicador que existe para vigilar la cola la habría escondido. `CE-02` cuenta ahora **tres desenlaces reales** —incluido *retorno sin el vehículo*, que es el caso probable de una avería en Catacamas— y declara que es **subconjunto** de `RN-70`: *«continuar con el mismo vehículo»* no aplica a un vehículo que perdió los frenos |
+| `HB3-16` | **Contradicción cerrada; la decisión es del PO** | Tres artefactos decían cosas distintas sobre quién aprueba el descargo. [`mapa-de-procesos`](../../01-negocio/mapa-de-procesos.md) dejó de afirmar *«`ACT-08` o `ACT-09`»* y remite al `[C]`, que es lo que `CU-17` y `HU-103` ya declaraban. **`NRM-02` está `[P]` y su articulado no se extrajo: la norma no zanja, así que no lo zanjo yo.** Lo que faltaba de verdad era registrarlo — es el **insumo #93**, que nadie había abierto pese a que `CU-17` decía *«insumo nuevo a registrar»* |
 Ninguno de estos hallazgos lo encontró una revisión. Los encontró **alguien usando el diseño** para escribir un flujo concreto y chocando con que no cerraba.
 
 Todos los casos de uso siguieron al artefacto autoridad según la [precedencia de `CLAUDE.md`](../../../CLAUDE.md) y dejaron la divergencia anotada. **Ninguno la resolvió en silencio.**
