@@ -5,6 +5,7 @@ import { Nota, Panel, SelectorApariencia } from '../ui';
 import { useSeccionActiva } from './useSeccionActiva';
 
 import ColorYContraste from './ColorYContraste';
+import { MuestraCarrilesDeFlota } from './MuestraCarriles';
 import EscalaTipografica from './EscalaTipografica';
 import { EscalaEspaciado, GeometriaYElevacion, Iconografia } from './Fundamentos';
 import {
@@ -380,6 +381,13 @@ export default function Vitrina(): ReactElement {
             bajada="La misma tabla en las dos densidades. La densidad NO cambia tamaños de letra: bajar el cuerpo para meter más filas es cómo una interfaz densa se vuelve ilegible."
           >
             <DensidadComparada />
+          </Bloque>
+          <Bloque
+            id="carriles"
+            titulo="Línea de tiempo por carriles"
+            bajada="El mismo componente con datos de dos dominios: ocupación de flota y vigencias de documentos. Contesta lo que una tabla no — qué se solapa con qué y dónde queda el hueco."
+          >
+            <MuestraCarrilesDeFlota />
           </Bloque>
           <Bloque
             id="longitudes"

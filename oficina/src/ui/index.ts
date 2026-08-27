@@ -37,6 +37,7 @@ export { default as SelectorBuscable } from './SelectorBuscable';
    Resuelven un problema entero, no una pieza. */
 export { default as CajonExpediente } from './CajonExpediente';
 export { default as FilaKpis } from './FilaKpis';
+export { default as LineaDeCarriles } from './LineaDeCarriles';
 export { default as MenuAcciones } from './MenuAcciones';
 export { default as Modal } from './Modal';
 export { default as Paginador, ventanaDePaginas } from './Paginador';
@@ -114,6 +115,11 @@ export type { CampoFechaProps } from './CampoFecha';
 export type { EnlaceProps } from './Enlace';
 export type { EsqueletoProps } from './Esqueleto';
 export type { FilaKpisProps, KpiDato } from './FilaKpis';
+export type {
+  BarraDeCarril,
+  CarrilDeLinea,
+  LineaDeCarrilesProps,
+} from './LineaDeCarriles';
 export type { IconoProps } from './Icono';
 export type { MenuAccionesProps } from './MenuAcciones';
 export type { ModalProps } from './Modal';

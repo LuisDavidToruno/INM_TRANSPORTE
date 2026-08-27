@@ -126,7 +126,7 @@ function Interior(): ReactElement {
         <Route
           path="/sistema-diseno"
           element={
-            <Suspense fallback={<p className="tw:text-sm tw:text-[var(--txt-2)]">Cargando la vitrina…</p>}>
+            <Suspense fallback={<p className="tw:text-sm tw:text-tinta-mid">Cargando la vitrina…</p>}>
               <Vitrina />
             </Suspense>
           }
