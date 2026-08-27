@@ -55,7 +55,7 @@ export default function Bandeja(): ReactElement {
   }
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="tw:flex tw:flex-col tw:gap-5">
       <Encabezado pendientes={data?.length ?? 0} cargando={isPending} />
 
       <CampoBusqueda
@@ -88,9 +88,9 @@ export default function Bandeja(): ReactElement {
 
 function Encabezado({ pendientes, cargando }: { pendientes: number; cargando: boolean }): ReactElement {
   return (
-    <header className="flex flex-col gap-1">
-      <h1 className="text-xl font-semibold tracking-tight">Bandeja de autorización</h1>
-      <p className="text-sm text-[var(--txt-2)]">
+    <header className="tw:flex tw:flex-col tw:gap-1">
+      <h1 className="tw:text-xl tw:font-semibold tw:tracking-tight">Bandeja de autorización</h1>
+      <p className="tw:text-sm tw:text-[var(--txt-2)]">
         {cargando
           ? 'Cargando los expedientes bajo su competencia…'
           : pendientes === 1
@@ -122,7 +122,7 @@ const COLUMNAS: ColumnaDef<Expediente>[] = [
     // llega al expediente sin inventar un manejador de tecla sobre un <tr>.
     celda: (e) => (
       <Enlace href={`/autorizacion/${e.id}`}>
-        <span className="font-mono text-[13px] tabular-nums">{e.folio}</span>
+        <span className="tw:font-mono tw:text-[13px] tw:tabular-nums">{e.folio}</span>
       </Enlace>
     ),
     ordenable: true,
@@ -132,9 +132,9 @@ const COLUMNAS: ColumnaDef<Expediente>[] = [
     id: 'solicitante',
     cabecera: 'Solicitante de derecho',
     celda: (e) => (
-      <div className="flex flex-col">
+      <div className="tw:flex tw:flex-col">
         <span>{e.solicitanteDeDerecho}</span>
-        <span className="text-xs text-[var(--txt-2)]">{e.dependencia}</span>
+        <span className="tw:text-xs tw:text-[var(--txt-2)]">{e.dependencia}</span>
       </div>
     ),
     ordenable: true,
@@ -144,9 +144,9 @@ const COLUMNAS: ColumnaDef<Expediente>[] = [
     id: 'objeto',
     cabecera: 'Qué se moviliza',
     celda: (e) => (
-      <div className="flex flex-col">
-        <span className="line-clamp-1">{e.objetoDelTraslado}</span>
-        <span className="text-xs text-[var(--txt-2)]">Destino: {e.destino}</span>
+      <div className="tw:flex tw:flex-col">
+        <span className="tw:line-clamp-1">{e.objetoDelTraslado}</span>
+        <span className="tw:text-xs tw:text-[var(--txt-2)]">Destino: {e.destino}</span>
       </div>
     ),
   },
@@ -155,9 +155,9 @@ const COLUMNAS: ColumnaDef<Expediente>[] = [
     cabecera: 'Salida prevista',
     ancho: 180,
     celda: (e) => (
-      <div className="flex flex-col">
-        <span className="tabular-nums">{diaYHora(e.salidaPrevista)}</span>
-        <span className="text-xs text-[var(--txt-2)]">{faltanDias(e.salidaPrevista)}</span>
+      <div className="tw:flex tw:flex-col">
+        <span className="tw:tabular-nums">{diaYHora(e.salidaPrevista)}</span>
+        <span className="tw:text-xs tw:text-[var(--txt-2)]">{faltanDias(e.salidaPrevista)}</span>
       </div>
     ),
     ordenable: true,

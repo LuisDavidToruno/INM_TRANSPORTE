@@ -71,19 +71,19 @@ export default function Expediente(): ReactElement {
   const exigeMotivo = avisos.length > 0;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="tw:flex tw:flex-col tw:gap-6">
       <Cabecera expediente={data} />
 
       <RastreadorEtapas etapas={ETAPAS_DE_MISION} etapaActual={indiceDeEtapa(data.estado)} />
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="flex flex-col gap-5">
+      <div className="tw:grid tw:gap-5 tw:lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="tw:flex tw:flex-col tw:gap-5">
           <Panel titulo="Qué se solicita">
             <Datos expediente={data} />
           </Panel>
 
           <Panel titulo="Qué dice el sistema">
-            <div className="flex flex-col gap-3">
+            <div className="tw:flex tw:flex-col tw:gap-3">
               {data.validaciones.map((v) => (
                 <ValidacionVista
                   key={v.regla}
@@ -124,12 +124,12 @@ function Cabecera({ expediente }: { expediente: ExpedienteDto }): ReactElement {
   const rotulo = ROTULO_ESTADO[expediente.estado];
 
   return (
-    <header className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
-      <h1 className="font-mono text-xl font-semibold tabular-nums tracking-tight">
+    <header className="tw:flex tw:flex-wrap tw:items-baseline tw:gap-x-4 tw:gap-y-2">
+      <h1 className="tw:font-mono tw:text-xl tw:font-semibold tw:tabular-nums tw:tracking-tight">
         {expediente.folio}
       </h1>
       <Pastilla tono={rotulo.tono}>{rotulo.texto}</Pastilla>
-      <p className="text-sm text-[var(--txt-2)]">
+      <p className="tw:text-sm tw:text-[var(--txt-2)]">
         {expediente.dependencia} · a nombre de {expediente.solicitanteDeDerecho}
       </p>
     </header>
@@ -138,7 +138,7 @@ function Cabecera({ expediente }: { expediente: ExpedienteDto }): ReactElement {
 
 function Datos({ expediente }: { expediente: ExpedienteDto }): ReactElement {
   return (
-    <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
+    <dl className="tw:grid tw:gap-x-8 tw:gap-y-4 tw:sm:grid-cols-2">
       <Dato termino="Objeto del traslado" valor={expediente.objetoDelTraslado} />
       <Dato termino="Destino" valor={expediente.destino} />
       <Dato termino="Salida prevista" valor={momentoCompleto(expediente.salidaPrevista)} />
@@ -151,9 +151,9 @@ function Datos({ expediente }: { expediente: ExpedienteDto }): ReactElement {
 
 function Dato({ termino, valor }: { termino: string; valor: string }): ReactElement {
   return (
-    <div className="flex flex-col gap-0.5">
-      <dt className="text-xs text-[var(--txt-2)]">{termino}</dt>
-      <dd className="text-sm">{valor}</dd>
+    <div className="tw:flex tw:flex-col tw:gap-0.5">
+      <dt className="tw:text-xs tw:text-[var(--txt-2)]">{termino}</dt>
+      <dd className="tw:text-sm">{valor}</dd>
     </div>
   );
 }
@@ -175,13 +175,13 @@ function ValidacionVista({
 
   if (clase === 'conforme') {
     return (
-      <div className="flex gap-2.5 text-sm">
-        <CircleCheck size={16} className="mt-px shrink-0 text-[var(--ok)]" aria-hidden />
-        <div className="flex flex-col gap-0.5">
+      <div className="tw:flex tw:gap-2.5 tw:text-sm">
+        <CircleCheck size={16} className="tw:mt-px tw:shrink-0 tw:text-[var(--ok)]" aria-hidden />
+        <div className="tw:flex tw:flex-col tw:gap-0.5">
           <p>
-            <span className="font-mono text-xs text-[var(--txt-2)]">{regla}</span> {titulo}
+            <span className="tw:font-mono tw:text-xs tw:text-[var(--txt-2)]">{regla}</span> {titulo}
           </p>
-          <p className="text-xs text-[var(--txt-2)]">{detalle}</p>
+          <p className="tw:text-xs tw:text-[var(--txt-2)]">{detalle}</p>
         </div>
       </div>
     );
@@ -191,19 +191,20 @@ function ValidacionVista({
 
   return (
     <Nota tono={esBloqueo ? 'riesgo' : 'aviso'} icono={esBloqueo ? <ShieldBan /> : <TriangleAlert />}>
-      <div className="flex flex-col gap-2">
-        <p className="font-medium">
-          <span className="font-mono text-xs opacity-80">{regla}</span> {titulo}
+      <div className="tw:flex tw:flex-col tw:gap-2">
+        <p className="tw:font-medium">
+          <span className="tw:font-mono tw:text-xs tw:opacity-80">{regla}</span> {titulo}
         </p>
-        <p className="text-sm">{detalle}</p>
+        <p className="tw:text-sm">{detalle}</p>
 
         {!esBloqueo && (
-          <label className="mt-1 flex cursor-pointer items-start gap-2 text-sm">
+          <label className="tw:mt-1 tw:flex tw:cursor-pointer tw:items-start tw:gap-2 tw:text-sm">
             <input
               type="checkbox"
+              aria-label="Doy por leído este aviso"
               checked={acusada}
               onChange={onAcusar}
-              className="mt-0.5 size-4 shrink-0 accent-[var(--acento)]"
+              className="tw:mt-0.5 tw:size-4 tw:shrink-0 tw:accent-[var(--acento)]"
             />
             <span>
               Doy por leído este aviso y asumo la decisión con este dato a la vista.
@@ -217,18 +218,18 @@ function ValidacionVista({
 
 function Diario({ transiciones }: { transiciones: ExpedienteDto['diario'] }): ReactElement {
   return (
-    <ol className="flex flex-col gap-3">
+    <ol className="tw:flex tw:flex-col tw:gap-3">
       {transiciones.map((t) => (
-        <li key={`${t.id}-${t.momento}`} className="flex gap-3 text-sm">
-          <span className="font-mono text-xs text-[var(--txt-2)] tabular-nums">{t.id}</span>
-          <div className="flex flex-col gap-0.5">
+        <li key={`${t.id}-${t.momento}`} className="tw:flex tw:gap-3 tw:text-sm">
+          <span className="tw:font-mono tw:text-xs tw:text-[var(--txt-2)] tw:tabular-nums">{t.id}</span>
+          <div className="tw:flex tw:flex-col tw:gap-0.5">
             <span>
               {ROTULO_ESTADO[t.destino].texto} · {t.ejecuta}
             </span>
-            <span className="text-xs text-[var(--txt-2)] tabular-nums">
+            <span className="tw:text-xs tw:text-[var(--txt-2)] tw:tabular-nums">
               {momentoCompleto(t.momento)}
             </span>
-            {t.motivo && <span className="text-xs text-[var(--txt-2)]">Motivo: {t.motivo}</span>}
+            {t.motivo && <span className="tw:text-xs tw:text-[var(--txt-2)]">Motivo: {t.motivo}</span>}
           </div>
         </li>
       ))}
@@ -267,11 +268,11 @@ function Decision({
   const impedido = bloqueado || faltanAcuses > 0 || faltaMotivo;
 
   return (
-    <aside className="lg:sticky lg:top-4 lg:self-start">
+    <aside className="tw:lg:sticky tw:lg:top-4 tw:lg:self-start">
       <Panel titulo="Su pronunciamiento">
-        <div className="flex flex-col gap-4">
+        <div className="tw:flex tw:flex-col tw:gap-4">
           {bloqueado ? (
-            <p className="text-sm text-[var(--txt-2)]">
+            <p className="tw:text-sm tw:text-[var(--txt-2)]">
               Este expediente no lo puede autorizar usted. Escálelo al nivel inmediato superior
               — el sistema deja constancia de que llegó acá y de por qué no siguió.
             </p>
@@ -305,7 +306,7 @@ function Decision({
           </Boton>
 
           {!bloqueado && impedido && (
-            <p className="text-xs text-[var(--txt-2)]">
+            <p className="tw:text-xs tw:text-[var(--txt-2)]">
               {faltanAcuses > 0
                 ? faltanAcuses === 1
                   ? 'Queda 1 aviso sin dar por leído.'
@@ -325,14 +326,14 @@ function Decision({
 
 function Cargando(): ReactElement {
   return (
-    <div className="flex flex-col gap-6" aria-busy="true" aria-live="polite">
-      <div className="h-7 w-48 animate-pulse rounded bg-[var(--sup-2)]" />
-      <div className="h-16 animate-pulse rounded bg-[var(--sup-2)]" />
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="h-64 animate-pulse rounded bg-[var(--sup-2)]" />
-        <div className="h-48 animate-pulse rounded bg-[var(--sup-2)]" />
+    <div className="tw:flex tw:flex-col tw:gap-6" aria-busy="true" aria-live="polite">
+      <div className="tw:h-7 tw:w-48 tw:animate-pulse tw:rounded tw:bg-[var(--sup-2)]" />
+      <div className="tw:h-16 tw:animate-pulse tw:rounded tw:bg-[var(--sup-2)]" />
+      <div className="tw:grid tw:gap-5 tw:lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="tw:h-64 tw:animate-pulse tw:rounded tw:bg-[var(--sup-2)]" />
+        <div className="tw:h-48 tw:animate-pulse tw:rounded tw:bg-[var(--sup-2)]" />
       </div>
-      <span className="sr-only">Cargando el expediente…</span>
+      <span className="tw:sr-only">Cargando el expediente…</span>
     </div>
   );
 }

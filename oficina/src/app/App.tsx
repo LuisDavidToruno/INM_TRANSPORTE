@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
-import { ClipboardCheck, Palette } from 'lucide-react';
+import { CalendarCog, ClipboardCheck, Palette } from 'lucide-react';
 
 import { Avisos, Nota, Shell, avisar } from '../ui';
 import type { GrupoNav, Miga } from '../ui';
@@ -14,6 +14,7 @@ import logo from '../marca/argos/logo.png';
 const Vitrina = lazy(() => import('../vitrina/Vitrina'));
 import Bandeja from '../modulos/M06_Autorizacion/Bandeja';
 import Expediente from '../modulos/M06_Autorizacion/Expediente';
+import Asignacion from '../modulos/M07_Programacion/Asignacion';
 import { bandejaDeAutorizacion, origenDeDatos } from '../api/misiones';
 
 /**
@@ -74,6 +75,10 @@ function Interior(): ReactElement {
         },
       ],
     },
+    {
+      titulo: 'M-07 Programación y despacho',
+      items: [{ texto: 'Programar misión', icono: <CalendarCog />, href: '/programacion' }],
+    },
     { items: [{ texto: 'Sistema de diseño', icono: <Palette />, href: '/sistema-diseno' }] },
   ];
 
@@ -90,10 +95,10 @@ function Interior(): ReactElement {
       onBuscar={() => avisar.info('La búsqueda global llega con M-01.')}
     >
       {origenDeDatos === 'muestra' && (
-        <div className="mb-5">
+        <div className="tw:mb-5">
           <Nota tono="info">
             Datos de muestra. La API todavía no está conectada — defina{' '}
-            <code className="font-mono text-xs">VITE_API</code> para apuntar al servidor.
+            <code className="tw:font-mono tw:text-xs">VITE_API</code> para apuntar al servidor.
           </Nota>
         </div>
       )}
@@ -102,10 +107,11 @@ function Interior(): ReactElement {
         <Route path="/" element={<Navigate to="/autorizacion" replace />} />
         <Route path="/autorizacion" element={<Bandeja />} />
         <Route path="/autorizacion/:id" element={<Expediente />} />
+        <Route path="/programacion" element={<Asignacion />} />
         <Route
           path="/sistema-diseno"
           element={
-            <Suspense fallback={<p className="text-sm text-[var(--txt-2)]">Cargando la vitrina…</p>}>
+            <Suspense fallback={<p className="tw:text-sm tw:text-[var(--txt-2)]">Cargando la vitrina…</p>}>
               <Vitrina />
             </Suspense>
           }
@@ -121,6 +127,7 @@ function migasDe(ruta: string): Miga[] {
     return [{ texto: "Autorización", href: "/autorizacion" }, "Expediente"];
   }
   if (ruta === '/autorizacion') return ["Autorización"];
+  if (ruta === '/programacion') return ['Programación'];
   if (ruta === '/sistema-diseno') return ["Sistema de diseño"];
   return [];
 }

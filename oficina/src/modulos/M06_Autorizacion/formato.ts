@@ -24,6 +24,17 @@ export const diaYHora = (iso: string): string => FECHA.format(new Date(iso));
 
 export const momentoCompleto = (iso: string): string => FECHA_LARGA.format(new Date(iso));
 
+const SOLO_FECHA = new Intl.DateTimeFormat('es-HN', { dateStyle: 'long' });
+
+/**
+ * La fecha sin la hora, para vencimientos.
+ *
+ * Existe porque partir `momentoCompleto` por « a las » se rompe el día que la
+ * configuración regional cambie esa preposición — y nadie lo notaría hasta ver
+ * una fecha de vencimiento vacía en una pantalla de bloqueo legal.
+ */
+export const soloFecha = (iso: string): string => SOLO_FECHA.format(new Date(iso));
+
 /**
  * Cuánto falta, en palabras.
  *
