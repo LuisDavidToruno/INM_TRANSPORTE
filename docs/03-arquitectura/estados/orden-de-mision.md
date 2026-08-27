@@ -453,6 +453,7 @@ Es la transición con más precondiciones del sistema, y la que traslada respons
 **Precondiciones**
 - `BD-04` **Permiso de circulación en día u hora inhábil** emitido por ACT-09, si la ventana lo requiere. Bloqueo duro.
 - `BD-06` **Segregación:** quien despacha ≠ solicitante, ≠ autorizador, ≠ motorista, ≠ quien entrega el combustible.
+- `BD-13` **Custodia vigente del vehículo.** Sin custodio no hay de quién recibir el bien ni a quién devolverlo — [`RN-22`](../../01-negocio/reglas/RN-22-custodia-del-vehiculo.md), bloqueo duro.
 - Revalidación completa de `BD-02`, `BD-03` y `BD-12` **al momento del despacho**, no la del momento de la programación. Entre programar y despachar pueden pasar días y una licencia puede haber vencido.
 - El vehículo está físicamente presente y su estado operativo sigue siendo `ASIGNADO`.
 - Existe acta de entrega con odómetro inicial, nivel de combustible, inventario de herramientas y accesorios, y verificación de la identificación institucional del vehículo — franjas, leyenda, siglas y correlativo, con fecha y fotografía. Es hallazgo frecuente de auditoría ([NRM-01](../../01-negocio/normativa/NRM-01-control-interno-tsc.md)).
@@ -898,6 +899,17 @@ El motorista no tiene, solapada con la ventana: vacaciones, permiso, incapacidad
 ---
 ---
 
+### `BD-13` — Custodia vigente del vehículo al despachar
+
+**Se evalúa en** `T-12`.
+
+Un vehículo **sin custodio vigente no se despacha**. Gobierna [`RN-22`](../../01-negocio/reglas/RN-22-custodia-del-vehiculo.md): bloqueo duro, no configurable.
+
+El despacho **traslada** la custodia al motorista para la duración de la misión ([`EF-05`](#5-efectos-colaterales-que-exigen-diseño-explícito)); la custodia permanente de `ACT-13`, si existe, se conserva y se registra aparte. **Trasladar una custodia que no existe no es posible**: si nadie responde hoy por el bien, tampoco hay de quién recibirlo ni a quién devolverlo, y el acta de entrega queda sin una de sus dos firmas.
+
+> **Corrección — hallazgo `HB1-23`.** [`RN-22`](../../01-negocio/reglas/RN-22-custodia-del-vehiculo.md) declaraba esto **bloqueo duro no configurable** y `T-12` no lo tenía entre sus precondiciones. Aparecía solo de forma indirecta, en la definición de `DISPONIBLE` de §10.2 —*«con custodio asignado»*—, que **ya no es el estado del vehículo al despachar** desde la corrección de `HB1-07`. Una regla de bloqueo duro sin `BD-nn` es una regla que nadie implementa.
+
+---
 ## 5. Efectos colaterales que exigen diseño explícito
 
 ### `EF-01` — Reserva de vehículo y motorista al programar

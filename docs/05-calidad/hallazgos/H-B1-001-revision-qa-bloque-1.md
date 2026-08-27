@@ -8,7 +8,7 @@
 | **Fecha** | 2026-08-06 |
 | **Sprint / Bloque** | Sprint 0 / Bloque 1 |
 | **Hallazgos** | 28 — 5 Críticas, 9 Altas, 10 Medias, 4 Bajas |
-| **Estado** | **26 de 28 corregidos y verificados. 2 siguen abiertos** — desglose en la sección siguiente |
+| **Estado** | ****Los 28 corregidos y verificados.** Ninguno abierto** — desglose en la sección siguiente |
 | **Verificación de cierre** | 2026-08-26, contra los artefactos vivos. No contra el mensaje del commit que dijo haberlos corregido |
 
 
@@ -16,7 +16,7 @@
 
 Este informe se emitió el 2026-08-06 y se quedó diciendo *«Abierto»* mientras las correcciones se aplicaban. **La verificación se hizo contra los artefactos vivos**, hallazgo por hallazgo, no contra el mensaje del commit que declaró el lote cerrado. Once no estaban corregidos.
 
-### Corregidos y verificados — 26
+### Corregidos y verificados — 28
 
 | Hallazgo | Dónde se comprueba |
 |---|---|
@@ -43,13 +43,12 @@ Este informe se emitió el 2026-08-06 y se quedó diciendo *«Abierto»* mientra
 | `HB1-26` | **Cerrado el 2026-08-27.** El [`glosario`](../../00-vision/glosario.md) tiene su sección 11 con **los diez estados y las dos ramas**, más los siete términos que el hallazgo listaba como usados sin definir: ventana efectiva, holgura, paquete normativo congelado, dispositivo portador, sobregiro, cadena divergente y régimen de excepción. Se aclaró además el falso conflicto: lo prohibido es **`approve` en inglés**, no el estado `APROBADA` |
 | `HB1-27` | **Cerrado el 2026-08-27.** Eran **tres** registros del mismo hecho, no dos: [`insumos-pendientes.md`](../../07-gestion/insumos-pendientes.md), [`actores-y-roles` §9](../../01-negocio/actores-y-roles.md) y [`mapa-de-procesos` §9](../../01-negocio/mapa-de-procesos.md). Los dos últimos dejan de ser registro y pasan a ser **índice**: cada letra remite a su insumo numerado, y solo el numerado se cierra. Se cruzaron los once — `A→#16`, `B→#28`, `C→#29`, `D→#26`, `E→#27`, `F→#52`, `H→#32` parcial — y **cuatro no tienen número, dicho como tal**. `G` es el más caro: sostiene el bloqueo duro de `RN-25` sobre algo que la institución no ha aceptado |
 | `HB1-28` | **Cerrado el 2026-08-27.** El diagrama de [`PR-01`](../../01-negocio/procesos/PR-01-movilizacion-institucional.md) tiene las **veintidós** transiciones y remite a `orden-de-mision.md` §3.1 como versión normativa. Faltaban `T-04`, `T-10`, `T-11`, `T-16`, `T-20` y `T-17`, que el hallazgo no llegó a listar. La que importaba es `T-16`: el único camino de la misión suspendida **con consumo**, que sin ella parecía que solo podía anularse — justo lo que `EF-06` prohíbe |
+| `HB1-18` | **Cerrado el 2026-08-27.** [`RN-01`](../../01-negocio/reglas/RN-01-segregacion-de-funciones.md) lleva ahora el **mapa de cobertura de `I-01` a `I-17`** en un solo lugar: los diez pares entre funciones y `I-11` los implementa ella misma, `I-13` lo hace [`RN-39`](../../01-negocio/reglas/RN-39-parametros-normativos-con-vigencia.md). Y **declara los cinco que no tiene nadie** — `I-12`, `I-14`, `I-15`, `I-16`, `I-17` — en vez de dejarlos implícitos, que era el fondo del hallazgo. `I-16` es postergación de `M-11`; los otros cuatro son huecos reales. **`I-12` es el que más pesa**: que un auditor con capacidad de ejecutar deja de ser auditor hoy solo lo dice un documento de actores, no una regla probable |
+| `HB1-23` | **Cerrado el 2026-08-27.** La circularidad quedó rota separando **contenido** de **emisión**: `PC-12` de [`PR-01`](../../01-negocio/procesos/PR-01-movilizacion-institucional.md) bloquea ahora sobre el manifiesto **completo** y la cadena de custodia **abierta**; el documento con folio se emite en `T-12` (`EF-02`) y ahí se cierra ([`RN-53`](../../01-negocio/reglas/RN-53-cierre-del-manifiesto-al-despacho.md)). No podía ser al revés: el folio se reserva en `T-08` y se consume en `T-12`, y emitirlo antes gastaría el folio de una misión que aún puede no salir. La segunda mitad —la custodia— es hoy **`BD-13`** en [`orden-de-mision.md`](../../03-arquitectura/estados/orden-de-mision.md), listado en las precondiciones de `T-12`: [`RN-22`](../../01-negocio/reglas/RN-22-custodia-del-vehiculo.md) lo declaraba bloqueo duro y no tenía `BD-nn`, así que nadie lo iba a implementar |
 
-### Siguen abiertos — 2
+### Ninguno abierto
 
-| Hallazgo | Sev. | Qué falta, comprobado hoy |
-|---|---|---|
-| `HB1-18` | Media | **Corregido a medias.** De 97 reglas, **4** citan la tabla `I-01`–`I-17`. Es más que las cero de entonces, y sigue sin ser la cobertura que el hallazgo pedía |
-| `HB1-23` | Media | `PC-12` sigue exigiendo el manifiesto **antes** del despacho, y `T-12` sigue emitiéndolo **como efecto** del despacho. La circularidad está intacta. Tampoco existe `BD-nn` de custodia vigente para `T-12` |
+**Los veintiocho están corregidos y verificados contra los artefactos vivos.** Lo que este informe deja vivo no son hallazgos suyos, sino los cinco pares de incompatibilidad que `HB1-18` sacó a la luz y que **siguen sin regla** — están declarados como tal en [`RN-01`](../../01-negocio/reglas/RN-01-segregacion-de-funciones.md), que es donde alguien los va a buscar.
 > **Nota de método.** Cada hallazgo trae el caso concreto que lo demuestra: inputs, estado y qué sale mal. Donde el hallazgo se sostiene sobre una cita, la cita es literal. No se reporta nada que no se pueda convertir en una prueba.
 
 ---

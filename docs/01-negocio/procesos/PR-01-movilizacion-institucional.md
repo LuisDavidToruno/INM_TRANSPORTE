@@ -545,7 +545,7 @@ Dónde el sistema bloquea, y por qué. **Bloqueo duro** significa que no hay man
 | **PC-09** | Entrega del fondo (E7) | `ACT-07` vs. `ACT-05` y `ACT-04` | Quien entrega el fondo ≠ quien despacha ≠ quien liquida — I-08 e I-10 | **Bloqueo duro.** I-10 es núcleo irreductible: no lo levanta ni el régimen de excepción | `[V]` NRM-01 |
 | **PC-10** | Asignación (E5) | `ACT-04`, dato de `ACT-17` | Motorista disponible: sin permiso, vacaciones ni incapacidad | **Bloqueo**; se cubre con otro motorista conservando la asignación original | `[V]` DP-001 D-07 |
 | **PC-11** | Retorno (E11), dentro de `T-18` | `ACT-06`, o `ACT-10` en digitación diferida | Coherencia del odómetro: sin retroceso, sin salto imposible, sin consumo sin recorrido | En el **retorno ordinario**, odómetro final menor al de salida es **bloqueo duro de captura**, salvo acta previa de sustitución o reinicio de odómetro de `ACT-11`. En el subtipo **retorno constatado en oficina**, **no bloquea**: se registra tal cual, se marca la inconsistencia, el vehículo se libera y queda bloqueada la liquidación hasta resolverla | `[V]` NRM-09, `BD-05`, `RN-79`. Corrección `HB3-04` |
-| **PC-12** | Despacho (E8) — traslado de personas externas | `ACT-05` emite el manifiesto; toda consulta al dato queda registrada | Manifiesto emitido y cadena de custodia registrada antes de la salida | **Bloqueo del despacho** | M-17, NRM-07. `[C]` Requisitos documentales concretos según el tipo de institución |
+| **PC-12** | Despacho (E8) — traslado de personas externas | `ACT-05`; toda consulta al dato queda registrada | **El manifiesto está completo** —personas identificadas con minimización, quién entrega y quién recibe declarados— y la cadena de custodia **abierta**. El documento con folio se emite en `T-12`, no antes | **Bloqueo del despacho** | M-17, NRM-07. Corrección `HB1-23`. `[C]` Requisitos documentales concretos según el tipo de institución |
 | **PC-13** | Liquidación (E12) y cierre (E13) | `ACT-04` liquida · `ACT-08` cierra | Quien liquida no autorizó (I-07), no despachó (I-09) y no entregó el fondo (I-10); y **quien cierra no es quien liquidó** | **Bloqueo duro** | `[V]` NRM-01 |
 | **PC-14** | Liquidación (E12) | `ACT-04` | Falta el ticket de un paso por caseta registrado | **Advertencia. No bloquea el cierre** | `[V]` NRM-10: bloquear por esto hace que el sistema se abandone |
 | **PC-15** | Autorización (E3) | `ACT-03` | El solicitante tiene misiones anteriores sin liquidar | **Configurable**: advertencia o bloqueo, según parámetro institucional | `[C]` Definir con la institución |
@@ -555,6 +555,20 @@ Dónde el sistema bloquea, y por qué. **Bloqueo duro** significa que no hay man
 | **PC-19** | Emisión de documentos oficiales (E6 y E8) | `ACT-05` emite al despachar; `ACT-10` en su ámbito | Con la misión en `PROGRAMADA` el folio está **reservado**, no consumido: solo se imprime **vista previa marcada como no válida para circulación**. El documento válido se emite al consumir el folio dentro de `T-12` | **Bloqueo de la impresión de documento válido** antes del despacho | `[V]` `EF-02`, `INV-15` y §2 de [orden-de-mision.md](../../03-arquitectura/estados/orden-de-mision.md). Corrección `HB3-10`. `[C]` Distinción visual de la vista previa — `HB3-18`, sin regla que la gobierne |
 | **PC-20** | Habilitación del motorista (`PR-03`) y fondo del período (`PR-04`) | `ACT-04` y `ACT-08` | Quien **habilita** una licencia no es el habilitado — I-18; quien **solicita** el fondo no es quien lo **aprueba** — I-19 | **Bloqueo duro** `[C]`. Mientras el insumo #26 siga abierto, la salida para la delegación sin personal es el **escalamiento a sede**, no la excepción local | `[C]` [actores-y-roles.md](../actores-y-roles.md) I-18 e I-19, incorporadas provisionalmente por los hallazgos `HB3-05` y `HB3-06`; pendiente el pronunciamiento de Auditoría Interna |
 
+
+> **Corrección — hallazgo `HB1-23`. `PC-12` era imposible de cumplir.**
+>
+> Exigía el **manifiesto emitido** como condición para despachar, y `T-12` lo **emite como efecto** del despacho: *«se consume el folio y se emiten los documentos oficiales… manifiesto de personas externas si aplica»* (`EF-02`). [`RN-53`](../reglas/RN-53-cierre-del-manifiesto-al-despacho.md) lo remata: *«al despachar se congela y se imprime la versión que porta el motorista»*. Un traslado de seis personas externas no podía salir nunca.
+>
+> **Lo que se separó.** El control real no es el papel: es que **el contenido esté completo antes de comprometer el vehículo**. Eso sí puede ser precondición.
+>
+> | Momento | Qué |
+> |---|---|
+> | **Antes de `T-12`** | El manifiesto está **completo** y la cadena de custodia **abierta**: quién entrega, quién recibe. Es lo que `PC-12` bloquea |
+> | **En `T-12`** | Se **emite** el documento con folio y se **cierra** el manifiesto (`EF-02`, [`RN-53`](../reglas/RN-53-cierre-del-manifiesto-al-despacho.md)). El folio se consume aquí y no antes |
+> | **De `T-14` en adelante** | Cada entrega o recepción de persona se registra con acta y hora, aunque no haya red |
+>
+> El folio no puede adelantarse: se **reserva** en `T-08` y se **consume** en `T-12`. Emitir el documento antes del despacho consumiría un folio de una misión que todavía puede no salir.
 > **`PC-18` — alcance reducido por [DP-002](../../07-gestion/decisiones-de-producto/DP-002-segregacion-en-delegaciones-pequenas.md).** Este punto de control cubría también los actos ejecutados **en régimen de excepción**. Ese régimen quedó **suspendido y no se implementa**: la vía para una delegación sin personal suficiente es el **escalamiento a sede**, no levantar incompatibilidades. `PC-18` conserva únicamente la convalidación de los actos ejecutados **por emergencia**, que sí existe.
 >
 > Si Auditoría Interna avala el régimen de excepción (insumo #26), se revierte por `DP-003` y este punto de control recupera su alcance original — junto con las acciones 27 y 28 de la matriz de permisos, hoy suspendidas.

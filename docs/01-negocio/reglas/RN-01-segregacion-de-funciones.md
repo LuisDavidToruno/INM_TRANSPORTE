@@ -46,6 +46,28 @@ La verificación se hace **por persona**, no por rol: que un usuario tenga dos r
 >
 > Un número de norma inventado o mal atribuido entra al código y nadie vuelve a cuestionarlo. Si el TSC pregunta bajo qué norma se bloquea, la respuesta tiene que ser correcta.
 
+
+## Mapa de cobertura de `I-01` a `I-17` — hallazgo `HB1-18`
+
+> **Qué estaba mal.** Ninguna de las reglas referenciaba la tabla `I-01` a `I-17` de [actores-y-roles §5.2](../actores-y-roles.md), que [`mapa-de-procesos` §7](../mapa-de-procesos.md) y [`PR-01`](../procesos/PR-01-movilizacion-institucional.md) declaran **fuente de verdad** en incompatibilidades. El núcleo irreductible que la autoridad dice que no se levanta nunca **no lo implementaba ninguna regla**.
+>
+> Este mapa lo cierra en un solo lugar y **declara los huecos** en vez de dejarlos implícitos. Si un par no tiene regla, aquí se ve.
+
+| Par | Quién lo implementa |
+|---|---|
+| `I-01` a `I-10` — los diez pares entre las cinco funciones | **Esta regla.** Es exactamente lo que enumera la tabla de arriba |
+| `I-11` — motorista × autoriza / despacha / entrega fondo / liquida su propia misión | **Esta regla**, sexta relación · [`RN-14`](RN-14-sustitucion-de-motorista.md) en la sustitución · [`RN-57`](RN-57-habilitacion-de-quien-efectivamente-conduce.md) sobre quien efectivamente conduce |
+| `I-13` — `ACT-01` Administrador × autorizar, aprobar fondo o liquidar | [`RN-39`](RN-39-parametros-normativos-con-vigencia.md), doble control carga↔aprobación |
+| **`I-12`** — `ACT-12` Auditor Interno × cualquier rol ejecutor | ⚠️ **Sin regla.** `actores-y-roles` le fija *«solo lectura y exportación, sin excepciones»* como límite absoluto, y ninguna `RN-xx` lo sostiene |
+| **`I-14`** — quien emite la Orden de Misión × liquida esa misma misión | ⚠️ **Sin regla.** No es redundante con `I-09`: emitir no es despachar |
+| **`I-15`** — `ACT-13` Custodio × autoriza la salida de su propio vehículo | ⚠️ **Sin regla.** [`RN-22`](RN-22-custodia-del-vehiculo.md) define la custodia y no toca esta incompatibilidad |
+| **`I-16`** — quien ordena el mantenimiento × recibe conforme el trabajo | ⚠️ **Sin regla.** Es de `M-11`, que no se ha trabajado — ver el [`README`](README.md) |
+| **`I-17`** — `ACT-14` Encargado de Bienes × aprueba el descargo del bien | ⚠️ **Sin regla.** Ya lo señalaba `HN1-15`, y sigue abierto |
+
+**Cinco pares sin regla, y no son todos iguales.** `I-16` es una postergación declarada: pertenece a `M-11`. Los otros cuatro son huecos: la incompatibilidad está escrita en la autoridad, nadie la implementa, y **quien programe el bloqueo no va a encontrarla**.
+
+`I-12` es el que más pesa. Un auditor con capacidad de ejecutar deja de ser auditor, y hoy eso solo lo dice un documento de actores — no una regla que alguien pueda probar.
+
 ## Justificación
 
 [NRM-01](../normativa/NRM-01-control-interno-tsc.md) establece que el sistema **debe** implementar segregación de funciones por rol **como bloqueo duro y no como advertencia**. Es la defensa estructural contra el fraude de flota: quien puede solicitar, autorizar y liquidar su propio viaje puede fabricar un consumo de combustible completo sin que ningún registro lo contradiga.
