@@ -33,7 +33,25 @@ public sealed record ResultadoDeAsignacion(
     string MotivoDeDocumentacion,
     IReadOnlyList<string> AdvertenciasDeDocumentacion,
     IReadOnlyList<string> ConductoresQueHabilitan,
-    IReadOnlyList<string> VehiculosQueHabilita);
+    IReadOnlyList<string> VehiculosQueHabilita,
+    ConflictoDeReserva? Conflicto);
+
+/// <summary>
+/// El solape de `BD-11`, con lo que `EF-01` exige mostrar: <b>qué misión, de qué
+/// dependencia, en qué franja</b>.
+///
+/// Va en la vista previa y no sólo en el bloqueo del guardado porque las cuatro salidas
+/// que `EF-01` ofrece —consolidar, otro recurso, reprogramar, escalar— <b>se deciden antes
+/// de intentar guardar</b>. Descubrir el conflicto recién al apretar el botón obliga a
+/// rehacer la elección entera.
+/// </summary>
+public sealed record ConflictoDeReserva(
+    string Folio,
+    string Dependencia,
+    DateOnly Desde,
+    DateOnly Hasta,
+    bool Vehiculo,
+    bool Conductor);
 
 /// <summary>
 /// Evalúa una asignación <b>sin ejecutar la transición</b>.
@@ -50,6 +68,7 @@ public sealed class EvaluacionDeAsignacion(
     SigtiDbContext contexto,
     ConsultaDeConductores padron,
     ConsultaDeFlota flota,
+    ConsultaDeOcupacion ocupacion,
     CatalogoProvisionalDeRestricciones restricciones,
     IParametrosDeLaInstitucion parametros)
 {
@@ -91,11 +110,27 @@ public sealed class EvaluacionDeAsignacion(
         var documentacion = ReglasDeDocumentacion.Evaluar(
             vehiculo.Documentacion(), ventana, politica);
 
+        // `BD-11`. El solape lo decide el dominio, con la misma `SeSolapaCon` que después
+        // bloquea en `T-08`: una segunda implementación acá haría que la pantalla y el
+        // guardado pudieran discrepar, que es el fallo que esta clase existe para evitar.
+        var conflicto = (await ocupacion.ReservasDeAsync(vehiculo.Id, conductor.Id, idExpediente, cancelacion))
+            .FirstOrDefault(r => r.SeSolapaCon(ventana));
+
+        // Qué vehículos están tomados en la franja. Hace falta para que la lista de salida
+        // no ofrezca un callejón: un vehículo que la licencia habilita pero que está
+        // reservado por otra misión manda a quien programa a chocar contra `BD-11` otra vez.
+        var tomados = (await ocupacion.EnVentanaAsync(ventana.Salida, ventana.FinDelRango, cancelacion))
+            .Where(c => c.Barras.Count > 0)
+            .Select(c => c.Vehiculo)
+            .ToHashSet();
+
         return new ResultadoDeAsignacion(
             // Solo el bloqueo impide. La advertencia se acusa y se sigue.
             Habilita: habilitacion.Habilita
                       && documentacion.Habilita
-                      && restriccion.Efecto != EfectoDeRestriccion.Bloqueo,
+                      && restriccion.Efecto != EfectoDeRestriccion.Bloqueo
+                      // `EF-01`: «no sobre-asigna, ni siquiera con advertencia».
+                      && conflicto is null,
             Motivo: habilitacion.Motivo.ToString(),
             NumeroDeLicencia: habilitacion.NumeroDeLicencia,
             Categoria: habilitacion.Categoria.ToString(),
@@ -120,12 +155,21 @@ public sealed class EvaluacionDeAsignacion(
                 .Select(c => c.Id.ToString())
                 .ToList(),
 
+            // Habilitan **y están libres**. Las dos condiciones, porque la pantalla los
+            // ofrece como salida y una salida que vuelve a bloquear no es una salida.
             VehiculosQueHabilita: (await flota.ParaEvaluarAsync(cancelacion))
                 .Where(v => v.Id != vehiculo.Id)
+                .Where(v => !tomados.Contains(v.Id.ToString()))
                 .Where(v => ReglasDeHabilitacion.Evaluar(
                     conductor.Licencia(), v.Ficha(), ventana, matriz, conocidoAl).Habilita)
                 .Select(v => v.Id.ToString())
-                .ToList());
+                .ToList(),
+
+            Conflicto: conflicto is null
+                ? null
+                : new ConflictoDeReserva(
+                    conflicto.Folio, conflicto.Dependencia, conflicto.Desde, conflicto.Hasta,
+                    conflicto.Vehiculo, conflicto.Conductor));
     }
 
     /// <summary>

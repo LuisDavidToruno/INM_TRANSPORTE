@@ -123,7 +123,7 @@ public class SincronizacionPruebas(BaseDePruebas baseDePruebas)
     }
 
     /// <summary>Deja el expediente listo para que el dispositivo registre la salida.</summary>
-    private static async Task LlevarHastaDespachada(HttpClient cliente, string id)
+    private async Task LlevarHastaDespachada(HttpClient cliente, string id)
     {
         var creacion = await cliente.PostAsJsonAsync("/misiones", new
         {
@@ -152,15 +152,31 @@ public class SincronizacionPruebas(BaseDePruebas baseDePruebas)
         Assert.Equal(HttpStatusCode.OK, r.StatusCode);
     }
 
-    private static async Task Asignar(HttpClient cliente, string id, string ruta, string ejecuta)
+    /// <summary>
+    /// Asigna con recursos <b>propios de la prueba</b>. Desde `BD-11`, reutilizar el
+    /// pick-up y el motorista del catálogo sembrado choca con las otras pruebas de punta a
+    /// punta — y con razón: son la misma franja.
+    /// </summary>
+    private async Task Asignar(HttpClient cliente, string id, string ruta, string ejecuta)
     {
+        _recursos ??= await ParaProgramar();
+
         var r = await cliente.PostAsJsonAsync($"/misiones/{id}/{ruta}", new
         {
             Ejecuta = ejecuta,
             Momento,
-            IdVehiculo = FlotaSembrada.Pickup.ToString(),
-            IdConductor = FlotaSembrada.Conductor.ToString(),
+            IdVehiculo = _recursos.Vehiculo,
+            IdConductor = _recursos.Conductor,
         });
         Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+    }
+
+    /// <summary>Se reusa dentro de la MISMA misión: programar y despachar son el mismo par.</summary>
+    private FlotaSembrada.ParaProgramar? _recursos;
+
+    private async Task<FlotaSembrada.ParaProgramar> ParaProgramar()
+    {
+        await using var contexto = baseDePruebas.Contexto();
+        return await FlotaSembrada.ParaProgramarAsync(contexto, "SN-0001");
     }
 }

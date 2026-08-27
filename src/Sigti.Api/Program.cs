@@ -372,8 +372,11 @@ misiones.MapPost("/{id}/anular", async (
 // evalúan BD-02 y BD-03, y se revalidan en cada una con los datos del momento.
 // Sólo `T-08` recibe los recursos: es la que reserva. `T-12` revalida sobre lo ya
 // reservado y volver a tomar ahí duplicaría la reserva sin liberar la anterior.
-ConAsignacion("programar", (e, quien, a, m, p, cuando, recursos) => e.Programar(quien, a, m, p, cuando, recursos));
-ConAsignacion("despachar", (e, quien, a, m, p, cuando, _) => e.Despachar(quien, a, m, p, cuando));
+// `BD-11` sólo la evalúa `T-08`: es la que toma. `T-12` despacha sobre lo ya reservado,
+// y volver a comprobar el solape ahí chocaría contra la reserva de la propia misión.
+ConAsignacion("programar", (e, quien, a, m, p, cuando, recursos, reservas) =>
+    e.Programar(quien, a, m, p, cuando, recursos, reservas));
+ConAsignacion("despachar", (e, quien, a, m, p, cuando, _, __) => e.Despachar(quien, a, m, p, cuando));
 
 // M-16 — Donde aterriza lo que el dispositivo capturó sin red.
 //
@@ -501,13 +504,14 @@ return;
 
 void ConAsignacion(
     string ruta,
-    Action<OrdenDeMision, IdPersona, AsignacionDeMision, MatrizDeLicencias, PoliticaDeDocumentacion, DateTimeOffset, RecursosTomados?> aplicar) =>
+    Action<OrdenDeMision, IdPersona, AsignacionDeMision, MatrizDeLicencias, PoliticaDeDocumentacion, DateTimeOffset, RecursosTomados?, IReadOnlyList<ReservaDeRecurso>?> aplicar) =>
     misiones.MapPost($"/{{id}}/{ruta}", async (
         string id,
         AsignarYTransicionar peticion,
         ServicioDeMisiones servicio,
         ConsultaDeConductores padron,
         ConsultaDeFlota flota,
+        ConsultaDeOcupacion ocupacion,
         IParametrosDeLaInstitucion parametros) =>
     {
         // El cliente manda IDENTIFICADORES, no la ficha técnica. Si mandara la ficha,
@@ -534,6 +538,9 @@ void ConAsignacion(
 
         if (!Identificador.Valido(id, out var ulid, out var error)) return error;
 
+        // Las reservas se traen SIN filtrar por fecha: el solape lo decide el dominio.
+        var reservas = await ocupacion.ReservasDeAsync(idVehiculo, idConductor, ulid);
+
         var estado = await servicio.TransicionarAsync(
             ulid,
             expediente =>
@@ -543,7 +550,7 @@ void ConAsignacion(
                 var salida = expediente.Solicitud.Ventana.Salida;
                 aplicar(expediente, new IdPersona(peticion.Ejecuta), asignacion,
                         parametros.MatrizVigenteAl(salida), parametros.PoliticaVigenteAl(salida),
-                        peticion.Momento, new RecursosTomados(idVehiculo, idConductor));
+                        peticion.Momento, new RecursosTomados(idVehiculo, idConductor), reservas);
             },
             peticion.Momento);
 

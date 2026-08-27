@@ -123,4 +123,75 @@ public sealed class ConsultaDeOcupacion(SigtiDbContext contexto)
                     : []))
             .ToList();
     }
+
+    /// <summary>
+    /// Lo que <b>otras</b> misiones tienen tomado sobre este vehículo o sobre quien va a
+    /// conducir — el insumo de `BD-11`.
+    ///
+    /// ── Trae por RECURSO, no por fecha ───────────────────────────────────────
+    /// El recorte por ventana lo hace la consulta de ocupación, que dibuja. Ésta no: el
+    /// solape es <b>la regla</b> y se decide en el dominio (<see cref="ReservaDeRecurso.SeSolapaCon"/>).
+    /// Filtrar por fecha acá metería la regla en un <c>WHERE</c>, donde no se puede ejercer
+    /// sin base de datos y los casos de borde —dos misiones que se tocan por un día— se
+    /// prueban a través de tres capas o no se prueban.
+    ///
+    /// Son pocas filas: las misiones vivas de <b>un</b> vehículo y <b>un</b> conductor.
+    ///
+    /// ── Por qué se excluye la misión que se está evaluando ───────────────────
+    /// Porque el conflicto es con <b>otras</b>. Hoy `T-08` no podría chocar consigo misma
+    /// —exige `APROBADA`, y una aprobada no ocupa—, pero apoyarse en eso ataría esta
+    /// consulta a un detalle de la máquina de estados que `T-10` va a cambiar: reasignar es
+    /// `PROGRAMADA → PROGRAMADA`, y ahí la misión <b>sí</b> está ocupando.
+    /// </summary>
+    public async Task<IReadOnlyList<ReservaDeRecurso>> ReservasDeAsync(
+        Ulid vehiculo,
+        Ulid conductor,
+        Ulid excluyendo,
+        CancellationToken cancelacion = default)
+    {
+        var filas = await contexto.Expedientes
+            .AsNoTracking()
+            .Include(e => e.Transiciones)
+            .Where(e => e.Id != excluyendo)
+            .Where(e => e.Transiciones.Any(t =>
+                t.VehiculoTomado == vehiculo || t.ConductorTomado == conductor))
+            .ToListAsync(cancelacion);
+
+        var reservas = new List<ReservaDeRecurso>();
+
+        foreach (var fila in filas)
+        {
+            var ultima = fila.Transiciones.MaxBy(t => t.Orden);
+            if (ultima is null || !Ocupan.Contains(ultima.Destino)) continue;
+
+            var reserva = fila.Transiciones
+                .Where(t => t.VehiculoTomado is not null)
+                .MaxBy(t => t.Orden);
+
+            if (reserva is null) continue;
+
+            // Cuál de los dos recursos choca. Se distinguen porque el mensaje del bloqueo
+            // lo dice, y no es lo mismo cambiar de vehículo que cambiar de motorista.
+            var chocaVehiculo = reserva.VehiculoTomado == vehiculo;
+            var chocaConductor = reserva.ConductorTomado == conductor;
+
+            // La consulta trajo por «vehículo O conductor», pero la reserva vigente puede
+            // ser otra que la que hizo entrar la fila —una misión reprogramada—. Si la
+            // vigente no toca ninguno de los dos recursos, no hay conflicto que reportar.
+            if (!chocaVehiculo && !chocaConductor) continue;
+
+            reservas.Add(new ReservaDeRecurso(
+                Mision: fila.Id,
+                Folio: ConsultaDeMisiones.FolioProvisional(fila.Id),
+                Dependencia: fila.Dependencia,
+                // La franja reservada llega hasta la holgura: es el último día en que el
+                // vehículo podría no estar en el predio.
+                Desde: fila.Salida,
+                Hasta: fila.Retorno.AddDays(fila.HolguraDias),
+                Vehiculo: chocaVehiculo,
+                Conductor: chocaConductor));
+        }
+
+        return reservas;
+    }
 }

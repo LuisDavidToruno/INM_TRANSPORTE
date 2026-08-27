@@ -35,8 +35,77 @@ internal static class FlotaSembrada
     /// <summary>Motocicleta. Exige `A`, y por eso la clase normativa no es opcional.</summary>
     public static readonly Ulid Motocicleta = Ulid.Parse("01JQ8Z000000000000000VEH04");
 
-    /// <summary>Licencia `B` vigente hasta 2028. Habilita el pick-up, no el camión.</summary>
+    /// <summary>
+    /// Licencia `B` vigente hasta 2028. Habilita el pick-up, no el camión.
+    ///
+    /// ⚠️ <b>Es COMPARTIDO. Sirve para probar `BD-02`, no para programar.</b> Desde que
+    /// `BD-11` bloquea el solapamiento, dos pruebas que lo usen sobre ventanas que se cruzan
+    /// chocan entre sí — y con razón: es el mismo motorista en dos misiones a la vez. Una
+    /// prueba que <b>programe</b> tiene que pedir el suyo con <see cref="NuevoConductorAsync"/>.
+    /// </summary>
     public static readonly Ulid Conductor = Ulid.Parse("01JQ8Z000000000000000CON01");
+
+    /// <summary>
+    /// Un motorista propio de la prueba, con la misma licencia `B` vigente.
+    ///
+    /// ── Por qué hizo falta ──────────────────────────────────────────────────
+    /// Nueve pruebas de punta a punta programaban misiones sobre <b>el mismo</b> motorista
+    /// en <b>la misma franja</b>, y pasaban porque `BD-11` no estaba implementada. Al
+    /// implementarla, empezaron a fallar con razón: eran nueve dobles asignaciones que el
+    /// sistema no debía aceptar. <b>El arreglo no fue debilitar la regla</b> — fue que cada
+    /// prueba tenga su motorista, que es además lo que ya hacían con el vehículo.
+    /// </summary>
+    public static async Task<Ulid> NuevoConductorAsync(SigtiDbContext contexto, string nombre)
+    {
+        var id = Ulid.NewUlid();
+
+        contexto.Conductores.Add(new FilaDeConductor
+        {
+            Id = id,
+            Nombre = nombre,
+            EsDelPadron = true,
+            NumeroDeLicencia = $"08-1988-{id.ToString()[^5..]}",
+            Categoria = CategoriaDeLicencia.B,
+            VenceLicencia = new DateOnly(2028, 4, 30),
+            Restricciones = null,
+        });
+
+        await contexto.SaveChangesAsync();
+        return id;
+    }
+
+    /// <summary>Un pick-up y un motorista habilitado, los dos propios de la prueba.</summary>
+    public sealed record ParaProgramar(string Vehiculo, string Conductor);
+
+    /// <summary>
+    /// El par que necesita cualquier prueba que <b>programe</b> de verdad.
+    ///
+    /// Los dos son nuevos porque `BD-11` bloquea el solapamiento <b>de vehículo Y de
+    /// motorista</b>, y la base de pruebas es compartida: reutilizar cualquiera de los dos
+    /// sobre ventanas que se cruzan es una doble asignación real, no un artefacto.
+    /// </summary>
+    /// <param name="prefijo">
+    /// Sólo para leer el fallo cuando algo se rompe. <b>Las siglas reales llevan sufijo
+    /// único</b>: `flota.Vehiculo` tiene índice único sobre ellas, y dos pruebas que pidan
+    /// el mismo prefijo chocarían en la base por un detalle que no tiene nada que ver con
+    /// lo que estaban probando.
+    /// </param>
+    public static async Task<ParaProgramar> ParaProgramarAsync(SigtiDbContext contexto, string prefijo)
+    {
+        await SembrarAsync(contexto);
+
+        var vehiculo = Ulid.NewUlid();
+        var siglas = $"{prefijo}-{vehiculo.ToString()[^5..]}";
+
+        contexto.Vehiculos.Add(Vehiculo(vehiculo, siglas, null, "Pick-up doble cabina",
+            ClaseNormativa.Automovil, 2_800, 5, remolque: false));
+
+        await contexto.SaveChangesAsync();
+
+        var conductor = await NuevoConductorAsync(contexto, $"Motorista de {siglas}");
+
+        return new ParaProgramar(vehiculo.ToString(), conductor.ToString());
+    }
 
     /// <summary>
     /// Siembra la flota si no está. Idempotente: las pruebas comparten la base y ninguna

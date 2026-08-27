@@ -136,19 +136,83 @@ public sealed class OrdenDeMision
     /// Opcional para no romper a quien sólo evalúa la regla. <b>Sin esto la misión queda
     /// programada y el vehículo se sigue ofreciendo libre</b>, así que la API siempre lo manda.
     /// </param>
+    /// <param name="reservas">
+    /// Lo que <b>otras</b> misiones ya tienen tomado sobre este vehículo o sobre quien va a
+    /// conducir — `BD-11`. Se reciben <b>sin filtrar por fecha</b>: quien llama trae las
+    /// reservas del recurso y <b>el solape lo decide acá</b>, porque el solape es la regla y
+    /// una regla evaluada en la consulta es una regla que no se puede probar sin base.
+    /// </param>
     public void Programar(
         IdPersona ejecuta,
         AsignacionDeMision asignacion,
         MatrizDeLicencias matriz,
         PoliticaDeDocumentacion politica,
         DateTimeOffset momento,
-        RecursosTomados? recursos = null)
+        RecursosTomados? recursos = null,
+        IReadOnlyList<ReservaDeRecurso>? reservas = null)
     {
         ExigirEstado(EstadoDeMision.Aprobada, "T-08");
         ExigirAprobacionVigente(DateOnly.FromDateTime(momento.Date));
         var evidencia = ExigirHabilitacionYDocumentacion(asignacion, matriz, politica, momento);
+        var sinSolape = ExigirSinSolapamiento(reservas);
 
-        Registrar("T-08", EstadoDeMision.Programada, ejecuta, momento, evidencia, recursos: recursos);
+        Registrar("T-08", EstadoDeMision.Programada, ejecuta, momento,
+            evidencia + sinSolape, recursos: recursos);
+    }
+
+    /// <summary>
+    /// `BD-11` — <b>no hay solapamiento de reserva</b> de vehículo ni de motorista.
+    ///
+    /// ── Bloqueo, y sin escalón de advertencia ────────────────────────────────
+    /// `EF-01` no deja margen: <i>«no sobre-asigna, <b>ni siquiera con advertencia</b>. Dos
+    /// misiones con el mismo vehículo el mismo día es el error que termina con un servidor
+    /// público esperando en la puerta»</i>. Por eso no admite acuse como `BD-12` ni es
+    /// configurable como la póliza de `BD-03`.
+    ///
+    /// ── Por qué el mensaje nombra al titular ─────────────────────────────────
+    /// Porque las cuatro salidas que `EF-01` ofrece —consolidar, asignar otro recurso,
+    /// reprogramar, escalar— <b>empiezan todas por saber a qué dependencia llamar</b>. Un
+    /// «el vehículo está ocupado» a secas convierte un bloqueo accionable en un callejón.
+    ///
+    /// ── El rango que se reserva ──────────────────────────────────────────────
+    /// `[Salida, FinDelRango]`, el mismo que evalúa `BD-02`: hasta el último día en que el
+    /// motorista podría estar conduciendo.
+    ///
+    /// ⚠️ <b>`EF-01` prescribe además holguras institucionales</b> —previa y posterior, por
+    /// institución y por tipo de vehículo— que <b>hoy no existen</b>: son el insumo #1, `[C]`.
+    /// Mientras no se decidan, la ventana reservada es <b>más angosta</b> que la que la regla
+    /// final tendrá, y este bloqueo <b>deja pasar solapes que después bloqueará</b>. Es la
+    /// dirección segura del error: inventar valores de holgura bloquearía misiones legítimas
+    /// contra números que nadie decidió.
+    /// </summary>
+    /// <returns>La constancia para el diario, o vacío si no había nada que verificar.</returns>
+    private string ExigirSinSolapamiento(IReadOnlyList<ReservaDeRecurso>? reservas)
+    {
+        // Nulo y vacío NO son lo mismo, y la diferencia importa para el diario. Vacío es
+        // «se consultó y el recurso está libre»; nulo es «nadie consultó». Registrar
+        // «BD-11 verificada» en el segundo caso sería dejar constancia de un control que
+        // no ocurrió, que es la peor clase de asiento en un expediente auditable.
+        if (reservas is null) return "";
+
+        var choque = reservas.FirstOrDefault(r => r.SeSolapaCon(Solicitud.Ventana));
+
+        if (choque is not null)
+        {
+            var recurso = (choque.Vehiculo, choque.Conductor) switch
+            {
+                (true, true) => "el vehículo y quien conduce están",
+                (true, false) => "el vehículo está",
+                _ => "quien conduce está",
+            };
+
+            throw new BloqueoDuro("BD-11",
+                $"No se puede sobre-asignar: {recurso} tomado por la misión {choque.Folio} " +
+                $"de {choque.Dependencia}, del {choque.Desde:yyyy-MM-dd} al {choque.Hasta:yyyy-MM-dd}. " +
+                $"Esta misión ocupa del {Solicitud.Ventana.Salida:yyyy-MM-dd} " +
+                $"al {Solicitud.Ventana.FinDelRango:yyyy-MM-dd}.");
+        }
+
+        return $" · BD-11 verificada contra {reservas.Count} reserva(s) del recurso";
     }
 
     /// <summary>

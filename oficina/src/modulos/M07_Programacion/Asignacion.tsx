@@ -22,6 +22,7 @@ import type {
 import { BloqueoDuro, expediente as traerExpediente } from '../../api/misiones';
 import type { Expediente } from '../../dominio/mision';
 import { soloFecha } from '../M06_Autorizacion/formato';
+import ConflictoDeAgenda from './ConflictoDeAgenda';
 import RechazoPorLicencia from './RechazoPorLicencia';
 
 /**
@@ -202,6 +203,17 @@ export default function Asignacion(): ReactElement {
         </Nota>
       ) : isFetching || !resultado ? (
         <Nota tono="info">Verificando la habilitación…</Nota>
+      ) : resultado.conflicto ? (
+        // El conflicto de agenda va ANTES que el rechazo por licencia porque es otro
+        // problema con otras salidas: uno se resuelve cambiando de par, el otro hablando
+        // con la dependencia que tiene el recurso. Mostrar «la licencia no habilita»
+        // cuando lo que pasa es que el vehículo está tomado manda a buscar donde no es.
+        <ConflictoDeAgenda
+          conflicto={resultado.conflicto}
+          vehiculos={vehiculos}
+          habilitan={resultado.vehiculosQueHabilita}
+          onElegirVehiculo={setVehiculo}
+        />
       ) : resultado.habilita ? (
         <Habilitada
           resultado={resultado}

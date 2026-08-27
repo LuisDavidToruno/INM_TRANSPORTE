@@ -62,7 +62,7 @@ public class FlotaRealPruebas(BaseDePruebas baseDePruebas)
             Ejecuta = "P-TRANSPORTE",
             Momento,
             IdVehiculo = idVehiculo,
-            IdConductor = FlotaSembrada.Conductor.ToString(),
+            IdConductor = _conductor,
         });
 
         Assert.Equal(HttpStatusCode.Conflict, respuesta.StatusCode);
@@ -93,7 +93,7 @@ public class FlotaRealPruebas(BaseDePruebas baseDePruebas)
             Ejecuta = "P-TRANSPORTE",
             Momento,
             IdVehiculo = idVehiculo,
-            IdConductor = FlotaSembrada.Conductor.ToString(),
+            IdConductor = _conductor,
         });
 
         Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
@@ -124,6 +124,7 @@ public class FlotaRealPruebas(BaseDePruebas baseDePruebas)
 
         await using var contexto = baseDePruebas.Contexto();
         await FlotaSembrada.SembrarAsync(contexto);
+        _conductor ??= (await FlotaSembrada.NuevoConductorAsync(contexto, "Motorista de FlotaReal")).ToString();
 
         contexto.Vehiculos.Add(new FilaDeVehiculo
         {
@@ -146,6 +147,16 @@ public class FlotaRealPruebas(BaseDePruebas baseDePruebas)
 
         return id.ToString();
     }
+
+    /// <summary>
+    /// El motorista de ESTA clase de pruebas. Desde `BD-11`, compartir el del catálogo
+    /// sembrado con las otras pruebas de punta a punta es una doble asignación real: todas
+    /// programan sobre la misma franja de marzo.
+    ///
+    /// Se reusa dentro de la clase porque acá **una sola** misión llega a programarse; las
+    /// otras dos se rechazan antes por `BD-03` o ni siquiera programan.
+    /// </summary>
+    private string? _conductor;
 
     private static async Task CrearYAprobar(HttpClient cliente, string id)
     {

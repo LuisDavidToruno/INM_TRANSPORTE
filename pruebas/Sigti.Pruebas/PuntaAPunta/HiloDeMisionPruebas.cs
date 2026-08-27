@@ -23,6 +23,19 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
     private static readonly DateTimeOffset Momento =
         new(2026, 3, 12, 9, 0, 0, TimeSpan.FromHours(-6));
 
+    /// <summary>
+    /// Vehículo y motorista propios de esta prueba.
+    ///
+    /// Desde que `BD-11` bloquea el solapamiento, reutilizar el pick-up y el motorista del
+    /// catálogo sembrado choca con las otras pruebas de punta a punta — todas usan la misma
+    /// franja de marzo. Y el choque es correcto: es la misma persona en dos misiones a la vez.
+    /// </summary>
+    private async Task<FlotaSembrada.ParaProgramar> ParaProgramar(string siglas)
+    {
+        await using var contexto = baseDePruebas.Contexto();
+        return await FlotaSembrada.ParaProgramarAsync(contexto, siglas);
+    }
+
     private WebApplicationFactory<Program> Aplicacion() =>
         new WebApplicationFactory<Program>().WithWebHostBuilder(constructor =>
             constructor.ConfigureServices(servicios =>
@@ -75,8 +88,13 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
             idVehiculo: FlotaSembrada.Camion.ToString(), idConductor: FlotaSembrada.Conductor.ToString(), esperado: HttpStatusCode.Conflict);
         Assert.Contains("BD-02", await noHabilita.Content.ReadAsStringAsync());
 
-        await Asignar(cliente, id, "programar", "P-TRANSPORTE", idVehiculo: FlotaSembrada.Pickup.ToString(), idConductor: FlotaSembrada.Conductor.ToString());
-        await Asignar(cliente, id, "despachar", "P-ENCARGADO", idVehiculo: FlotaSembrada.Pickup.ToString(), idConductor: FlotaSembrada.Conductor.ToString());
+        // Vehículo y motorista PROPIOS: `BD-11` bloquea el solapamiento y la base de
+        // pruebas es compartida. Reutilizar los del catálogo sembrado sería una doble
+        // asignación real contra otra prueba, no un artefacto del entorno.
+        var recursos = await ParaProgramar("HM-0001");
+
+        await Asignar(cliente, id, "programar", "P-TRANSPORTE", idVehiculo: recursos.Vehiculo, idConductor: recursos.Conductor);
+        await Asignar(cliente, id, "despachar", "P-ENCARGADO", idVehiculo: recursos.Vehiculo, idConductor: recursos.Conductor);
         await Transicionar(cliente, id, "iniciar-ruta", "P-MOTORISTA");
         await Transicionar(cliente, id, "retornar", "P-MOTORISTA");
         var liquidada = await Transicionar(cliente, id, "liquidar", "P-TRANSPORTE");

@@ -67,6 +67,24 @@ export interface ResultadoDeAsignacion {
   /** Los caminos de salida, que van en la misma pantalla del rechazo. */
   conductoresQueHabilitan: string[];
   vehiculosQueHabilita: string[];
+  /**
+   * `BD-11` — el solapamiento. <b>Nulo cuando no hay choque.</b>
+   *
+   * Viene en la vista previa y no sólo en el error del guardado porque las cuatro salidas
+   * que `EF-01` ofrece —consolidar, asignar otro recurso, reprogramar, escalar— se
+   * deciden <b>antes</b> de apretar el botón.
+   */
+  conflicto: ConflictoDeReserva | null;
+}
+
+/** Quién tiene tomado el recurso. Los tres datos que `EF-01` exige mostrar. */
+export interface ConflictoDeReserva {
+  folio: string;
+  dependencia: string;
+  desde: string;
+  hasta: string;
+  vehiculo: boolean;
+  conductor: boolean;
 }
 
 export const flota = (): Promise<VehiculoDeFlota[]> => pedir<VehiculoDeFlota[]>('/flota');
