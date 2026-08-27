@@ -73,7 +73,7 @@ Característica: Resolución del parámetro a la fecha del hecho
     Entonces el documento muestra L 22.00
     Y no muestra L 25.00
 
-  Escenario: El valor congelado al autorizar no cambia por una carga posterior
+  Escenario: El valor congelado al someterse a autorización no cambia por una carga posterior
     Dada una misión autorizada el "2026-06-20" con estimación de peajes por L 66.00 calculada con la tarifa de junio
     Cuando se aprueba una tarifa nueva el "2026-07-01"
     Entonces el monto autorizado sigue siendo L 66.00

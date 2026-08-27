@@ -437,7 +437,7 @@ Filas de la versión. Estructura por dimensiones de la tabla. Ejemplos:
 |---|---|---|---|---|---|
 | `id_valor_congelado` | `identificador` | Ob. | — | — | No se guarda |
 | `concepto` | `enumerado_configurable` | Ob. | `ESTIMACION_PEAJE` · `HABILITACION_LICENCIA` · `RENDIMIENTO_ESPERADO` · `UMBRAL_APLICADO` · `TARIFA_POR_PUNTO` · `CALENDARIO_APLICADO` · `HOLGURA_APLICADA` · `PLAZO_APLICADO` · … | `RN-41` | No se guarda |
-| `caracter` | `enumerado_configurable` | Ob. | `INDICATIVO` (congelado al autorizar, `T-05`) · `VINCULANTE` (congelado al despachar, `T-12` — `EF-03`) · `RECONGELADO_POR_SUSTITUCION` (`T-10` o en ruta — `RN-61`) | `EF-03`, `RN-35`, `RN-61` | **Bloqueo.** Sin él no se sabe cuál de los dos paquetes lleva impreso el papel del motorista, y uno pisaría al otro |
+| `caracter` | `enumerado_configurable` | Ob. | `INDICATIVO` (congelado al **someterse a autorización**, `T-02` — `INV-07`; `T-05` lo **ratifica**, no lo recongela · `HB1-17`) · `VINCULANTE` (congelado al despachar, `T-12` — `EF-03`) · `RECONGELADO_POR_SUSTITUCION` (`T-10` o en ruta — `RN-61`) | `EF-03`, `RN-35`, `RN-61` | **Bloqueo.** Sin él no se sabe cuál de los dos paquetes lleva impreso el papel del motorista, y uno pisaría al otro |
 | `id_portador` | `referencia` | Ob. | **Polimórfico** con `tipo_de_portador` ∈ `VERSION_ALCANCE_AUTORIZADO` (indicativo) · `ORDEN_MISION` (vinculante) · `TRAMO_MISION` (recongelado) | `EF-03`, `RN-61` | No se guarda |
 | `id_valor_congelado_que_reemplaza` | `referencia` | Cd. | Obligatorio en `RECONGELADO_POR_SUSTITUCION`. **El reemplazado se conserva** | `RN-61`, `RN-04` | No se puede producir el asiento de diferencia de la sustitución |
 | `valor` | `magnitud` o `valor_copiado` | Ob. | El resultado | `RN-41` | No se guarda |
@@ -455,6 +455,8 @@ Filas de la versión. Estructura por dimensiones de la tabla. Ejemplos:
 > La decisión, en `D-08` y `D-18`: **se congela dos veces con `caracter` distinto y ninguno pisa al otro.** Al autorizar, la estimación **indicativa** que `RN-35` necesita para decidir. Al despachar, el paquete **vinculante** de `EF-03` — y es ese el que lleva impreso la orden que el motorista discute en la caseta (`RN-91`). El caso que lo obligó: aprobada el 5 de enero, programada el 28, despachada el 3 de febrero, con la tarifa cambiando el 20 de enero y `NRM-10` documentando tres reversiones tarifarias en dos meses. Con el paquete de enero, el papel del motorista está mal.
 >
 > La obligatoriedad de colgar de `version_alcance_autorizado` queda **rota**: el portador es polimórfico.
+>
+> **Ajuste posterior — hallazgo `HB1-17`, 2026-08-26.** La decisión de los **dos congelamientos con carácter distinto se mantiene íntegra**. Lo que se corrige es *cuándo* ocurre el indicativo: no en `T-05` sino en **`T-02`**, porque [`INV-07`](../estados/orden-de-mision.md) lo exige ya en el estado `SOLICITADA`, que es anterior a toda autorización — y la máquina de estados es autoridad en invariantes. `T-05` **ratifica** el valor congelado, registrando cuál aprobó; no lo vuelve a congelar. El portador polimórfico que esta misma decisión abrió es lo que lo hace posible: el indicativo cuelga de `orden_mision`, no de una `version_alcance_autorizado` que todavía no existe al enviar.
 
 ---
 

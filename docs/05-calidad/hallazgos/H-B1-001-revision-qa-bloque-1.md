@@ -8,7 +8,7 @@
 | **Fecha** | 2026-08-06 |
 | **Sprint / Bloque** | Sprint 0 / Bloque 1 |
 | **Hallazgos** | 28 — 5 Críticas, 9 Altas, 10 Medias, 4 Bajas |
-| **Estado** | **18 de 28 corregidos y verificados. 10 siguen abiertos** — desglose en la sección siguiente |
+| **Estado** | **20 de 28 corregidos y verificados. 8 siguen abiertos** — desglose en la sección siguiente |
 | **Verificación de cierre** | 2026-08-26, contra los artefactos vivos. No contra el mensaje del commit que dijo haberlos corregido |
 
 
@@ -16,7 +16,7 @@
 
 Este informe se emitió el 2026-08-06 y se quedó diciendo *«Abierto»* mientras las correcciones se aplicaban. **La verificación se hizo contra los artefactos vivos**, hallazgo por hallazgo, no contra el mensaje del commit que declaró el lote cerrado. Once no estaban corregidos.
 
-### Corregidos y verificados — 18
+### Corregidos y verificados — 20
 
 | Hallazgo | Dónde se comprueba |
 |---|---|
@@ -35,13 +35,13 @@ Este informe se emitió el 2026-08-06 y se quedó diciendo *«Abierto»* mientra
 | `HB1-19` | [`RN-21`](../../01-negocio/reglas/RN-21-capacidad-de-pasajeros-y-carga.md) |
 | `HB1-21` | [`RN-24`](../../01-negocio/reglas/RN-24-vehiculo-de-servicio-exceptuado.md) |
 | `HB1-22` | `PC-11` distingue el retorno ordinario del **retorno constatado en oficina**, donde no bloquea. Corregido por la vía de `HB3-04` |
+| `HB1-15` | **Cerrado el 2026-08-26.** Los cinco criterios que las reglas creaban y la lista no tenía son hoy `H-09` a `H-13` en [`orden-de-mision.md` §7.2](../../03-arquitectura/estados/orden-de-mision.md): eslabón faltante de la cadena ([`RN-08`](../../01-negocio/reglas/RN-08-cadena-de-trazabilidad-para-cierre.md)), exceso de capacidad por novedad en ruta ([`RN-21`](../../01-negocio/reglas/RN-21-capacidad-de-pasajeros-y-carga.md)), diferencia de liquidación sin explicar ([`RN-29`](../../01-negocio/reglas/RN-29-liquidacion-de-combustible.md)), digitación diferida sin adjunto vencido el plazo ([`RN-47`](../../01-negocio/reglas/RN-47-digitacion-diferida-desde-papel.md)) y entrega de combustible sin orden aprobada ([`RN-32`](../../01-negocio/reglas/RN-32-entrega-de-combustible-contra-orden-de-mision.md)). **Se aclaró qué significa «cerrada»**, que era la otra mitad: cerrada **para una misión concreta** —nadie inventa ni desactiva un criterio al cerrar—, no cerrada para el catálogo, que §7.2 ya declaraba ampliable. Y §7.1 incorpora la disciplina que faltaba: toda regla que produzca hallazgo tiene que figurar con su `H-nn`, o crea un expediente sin salida. La nota de `HB3-02` se ajustó: el siguiente ID libre es `H-14` |
+| `HB1-17` | **Cerrado el 2026-08-26.** Eran **tres** redacciones de un solo número, y apareció una cuarta que el hallazgo no listaba porque es del Bloque 4: el modelo de datos congelaba el indicativo en `T-05`. Zanjado por la autoridad — **un solo congelamiento, en `T-02`**, porque `INV-07` lo exige ya en `SOLICITADA`, que es anterior a toda autorización. `T-05` **ratifica**: registra cuál valor congelado aprobó, y a partir de ahí es *el estimado ratificado en la aprobación*, que es contra el que compara `T-08`. El hueco que eso abría —tarifa que cambia entre envío y autorización— se cierra con recálculo de comparación en `T-05` y devolución por `T-04` si supera el umbral, **no** con un segundo congelamiento. Alineados [`RN-41`](../../01-negocio/reglas/RN-41-congelamiento-del-valor-al-autorizar.md), `T-08`, el [diccionario](../../03-arquitectura/modelo-datos/diccionario-de-datos.md), el [modelo](../../03-arquitectura/modelo-datos/README.md), `CU-04` y un escenario de `HU-147`. **La decisión `D-18` de `HB34-59` —dos congelamientos con carácter distinto— se mantiene íntegra**: solo se corrigió cuándo ocurre el indicativo |
 
-### Siguen abiertos — 10
+### Siguen abiertos — 8
 
 | Hallazgo | Sev. | Qué falta, comprobado hoy |
 |---|---|---|
-| `HB1-15` | Media | La lista de criterios de hallazgo sigue siendo `H-01`–`H-08` y sigue declarada cerrada (*«si y solo si»*, *«no es un cajón de sastre»*). Los cinco criterios de `RN-08`, `RN-21`, `RN-29`, `RN-32` y `RN-47` siguen sin `H-nn`. Se evaluó abrir `H-09` y **se descartó** al resolver `HB3-02`, pero solo para el caso del peaje |
-| `HB1-17` | Media | `T-08` sigue diciendo *«el estimado congelado en la aprobación»* mientras `INV-07` y `T-02` lo congelan **en el envío**, y [`RN-41`](../../01-negocio/reglas/RN-41-congelamiento-del-valor-al-autorizar.md) sigue enunciando el congelamiento al autorizar. Tres momentos, un solo valor |
 | `HB1-18` | Media | **Corregido a medias.** De 97 reglas, **4** citan la tabla `I-01`–`I-17`. Es más que las cero de entonces, y sigue sin ser la cobertura que el hallazgo pedía |
 | `HB1-20` | Media | El [`README` de reglas](../../01-negocio/reglas/README.md) mantiene `RN-12` marcada `Sí*` con la leyenda *«el bloqueo es configurable»*, y [`RN-12`](../../01-negocio/reglas/RN-12-disponibilidad-del-motorista.md) mantiene *«No el bloqueo»*. La leyenda tampoco define el valor `Sí` a secas |
 | `HB1-23` | Media | `PC-12` sigue exigiendo el manifiesto **antes** del despacho, y `T-12` sigue emitiéndolo **como efecto** del despacho. La circularidad está intacta. Tampoco existe `BD-nn` de custodia vigente para `T-12` |

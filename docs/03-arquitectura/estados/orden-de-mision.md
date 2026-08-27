@@ -138,7 +138,7 @@ El descarte de un borrador **no es un asiento reverso**, porque no hubo transacc
 
 | | |
 |---|---|
-| **Invariantes** | `INV-05` El contenido sustantivo está congelado — objeto del traslado, ventana, origen y destinos, tipo de vehículo requerido, pasajeros o carga, dependencia solicitante. `INV-06` Tiene número de expediente institucional asignado, correlativo por delegación y año. `INV-07` Tiene calculado y congelado el estimado de peajes de la ruta, con el identificador de la tabla de tarifas usada (M-18). `INV-08` No reserva vehículo ni motorista |
+| **Invariantes** | `INV-05` El contenido sustantivo está congelado — objeto del traslado, ventana, origen y destinos, tipo de vehículo requerido, pasajeros o carga, dependencia solicitante. `INV-06` Tiene número de expediente institucional asignado, correlativo por delegación y año. `INV-07` Tiene calculado y congelado el **estimado sometido a autorización** —peajes de la ruta, con el identificador de la tabla de tarifas usada (M-18)—. **Es el único congelamiento del estimado en todo el ciclo**; `T-05` lo ratifica y no lo vuelve a congelar (`HB1-17`). `INV-08` No reserva vehículo ni motorista |
 | **Se puede** | Autorizar, rechazar, devolver para corrección, desistir. Consultar el estimado desglosado por punto de peaje |
 | **No se puede** | Editar el contenido sustantivo. Para corregir hay que devolver a `BORRADOR` (`T-04`), lo que incrementa la versión del expediente |
 | **Ejecuta en campo** | Sí para enviar. La autorización requiere conectividad o código de autorización fuera de línea — ver 6.6 |
@@ -357,6 +357,25 @@ El solicitante no reabre un rechazo: crea una solicitud nueva, y el sistema ofre
 - El expediente entra en la cola de programación de Transporte.
 - **No se reserva ningún recurso.** Aprobar no compromete flota. Esta separación es deliberada: quien autoriza la pertinencia del viaje no es quien conoce la disponibilidad de la flota, y mezclar ambas decisiones produce aprobaciones que Transporte no puede cumplir.
 - Se calcula la fecha de caducidad de la aprobación: si no se programa antes del inicio de la ventana solicitada, caduca.
+- **Se ratifica el estimado, no se vuelve a congelar.** La autorización registra el **identificador del estimado congelado en `T-02`** (`INV-07`) que está aprobando. A partir de aquí ese valor es *el estimado ratificado en la aprobación*, y es contra él que `T-08` compara.
+- **Si las tablas que alimentaron el estimado cambiaron entre `T-02` y `T-05`**, el sistema recalcula y muestra ambas cifras. Si la diferencia supera el mismo umbral configurable que usa `T-08`, la solicitud **no se aprueba sobre la cifra vieja**: vuelve al solicitante por `T-04` y se reenvía por `T-02`, que congela de nuevo. Por debajo del umbral se aprueba la cifra vigente y la diferencia queda registrada.
+
+> ### Corrección — hallazgo `HB1-17`. Había tres momentos de congelamiento y un solo valor.
+>
+> | Decía | Dónde |
+> |---|---|
+> | Se congela **al enviar** | `T-02` efectos, e `INV-07` como invariante de `SOLICITADA` |
+> | Se congela **al autorizar** | [`RN-41`](../../01-negocio/reglas/RN-41-congelamiento-del-valor-al-autorizar.md), en su propio título |
+> | *«el estimado congelado en la aprobación»* | `T-08` efectos — llamando así a un valor congelado en el envío |
+>
+> Con tres redacciones, el umbral que dispara la reautorización en `T-08` no tenía contra qué comparar sin ambigüedad. **`RN-41` está en los cinco bloqueos irrenunciables del [`README` de reglas](../../01-negocio/reglas/README.md): su disparador tiene que ser único y verificable.**
+>
+> **Resuelto por la autoridad, que es esta máquina:** el estimado se congela **una sola vez, en `T-02`**, porque `INV-07` lo exige ya en `SOLICITADA` — antes de que exista autorización alguna. Lo que hace `T-05` no es congelar: es **ratificar**, dejando registrado cuál de los valores congelados aprobó. Un segundo congelamiento produciría dos valores y nadie diría cuál manda.
+>
+> El hueco que esto abría —que la tarifa cambiara entre el envío y la autorización, y el jefe aprobara una cifra vieja— se cierra con el recálculo de comparación de arriba, y **no** con un segundo congelamiento.
+>
+> [`RN-41`](../../01-negocio/reglas/RN-41-congelamiento-del-valor-al-autorizar.md) se corrigió en consecuencia. Su sustancia no cambia: una consulta posterior muestra el valor histórico congelado y nunca un recálculo.
+
 
 **Reversible** — vía `T-09`, no vía desaprobación. Una autorización registrada no se borra.
 
@@ -395,7 +414,7 @@ Es la transición con más precondiciones del sistema, y la que traslada respons
 - `EF-02` **Reserva del folio** de la Orden de Misión del rango de la delegación.
 - Se registra el resultado de cada verificación con los datos concretos contra los que se evaluó: número de licencia, categoría, fecha de vencimiento, versión de la matriz licencia↔vehículo, vencimientos de documentación consultados. **Esto es la defensa de quien autorizó ante un siniestro**, y por eso no basta con guardar "verificado: sí".
 - El vehículo pasa a `ASIGNADO`; el motorista queda comprometido en esa franja.
-- Se recalcula el estimado de peajes con la tarifa vigente a la fecha ahora programada. Si difiere del estimado congelado en la aprobación por encima del umbral configurable, **se exige nueva autorización** antes de despachar: lo autorizado tenía un costo y ese costo cambió.
+- Se recalcula el estimado de peajes con la tarifa vigente a la fecha ahora programada. Si difiere del **estimado ratificado en la aprobación** —el congelado en `T-02` y ratificado en `T-05`, `INV-07`— por encima del umbral configurable, **se exige nueva autorización** antes de despachar: lo autorizado tenía un costo y ese costo cambió.
 - Se genera la propuesta de asignación de fondo de combustible, que sigue su propia máquina (sección 10.1).
 
 **Reversible** — vía `T-11`.
@@ -599,7 +618,7 @@ Cubre tres situaciones reales: la misión se extiende más allá de la ventana a
 >
 > Lo que sí condiciona el cierre es lo que puede **cambiar el resultado de esta misión**: un incidente en investigación cuyo desenlace altera la responsabilidad, o una orden de trabajo que revela que el kilometraje registrado era falso.
 >
-> `[C]` **Decisión del PO pendiente.** La alternativa era incorporar un `H-09` y cerrar como `CERRADA_CON_HALLAZGO`. Se descartó porque marcaría a la institución por un error del concesionario. Si el PO prefiere lo contrario, se revierte y se abre `H-09`.
+> `[C]` **Decisión del PO pendiente.** La alternativa era incorporar un criterio propio y cerrar como `CERRADA_CON_HALLAZGO`. Se descartó porque marcaría a la institución por un error del concesionario. Si el PO prefiere lo contrario, se revierte y se abre el criterio con el siguiente `H-nn` libre — hoy `H-14`, porque `H-09` a `H-13` se ocuparon al corregir `HB1-15`.
 >
 > Corregir también [`RN-92`](../../01-negocio/reglas/), que hoy dice lo opuesto.
 
@@ -1138,7 +1157,7 @@ Mecanismo previsto por [DP-001, D-04](../../07-gestion/decisiones-de-producto/DP
 
 **No significa** que alguien hizo algo mal. No imputa responsabilidad, no sanciona y no debe presentarse como falta en ningún reporte. Un vehículo robado en ruta produce hallazgo y nadie es culpable.
 
-**No es un cajón de sastre.** Si el criterio no está en la lista de 7.2, no se cierra con hallazgo. Un estado que absorbe todo lo que incomoda deja de significar algo en seis meses, y entonces el auditor deja de mirarlo — que es justo lo contrario de lo que se busca.
+**No es un cajón de sastre.** Si el criterio no está en la lista de 7.2, no se cierra con hallazgo. **Y al revés, que es lo que faltaba** (`HB1-15`): toda regla que produzca un hallazgo tiene que figurar en esa lista con su `H-nn`, o crea un expediente sin salida. Un estado que absorbe todo lo que incomoda deja de significar algo en seis meses, y entonces el auditor deja de mirarlo — que es justo lo contrario de lo que se busca.
 
 ### 7.2 Criterios — la lista es cerrada y configurable
 
@@ -1154,6 +1173,29 @@ Mecanismo previsto por [DP-001, D-04](../../07-gestion/decisiones-de-producto/DP
 | `H-06` | Incidente, siniestro, multa o pérdida del bien ocurrido durante la misión y aún sin resolución en M-12 | Sin umbral |
 | `H-07` | Bloqueo duro que falló al revalidarse en el servidor tras sincronizar una operación desconectada — licencia vencida durante la misión, motorista no disponible, documentación vencida | Sin umbral |
 | `H-08` | Ausencia de comprobante obligatorio según la política de la institución, o divergencia de sincronización resuelta descartando datos capturados en campo | Configurable |
+| `H-09` | **Eslabón faltante de la cadena de trazabilidad** al cierre — falta el acta, la autorización registrada, el vale, el comprobante o el descargo que la cadena exige, identificando cuál falta y quién lo omitió | Sin umbral |
+| `H-10` | **Exceso de capacidad de pasajeros o de carga** producido por novedad en ruta, registrado como hecho consumado y constatado al liquidar | Sin umbral |
+| `H-11` | **Diferencia de liquidación sin explicar** por encima de la tolerancia configurada: lo asignado no cuadra con lo consumido más lo devuelto, y el resto no tiene motivo tipificado con respaldo | Configurable |
+| `H-12` | **Digitación diferida sin adjunto del original**, vencido el plazo configurado. El registro existe y su respaldo en papel no llegó nunca | Configurable |
+| `H-13` | **Entrega de combustible sin Orden de Misión aprobada y despachada**, o a vehículo o motorista distintos de los de esa orden, constatada al conciliar | Sin umbral |
+
+> ### Corrección — hallazgo `HB1-15`. Cinco reglas creaban criterios que la lista no tenía.
+>
+> `H-09` a `H-13` no son criterios nuevos: **ya los exigían cinco reglas del Bloque 1**, y ninguno tenía `H-nn`. Con la lista declarada cerrada en 7.1, el resultado era un expediente **sin ninguna salida**: `T-21` prohibido por la regla y `T-22` no disponible por falta de criterio.
+>
+> | Criterio | La regla que lo exigía |
+> |---|---|
+> | `H-09` | [`RN-08`](../../01-negocio/reglas/RN-08-cadena-de-trazabilidad-para-cierre.md) — *«si falta cualquier eslabón aplicable, no debe permitir `CERRADA`, pero sí `CERRADA_CON_HALLAZGO`»* |
+> | `H-10` | [`RN-21`](../../01-negocio/reglas/RN-21-capacidad-de-pasajeros-y-carga.md) — el exceso en ruta no se bloquea; *«se registra como novedad y produce hallazgo en la liquidación»* |
+> | `H-11` | [`RN-29`](../../01-negocio/reglas/RN-29-liquidacion-de-combustible.md) — con diferencia sin explicar, *«la orden no debe poder pasar a `LIQUIDADA`»* |
+> | `H-12` | [`RN-47`](../../01-negocio/reglas/RN-47-digitacion-diferida-desde-papel.md) — *«vencido el plazo configurado, produce hallazgo»* |
+> | `H-13` | [`RN-32`](../../01-negocio/reglas/RN-32-entrega-de-combustible-contra-orden-de-mision.md) — es bloqueo duro en el momento de entregar; si la entrega igual ocurrió, el hecho consumado necesita salida |
+>
+> **El caso concreto que quedaba atrapado.** Misión con todos los comprobantes, rendimiento dentro de umbral y ruta coherente, pero **L 400 de diferencia de caja sin explicar**. `RN-29` prohibía `LIQUIDADA`; ningún `H-nn` habilitaba `T-22`. El expediente no tenía a dónde ir — y un expediente que no puede cerrarse se abandona, que es justo lo que [`RN-08`](../../01-negocio/reglas/RN-08-cadena-de-trazabilidad-para-cierre.md) evitó al admitir el cierre con hallazgo.
+>
+> **Qué significa «cerrada» aquí, que era la otra mitad de la confusión.** La lista es cerrada **para una misión concreta**: nadie inventa un criterio al cerrar, ni desactiva uno para el caso que tiene delante. **No es cerrada para el catálogo**, que sí admite criterios nuevos por configuración — y este párrafo de 7.2 ya lo decía. Lo que faltaba era la disciplina que lo mantiene honesto:
+>
+> **Toda regla que produzca un hallazgo tiene que tener su `H-nn` aquí.** Una regla que dice *«produce hallazgo»* y no aparece en esta tabla es una regla que no se puede ejecutar.
 
 `[C]` Umbrales concretos y si la institución agrega criterios — insumos #1 y #19. Los informes de Auditoría Interna o del TSC sobre flota, si existen, son la mejor fuente: **cada hallazgo pasado describe algo que salió mal en la operación real**.
 

@@ -42,7 +42,7 @@
     - `EF-02` **reserva del folio** de la Orden de Misión del rango de la delegación. Reservado, **no consumido**: se consume al despachar ([CU-05](CU-05-emitir-orden-de-mision-y-documentos.md)).
     - Registro del resultado de **cada** verificación con los datos concretos contra los que se evaluó: número de licencia, categoría, fecha de vencimiento, versión de la matriz licencia↔vehículo, atributos del vehículo usados, vencimientos consultados y fecha de fin de rango evaluada. **No basta con guardar "verificado: sí": esto es la defensa de quien autorizó ante un siniestro.**
     - El vehículo pasa a `ASIGNADO` (`W-03`); el motorista queda comprometido en esa franja.
-    - Se **recalcula el estimado de peajes** con la tarifa vigente a la fecha ahora programada. Si difiere del congelado en la aprobación por encima del umbral configurable, **se exige nueva autorización antes de despachar**: lo autorizado tenía un costo y ese costo cambió.
+    - Se **recalcula el estimado de peajes** con la tarifa vigente a la fecha ahora programada. Si difiere del **estimado ratificado en la aprobación** —congelado en `T-02` (`INV-07`) y ratificado en `T-05`, `HB1-17`— por encima del umbral configurable, **se exige nueva autorización antes de despachar**: lo autorizado tenía un costo y ese costo cambió.
     - Se genera la **propuesta de asignación de fondo de combustible**, que sigue su propia máquina (`V-01`) y se emite bajo `ACT-07` — `PC-08`.
 12. El expediente queda en `PROGRAMADA`. En este estado **no se puede salir, no se puede entregar el fondo de combustible y no se puede imprimir la Orden de Misión como documento válido**: solo una vista previa marcada visiblemente como **no válida para circulación**.
 

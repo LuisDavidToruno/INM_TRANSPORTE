@@ -131,13 +131,13 @@ Siguen ausentes **`ARQUITECTURA.md`** y **`DESPLIEGUE.md`** en la raíz. Ahora s
 
 `DESPLIEGUE.md` tiene una dependencia real: el procedimiento de respaldo y restauración es **de dos piezas** —base más almacén de archivos, consistentes entre sí ([`ADR-004`](docs/03-arquitectura/adr/ADR-004-adjuntos-fuera-de-la-base.md))— y `RNF-09` exige que lo ejecute personal no especialista en ≤ 2 h. Escribirlo sin la instancia real confirmada sería escribir la mitad.
 
-### Dieciséis hallazgos siguen abiertos, y hasta hoy figuraban como cerrados
+### Catorce hallazgos siguen abiertos, y hasta hoy figuraban como cerrados
 
 Los cinco informes de [`docs/05-calidad/hallazgos/`](docs/05-calidad/hallazgos/) conservaban el estado con que se emitieron —*«Abierto»*, *«Ninguna corrección aplicada»*, *«Pendiente de corrección»*—. Al verificarlos contra los artefactos vivos el 2026-08-26, **hallazgo por hallazgo y no contra el mensaje del commit**, apareció lo contrario de lo que se esperaba: el campo estaba mal, pero también lo estaba la suposición de que todo se había corregido.
 
 | Informe | Corregidos | **Abiertos** |
 |---|---|---|
-| [`H-B1-001`](docs/05-calidad/hallazgos/H-B1-001-revision-qa-bloque-1.md) QA del Bloque 1 | 18 | **10** |
+| [`H-B1-001`](docs/05-calidad/hallazgos/H-B1-001-revision-qa-bloque-1.md) QA del Bloque 1 | 20 | **8** |
 | [`H-B1-002`](docs/05-calidad/hallazgos/H-B1-002-revision-normativa-bloque-1.md) normativa del Bloque 1 | 16 | **4** |
 | [`H-B3-001`](docs/05-calidad/hallazgos/H-B3-001-hallazgos-de-casos-de-uso.md) casos de uso | 17 | **2** |
 | [`H-B34-001`](docs/05-calidad/hallazgos/H-B34-001-revision-qa-bloque-3.md) QA del Bloque 3 | 21 citados, verificados por muestreo | — |
@@ -149,7 +149,7 @@ Cada informe lleva ahora su desglose. **Los tres que se señalaron como priorita
 2. ✅ **`HN1-18` y `HN1-09` quedaron cerrados el 2026-08-26.** `HN1-18` eran **ocho** materias, no una. Cuatro pasaron a regla —[`RN-99`](docs/01-negocio/reglas/RN-99-constatacion-fisica-de-la-flota.md) constatación física de la flota, [`RN-100`](docs/01-negocio/reglas/RN-100-permisos-por-puesto-no-por-persona.md) permisos por puesto, [`RN-101`](docs/01-negocio/reglas/RN-101-cierre-de-asignacion-de-puesto.md) cierre de asignación con custodias, [`RN-102`](docs/01-negocio/reglas/RN-102-reporte-publico-de-flota.md) reporte público—, una entró en [`RN-43`](docs/01-negocio/reglas/RN-43-captura-de-campo-sin-conectividad.md), y **tres no eran huecos**: multas y siniestros son M-12, mantenimiento es M-11, y el TAG lo bloquea el insumo #24. El [`README` de reglas](docs/01-negocio/reglas/README.md) los declara ahora, que era lo que el hallazgo pedía de raíz. `HN1-09` se cierra con [`RN-98`](docs/01-negocio/reglas/RN-98-paquete-de-evidencia-por-vehiculo-o-periodo.md): la evidencia se entrega también por vehículo y por período, no solo por misión.
 3. ✅ **`HN1-14` quedó cerrado el 2026-08-26.** [`RN-52`](docs/01-negocio/reglas/RN-52-registro-de-consultas-a-manifiestos.md) declaraba `[V]` una exigencia del MARCI que `NRM-01` tiene `[C]` — **y su cabecera contradecía a su propio cuerpo**, que ya decía lo correcto. La verificación quedó separada en sus tres afirmaciones: `[V]` el hábeas data del Artículo 182, `[C]` la exigencia del MARCI, `[I]` que del hábeas data se siga registrar cada consulta. **Sigue siendo bloqueo duro y no configurable**, dicho expresamente en la regla. Se alinearon los otros cuatro artefactos que repetían la escalada.
 
-Quedan **dieciséis** repartidos entre los tres informes. Ninguno bloquea el código de hoy; los que pesan para cerrar el Sprint 0 son `HB1-15` y `HB1-17` —dos contradicciones vivas sobre criterios de cierre y sobre en qué momento se congela el estimado— y `HN1-13`, que deja las restricciones médicas bloqueando en la máquina de estados y configurables en la regla.
+Quedan **catorce** repartidos entre los tres informes, todos de severidad media o baja. El que más pesa para cerrar el Sprint 0 es `HN1-13` —las restricciones médicas bloquean sin distinguir en la máquina de estados y son configurables por catálogo en [`RN-11`](docs/01-negocio/reglas/RN-11-restricciones-medicas-del-motorista.md)—. Le siguen `HB1-23`, que deja `PC-12` exigiendo el manifiesto antes de un despacho que lo emite como efecto, y `HB1-26`, que tiene el glosario sin definir ninguno de los diez estados del ciclo de vida.
 
 **No confundir con lo anterior.** Esto ya se resolvió y no debe volver a listarse como pendiente.
 

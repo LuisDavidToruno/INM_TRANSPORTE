@@ -406,7 +406,7 @@ erDiagram
 
     ORDEN_MISION ||--o{ VERSION_ALCANCE_AUTORIZADO : "se autoriza por"
     VERSION_ALCANCE_AUTORIZADO ||--|{ DESTINO_AUTORIZADO : "comprende"
-    VERSION_ALCANCE_AUTORIZADO ||--o{ VALOR_CONGELADO : "congela indicativo al autorizar"
+    ORDEN_MISION ||--o{ VALOR_CONGELADO : "congela indicativo al someterse a autorizacion"
     VERSION_ALCANCE_AUTORIZADO }o--|| ACTO_DE_AUTORIZACION : "se sustenta en"
     ORDEN_MISION ||--o{ VALOR_CONGELADO : "congela vinculante al despachar"
     TRAMO_MISION ||--o{ VALOR_CONGELADO : "recongela por sustitucion"
@@ -794,7 +794,7 @@ Consecuencia aguas abajo: la imputación externa **no se ancla a la placa** (`RN
 
 En lugar de duplicar `monto_estimado`, `version_tarifa_usada`, `fecha_resolucion` en cada entidad que calcula algo, existe una entidad `valor_congelado` reutilizable con: concepto, **carácter** (indicativo, vinculante o recongelado), valor, unidad, versión de tabla usada, **fecha de corte de conocimiento usada**, valores unitarios componentes, fecha del hecho con que se resolvió, acto que lo congeló y **portador polimórfico**. La usan la estimación de peajes, la evaluación de habilitación, el rendimiento esperado, los umbrales aplicados, el criterio de prelación y el plazo de convalidación. **Un solo mecanismo de congelamiento** para `RN-41`, en lugar de once implementaciones que van a divergir.
 
-El portador es polimórfico —`version_alcance_autorizado`, `orden_mision` o `tramo_mision`— por la decisión `D-18`: se congela al autorizar y al despachar, y se recongela al sustituir vehículo, **sin que ninguno pise al otro** (`HB34-59`).
+El portador es polimórfico —`version_alcance_autorizado`, `orden_mision` o `tramo_mision`— por la decisión `D-18`: se congela al someterse a autorización —`T-02`, ratificado en `T-05` (`HB1-17`)— y al despachar, y se recongela al sustituir vehículo, **sin que ninguno pise al otro** (`HB34-59`).
 
 ### `D-09` — El objeto del traslado es supertipo, y la carga tiene inventario propio
 

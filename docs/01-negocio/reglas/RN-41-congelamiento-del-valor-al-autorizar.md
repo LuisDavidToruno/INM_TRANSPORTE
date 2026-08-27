@@ -1,16 +1,39 @@
-# RN-41 — El valor calculado se congela al autorizar, junto con el identificador de la tabla de parámetros usada
+# RN-41 — El valor calculado se congela al someterse a autorización, junto con el identificador de la tabla de parámetros usada
 
 | Campo | Valor |
 |---|---|
 | **Módulos** | M-13, M-18, M-09, M-14 |
 | **Origen** | Premisa rectora 6 de `CLAUDE.md`; normas [NRM-01](../normativa/NRM-01-control-interno-tsc.md) y [NRM-10](../normativa/NRM-10-peajes.md) |
-| **Verificación** | `[V]` |
+| **Verificación** | `[V]` que la Ley Orgánica del TSC y el MARCI están vigentes, y que la tarifa de peaje cambia con vigencia por rango de fechas — [NRM-01](../normativa/NRM-01-control-interno-tsc.md), [NRM-10](../normativa/NRM-10-peajes.md). `[I]` **el congelamiento en sí**: es diseño del equipo derivado de la premisa rectora 6 de [`CLAUDE.md`](../../../CLAUDE.md), que es premisa de proyecto y no norma. Corregido con `HB1-17`; antes decía `[V]` a secas 
 | **Tipo** | Cálculo + bloqueo duro |
 | **Configurable** | No |
 
+
+## Nota de corrección — hallazgo `HB1-17`
+
+> **Qué estaba mal.** Esta regla decía que el valor se congela **al autorizar**. La [máquina de estados](../../03-arquitectura/estados/orden-de-mision.md) —**autoridad en transiciones e invariantes**— lo congela en `T-02`, al enviar, y lo exige como `INV-07` del estado `SOLICITADA`, que es anterior a toda autorización. Y `T-08` llamaba *«el estimado congelado en la aprobación»* a ese mismo valor congelado en el envío.
+>
+> Tres redacciones para un solo número. El umbral que dispara la reautorización en `T-08` **no tenía contra qué comparar sin ambigüedad**, y esta regla es uno de los cinco bloqueos irrenunciables del [`README`](README.md): su disparador tiene que ser único.
+>
+> **Qué manda.** La máquina de estados. **Un solo congelamiento, en `T-02`.** Lo que ocurre en `T-05` no es congelar sino **ratificar**: la autorización registra el identificador del valor congelado que aprueba, y a partir de ahí ese valor es *el estimado ratificado en la aprobación*. Un segundo congelamiento produciría dos valores y ninguna regla diría cuál manda.
+>
+> **Qué no cambia.** La sustancia. Una consulta posterior muestra el valor histórico congelado y **nunca un recálculo** con los parámetros actuales. Ese era y sigue siendo el punto de esta regla.
+>
+> **Corregido de paso el nivel de verificación.** Decía `[V]` a secas sobre un enunciado cuyo origen es *«la premisa rectora 6 de `CLAUDE.md`»* — que es premisa de proyecto, no norma. Lo `[V]` es que las normas citadas están vigentes y que la tarifa de peaje cambia con vigencia; **el congelamiento como mecanismo es `[I]`**, diseño del equipo. Es el mismo patrón de `HN1-14` y `HN1-20`.
+>
+> El nombre del archivo conserva el slug `al-autorizar`: setenta y nueve documentos lo enlazan, y renombrarlo por cosmética costaría más de lo que aclara. El identificador `RN-41` es lo estable.
+
+### Dónde ocurre cada cosa
+
+| Momento | Qué pasa con el valor |
+|---|---|
+| `T-02` — enviar a autorización | **Se congela.** Es `INV-07` del estado `SOLICITADA` |
+| `T-05` — autorizar | **Se ratifica**: se registra cuál valor congelado se aprobó. Si las tablas cambiaron desde `T-02` y la diferencia supera el umbral, vuelve al solicitante por `T-04` |
+| `T-08` — programar | **Se recalcula para comparar** contra el ratificado. Fuera de umbral, exige nueva autorización |
+| `T-12` — despachar | **Se congela el paquete normativo completo** (`EF-03`) — que es otra cosa: son las tablas, no este valor |
 ## Enunciado
 
-En el momento en que un valor calculado se somete a autorización y es autorizado, el sistema **debe congelarlo**: almacenar el resultado junto con:
+En el momento en que un valor calculado **se somete a autorización**, el sistema **debe congelarlo**: almacenar el resultado junto con:
 
 1. El **identificador de la versión de la tabla o parámetro** usado y su vigencia
 2. Los **valores unitarios** que lo componen (tarifa por punto, número de cruces, rendimiento esperado, umbral aplicado)
