@@ -4,10 +4,20 @@
 |---|---|
 | **Módulos** | M-17, M-14, M-01 |
 | **Origen** | Norma [NRM-07](../normativa/NRM-07-transparencia-y-datos-personales.md); [NRM-01](../normativa/NRM-01-control-interno-tsc.md) — acceso restringido a activos y registros |
-| **Verificación** | `[V]` que el MARCI exige control de acceso y registro de consultas, aun sin ley de datos |
+| **Verificación** | `[V]` que el **hábeas data del Artículo 182 constitucional** está vigente y que el Artículo 23 de la LTAIP lo reconoce — [NRM-07](../normativa/NRM-07-transparencia-y-datos-personales.md). `[C]` que el **MARCI** exija control de acceso y registro de consultas: [NRM-01](../normativa/NRM-01-control-interno-tsc.md) tiene esa familia por confirmar, con los códigos a tomar del ejemplar impreso de la institución. `[I]` que del hábeas data **se siga** la obligación de registrar cada consulta: es implicación de requerimiento del equipo, no articulado |
 | **Tipo** | Bloqueo duro |
 | **Configurable** | No |
 
+
+## Nota de corrección — hallazgo `HN1-14`
+
+> **Qué estaba mal.** La cabecera declaraba `[V]` *«que el MARCI exige control de acceso y registro de consultas, aun sin ley de datos»*. [`NRM-01`](../normativa/NRM-01-control-interno-tsc.md) tiene esa familia del MARCI —*«acceso restringido a activos y registros»*— marcada `[C]`, con los códigos y títulos exactos por tomar del ejemplar impreso de la institución. Era la escalada de nivel que [`CLAUDE.md`](../../../CLAUDE.md) prohíbe: **ningún artefacto declara un nivel superior al de la ficha que cita.**
+>
+> **La cabecera contradecía a su propio cuerpo.** La justificación de esta regla ya decía lo correcto —hábeas data `[V]`, acceso restringido del MARCI `[C]`—. Lo que había que corregir era la etiqueta, y la etiqueta es lo que el auditor lee.
+>
+> **Qué se corrigió.** La verificación se separó en sus tres afirmaciones, porque no todas tienen el mismo respaldo: el hábeas data está `[V]`; la exigencia del MARCI queda `[C]`; y **que del hábeas data se siga la obligación de registrar cada consulta es `[I]`** — es implicación de requerimiento escrita por el equipo en [`NRM-07`](../normativa/NRM-07-transparencia-y-datos-personales.md), no articulado citable. El hallazgo proponía un `[P]` único; se fue más lejos porque un `[P]` plano habría subestimado el hábeas data y sobrestimado la inferencia.
+>
+> **Lo que NO cambia: sigue siendo bloqueo duro y sigue sin ser configurable.** Bajar el nivel de verificación no debilita el control, y conviene decirlo para que nadie lea esta corrección como permiso para relajarlo. El fundamento operativo es independiente del MARCI: el hábeas data del Artículo 182 está vigente `[V]`, solo el titular puede interponerlo, y **si una persona pregunta quién accedió a sus datos, la única respuesta defendible es el registro de consultas.** Sin él la institución no puede afirmar nada. Es también lo que [`DP-001` D-14](../../07-gestion/decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md) conservó a propósito al reducir el alcance.
 ## Enunciado
 
 El acceso a manifiestos, listas de pasajeros y cualquier dato personal de personas trasladadas **debe** estar restringido por **rol y por necesidad de conocer**, y **cada consulta debe registrarse** con: identidad del consultante, rol, fecha y hora, registro consultado y alcance de lo mostrado.

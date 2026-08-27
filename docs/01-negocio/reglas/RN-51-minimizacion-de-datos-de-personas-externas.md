@@ -20,7 +20,7 @@ Los datos personales **deben** estar estructuralmente separados de los datos de 
 
 [NRM-07](../normativa/NRM-07-transparencia-y-datos-personales.md) exige aplicar **minimización de datos en M-17**: capturar solo lo necesario para el control, y *"evitar campos de salud, etnia, situación migratoria o condición de vulnerabilidad salvo que exista base legal expresa y necesidad operativa documentada"*.
 
-No hay ley general de protección de datos personales vigente en Honduras `[V]` — y [DP-001 D-14](../../07-gestion/decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md) decidió **no diseñar para anticiparla**. Pero sí está vigente el **hábeas data del Artículo 182 constitucional** `[V]`, y el MARCI exige control de acceso y registro de consultas de todos modos.
+No hay ley general de protección de datos personales vigente en Honduras `[V]` — y [DP-001 D-14](../../07-gestion/decisiones-de-producto/DP-001-fronteras-con-sistemas-existentes.md) decidió **no diseñar para anticiparla**. Pero sí está vigente el **hábeas data del Artículo 182 constitucional** `[V]`, y que el MARCI exija además control de acceso y registro de consultas está `[C]` — [NRM-01](../normativa/NRM-01-control-interno-tsc.md) tiene esa familia por confirmar. Ver [RN-52](RN-52-registro-de-consultas-a-manifiestos.md) y el hallazgo `HN1-14`.
 
 El razonamiento práctico es más simple que el jurídico: **un dato que no se captura no se puede filtrar, no se puede publicar por error y no se puede pedir por hábeas data**. La minimización es la medida de protección más barata y más efectiva.
 

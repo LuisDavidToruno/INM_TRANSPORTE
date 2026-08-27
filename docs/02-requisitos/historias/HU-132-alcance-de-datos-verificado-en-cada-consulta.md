@@ -110,7 +110,7 @@ Característica: Verificación del alcance de datos en cada consulta
 
 ## Notas y pendientes
 
-- `[V]` El registro de consultas a datos personales lo exige el MARCI — [NRM-07](../../01-negocio/normativa/NRM-07-transparencia-y-datos-personales.md)
+- `[V]` El **hábeas data del Artículo 182** está vigente y sostiene el registro de consultas — [NRM-07](../../01-negocio/normativa/NRM-07-transparencia-y-datos-personales.md). `[C]` que además lo exija el MARCI — [NRM-01](../../01-negocio/normativa/NRM-01-control-interno-tsc.md) tiene esa familia por confirmar. Ver [RN-52](../../01-negocio/reglas/RN-52-registro-de-consultas-a-manifiestos.md) y el hallazgo `HN1-14`
 - `[C]` Mapa real de delegaciones y qué unidades de qué dependencias operan en cada una — insumo **#27**
 - `[C]` **Alcance de datos temporal durante un préstamo de vehículo**: quién de la dependencia receptora debe ver el expediente del bien mientras lo tiene, y hasta cuándo. Lo dejó abierto el índice de reglas y **nadie lo ha resuelto** — insumo nuevo a registrar
 - **Regla candidata:** *El alcance de datos se resuelve por tipo de objeto y se verifica en la resolución de la consulta, incluido el acceso directo por identificador.* Es la candidata 3 de [actores-y-roles §8](../../01-negocio/actores-y-roles.md); ninguna de las 97 reglas la recoge

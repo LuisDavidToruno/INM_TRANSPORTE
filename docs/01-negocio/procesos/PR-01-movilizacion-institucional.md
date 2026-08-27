@@ -637,7 +637,7 @@ Todas parten del camino base descrito arriba; se documenta **solo la diferencia*
 | Solicitud (E2) | `ACT-02` identifica a las personas externas con **minimización de datos**: solo lo indispensable para la operación y la custodia |
 | Antes del despacho | `ACT-05` emite el **manifiesto** con folio y registra la **cadena de custodia**: quién entrega, quién recibe, en qué punto y a qué hora — PC-12, bloqueo |
 | Ejecución (E9) | `ACT-06` registra cada entrega o recepción de persona con acta y hora, aunque no haya red |
-| Acceso al dato | **Necesidad de conocer, no jerarquía**: `ACT-06` ve el manifiesto de su misión y de ninguna otra; `ACT-05` lo ve el día del despacho. **Toda consulta se registra**, incluidas las de `ACT-12` `[V]` NRM-07 MARCI. No se diseña para anticipar la ley de datos personales pendiente `[V]` DP-001 D-14 |
+| Acceso al dato | **Necesidad de conocer, no jerarquía**: `ACT-06` ve el manifiesto de su misión y de ninguna otra; `ACT-05` lo ve el día del despacho. **Toda consulta se registra**, incluidas las de `ACT-12` — `[V]` el hábeas data del Artículo 182, [NRM-07](../normativa/NRM-07-transparencia-y-datos-personales.md); `[C]` que el MARCI lo exija, [NRM-01](../normativa/NRM-01-control-interno-tsc.md); `[I]` que del hábeas data se siga el registro de cada consulta. Ver [RN-52](../reglas/RN-52-registro-de-consultas-a-manifiestos.md) y el hallazgo `HN1-14`. No se diseña para anticipar la ley de datos personales pendiente — **decisión de producto**, DP-001 D-14, sin nivel normativo (`HN1-20`) |
 | Verificación externa | `ACT-15` **nunca ve** nombres de las personas trasladadas: solo folio, vigencia, vehículo y ventana |
 | Cierre | El expediente conserva el manifiesto como documento con folio y QR |
 

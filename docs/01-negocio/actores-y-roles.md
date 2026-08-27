@@ -150,7 +150,7 @@ Los IDs `ACT-xx` son estables y no se reciclan. Del `ACT-01` al `ACT-13` corresp
 | **Dispositivo** | Computadora de oficina |
 | **Frecuencia** | Por campaña de auditoría, con picos altos y períodos sin uso `[I]` |
 | **Límite absoluto** | **Solo lectura y exportación. Sin excepciones y sin régimen de excepción que lo levante.** Un auditor con capacidad de ejecutar deja de ser auditor |
-| **Contrapartida** | **Sus propias consultas quedan registradas**, incluidas las que tocan datos de personas externas (M-17) — el registro de consultas lo exige el MARCI, NRM-07 |
+| **Contrapartida** | **Sus propias consultas quedan registradas**, incluidas las que tocan datos de personas externas (M-17) — el registro de consultas se sostiene en el hábeas data del Artículo 182 `[V]`, NRM-07; que además lo exija el MARCI está `[C]` — ver `RN-52` |
 
 ### ACT-13 — Custodio del Vehículo
 
@@ -350,7 +350,7 @@ El alcance **se otorga en la relación puesto↔rol**, no en el rol. El mismo `A
 Dos ajustes que la práctica impone y que un modelo puramente jerárquico no resuelve:
 
 1. **Alcance por objeto.** `ACT-11` debe ver cualquier vehículo que entre al taller aunque pertenezca a otra dependencia. `ACT-14` debe ver todo el inventario. El alcance se resuelve **por tipo de objeto**, no globalmente: un puesto puede tener alcance DEPENDENCIA sobre misiones e INSTITUCIÓN sobre vehículos.
-2. **Alcance sobre datos de personas externas (M-17).** Se rige por **necesidad de conocer**, no por jerarquía: el motorista ve el manifiesto de su misión y de ninguna otra; el despachador lo ve el día del despacho. Toda consulta a estos datos **se registra** — el registro de consultas lo exige el MARCI, NRM-07 `[V]`.
+2. **Alcance sobre datos de personas externas (M-17).** Se rige por **necesidad de conocer**, no por jerarquía: el motorista ve el manifiesto de su misión y de ninguna otra; el despachador lo ve el día del despacho. Toda consulta a estos datos **se registra**: `[V]` el hábeas data del Artículo 182 — [NRM-07](normativa/NRM-07-transparencia-y-datos-personales.md); `[C]` que además lo exija el MARCI — [NRM-01](normativa/NRM-01-control-interno-tsc.md). Ver [RN-52](reglas/RN-52-registro-de-consultas-a-manifiestos.md) y el hallazgo `HN1-14`.
 
 **Los registros anteriores a la asignación de un puesto son consultables dentro del alcance, pero nunca editables si el expediente está cerrado.** La continuidad operativa lo exige; la inmutabilidad lo limita.
 

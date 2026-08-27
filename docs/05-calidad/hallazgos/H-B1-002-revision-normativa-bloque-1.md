@@ -6,7 +6,7 @@
 | **Fecha** | 2026-08-06 |
 | **Artefactos revisados** | `docs/01-negocio/reglas/` (RN-01 a RN-53), `docs/01-negocio/actores-y-roles.md`, `docs/01-negocio/procesos/PR-01-movilizacion-institucional.md`, `docs/03-arquitectura/estados/orden-de-mision.md` |
 | **Contrastados contra** | `NRM-01` a `NRM-10`, `riesgos-normativos.md`, `DP-001`, `ADR-001`, `insumos-pendientes.md` |
-| **Estado** | **13 de 20 corregidos y verificados. 7 siguen abiertos** — desglose en la sección siguiente |
+| **Estado** | **14 de 20 corregidos y verificados. 6 siguen abiertos** — desglose en la sección siguiente |
 | **Verificación de cierre** | 2026-08-26, contra los artefactos vivos |
 
 
@@ -14,7 +14,7 @@
 
 Verificado contra los artefactos vivos, hallazgo por hallazgo. **Siete de los veinte siguen abiertos, y cinco de ellos por la misma causa: la obligación normativa existe y ninguna regla la implementa.** Eso no se corrige redactando: hay que escribir la regla.
 
-### Corregidos y verificados — 13
+### Corregidos y verificados — 14
 
 | Hallazgo | Dónde se comprueba |
 |---|---|
@@ -27,15 +27,15 @@ Verificado contra los artefactos vivos, hallazgo por hallazgo. **Siete de los ve
 | `HN1-12` | [`RN-18`](../../01-negocio/reglas/RN-18-rotulacion-del-vehiculo-del-estado.md) separa hoy lo `[V]` de lo `[C]`: los elementos de identificación están verificados; la vigencia del Acuerdo 303 en su redacción original, no |
 | `HN1-15` | [`RN-26`](../../01-negocio/reglas/RN-26-fondo-de-combustible-aprobado.md) lleva su **nota de corrección** nombrando este hallazgo: la incompatibilidad solicita fondo × aprueba fondo pasó a ser control propio de `RN-26`, en vez de invocar un `RN-01` que razona por misión |
 | `HN1-19` · `HN1-20` | [`README` de reglas](../../01-negocio/reglas/README.md) |
+| `HN1-14` | **Cerrado el 2026-08-26.** [`RN-52`](../../01-negocio/reglas/RN-52-registro-de-consultas-a-manifiestos.md) declaraba `[V]` que el MARCI exige control de acceso y registro de consultas, cuando [`NRM-01`](../../01-negocio/normativa/NRM-01-control-interno-tsc.md) tiene esa familia `[C]`. **La cabecera contradecía a su propio cuerpo**, que ya decía lo correcto. La verificación se separó en sus tres afirmaciones: `[V]` el hábeas data del Artículo 182 — [`NRM-07`](../../01-negocio/normativa/NRM-07-transparencia-y-datos-personales.md); `[C]` la exigencia del MARCI; **`[I]` que del hábeas data se siga registrar cada consulta**, que es implicación de requerimiento del equipo y no articulado. Se fue más lejos que el `[P]` único que proponía el hallazgo, porque un `[P]` plano subestimaba el hábeas data y sobrestimaba la inferencia. **Sigue siendo bloqueo duro y no configurable**, y la regla lo dice expresamente para que la corrección no se lea como permiso para relajarlo. Alineados los cuatro artefactos que repetían la escalada: [`PR-01`](../../01-negocio/procesos/PR-01-movilizacion-institucional.md) `V-03`, [`actores-y-roles`](../../01-negocio/actores-y-roles.md) §3.3 y `ACT-12`, [`RN-51`](../../01-negocio/reglas/RN-51-minimizacion-de-datos-de-personas-externas.md) y [`HU-132`](../../02-requisitos/historias/HU-132-alcance-de-datos-verificado-en-cada-consulta.md) |
 
-### Siguen abiertos — 7
+### Siguen abiertos — 6
 
 | Hallazgo | Qué falta, comprobado hoy |
 |---|---|
 | `HN1-09` | **Sin regla.** No hay ninguna que produzca el paquete de evidencia **por vehículo o por período**. El sistema entrega por misión y el requerimiento del TSC llega por vehículo o por período. El propio informe lo puso primero en su lista de riesgo de auditoría |
 | `HN1-11` | **Sin regla y sin norma extraída.** El bloqueo duro por matrícula vencida sigue sin `RN-xx` propia |
 | `HN1-13` | [`RN-11`](../../01-negocio/reglas/RN-11-restricciones-medicas-del-motorista.md) sigue declarando `Configurable: Sí` con efecto por catálogo, y la máquina de estados sigue bloqueando sin distinguir. Uno de los dos tiene que ceder |
-| `HN1-14` | [`RN-52`](../../01-negocio/reglas/RN-52-registro-de-consultas-a-manifiestos.md) sigue marcando `[V]` que el MARCI exige control de acceso y registro de consultas, cuando la ficha `NRM-01` lo tiene `[C]`. Es exactamente la escalada de nivel que `CLAUDE.md` prohíbe, y sobrevivió a la corrección de `HN1-03` |
 | `HN1-16` | [`RN-02`](../../01-negocio/reglas/RN-02-escalamiento-de-autorizacion.md) sigue resolviendo la ausencia del superior por delegación vigente y rechazando el salto automático; `actores-y-roles` §7.3 sigue prescribiéndolo |
 | `HN1-17` | [`RN-25`](../../01-negocio/reglas/RN-25-salvoconducto-con-folio-y-qr.md) sigue exigiendo como bloqueo duro no configurable que exista una página pública de verificación del QR, cuando el pendiente **G** de `ACT-15` deja `[C]` si la institución acepta exponer ese punto desde un servidor on-premise |
 | `HN1-18` | **Sin regla.** La constatación física de la flota es `[V]` —NOGECI V-15 y Circular CGR-010-2026— y sigue sin `RN-xx`. Es la más grave de las cuatro sin cubrir, porque la norma está verificada |
