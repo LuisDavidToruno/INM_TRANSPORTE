@@ -129,7 +129,7 @@ function Cabecera({ expediente }: { expediente: ExpedienteDto }): ReactElement {
         {expediente.folio}
       </h1>
       <Pastilla tono={rotulo.tono}>{rotulo.texto}</Pastilla>
-      <p className="tw:text-sm tw:text-[var(--txt-2)]">
+      <p className="tw:text-sm tw:text-tinta-mid">
         {expediente.dependencia} · a nombre de {expediente.solicitanteDeDerecho}
       </p>
     </header>
@@ -152,7 +152,7 @@ function Datos({ expediente }: { expediente: ExpedienteDto }): ReactElement {
 function Dato({ termino, valor }: { termino: string; valor: string }): ReactElement {
   return (
     <div className="tw:flex tw:flex-col tw:gap-0.5">
-      <dt className="tw:text-xs tw:text-[var(--txt-2)]">{termino}</dt>
+      <dt className="tw:text-xs tw:text-tinta-mid">{termino}</dt>
       <dd className="tw:text-sm">{valor}</dd>
     </div>
   );
@@ -176,12 +176,12 @@ function ValidacionVista({
   if (clase === 'conforme') {
     return (
       <div className="tw:flex tw:gap-2.5 tw:text-sm">
-        <CircleCheck size={16} className="tw:mt-px tw:shrink-0 tw:text-[var(--ok)]" aria-hidden />
+        <CircleCheck size={16} className="tw:mt-px tw:shrink-0 tw:text-ok-fg" aria-hidden />
         <div className="tw:flex tw:flex-col tw:gap-0.5">
           <p>
-            <span className="tw:font-mono tw:text-xs tw:text-[var(--txt-2)]">{regla}</span> {titulo}
+            <span className="tw:font-mono tw:text-xs tw:text-tinta-mid">{regla}</span> {titulo}
           </p>
-          <p className="tw:text-xs tw:text-[var(--txt-2)]">{detalle}</p>
+          <p className="tw:text-xs tw:text-tinta-mid">{detalle}</p>
         </div>
       </div>
     );
@@ -204,7 +204,7 @@ function ValidacionVista({
               aria-label="Doy por leído este aviso"
               checked={acusada}
               onChange={onAcusar}
-              className="tw:mt-0.5 tw:size-4 tw:shrink-0 tw:accent-[var(--acento)]"
+              className="tw:mt-0.5 tw:size-4 tw:shrink-0 tw:accent-acento"
             />
             <span>
               Doy por leído este aviso y asumo la decisión con este dato a la vista.
@@ -221,15 +221,15 @@ function Diario({ transiciones }: { transiciones: ExpedienteDto['diario'] }): Re
     <ol className="tw:flex tw:flex-col tw:gap-3">
       {transiciones.map((t) => (
         <li key={`${t.id}-${t.momento}`} className="tw:flex tw:gap-3 tw:text-sm">
-          <span className="tw:font-mono tw:text-xs tw:text-[var(--txt-2)] tw:tabular-nums">{t.id}</span>
+          <span className="tw:font-mono tw:text-xs tw:text-tinta-mid tw:tabular-nums">{t.id}</span>
           <div className="tw:flex tw:flex-col tw:gap-0.5">
             <span>
               {ROTULO_ESTADO[t.destino].texto} · {t.ejecuta}
             </span>
-            <span className="tw:text-xs tw:text-[var(--txt-2)] tw:tabular-nums">
+            <span className="tw:text-xs tw:text-tinta-mid tw:tabular-nums">
               {momentoCompleto(t.momento)}
             </span>
-            {t.motivo && <span className="tw:text-xs tw:text-[var(--txt-2)]">Motivo: {t.motivo}</span>}
+            {t.motivo && <span className="tw:text-xs tw:text-tinta-mid">Motivo: {t.motivo}</span>}
           </div>
         </li>
       ))}
@@ -272,7 +272,7 @@ function Decision({
       <Panel titulo="Su pronunciamiento">
         <div className="tw:flex tw:flex-col tw:gap-4">
           {bloqueado ? (
-            <p className="tw:text-sm tw:text-[var(--txt-2)]">
+            <p className="tw:text-sm tw:text-tinta-mid">
               Este expediente no lo puede autorizar usted. Escálelo al nivel inmediato superior
               — el sistema deja constancia de que llegó acá y de por qué no siguió.
             </p>
@@ -306,7 +306,7 @@ function Decision({
           </Boton>
 
           {!bloqueado && impedido && (
-            <p className="tw:text-xs tw:text-[var(--txt-2)]">
+            <p className="tw:text-xs tw:text-tinta-mid">
               {faltanAcuses > 0
                 ? faltanAcuses === 1
                   ? 'Queda 1 aviso sin dar por leído.'
@@ -327,11 +327,11 @@ function Decision({
 function Cargando(): ReactElement {
   return (
     <div className="tw:flex tw:flex-col tw:gap-6" aria-busy="true" aria-live="polite">
-      <div className="tw:h-7 tw:w-48 tw:animate-pulse tw:rounded tw:bg-[var(--sup-2)]" />
-      <div className="tw:h-16 tw:animate-pulse tw:rounded tw:bg-[var(--sup-2)]" />
+      <div className="tw:h-7 tw:w-48 tw:animate-pulse tw:rounded tw:bg-subtle" />
+      <div className="tw:h-16 tw:animate-pulse tw:rounded tw:bg-subtle" />
       <div className="tw:grid tw:gap-5 tw:lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="tw:h-64 tw:animate-pulse tw:rounded tw:bg-[var(--sup-2)]" />
-        <div className="tw:h-48 tw:animate-pulse tw:rounded tw:bg-[var(--sup-2)]" />
+        <div className="tw:h-64 tw:animate-pulse tw:rounded tw:bg-subtle" />
+        <div className="tw:h-48 tw:animate-pulse tw:rounded tw:bg-subtle" />
       </div>
       <span className="tw:sr-only">Cargando el expediente…</span>
     </div>

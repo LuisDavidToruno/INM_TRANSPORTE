@@ -101,7 +101,7 @@ function Encabezado({ pendientes, cargando }: { pendientes: number; cargando: bo
   return (
     <header className="tw:flex tw:flex-col tw:gap-1">
       <h1 className="tw:text-xl tw:font-semibold tw:tracking-tight">Bandeja de autorización</h1>
-      <p className="tw:text-sm tw:text-[var(--txt-2)]">
+      <p className="tw:text-sm tw:text-tinta-mid">
         {cargando
           ? 'Cargando los expedientes bajo su competencia…'
           : pendientes === 1
@@ -162,7 +162,7 @@ function EstadoDelEspejo({
   const dias = dato.diasSinConfirmar ?? 0;
 
   return (
-    <p className="tw:text-xs tw:text-[var(--txt-2)]">
+    <p className="tw:text-xs tw:text-tinta-mid">
       Organigrama confirmado contra ARGOS{' '}
       {dias === 0 ? 'hoy' : dias === 1 ? 'ayer' : `hace ${dias} días`}.
     </p>
@@ -202,7 +202,7 @@ const COLUMNAS: ColumnaDef<Expediente>[] = [
     celda: (e) => (
       <div className="tw:flex tw:flex-col">
         <span>{e.solicitanteDeDerecho}</span>
-        <span className="tw:text-xs tw:text-[var(--txt-2)]">{e.dependencia}</span>
+        <span className="tw:text-xs tw:text-tinta-mid">{e.dependencia}</span>
       </div>
     ),
     ordenable: true,
@@ -218,7 +218,7 @@ const COLUMNAS: ColumnaDef<Expediente>[] = [
         <span className="tw:line-clamp-1">
           {e.objetoDelTraslado || <SinDato>Sin objeto declarado</SinDato>}
         </span>
-        <span className="tw:text-xs tw:text-[var(--txt-2)]">
+        <span className="tw:text-xs tw:text-tinta-mid">
           {e.destino ? `Destino: ${e.destino}` : <SinDato>Sin destino declarado</SinDato>}
         </span>
       </div>
@@ -231,7 +231,7 @@ const COLUMNAS: ColumnaDef<Expediente>[] = [
     celda: (e) => (
       <div className="tw:flex tw:flex-col">
         <span className="tw:tabular-nums">{diaYHora(e.salidaPrevista)}</span>
-        <span className="tw:text-xs tw:text-[var(--txt-2)]">{faltanDias(e.salidaPrevista)}</span>
+        <span className="tw:text-xs tw:text-tinta-mid">{faltanDias(e.salidaPrevista)}</span>
       </div>
     ),
     ordenable: true,
@@ -247,7 +247,7 @@ const COLUMNAS: ColumnaDef<Expediente>[] = [
  * el sistema perdió el dato o si nunca lo hubo.
  */
 function SinDato({ children }: { children: ReactNode }): ReactElement {
-  return <span className="tw:italic tw:text-[var(--txt-2)]">{children}</span>;
+  return <span className="tw:italic tw:text-tinta-mid">{children}</span>;
 }
 
 /**

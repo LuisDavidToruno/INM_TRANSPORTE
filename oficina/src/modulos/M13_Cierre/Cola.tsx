@@ -43,7 +43,7 @@ export default function Cola(): ReactElement {
     <div className="tw:flex tw:flex-col tw:gap-5">
       <header className="tw:flex tw:flex-col tw:gap-1">
         <h1 className="tw:text-xl tw:font-semibold tw:tracking-tight">Cola de cierre</h1>
-        <p className="tw:text-sm tw:text-[var(--txt-2)]">
+        <p className="tw:text-sm tw:text-tinta-mid">
           Expedientes liquidados esperando el cierre de la Gerencia Administrativa.
         </p>
       </header>

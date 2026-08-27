@@ -54,7 +54,7 @@ export default function Cola(): ReactElement {
     <div className="tw:flex tw:flex-col tw:gap-5">
       <header className="tw:flex tw:flex-col tw:gap-1">
         <h1 className="tw:text-xl tw:font-semibold tw:tracking-tight">Cola de programación</h1>
-        <p className="tw:text-sm tw:text-[var(--txt-2)]">
+        <p className="tw:text-sm tw:text-tinta-mid">
           Expedientes aprobados esperando vehículo y motorista.
         </p>
       </header>
@@ -124,7 +124,7 @@ const COLUMNAS: ColumnaDef<Expediente>[] = [
     celda: (e) => (
       <div className="tw:flex tw:flex-col">
         <span className="tw:line-clamp-1">{e.objetoDelTraslado}</span>
-        <span className="tw:text-xs tw:text-[var(--txt-2)]">
+        <span className="tw:text-xs tw:text-tinta-mid">
           {e.dependencia} · destino: {e.destino}
         </span>
       </div>
@@ -152,7 +152,7 @@ const COLUMNAS_CADUCADAS = (
     cabecera: 'Caducó el',
     ancho: 190,
     celda: (e) => (
-      <span className="tw:tabular-nums tw:text-[var(--txt-2)]">{soloFecha(e.salidaPrevista)}</span>
+      <span className="tw:tabular-nums tw:text-tinta-mid">{soloFecha(e.salidaPrevista)}</span>
     ),
     ordenable: true,
     valorOrden: (e) => e.salidaPrevista,
@@ -187,7 +187,7 @@ function Salida({ expediente }: { expediente: Expediente }): ReactElement {
         (dias <= 2 ? (
           <Pastilla tono="aviso">{cuando}</Pastilla>
         ) : (
-          <span className="tw:text-xs tw:text-[var(--txt-2)]">{cuando}</span>
+          <span className="tw:text-xs tw:text-tinta-mid">{cuando}</span>
         ))}
     </div>
   );
@@ -257,7 +257,7 @@ function DialogoDeAnulacion({
                 checked={motivo === m.valor}
                 onChange={() => setMotivo(m.valor)}
                 aria-label={m.texto}
-                className="tw:mt-0.5 tw:size-4 tw:shrink-0 tw:accent-[var(--acento)]"
+                className="tw:mt-0.5 tw:size-4 tw:shrink-0 tw:accent-acento"
               />
               <span>{m.texto}</span>
             </label>
@@ -280,7 +280,7 @@ function DialogoDeAnulacion({
         </Campo>
 
         {!motivo && (
-          <p className="tw:text-xs tw:text-[var(--txt-2)]">
+          <p className="tw:text-xs tw:text-tinta-mid">
             Seleccione el motivo del catálogo. El texto libre no produce indicador.
           </p>
         )}

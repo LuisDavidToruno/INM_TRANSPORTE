@@ -89,7 +89,7 @@ export default function RechazoPorLicencia({
         {/* El intento bloqueado ES información de control, no ruido. Y la versión de la
             matriz va acá porque la matriz es parámetro con vigencia: un rechazo que no
             se puede reproducir no se puede defender. */}
-        <div className="tw:flex tw:flex-col tw:gap-1.5 tw:border-t tw:border-[var(--borde)] tw:pt-4 tw:text-xs tw:text-[var(--txt-2)]">
+        <div className="tw:flex tw:flex-col tw:gap-1.5 tw:border-t tw:border-linea tw:pt-4 tw:text-xs tw:text-tinta-mid">
           <p>
             Este intento queda asentado: {conductor.nombre}, licencia{' '}
             <span className="tw:font-mono">{resultado.numeroDeLicencia}</span>, sobre{' '}
@@ -186,7 +186,7 @@ function Salida({
       {hay ? (
         <div className="tw:flex tw:flex-col tw:gap-2">{children}</div>
       ) : (
-        <p className="tw:text-sm tw:text-[var(--txt-2)]">{vacio}</p>
+        <p className="tw:text-sm tw:text-tinta-mid">{vacio}</p>
       )}
     </section>
   );
@@ -205,10 +205,10 @@ function Opcion({
     <button
       type="button"
       onClick={onElegir}
-      className="tw:flex tw:flex-col tw:items-start tw:gap-0.5 tw:rounded tw:border tw:border-[var(--borde)] tw:px-3 tw:py-2 tw:text-left tw:text-sm tw:transition-colors tw:hover:border-[var(--acento)]"
+      className="tw:flex tw:flex-col tw:items-start tw:gap-0.5 tw:rounded tw:border tw:border-linea tw:px-3 tw:py-2 tw:text-left tw:text-sm tw:transition-colors tw:hover:border-acento"
     >
       <span className="tw:font-medium">{titulo}</span>
-      <span className="tw:text-xs tw:text-[var(--txt-2)]">{detalle}</span>
+      <span className="tw:text-xs tw:text-tinta-mid">{detalle}</span>
     </button>
   );
 }

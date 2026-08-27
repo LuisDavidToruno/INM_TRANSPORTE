@@ -129,7 +129,7 @@ export default function Cierre(): ReactElement {
           </h1>
           <Pastilla tono="info">Liquidada</Pastilla>
         </div>
-        <p className="tw:text-sm tw:text-[var(--txt-2)]">
+        <p className="tw:text-sm tw:text-tinta-mid">
           {data.objetoDelTraslado} · destino {data.destino} · retorno{' '}
           {soloFecha(data.retornoPrevisto)}
         </p>
@@ -157,9 +157,9 @@ export default function Cierre(): ReactElement {
                 {criterios.map((c) => (
                   <li
                     key={c.criterio}
-                    className="tw:flex tw:flex-col tw:gap-0.5 tw:rounded tw:border tw:border-[var(--borde)] tw:px-3 tw:py-2"
+                    className="tw:flex tw:flex-col tw:gap-0.5 tw:rounded tw:border tw:border-linea tw:px-3 tw:py-2"
                   >
-                    <span className="tw:font-mono tw:text-xs tw:text-[var(--txt-2)]">{c.criterio}</span>
+                    <span className="tw:font-mono tw:text-xs tw:text-tinta-mid">{c.criterio}</span>
                     <span className="tw:text-sm">{c.detalle}</span>
                   </li>
                 ))}

@@ -141,11 +141,11 @@ export default function Asignacion(): ReactElement {
             aria-label="La misión declara conducción nocturna, entre las 19:00 y las 23:00"
             checked={nocturna}
             onChange={(e) => setNocturna(e.target.checked)}
-            className="tw:mt-0.5 tw:size-4 tw:shrink-0 tw:accent-[var(--acento)]"
+            className="tw:mt-0.5 tw:size-4 tw:shrink-0 tw:accent-acento"
           />
           <span>
             La misión declara conducción entre las 19:00 y las 23:00.
-            <span className="tw:block tw:text-xs tw:text-[var(--txt-2)]">
+            <span className="tw:block tw:text-xs tw:text-tinta-mid">
               Se pregunta porque una restricción médica solo bloquea si la misión la contradice.
             </span>
           </span>
@@ -190,7 +190,7 @@ function Cabecera({ expediente }: { expediente: Expediente }): ReactElement {
         </h1>
         <Pastilla tono="info">Aprobada</Pastilla>
       </div>
-      <p className="tw:text-sm tw:text-[var(--txt-2)]">
+      <p className="tw:text-sm tw:text-tinta-mid">
         {expediente.objetoDelTraslado} · destino {expediente.destino}
       </p>
       {/* La ventana se muestra, no se edita: es lo que declara quien pide. */}
@@ -258,7 +258,7 @@ function Habilitada({
                 bloquea la programación. <b>Queda registrado que usted la vio y decidió continuar</b>,
                 y esa constancia va en el expediente y en la liquidación.
               </p>
-              <p className="tw:text-xs tw:text-[var(--txt-2)]">
+              <p className="tw:text-xs tw:text-tinta-mid">
                 El catálogo oficial de restricciones de la DNVT todavía no está cargado —
                 insumo #42. Hasta que lo esté, las restricciones sin clasificar llegan como
                 ésta, y advertir es lo correcto: callarlas sería peor.
@@ -318,7 +318,7 @@ function Insumo({
 }): ReactElement {
   return (
     <div className="tw:flex tw:flex-col tw:gap-0.5">
-      <dt className="tw:text-xs tw:text-[var(--txt-2)]">{termino}</dt>
+      <dt className="tw:text-xs tw:text-tinta-mid">{termino}</dt>
       <dd className={mono ? 'tw:font-mono tw:text-xs' : ''}>{valor}</dd>
     </div>
   );
@@ -349,8 +349,8 @@ function Eleccion({
     <label
       className={`tw:flex tw:cursor-pointer tw:gap-3 tw:rounded tw:border tw:px-3 tw:py-2.5 tw:transition-colors ${
         elegida
-          ? 'tw:border-[var(--acento)] tw:bg-[var(--sup-2)]'
-          : 'tw:border-[var(--borde)] tw:hover:border-[var(--txt-2)]'
+          ? 'tw:border-acento tw:bg-subtle'
+          : 'tw:border-linea tw:hover:border-linea-activa'
       }`}
     >
       <input
@@ -362,11 +362,11 @@ function Eleccion({
         // lee «INS-P-014Pick-up doble cabina · 2,800 kg» de corrido.
         aria-label={titulo}
         aria-describedby={idDetalle}
-        className="tw:mt-1 tw:size-4 tw:shrink-0 tw:accent-[var(--acento)]"
+        className="tw:mt-1 tw:size-4 tw:shrink-0 tw:accent-acento"
       />
       <span className="tw:flex tw:min-w-0 tw:flex-col tw:gap-1">
         <span className="tw:text-sm tw:font-medium">{titulo}</span>
-        <span id={idDetalle} className="tw:text-xs tw:text-[var(--txt-2)]">
+        <span id={idDetalle} className="tw:text-xs tw:text-tinta-mid">
           {detalle}
         </span>
         {pie}
@@ -378,10 +378,10 @@ function Eleccion({
 function Cargando(): ReactElement {
   return (
     <div className="tw:flex tw:flex-col tw:gap-6" aria-busy="true" aria-live="polite">
-      <div className="tw:h-7 tw:w-48 tw:animate-pulse tw:rounded tw:bg-[var(--sup-2)]" />
+      <div className="tw:h-7 tw:w-48 tw:animate-pulse tw:rounded tw:bg-subtle" />
       <div className="tw:grid tw:gap-5 tw:lg:grid-cols-2">
-        <div className="tw:h-64 tw:animate-pulse tw:rounded tw:bg-[var(--sup-2)]" />
-        <div className="tw:h-64 tw:animate-pulse tw:rounded tw:bg-[var(--sup-2)]" />
+        <div className="tw:h-64 tw:animate-pulse tw:rounded tw:bg-subtle" />
+        <div className="tw:h-64 tw:animate-pulse tw:rounded tw:bg-subtle" />
       </div>
       <span className="tw:sr-only">Cargando el expediente y la flota…</span>
     </div>
