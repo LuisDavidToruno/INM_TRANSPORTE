@@ -1,0 +1,2047 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Entrada de estilos de LOKI.
+
+   ── Las dos restricciones, y por qué se conservan en un proyecto nuevo ───────
+
+   1. CON PREFIJO `tw:`. En ARGOS el prefijo existe porque Tailwind convive con
+      Bootstrap y comparten nombres de utilidad con escalas distintas (`p-4`,
+      `border`, `rounded`, `shadow`). Acá no hay Bootstrap — el prefijo se
+      conserva igual, y no por inercia: es lo que permite mover un componente
+      entre ARGOS y un proyecto nuevo COPIÁNDOLO, sin reescribir cada clase. El
+      día que eso deje de importar, se quita en una corrida de find-replace.
+
+   2. SIN PREFLIGHT. Por eso el reset de abajo es explícito y está a la vista.
+      En una plantilla eso es una ventaja, no una deuda: se sabe exactamente qué
+      se está reseteando, en vez de heredar una lista de terceros. Y deja el
+      bundle montable dentro de una página ajena sin desarmarla (ver el
+      comentario de `data-loki-shell` en `index.html`).
+
+   Si tu proyecto no va a convivir con nada y preferís el preflight, cambiá el
+   import de abajo por `@import 'tailwindcss' prefix(tw);` y borrá la capa
+   `base`. Es una decisión de proyecto, no del sistema de diseño.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@layer theme, base, components, utilities;
+
+@import 'tailwindcss/theme.css' layer(theme) prefix(tw);
+@import 'tailwindcss/utilities.css' layer(utilities) prefix(tw);
+
+/* ── LA CAPA DE MARCA ────────────────────────────────────────────────────────
+   Ésta es la única línea que hay que tocar para re-marcar el proyecto entero.
+   Ver `src/marca/CONTRATO.md`. */
+@import '../marca/argos/tokens.css';
+
+/* ── Base — acotada a `[data-loki-shell]` a propósito ───────────────────────
+   Consecuencia directa de omitir el preflight: sin esto `h1`, `ul`, `button` y
+   `body` salen con los valores por omisión del navegador (márgenes, viñetas,
+   tamaños de título) dentro de la interfaz.
+
+   Todo cuelga del atributo, que `index.html` pone en `<html>`. Sin ese atributo
+   ninguna de estas reglas coincide — que es lo que hace seguro montar este
+   bundle dentro de una página que ya tiene su propio CSS. */
+@layer base {
+  [data-loki-shell] {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  [data-loki-shell] *,
+  [data-loki-shell] *::before,
+  [data-loki-shell] *::after {
+    box-sizing: border-box;
+  }
+
+  [data-loki-shell] body {
+    margin: 0;
+    font-family: var(--sans);
+    background-color: rgb(var(--surface-canvas));
+    color: rgb(var(--text-base));
+  }
+
+  [data-loki-shell] h1,
+  [data-loki-shell] h2,
+  [data-loki-shell] h3,
+  [data-loki-shell] h4,
+  [data-loki-shell] p,
+  [data-loki-shell] dl,
+  [data-loki-shell] dd,
+  [data-loki-shell] figure {
+    margin: 0;
+    font-size: inherit;
+    font-weight: inherit;
+  }
+
+  [data-loki-shell] ul,
+  [data-loki-shell] ol {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  [data-loki-shell] a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  /* El botón hereda tipografía y color: sin esto, cada botón arrastra la fuente
+     del sistema operativo y rompe la escala tipográfica.
+     `text-transform` va aparte porque NO es parte de la abreviatura `font` y la
+     hoja del navegador lo fija en `none` para los controles de formulario: sin
+     esta línea, la cabecera ORDENABLE de una tabla —que es un `<button>`— pierde
+     las versalitas y queda distinta de la que no se puede ordenar, en la misma
+     fila de encabezados. */
+  [data-loki-shell] button {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    text-transform: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  [data-loki-shell] select {
+    font: inherit;
+  }
+
+  [data-loki-shell] svg {
+    display: block;
+  }
+
+  [data-loki-shell] img {
+    display: block;
+    max-width: 100%;
+  }
+}
+
+@layer components {
+  /* El ancho del menu se anima; NADA MAS. Con `transition-[width]` (valor
+     arbitrario, que no genera CSS) sobrevivia solo la duracion y `transition-property`
+     quedaba en su valor inicial `all`: el aside animaba TODO 200 ms, incluido el
+     color al cambiar de tema. */
+  .loki-aside {
+    transition: width 0.2s ease;
+  }
+
+  /* Lista de definiciones a dos columnas: la etiqueta ocupa lo que necesita y el valor el
+     resto. En esta configuración las utilidades con corchetes NO generan CSS (ver el canon
+     §2 D3), así que `grid-cols-[auto_1fr]` quedaría en el HTML sin hacer nada. */
+  .loki-dl-dos-columnas {
+    grid-template-columns: auto 1fr;
+  }
+
+  .loki-dialogo {
+    width: min(32rem, calc(100vw - 2rem));
+    max-height: calc(100vh - 4rem);
+  }
+
+  /* Modal de formulario con varias secciones. El ancho normal los apila en una columna
+     larguísima y obliga a desplazarse DENTRO del modal — no se ve el conjunto ni se llega al
+     botón sin recorrer. Con 56rem la misma información entra en dos columnas.
+
+     ⚠️ `min-width: 0` en la rejilla del cuerpo, no acá: sin eso un `<select>` con opciones
+     largas ESTIRA su columna y aparece scroll HORIZONTAL, que es peor que el vertical. */
+  .loki-dialogo-amplio {
+    width: min(56rem, calc(100vw - 2rem));
+  }
+
+  /* Visor de PDF dentro de un diálogo. El alto va en `vh` y no en `%`: el cuerpo del
+     diálogo no tiene alto propio, así que un `100%` dejaría el visor en CERO y el
+     documento no se vería —sin error, sólo un modal vacío—. El tope en píxeles evita
+     que en una pantalla muy alta la hoja se estire hasta perder la proporción. */
+  .loki-visor-documento {
+    height: min(68vh, 860px);
+  }
+
+  /* Cajon lateral. Se pega al borde derecho y ocupa el alto completo; `max-width`
+     y no `width` para que en telefono no se salga de la pantalla. La entrada es
+     un desplazamiento, no una aparicion: comunica DE DONDE viene el panel. */
+  .loki-cajon {
+    width: 32.5rem;
+    max-width: calc(100vw - 2rem);
+    height: 100%;
+    animation: loki-cajon-entra 0.26s cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+
+  @keyframes loki-cajon-entra {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: none;
+    }
+  }
+
+  /* ── Barra de desplazamiento tematizada ────────────────────────────────────
+     Se aplica sólo donde hay scroll propio (el menú lateral, cuerpos de tabla).
+     La barra por omisión del sistema operativo es lo más ruidoso de un panel
+     oscuro: una franja gris claro sobre superficie oscura. */
+  .loki-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--border-input)) transparent;
+  }
+
+  /*
+    Reserva el canal de la barra de scroll SIEMPRE, exista o no desbordamiento.
+
+    Sin esto, el ancho útil del contenedor cambia según si hay scroll, y su contenido
+    centrado se corre ~4 px. En el riel contraído del menú eso se vuelve visible: los
+    íconos del `<nav>` (con scroll) caían 3 px a la izquierda del logo de la marca (sin
+    scroll), y el desfase **aparecía y desaparecía** según la cantidad de secciones que
+    el usuario tuviera — un superadministrador con 14 lo veía y un empleado con 2 no.
+    Un defecto que depende de los datos es peor que uno constante.
+
+    Se aplica sólo al riel, no a `.loki-scroll` en general: en el área de contenido el
+    canal reservado deja una franja visible al costado cuando no hay nada que desplazar.
+  */
+  .loki-riel-scroll {
+    scrollbar-gutter: stable;
+  }
+
+  .loki-scroll::-webkit-scrollbar {
+    width: 0.5rem;
+    height: 0.5rem;
+  }
+
+  .loki-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .loki-scroll::-webkit-scrollbar-thumb {
+    background-color: rgb(var(--border));
+    border-radius: 9999px;
+  }
+
+  .loki-scroll:hover::-webkit-scrollbar-thumb {
+    background-color: rgb(var(--border-input));
+  }
+
+  /* ── Respeto por prefers-reduced-motion ────────────────────────────────────
+     Va acá y NO en cada componente: una regla global no se olvida, y un
+     `animate-*` nuevo queda cubierto sin que nadie tenga que acordarse.
+     Cubre también las transiciones, no sólo las animaciones — un ancho que se
+     desliza 200 ms es movimiento igual. */
+  @media (prefers-reduced-motion: reduce) {
+    [data-loki-shell] *,
+    [data-loki-shell] *::before,
+    [data-loki-shell] *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ── Escala tipográfica: un paso por debajo de `xs` ─────────────────────────────
+   Los badges, los chips y los rótulos de sección de una interfaz densa piden 11px,
+   y la escala de Tailwind salta de 12px (`xs`) a 14px (`sm`).
+
+   Va como TOKEN y no como valor arbitrario (`text-[0.6875rem]`) por dos razones:
+
+   1. Es la unidad tipográfica más repetida de la interfaz — merece nombre, igual
+      que los colores. Repartir el número crudo por los componentes es la deriva
+      que el contrato de tokens existe para evitar.
+   2. En esta configuración las utilidades de valor arbitrario **no generan CSS**.
+      Verificado sobre el bundle: `text-[0.6875rem]` produjo 0 reglas, mientras
+      `text-xs` sí. Y falla como falla el prefijo invertido — sin error, sin aviso,
+      con el texto heredando el tamaño del padre. Los valores con nombre pasan por
+      `@theme` y son verificables.
+
+   ⚠️ Regla que se desprende: en el frontend nuevo NO se usan valores arbitrarios
+      entre corchetes. Si falta un valor, se agrega al tema. */
+@theme {
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+
+  /* ── Movimiento ─────────────────────────────────────────────────────────────
+     Tres animaciones y ninguna más. La regla de fondo: el movimiento sirve para
+     explicar de dónde salió algo, no para adornar. Duraciones cortas (160–240 ms)
+     y desplazamientos de pocos píxeles — una interfaz de trabajo se usa cientos de
+     veces al día, y lo que la primera vez se ve elegante a la quincuagésima estorba.
+
+     🚫 Nada de rebotes, escalados grandes ni recorridos largos.
+     Se declaran acá para que existan como utilidades (`tw:animate-aparecer`) y no
+     como CSS suelto repetido en cada componente. */
+  --animate-aparecer: aparecer 0.16s ease-out;
+  --animate-subir: subir 0.24s ease-out both;
+  --animate-brillo: brillo 1.5s ease-in-out infinite;
+
+  @keyframes aparecer {
+    from {
+      opacity: 0;
+      transform: translateY(-2px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes subir {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* La cifra se IMPRIME: se descubre de izquierda a derecha, como un importe saliendo
+     sobre el papel de un registro. Es el único momento autorizado de la pantalla de
+     resultado —el resto entra sin ceremonia— y existe porque ahí está el pago del
+     trabajo: se llenaron tres pasos para llegar a ese número.
+
+     Se descubre con `clip-path` y NO se cuenta hacia arriba: un contador sobre dinero
+     muestra cifras falsas mientras corre, y en una pantalla de viáticos alguien las
+     leería. Descubrir no miente en ningún cuadro intermedio.
+
+     La curva es exponencial de salida: arranca rápido y se asienta, que es como se
+     detiene algo con masa. */
+  --animate-imprime: loki-imprime 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  @keyframes loki-imprime {
+    from {
+      clip-path: inset(0 100% 0 0);
+    }
+    to {
+      clip-path: inset(0 0 0 0);
+    }
+  }
+
+  /* Barrido para los esqueletos de carga. Comunica "esto está viniendo" mejor que
+     un pulso de opacidad, que se confunde con un elemento deshabilitado. */
+  @keyframes brillo {
+    0%,
+    100% {
+      opacity: 0.55;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   @theme DEL CONTRATO — mapea los tokens 0.3.3 a utilidades de Tailwind.
+
+   Traducción del `literal/tailwind.config.ts` del paquete a la sintaxis CSS-first
+   de Tailwind 4, que es la que este proyecto usa. El mapeo es del contrato; la
+   forma de escribirlo, nuestra.
+
+   Superficies, bordes y texto van como triplete RGB para que Tailwind pueda
+   aplicarles opacidad (`tw:bg-panel/60`). Los que llevan alfa propia van como
+   color completo y se consumen con `var()` directo — por eso NO todos usan la
+   misma forma: no es inconsistencia, es lo que el contrato exige.
+
+   📌 TRES NOMBRES QUE EN ARGOS NO EXISTEN Y ACÁ SÍ:
+
+       --color-acento · --color-info-bg · --color-neutro-bg
+
+   En ARGOS están omitidos a propósito porque COLISIONAN con el vocabulario
+   legacy que todavía usan sus 88 pantallas sin migrar, y la colisión no es
+   inocua: `--color-acento` vale azul en el vocabulario viejo y oro en el
+   contrato — declararlo allá repintaría en silencio 144 usos que nadie pidió.
+
+   Acá no hay legacy, así que el contrato entra COMPLETO. Es la diferencia
+   concreta entre una migración a mitad de camino y un proyecto que nace en el
+   destino, y es la razón por la que conviene arrancar de LOKI y no de una
+   copia de ARGOS.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@theme {
+  /* Superficies.
+
+     ⚠️ SIN `/ <alpha-value>`, y no es un olvido. Ese marcador es de Tailwind 3;
+     en 4 NO se sustituye, así que el valor queda como CSS inválido y la utilidad
+     deja de pintar — en silencio. El README del contrato lo muestra con el
+     marcador (su §«Instalación de los tokens»), y copiarlo literal fue el bug:
+     `tw:bg-panel` no aplicaba nada, cosa que en tema claro es INVISIBLE porque el
+     panel blanco sobre lienzo claro se ve igual. Apareció recién al mirar `navy`.
+
+     La opacidad sigue funcionando: Tailwind 4 resuelve `tw:bg-panel/60` con
+     `color-mix()` y no necesita el marcador. */
+  --color-canvas: rgb(var(--surface-canvas));
+  --color-panel: rgb(var(--surface-panel));
+  --color-subtle: rgb(var(--surface-subtle));
+  --color-inset: rgb(var(--surface-inset));
+
+  /* Líneas. `campo` es el límite de control (≥3:1 por WCAG 1.4.11); `linea` a
+     secas es estructura decorativa y NO está sujeta a ese piso. No son
+     intercambiables — confundirlas es el error más caro de la migración. */
+  --color-linea: rgb(var(--border));
+  --color-linea-suave: rgb(var(--border-soft));
+  --color-linea-campo: rgb(var(--border-input));
+  --color-linea-activa: rgb(var(--border-hover));
+
+  /* Tinta */
+  --color-tinta-hi: rgb(var(--text-hi));
+  --color-tinta-base: rgb(var(--text-base));
+  --color-tinta-mid: rgb(var(--text-mid));
+  --color-tinta-low: rgb(var(--text-low));
+  --color-tinta-axis: rgb(var(--text-axis));
+
+  /* Marca y acción */
+  --color-marca: var(--brand-navy);
+  --color-acento-ink: var(--accent-ink);
+  --color-btn: var(--btn-bg);
+  --color-btn-hover: var(--btn-bg-hover);
+  --color-btn-fg: var(--btn-fg);
+
+  /* Estado — trío bg/fg/bd por tono */
+  --color-ok-bg: var(--ok-bg);
+  --color-ok-fg: var(--ok-fg);
+  --color-ok-bd: var(--ok-bd);
+  --color-info-fg: var(--info-fg);
+  --color-info-bd: var(--info-bd);
+  --color-aviso-bg: var(--aviso-bg);
+  --color-aviso-fg: var(--aviso-fg);
+  --color-aviso-bd: var(--aviso-bd);
+  --color-riesgo-bg: var(--riesgo-bg);
+  --color-riesgo-fg: var(--riesgo-fg);
+  --color-riesgo-bd: var(--riesgo-bd);
+  --color-neutro-fg: var(--neutro-fg);
+  --color-neutro-bd: var(--neutro-bd);
+
+  /* Botón destructivo sólido — NO se deriva de `riesgo`: `--riesgo-bg` es fondo
+     de pastilla y da 3.68:1 con texto blanco. Ver COMPONENTS.md del paquete. */
+  --color-btn-riesgo: var(--btn-riesgo-bg);
+  --color-btn-riesgo-hover: var(--btn-riesgo-bg-hover);
+  --color-btn-riesgo-fg: var(--btn-riesgo-fg);
+
+  /* Operación del dominio — color de DATO, nunca de acción */
+  --color-op-viatico: var(--op-viatico);
+  --color-op-liquidacion: var(--op-liquidacion);
+  --color-op-gira: var(--op-gira);
+  --color-op-anulacion: var(--op-anulacion);
+
+  /* Plazo de atención — sólo la marca de borde de fila */
+  --color-plazo-aldia: var(--plazo-aldia);
+  --color-plazo-porvencer: var(--plazo-porvencer);
+  --color-plazo-vencido: var(--plazo-vencido);
+
+  /* Navegación — eje independiente de la superficie: al cambiar de tema, el riel
+     NO acompaña. Verificado en la vitrina del paquete. */
+  --color-nav-bg: var(--nav-bg);
+  --color-nav-hover: var(--nav-hover);
+  --color-nav-active: var(--nav-active);
+  --color-nav-rail: var(--nav-rail);
+  --color-nav-hi: var(--nav-hi);
+  --color-nav-mid: var(--nav-mid);
+  --color-nav-line: var(--nav-line);
+
+  --color-telon: var(--overlay);
+
+  /* Tipografía. La serifa aparece SÓLO en título de página y de sección; en
+     tabla o botón rompe la lectura. */
+  --font-serif: var(--serif);
+  --font-sans: var(--sans);
+  --font-mono: var(--mono);
+
+  /* Geometría */
+  --radius-control: var(--r-control);
+  --radius-panel: var(--r-panel);
+  --radius-badge: var(--r-badge);
+
+  /* Elevación. Poca sombra, mucho borde: sólo lleva elevación lo que flota. */
+  --shadow-loki: var(--shadow);
+  --shadow-lift: var(--shadow-lift);
+  --shadow-foco: 0 0 0 3px var(--focus-ring);
+
+  /* Espaciado. Base 4 con saltos que crecen, para que dos niveles vecinos no se
+     confundan a simple vista. */
+  --spacing-1: var(--sp-1);
+  --spacing-2: var(--sp-2);
+  --spacing-3: var(--sp-3);
+  --spacing-4: var(--sp-4);
+  --spacing-5: var(--sp-5);
+  --spacing-6: var(--sp-6);
+  --spacing-7: var(--sp-7);
+
+  /* Densidad — cambian con `data-densidad`, NO con breakpoints */
+  --height-control: var(--h-control);
+  --height-control-sm: var(--h-control-sm);
+  --height-fila: var(--row-h);
+
+  --ease-loki: var(--ease);
+
+  /* Los tres del comentario de arriba, con los valores del CONTRATO.
+     `--accent`, `--info-bg` y `--neutro-bg` llevan alfa/hex propio, así que van
+     con `var()` directo y NO envueltos en `rgb()` — envolverlos produce CSS
+     inválido y la utilidad deja de pintar, en silencio. */
+  --color-acento: var(--accent);
+  --color-info-bg: var(--info-bg);
+  --color-neutro-bg: var(--neutro-bg);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ESCALA TIPOGRÁFICA DEL CONTRATO
+
+   Tres familias, un rol cada una. La serifa aparece SÓLO en título de página y
+   de sección; en tabla o botón rompe la lectura.
+
+   Los tamaños son los del contrato al medio punto (12.5, 11.5) y no se redondean:
+   la diferencia entre el cuerpo (13) y el cuerpo secundario (12.5) es lo que
+   separa el dato de su explicación sin cambiar de color.
+
+   Nombrarlos acá evita el valor entre corchetes, que en este build NO genera CSS
+   y falla sin error.
+
+   ── ⚠️ DESDE CSS PROPIO SE LEEN CON `--tw-`, NO CON SU NOMBRE ───────────────
+   Lo que se declara en un `@theme` NO queda disponible con el nombre que se le
+   dio: como los `@import` de arriba llevan `prefix(tw)`, Tailwind emite las
+   variables PREFIJADAS. `--text-cuerpo` existe en el navegador como
+   `--tw-text-cuerpo`, y la utilidad generada lo confirma:
+
+       .tw\:text-cuerpo { font-size: var(--tw-text-cuerpo) }
+
+   Entonces, desde una clase `.loki-*` de este archivo:
+
+       font-size: var(--text-cuerpo);      ← ❌ no resuelve: no existe
+       font-size: var(--tw-text-cuerpo);   ← ✅
+
+   Y falla EN SILENCIO. Una referencia que no resuelve hace que el navegador
+   descarte la declaracion entera: no hay error, no hay aviso, el elemento
+   simplemente hereda. Asi estuvieron `.loki-campo` —16px heredados del
+   documento en vez de los 13 del contrato, en CADA campo del sistema—,
+   `.loki-avatar` y la animacion de `.loki-aviso`, hasta que la auditoria §4
+   de ACCEPTANCE.md los delato (2026-08-06).
+
+   Las utilidades (`tw:text-cuerpo` en un componente) no tienen ESE problema:
+   Tailwind las genera con el nombre correcto. Lo de arriba aplica sólo al CSS
+   de acá — pero tienen uno propio, y es el de abajo.
+
+   ── ⚠️ UN NOMBRE, DOS NAMESPACES: GANA EL COLOR ────────────────────────────
+   `text-X` es la utilidad de tamaño de `--text-X` **y** la de color de
+   `--color-X`. Si el mismo nombre existe en los dos, Tailwind emite la de
+   COLOR y el tamaño no existe: la clase pinta y no dimensiona.
+
+   Pasó con `--text-panel: 14px` frente a `--color-panel` (el fondo de panel).
+   `tw:text-panel` resolvía a `color: rgb(23 27 38)` y el tamaño caía al 16px
+   heredado del documento — o sea, **todo título de panel del sistema medía 16
+   en vez de 14**, y el texto se habría pintado del color del fondo si los
+   cuatro usos no llevaran `tw:text-tinta-hi` detrás. Silencioso otra vez: la
+   clase existe, el CSS compila, no hay aviso.
+
+   Por eso el token se llama `titulo` y no `panel`. Y por eso
+   `verificar-utilidades` compara los dos namespaces: la próxima colisión la
+   encuentra el script, no el navegador. NO reintroducir un nombre repetido —
+   ni acá ni en la paleta.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@theme {
+  --text-pagina: 26px;              /* serif 600 · título de página */
+  --text-pagina--line-height: 1.15;
+  --text-seccion: 19px;             /* serif 600 · título de sección */
+  --text-titulo: 14px;              /* sans 600 · título de panel */
+  --text-cuerpo: 13px;
+  --text-cuerpo--line-height: 1.5;
+  --text-cuerpo-2: 12.5px;          /* cuerpo secundario y celda de tabla */
+  --text-cuerpo-2--line-height: 1.55;
+  --text-rotulo: 11.5px;            /* rótulo de campo y referencia mono */
+  --text-pastilla: 11px;
+  --text-ayuda: 11px;               /* ayuda y pie */
+  --text-cabecera: 10px;            /* cabecera de tabla, versalitas */
+  --text-kpi: 26px;                 /* mono 600 tabular */
+  --text-importe: 12px;             /* mono 500 tabular */
+}
+
+/* ── Los cinco tonos, como clases y no como utilidades ──────────────────────────
+   Dos de los quince nombres del trío de tonos (`info-bg` y `neutro-bg`) son de los
+   tres que colisionan con el vocabulario legacy y quedaron fuera del @theme. Si se
+   armaran con utilidades, `info` y `neutro` saldrían con los colores viejos y los
+   otros tres con los del contrato: cinco tonos, dos vocabularios, y nadie lo nota
+   hasta que alguien compara dos pastillas de distinto tono.
+
+   Escribirlos acá los deja consumiendo los tokens del contrato de forma pareja, y
+   de paso hace que el mapa en TypeScript sea una clase por tono en vez de tres.
+   Cuando la migración libere esos dos nombres, esto se puede volver utilidades —
+   o quedarse, que también está bien: es exactamente el tipo de cosa que el canon
+   admite en `@layer components`. */
+@layer components {
+  .tono-ok {
+    background-color: var(--ok-bg);
+    color: var(--ok-fg);
+    border-color: var(--ok-bd);
+  }
+  .tono-info {
+    background-color: var(--info-bg);
+    color: var(--info-fg);
+    border-color: var(--info-bd);
+  }
+  .tono-aviso {
+    background-color: var(--aviso-bg);
+    color: var(--aviso-fg);
+    border-color: var(--aviso-bd);
+  }
+  .tono-riesgo {
+    background-color: var(--riesgo-bg);
+    color: var(--riesgo-fg);
+    border-color: var(--riesgo-bd);
+  }
+  .tono-neutro {
+    background-color: var(--neutro-bg);
+    color: var(--neutro-fg);
+    border-color: var(--neutro-bd);
+  }
+
+  /* ── Foco: dorado, nunca el azul del navegador ────────────────────────────────
+     El azul por omisión choca con el navy de marca y no se distingue del borde en
+     reposo. Se quita el `outline` PERO se sustituye en el mismo bloque: un
+     `outline:none` suelto es la forma más común de dejar un sistema sin foco
+     visible, y acá el recorrido por teclado es requisito. */
+  .loki-foco:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--focus-ring);
+  }
+
+  /* ── Fecha: un solo calendario, y es el nuestro ───────────────────────────────
+     Regla D8 del contrato.
+
+     `<input type="date">` trae su PROPIO ícono de calendario, y el desplegable que
+     abre es el del navegador: fondo claro, tipografía de Chrome, sin ninguno de
+     nuestros temas. Puesto al lado del calendario del sistema quedan DOS, y el que
+     aparece primero es el que desentona. Se reportó viéndolo, y es correcto.
+
+     Se apaga el ícono nativo — no el campo. El input sigue siendo `type="date"`:
+     conserva la entrada por teclado, el formato local y la validación del
+     navegador, que es todo lo que hacía valioso al nativo. Lo único que se le quita
+     es su desplegable, y el calendario pasa a ser uno solo.
+
+     ⚠️ En MÓVIL no se pierde nada: ahí el picker del sistema se abre al TOCAR el
+     campo, no por el ícono. Y ése sí conviene — es el del sistema operativo, con
+     su rueda y su tamaño de dedo.
+
+     ⚠️ Firefox no dibuja el indicador como pseudo-elemento; el selector no le
+     aplica y ahí conviven los dos. Es aceptable: el suyo respeta el tema del
+     sistema y no desentona como el de Chrome. */
+  .loki-fecha::-webkit-calendar-picker-indicator {
+    display: none;
+  }
+  .loki-fecha::-webkit-inner-spin-button,
+  .loki-fecha::-webkit-clear-button {
+    display: none;
+  }
+
+  /* Alto de control y de fila SIEMPRE por token, nunca literal: es lo que hace que
+     el interruptor de densidad funcione sin que ningún componente se entere. */
+  .loki-control {
+    height: var(--h-control);
+  }
+  .loki-control-sm {
+    height: var(--h-control-sm);
+  }
+}
+
+@layer components {
+  /* 13 px es el tamaño que fija el contrato para la rueda dentro de un botón.
+     Va como clase porque el SVG lo pinta el propio componente y no hay dónde
+     colgar una utilidad. (La justificación anterior —«los corchetes no generan
+     CSS»— era falsa: se midió `.tw:size-[13px]{width:13px;height:13px}` en el
+     CSS compilado. Ver el encabezado de scripts/verificar-utilidades.mjs.) */
+  .loki-rueda {
+    width: 13px;
+    height: 13px;
+  }
+}
+
+@layer components {
+  /* Relleno del panel y del cuerpo. Los gobierna la DENSIDAD (`--pad-panel`), no
+     la escala de espaciado: por eso no salen de `tw:p-*`. Cambiar a compacta tiene
+     que apretar el panel sin que ningún componente se entere. */
+  .loki-pad-panel {
+    padding: var(--pad-panel);
+  }
+  .loki-cuerpo-panel {
+    padding: 18px;
+  }
+
+  /* Punto de la pastilla. Hereda `currentColor`, así que un tono nuevo no necesita
+     una regla nueva — que es la condición para que el séptimo tema sea gratis. */
+  .loki-punto {
+    /* 5px, el valor de `.pill .pt` en ui.css. */
+    width: 5px;
+    height: 5px;
+    border-radius: 9999px;
+    background-color: currentColor;
+    flex: none;
+  }
+
+  /* ── Campo: el control se estiliza desde el contenedor ────────────────────────
+     Así quien use <Campo> pasa un <input> pelado y no tiene que acordarse de doce
+     clases. Y el estado de error se aplica UNA vez arriba en vez de repetirse en
+     cada control. */
+  /* `loki-campo-control` y `loki-area` son la MISMA regla, no una copia: son la salida
+     para el control que no puede ser hijo directo de <Campo> —porque lleva un contador
+     debajo, o un envoltorio de posicionamiento—. Uno para los de una línea, otro para el
+     textarea. Pasó tres veces ya (el selector buscable, el cuerpo del memorándum, y el
+     formulario de tipos de cambio), siempre con el mismo síntoma: el control pierde de
+     golpe alto, borde, fondo, tipografía y foco, y nada falla. */
+  .loki-campo > input,
+  .loki-campo > select,
+  .loki-campo > textarea,
+  .loki-campo-control,
+  .loki-campo-control-sm,
+  .loki-area {
+    height: var(--h-control);
+    padding: 0 10px;
+    border: 1px solid rgb(var(--border-input));
+    border-radius: var(--r-control);
+    background-color: rgb(var(--surface-panel));
+    color: rgb(var(--text-base));
+    font: inherit;
+    /* `--tw-` NO es un error de tipeo — ver la nota del @theme de tipografía.
+       Con `var(--text-cuerpo)` esta linea NO aplicaba y el control heredaba los
+       16px del documento: 3px mas que los 13 del contrato, en cada campo. */
+    font-size: var(--tw-text-cuerpo);
+  }
+
+  /* ── Un textarea FUERA de <Campo>: `.loki-area` ─────────────────────────────
+     El cuerpo del memorándum es un bloque de prosa con cabecera propia (badge de
+     estado + Restaurar), no un campo rotulado, así que no tiene contenedor de
+     campo del que heredar. Sin esto queda con el estilo del navegador — que para
+     `<textarea>` es **monoespaciada** — y eso fue exactamente lo que se vio: el
+     memorándum en máquina de escribir entre controles que no lo son.
+     Es el mismo fallo que el selector buscable de más abajo («Pasó, y se vio»):
+     el contrato estiliza por hijo DIRECTO, y lo que no lo es pierde todo de golpe.
+     Va en las MISMAS reglas y no en una copia, para que el día que cambie el
+     borde o el radio cambien los cuatro juntos y no tres de cuatro.
+     `rows` sigue mandando el alto: se anula el `--h-control` de una línea, que es
+     lo que producía la barra de desplazamiento nativa sobre un `rows={12}`. */
+  .loki-campo > textarea,
+  .loki-area {
+    height: auto;
+    padding: 8px 10px;
+  }
+
+  /* Prosa larga: 1.6 sólo acá. Un control de una línea no lo necesita, y
+     subirlo al contrato entero desalinearía el texto dentro de los inputs. */
+  .loki-area {
+    width: 100%;
+    line-height: 1.6;
+  }
+
+  /* ── El mismo control, en una barra de acciones ───────────────────────────────
+     El desplegable que convive con botones `sm` en la cabecera de un panel —el «Tipo
+     de documento» de los respaldos, por ejemplo— necesita el contrato entero y el alto
+     del token CHICO: con el alto normal queda más alto que el botón que tiene al lado.
+     Cambia sólo el alto; el borde, el fondo, la tipografía y el foco los hereda de la
+     regla de arriba, que es donde está listado. */
+  .loki-campo-control-sm {
+    height: var(--h-control-sm);
+  }
+
+  /* ── El disparador del selector buscable ─────────────────────────────────────
+     El contrato estiliza por hijo DIRECTO (`.loki-campo > input`), y un selector
+     con panel necesita un contenedor propio para posicionarlo — con lo cual el
+     control deja de ser hijo directo y pierde de golpe alto, borde, fondo,
+     tipografía y foco. Pasó, y se vio: el campo quedó con aspecto de caja de
+     búsqueda entre campos que no lo son.
+     Se declara acá, junto a los demás controles, para que el día que cambie el
+     alto o el radio cambien los cuatro juntos y no tres de cuatro. */
+  .loki-campo > .loki-selector > button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    height: var(--h-control);
+    padding: 0 10px;
+    border: 1px solid rgb(var(--border-input));
+    border-radius: var(--r-control);
+    background-color: rgb(var(--surface-panel));
+    color: rgb(var(--text-base));
+    font: inherit;
+    font-size: var(--tw-text-cuerpo);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .loki-campo > .loki-selector > button:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--focus-ring);
+  }
+
+  .loki-campo > .loki-selector > button[disabled] {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  .loki-campo-error > .loki-selector > button {
+    border-color: var(--riesgo-fg);
+  }
+
+  /* Foco dorado, nunca el azul del navegador: choca con el navy de marca y no se
+     distingue del borde en reposo. */
+  .loki-campo > input:focus-visible,
+  .loki-campo > select:focus-visible,
+  .loki-campo > textarea:focus-visible,
+  .loki-campo-control:focus-visible,
+  .loki-campo-control-sm:focus-visible,
+  .loki-area:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--focus-ring);
+  }
+
+  .loki-campo-mono > input,
+  .loki-campo-mono > textarea {
+    font-family: var(--mono);
+  }
+
+  .loki-campo-error > input,
+  .loki-campo-error > select,
+  .loki-campo-error > textarea {
+    border-color: var(--riesgo-fg);
+  }
+
+  .loki-icono-error {
+    width: 13px;
+    height: 13px;
+    flex: none;
+    margin-top: 1px;
+  }
+}
+
+@layer components {
+  /* ── Esqueletos ──────────────────────────────────────────────────────────────
+     La barra va en ABSOLUTO dentro de una caja que ya tiene la tipografía real, y
+     el alto lo pone esa tipografía — no la barra. Es lo que garantiza que el alto
+     en carga y el alto con dato salgan del mismo cálculo y no puedan diferir.
+     Criterio del contrato: delta === 0 (ACCEPTANCE.md §2). */
+  .loki-esqueleto-linea {
+    position: relative;
+    display: block;
+  }
+
+  .loki-esqueleto {
+    display: block;
+    position: absolute;
+    top: 12%;
+    bottom: 12%;
+    left: 0;
+    border-radius: var(--r-badge);
+    /* Sobre el panel, no un gris fijo: en los seis temas tiene que leerse como
+       «hay algo viniendo», y un #eee sobre el panel de `consola` es una mancha. */
+    background-color: rgb(var(--border) / 0.75);
+  }
+
+  .loki-esqueleto-linea > .loki-esqueleto {
+    animation: loki-latido 1.4s ease-in-out infinite;
+  }
+
+  @keyframes loki-latido {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+  }
+
+  /* El contrato pide que las animaciones se reduzcan a opacidad para quien pidió
+     menos movimiento. Un latido YA es sólo opacidad, así que se deja quieto y
+     listo: el gris sigue comunicando la espera. */
+  @media (prefers-reduced-motion: reduce) {
+    .loki-esqueleto-linea > .loki-esqueleto { animation: none; }
+  }
+
+  .loki-rejilla-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--gap-grid);
+  }
+
+  /* Alto de fila y relleno de celda por token: el interruptor de densidad tiene
+     que apretar la tabla sin que la tabla se entere. */
+  .loki-fila { height: var(--row-h); }
+  .loki-celda { padding: 0 10px; }
+
+  .loki-tile { width: 30px; height: 30px; }
+  .loki-tile-lg { width: 38px; height: 38px; }
+  .loki-avatar { font-size: var(--tw-text-ayuda); flex: none; }  /* `--tw-`: ver @theme de tipografia */
+  .loki-icono-vacio { width: 34px; height: 34px; display: block; }
+  .loki-vacio-texto { max-width: 34ch; }
+}
+
+@layer components {
+  /* ── Riel ────────────────────────────────────────────────────────────────────
+     Traducido de `.side` / `.nav` / `.side-g` / `.side-foot` de ui.css.
+     Todo en `--nav-*`: es un eje independiente del tema de superficie. Al cambiar
+     de tema el contenido repinta y el riel se queda — lo enmarca, no lo acompaña. */
+  .loki-riel {
+    width: 15rem;
+    flex: none;
+    padding: 8px 8px 16px;
+  }
+  .loki-riel-plegado { width: 3.75rem; }
+
+  .loki-riel-nav {
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: var(--nav-line) transparent;
+  }
+
+  /* `.side-g` — 9.5px, no 10: el rótulo de grupo es más chico que la cabecera de
+     una tabla, porque no compite con nada. */
+  .loki-riel-titulo {
+    padding: 14px 10px 5px;
+    font: 600 9.5px/1 var(--sans);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--nav-mid);
+  }
+
+  /* `.nav` — gap 11px, relleno 8px 10px, 12.5/400 con interlínea 1.3. */
+  .loki-riel-item {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 8px 10px;
+    border-radius: var(--r-control);
+    color: var(--nav-mid);
+    font: 400 12.5px/1.3 var(--sans);
+    width: 100%;
+    text-align: left;
+    position: relative;
+    transition: background 150ms var(--ease), color 150ms var(--ease);
+  }
+  .loki-riel-item:hover { background: var(--nav-hover); color: var(--nav-hi); }
+
+  /* El ítem activo va en PESO 600 además del fondo: el peso sobrevive a una
+     fotocopia, el fondo no. */
+  .loki-riel-item-activo {
+    background: var(--nav-active);
+    color: var(--nav-hi);
+    font-weight: 600;
+  }
+  /* El filete existe en TODOS los ítems, colapsado, y sólo el activo lo expande.
+     Las dos reglas van JUNTAS y en este orden a propósito: tienen la misma
+     especificidad (0,1,1), así que lo único que decide es cuál está después.
+     Separarlas en dos bloques del archivo deja el resultado a merced del orden en
+     que se concatenen las capas — funciona hasta que alguien mueve un bloque.
+
+     Un pseudoelemento que NACE con el estado activo no se puede animar: no hay un
+     «antes» desde el que transicionar, y el navegador lo dibuja de golpe por más
+     `transition` que se le escriba. Es un error que se ve resuelto en el
+     inspector y no en la pantalla.
+
+     `transform` y no `height`: escalar no recalcula el diseño, y este filete
+     convive con un menú que puede tener catorce ítems. */
+  .loki-riel-item::before {
+    content: '';
+    position: absolute;
+    left: -2px;
+    top: 7px;
+    bottom: 7px;
+    width: 2px;
+    border-radius: 1px;
+    background: var(--nav-rail);
+    transform: scaleY(0);
+    transform-origin: center;
+    transition: transform 180ms var(--ease);
+  }
+
+  .loki-riel-item-activo::before {
+    transform: scaleY(1);
+  }
+
+  /* `.nav .n` — cápsula de 9px de radio, mono 11/500. No es una pastilla de
+     estado: es un conteo, y por eso va en mono y tabular. */
+  .loki-riel-contador {
+    min-width: 20px;
+    height: 18px;
+    padding: 0 5px;
+    display: grid;
+    place-items: center;
+    border-radius: 9px;
+    font: 500 11px/1 var(--mono);
+    background: rgb(255 255 255 / 0.1);
+    color: var(--nav-mid);
+    flex: none;
+  }
+  .loki-riel-contador-accionable {
+    background: var(--nav-rail);
+    color: var(--nav-bg);
+    font-weight: 600;
+  }
+
+  /* `.nav .ext` — 9px mono. Deliberadamente discreta: marca la frontera, no la
+     denuncia. */
+  .loki-riel-externo {
+    font: 500 9px/1 var(--mono);
+    letter-spacing: 0.06em;
+    color: var(--nav-mid);
+    border: 1px solid var(--nav-line);
+    padding: 3px 4px;
+    border-radius: var(--r-badge);
+    flex: none;
+  }
+
+  /* Plegado: el ítem se centra y el rótulo se convierte en un tooltip a la
+     derecha. Es CSS y no el `title` nativo porque el nativo tarda ~1s en
+     aparecer, y con el riel plegado el usuario está barriendo íconos rápido. */
+  .loki-riel-plegado .loki-riel-item { justify-content: center; padding: 9px 0; }
+  .loki-riel-plegado .loki-riel-item > .loki-riel-texto,
+  .loki-riel-plegado .loki-riel-item .loki-riel-externo,
+  .loki-riel-plegado .loki-riel-item .loki-riel-contador { display: none; }
+  .loki-riel-plegado .loki-riel-item:hover > .loki-riel-texto,
+  .loki-riel-plegado .loki-riel-item:focus-visible > .loki-riel-texto {
+    display: block;
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 6px;
+    z-index: 50;
+    background: var(--nav-active);
+    color: var(--nav-hi);
+    padding: 6px 10px;
+    font-size: 12px;
+    white-space: nowrap;
+    box-shadow: var(--shadow-lift);
+    border-radius: var(--r-control);
+    flex: none;
+  }
+  .loki-riel-plegado .loki-riel-titulo {
+    margin: 8px 6px 0;
+    padding: 9px 0 0;
+    font-size: 0;
+    border-top: 1px solid var(--nav-line);
+  }
+
+  /* `.side-foot` — el usuario vive al PIE DEL RIEL, no sólo en la barra. */
+  .loki-riel-pie {
+    margin-top: auto;
+    padding: 12px 10px 0;
+    border-top: 1px solid var(--nav-line);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .loki-riel-pie .av {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--nav-rail);
+    color: var(--nav-bg);
+    display: grid;
+    place-items: center;
+    font: 600 11px/1 var(--mono);
+    flex: none;
+  }
+  .loki-riel-pie b {
+    display: block;
+    font: 600 12px/1.3 var(--sans);
+    color: var(--nav-hi);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .loki-riel-pie span.rol {
+    display: block;
+    font: 400 10.5px/1.3 var(--sans);
+    color: var(--nav-mid);
+  }
+  .loki-riel-plegado .loki-riel-pie { flex-direction: column; gap: 8px; }
+  .loki-riel-plegado .loki-riel-pie .tx { display: none; }
+
+  /* ── Marca, en la barra superior ─────────────────────────────────────────────
+     `.brand` — 224px, alineada con el riel. El nombre va en SERIFA: es la única
+     vez que aparece fuera de un título, y es a propósito — es la firma. */
+  .loki-marca { width: 224px; padding-left: 18px; flex: none; }
+  .loki-marca img { width: 30px; height: 30px; flex: none; object-fit: contain; }
+  .loki-marca b {
+    color: var(--nav-hi);
+    font: 600 17px/1 var(--serif);
+    letter-spacing: 0.01em;
+  }
+  .loki-marca span {
+    font: 500 9.5px/1.4 var(--sans);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--nav-mid);
+  }
+
+  .loki-icono-desconocido {
+    display: inline-block;
+    border-radius: 9999px;
+    background-color: currentColor;
+    opacity: 0.35;
+  }
+}
+
+@layer components {
+  /* ── Barra superior ──────────────────────────────────────────────────────────
+     En `--nav-*` igual que el riel: los dos forman el marco. */
+  .loki-barra {
+    height: 46px;
+    flex: none;
+    border-bottom: 1px solid var(--nav-line);
+  }
+  .loki-barra-miga { color: var(--nav-mid); }
+  .loki-barra-actual { color: var(--nav-hi); }
+  .loki-barra-sep { color: var(--nav-mid); opacity: 0.5; }
+
+  /* Un tramo con destino tiene que verse distinto de uno que es sólo rótulo. Si
+     los dos se ven igual, la única forma de saber cuál navega es probar — y
+     probar en una miga que no navega devuelve una selección de texto, que se
+     lee como que la aplicación no responde.
+
+     Subrayado y no color: el color ya está ocupado distinguiendo el tramo
+     actual de los anteriores, y meterle un tercero al marco lo convierte en
+     otra cosa que hay que aprender. */
+  .loki-barra-miga-enlace {
+    color: var(--nav-mid);
+    border-radius: 3px;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+    transition: color 150ms var(--ease), text-decoration-color 150ms var(--ease);
+  }
+  .loki-barra-miga-enlace:hover {
+    color: var(--nav-hi);
+    text-decoration-color: currentColor;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .loki-barra-miga-enlace { transition: none; }
+  }
+
+  /* Se ve como un campo porque es donde la gente busca, pero abre la paleta. El
+     campo es lo que enseña que el atajo existe. */
+  .loki-buscador {
+    height: 30px;
+    width: min(30rem, 100%);
+    background-color: rgb(255 255 255 / 0.06);
+    border: 1px solid var(--nav-line);
+    color: var(--nav-mid);
+  }
+  .loki-buscador:hover { background-color: var(--nav-hover); }
+
+  .loki-tecla {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 4px;
+    border-radius: var(--r-badge);
+    border: 1px solid var(--nav-line);
+    background-color: rgb(255 255 255 / 0.08);
+    color: var(--nav-mid);
+    font-family: var(--mono);
+    font-size: 10px;
+    line-height: 1;
+  }
+
+  /* El shell ocupa la ventana y NO desplaza el documento: el riel y la barra se
+     quedan fijos y sólo se mueve el contenido, que es lo que se está leyendo. */
+  .loki-shell { max-height: 100vh; }
+}
+
+@layer components {
+  /* ── Paleta de comandos ──────────────────────────────────────────────────────
+     `<dialog>` nativo: la trampa de foco, Esc y el retorno del foco los da el
+     navegador. Se centra arriba y no al medio: la lista crece hacia abajo y con
+     el diálogo centrado saltaría al filtrar. */
+  .loki-paleta {
+    /* ── La posición NO depende del flujo del documento ────────────────────────
+       Un `<dialog>` trae `position: absolute` del navegador. Dentro del top layer eso se
+       resuelve contra el viewport y queda bien; **fuera** del top layer cae en el flujo, o sea
+       justo debajo del contenido de la página — se ve flotando bajo el pie, con la vista
+       partida en dos. Reportado sobre la pantalla real, no en una emulación.
+
+       No hace falta averiguar por qué no entró al top layer: con `fixed` la posición se
+       resuelve contra el viewport SIEMPRE, entre o no. El centrado deja de venir del `margin:
+       auto` del navegador —que es la parte que se pierde— y pasa a ser explícito. */
+    position: fixed;
+    top: 12vh;
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0;
+
+    width: min(38rem, calc(100vw - 2rem));
+    max-height: min(28rem, calc(100vh - 8rem));
+    padding: 0;
+    flex-direction: column;
+    overflow: hidden;
+    color: inherit;
+  }
+
+  /* ⚠️ El `display` va SÓLO cuando está abierto, y es la corrección de un defecto que estuvo
+     a la vista todo el tiempo.
+
+     El navegador oculta un `<dialog>` sin `open` con `dialog:not([open]) { display: none }`,
+     pero eso es su hoja de estilos: **cualquier** regla del autor le gana, sin importar la
+     especificidad. Un `display: flex` suelto en `.loki-paleta` la anulaba, así que el diálogo
+     se veía SIEMPRE — cerrado incluido.
+
+     Cómo se veía, y por qué costó reconocerlo: sin `open` no hay top layer, así que caía en el
+     flujo del documento, debajo del contenido. Se leía como «la paleta se abre descolocada»
+     cuando en realidad era la paleta cerrada que nunca se escondió. */
+  .loki-paleta[open] { display: flex; }
+  .loki-paleta::backdrop { background-color: var(--overlay); }
+
+  /* El pie con los atajos. El `display` vive acá y NO como utilidad en el componente: una
+     utilidad le gana a esta regla y la media query de abajo no tendría efecto. */
+  .loki-paleta-pie { display: flex; }
+
+  /* Sin puntero que se pose no hay teclado físico: el pie enseñaría atajos que ahí no existen y
+     gastaría un renglón del poco alto que queda. Ver el comentario del componente. */
+  @media (hover: none) {
+    .loki-paleta-pie { display: none; }
+  }
+
+  .loki-paleta-campo {
+    height: 46px;
+    outline: none;
+    font-family: inherit;
+  }
+  .loki-paleta-campo::placeholder { color: rgb(var(--text-low)); }
+
+  .loki-paleta-lista { overflow-y: auto; flex: 1; }
+  .loki-paleta-item { height: var(--h-control); }
+  .loki-paleta-item-activo { background-color: rgb(var(--surface-subtle)); }
+
+  /* La tecla del buscador vive sobre el riel (--nav-*); ésta, sobre panel. Es el
+     mismo componente en dos superficies distintas, no dos componentes. */
+  .loki-tecla-clara {
+    border-color: rgb(var(--border));
+    background-color: rgb(var(--surface-inset));
+    color: rgb(var(--text-mid));
+  }
+}
+
+@layer components {
+  /* ── Apariencia: tarjetas de tema y conmutador de densidad ───────────────────
+     Traducido de `.temas` / `.tema` / `.seg` de referencia/argos5/ui.css. Lo que
+     va acá y no en utilidades es lo que Tailwind no expresa: la rejilla de cuatro
+     muestras y el alto calculado del segmento. */
+  .loki-rejilla-temas {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(212px, 1fr));
+    gap: 12px;
+  }
+
+  .loki-tema {
+    transition:
+      border-color 150ms var(--ease),
+      box-shadow 150ms var(--ease),
+      transform 120ms var(--ease);
+  }
+  .loki-tema:active { transform: scale(0.99); }
+  /* El tema activo se marca con el acento Y un halo, no sólo con el borde: sobre
+     `consola` un borde de 1px en cian casi no se distingue del borde en reposo. */
+  .loki-tema-activo { box-shadow: 0 0 0 3px var(--focus-ring); }
+
+  /* Cuatro muestras en 2×2: lienzo, acción, acento y riel. Con una sola,
+     `oscuro` y `navy` se verían iguales. */
+  .loki-muestra {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    overflow: hidden;
+  }
+
+  .loki-seg-btn {
+    height: calc(var(--h-control-sm) - 6px);
+    border-radius: calc(var(--r-control) - 2px);
+  }
+}
+
+@layer components {
+  /* Espécimen de la escala tipográfica: la columna del rol tiene ancho fijo para
+     que las muestras arranquen alineadas y se puedan comparar entre sí. */
+  .loki-especimen-rol { width: 9.5rem; }
+}
+
+@layer components {
+  /* La barra de la escala de espaciado: alto fijo, ancho = la medida. Es la
+     medida vista, no un número en una tabla — así se nota que los saltos crecen. */
+  .loki-barra-sp {
+    height: 12px;
+    flex: none;
+    border-radius: 2px;
+    background-color: var(--accent);
+  }
+
+  .loki-muestra-radio { width: 34px; height: 34px; flex: none; }
+
+  .loki-rejilla-iconos {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+    gap: 4px;
+  }
+}
+
+@layer components {
+  /* ── Esqueleto del contrato: BARRIDO, no pulso ───────────────────────────────
+     `.sk` de ui.css es un degradado que se desplaza. El proyecto ya tenía un
+     `brillo`, pero es un pulso de opacidad —y su propio comentario dice que
+     debería ser un barrido—. Se agrega el barrido de verdad con nombre propio en
+     vez de cambiar el viejo, que los esqueletos anteriores siguen usando.
+
+     La diferencia no es estética: un pulso de opacidad se confunde con un
+     elemento deshabilitado; un barrido dice «esto está viniendo». */
+  .loki-esqueleto {
+    background-color: transparent;
+    background-image: linear-gradient(
+      90deg,
+      rgb(var(--surface-inset)) 25%,
+      rgb(var(--surface-subtle)) 50%,
+      rgb(var(--surface-inset)) 75%
+    );
+    background-size: 200% 100%;
+  }
+
+  .loki-esqueleto-linea > .loki-esqueleto {
+    animation: loki-barrido 1.4s linear infinite;
+  }
+
+  @keyframes loki-barrido {
+    to {
+      background-position: -200% 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .loki-esqueleto-linea > .loki-esqueleto { animation: none; }
+  }
+
+}
+
+@layer components {
+  /* `.toast` de ui.css: ancho por contenido con tope de 380px, y entra subiendo
+     para que se note de dónde vino sin robar la atención. */
+  .loki-aviso {
+    width: max-content;
+    max-width: 380px;
+    animation: var(--tw-animate-subir);   /* `--tw-`: ver @theme de tipografia */
+  }
+}
+
+/* ── Estados forzados de la vitrina — SIN capa, a propósito ────────────────────
+   Un sistema de diseño se juzga por los estados, no por el ejemplar bonito, así
+   que hay que poder verlos juntos. En producción los resuelven las pseudoclases
+   y estas clases no aparecen en ningún lado.
+
+   Van FUERA de `@layer` y no en `components`: las capas ganan por orden, no por
+   especificidad, y `utilities` va última. Medido — la utilidad `.tw:bg-btn`
+   aparecía 15 000 caracteres DESPUÉS de la regla forzada y la pisaba entera, así
+   que la matriz mostraba seis columnas idénticas. Una regla sin capa gana a
+   cualquier capa, que es exactamente lo que hace falta acá. */
+.es-hover.tw\:bg-btn { background-color: var(--btn-bg-hover); border-color: var(--btn-bg-hover); }
+.es-hover.tw\:bg-panel { border-color: rgb(var(--border-hover)); color: rgb(var(--text-base)); background-color: rgb(var(--surface-subtle)); }
+.es-hover.tw\:bg-riesgo-bg { border-color: var(--riesgo-fg); }
+.es-hover.tw\:bg-btn-riesgo { background-color: var(--btn-riesgo-bg-hover); border-color: var(--btn-riesgo-bg-hover); }
+.es-foco { border-color: var(--accent); box-shadow: 0 0 0 3px var(--focus-ring); }
+.es-activo { transform: scale(0.985); }
+
+@layer components {
+  /* ── Rastreador de etapas ────────────────────────────────────────────────────
+     Traducido de `.etapas` / `.et`. El conector se tiñe HASTA donde llegó el
+     trámite, así que la línea misma cuenta el avance sin leer un solo nombre. */
+  /* El disco va CENTRADO sobre su etiqueta, y el conector de centro a centro.
+     Antes el disco y el texto arrancaban pegados al borde izquierdo de una celda
+     que `flex:1` reparte por igual: «Resumen» ocupaba 49 px de 309 y dejaba 260
+     vacíos a su derecha —medido—, que es lo que se lee como «apretado a la
+     izquierda». Centrar reparte ese sobrante a los dos lados de cada nombre. */
+  .loki-et {
+    flex: 1;
+    min-width: 104px;
+    position: relative;
+    padding-top: 19px;
+    text-align: center;
+  }
+  /* El segmento que LLEGA desde el paso anterior: de su centro al centro propio.
+     El `-50%` funciona porque `flex:1` da a todos el mismo ancho; si algún día
+     dejaran de medir igual, esta es la línea a revisar. */
+  .loki-et::before {
+    content: '';
+    position: absolute;
+    top: 7px;
+    left: -50%;
+    right: 50%;
+    height: 2px;
+    background: rgb(var(--border));
+  }
+  /* El primero no tiene de dónde venir. */
+  .loki-et:first-child::before { content: none; }
+  .loki-et > i {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: rgb(var(--surface-panel));
+    /* El disco del paso PENDIENTE llevaba `--border`, el mismo tono que la línea
+       apagada: sobre el fondo oscuro se perdía, y un tramo teñido que terminaba
+       ahí parecía seguir de largo hasta el paso siguiente. Se le da el tono del
+       texto tenue, que ya se usa para los rótulos y sí se lee. No compite con
+       los estados con color propio: cumplido, actual y devuelto lo pisan abajo. */
+    border: 2px solid rgb(var(--text-low));
+    display: grid;
+    place-items: center;
+  }
+  .loki-et > b {
+    display: block;
+    font: 500 11.5px/1.35 var(--sans);
+    color: rgb(var(--text-low));
+    /* Aire a los dos lados, no sólo a la derecha: con el texto centrado, un
+       padding asimétrico lo descentraría respecto de su disco. */
+    padding-inline: 6px;
+  }
+  .loki-et > em {
+    display: block;
+    font: 400 10px/1.3 var(--mono);
+    color: rgb(var(--text-axis));
+    font-style: normal;
+    margin-top: 3px;
+  }
+  /* Los estados se distinguen por FORMA además de por color: disco lleno,
+     anillo con punto, anillo hueco. En una fotocopia el color desaparece. */
+  .loki-et[data-e='hecho'] > i { border-color: var(--ok-fg); background: var(--ok-fg); }
+  .loki-et[data-e='hecho'] > b { color: rgb(var(--text-base)); }
+  .loki-et[data-e='actual'] > i { border-color: var(--accent); box-shadow: 0 0 0 3px var(--focus-ring); }
+  .loki-et[data-e='actual'] > i::after {
+    content: '';
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  .loki-et[data-e='actual'] > b { color: rgb(var(--text-hi)); font-weight: 600; }
+  .loki-et[data-e='devuelto'] > i { border-color: var(--aviso-fg); background: var(--aviso-bg); }
+  .loki-et[data-e='devuelto'] > b { color: var(--aviso-fg); }
+
+  /* ── Un tramo verde afirma un camino RECORRIDO: exige los dos extremos ──────
+     Se pinta el tramo A→B sólo si A y B están cumplidos. La regla anterior lo
+     decidía sólo por el origen, y producía una línea verde que moría contra un
+     disco gris: se leía como «el avance llegó hasta acá» sobre un paso que no
+     está terminado. Reportado el 2026-08-13 mirando la solicitud 1323 —2 giras,
+     una sin destinos—, parado en el paso 3 con el 2 incompleto.
+
+     ── Antes de esto hubo otra regla, y también estaba mal ─────────────────────
+     La primera versión pintaba por el paso de LLEGADA. El CSS nació para
+     `RastreadorEtapas`, donde el avance es MONÓTONO —su estado se deriva del
+     orden— y ahí las tres formas de pintar dan el mismo resultado. La barra del
+     wizard NO es monótona: «completo» es una condición de datos, no una
+     posición, así que se puede estar en el 3 con el 2 sin terminar. Ese caso es
+     el que separa las reglas, y sólo se ve con datos así.
+
+     ── Por qué «cumplido» se escribe con dos selectores ────────────────────────
+     `data-e` es exclusivo —un paso no puede ser a la vez `actual` y `hecho`—, así
+     que el cumplimiento del paso donde uno está parado viaja aparte en
+     `data-hecho`. Pero `RastreadorEtapas` NO emite ese atributo: usa sólo
+     `data-e`. Cubrir las dos formas es lo que evita apagarle todos los tramos. */
+  .loki-et:is([data-e='hecho'], [data-hecho]) + .loki-et:is([data-e='hecho'], [data-hecho])::before {
+    background: var(--ok-fg);
+  }
+  /* Llegar al paso actual desde uno cumplido: el tramo cierra en el color del foco.
+     Acá el segundo extremo NO tiene que estar cumplido — es donde uno está. */
+  .loki-et:is([data-e='hecho'], [data-hecho]) + .loki-et[data-e='actual']::before {
+    background: linear-gradient(90deg, var(--ok-fg), var(--accent));
+  }
+  /* Una devolución se recorrió igual: el tramo hasta ella se marca, en ámbar. */
+  .loki-et:is([data-e='hecho'], [data-hecho]) + .loki-et[data-e='devuelto']::before {
+    background: var(--aviso-fg);
+  }
+  .loki-et[data-e='devuelto'] + .loki-et:is([data-e='hecho'], [data-hecho], [data-e='actual'])::before {
+    background: var(--aviso-fg);
+  }
+
+  /* ── Modal ───────────────────────────────────────────────────────────────────
+     `.dlg`: 512px, o 680 en la variante ancha. En móvil se ancla abajo como hoja. */
+  .loki-dlg {
+    width: min(94vw, 512px);
+    margin: auto;
+    padding: 0;
+    overflow: hidden;
+    color: inherit;
+  }
+  .loki-dlg-lg { width: min(94vw, 680px); }
+  .loki-dlg::backdrop { background-color: var(--overlay); }
+  /* Desplazamiento propio del cuerpo: la cabecera y el pie se quedan quietos. */
+  .loki-dlg-cuerpo { max-height: 56vh; overflow-y: auto; }
+  .loki-dlg-confirmacion { height: var(--h-control); }
+
+  /* ── Inicio: fila de solicitud y acceso rápido ───────────────────────────────
+     Dos superficies que responden al puntero. El hover cambia el FONDO, no el
+     borde: son listas densas, y un borde que aparece mueve el texto un pixel. */
+  .loki-fila-inicio {
+    transition: background 140ms var(--ease);
+  }
+  .loki-fila-inicio:hover { background: rgb(var(--surface-subtle)); }
+
+  .loki-acceso {
+    transition: background 140ms var(--ease), border-color 140ms var(--ease);
+  }
+  .loki-acceso:hover {
+    background: rgb(var(--surface-subtle));
+    border-color: var(--accent);
+  }
+
+  /* ── Cajón del expediente ────────────────────────────────────────────────────
+     512 px pegado al borde derecho, alto completo. NO es un modal: el expediente
+     se consulta MIENTRAS se trabaja la fila, así que el ancho fijo importa —
+     lo que queda a la izquierda tiene que seguir siendo legible.
+
+     `max-width` y no `width` para que en teléfono no se salga de la pantalla.
+
+     La entrada es un DESPLAZAMIENTO, no una aparición: comunica de dónde viene el
+     panel. Un fundido lo dejaría flotando sin origen, y a los tres usos nadie
+     recuerda de qué lado estaba. */
+  .loki-cajon-exp {
+    width: 512px;
+    max-width: calc(100vw - 2rem);
+    height: 100%;
+    max-height: none;
+    margin: 0 0 0 auto;
+    padding: 0;
+    color: inherit;
+    animation: loki-cajon-exp-entra 280ms var(--ease);
+  }
+  .loki-cajon-exp::backdrop { background-color: var(--overlay); }
+
+  @keyframes loki-cajon-exp-entra {
+    from { transform: translateX(100%); }
+    to { transform: none; }
+  }
+
+  .loki-cajon-exp-x {
+    transition: background 140ms var(--ease), color 140ms var(--ease);
+  }
+  .loki-cajon-exp-x:hover {
+    background: rgb(var(--surface-subtle));
+    color: rgb(var(--text-hi));
+  }
+
+  /* Quien pidió menos movimiento recibe el panel sin el deslizamiento. El panel
+     igual aparece: se le quita la animación, no la función. */
+  @media (prefers-reduced-motion: reduce) {
+    .loki-cajon-exp { animation: none; }
+  }
+
+  /* ── Tabla de registro ───────────────────────────────────────────────────────
+     El desplazamiento horizontal vive ACÁ, nunca en la página: si la página se
+     desplaza a lo ancho se pierde el riel. */
+  .loki-tabla-visor {
+    overflow-x: auto;
+    border-radius: 0 0 var(--r-panel) var(--r-panel);
+  }
+
+  /* ── Que se vea que la tabla sigue hacia el costado ──────────────────────────
+     Medido el 2026-08-25 en el catálogo de LOKI: a 375 px se veían dos de nueve
+     columnas y no había nada que lo dijera — la tabla parecía tener dos
+     columnas y punto.
+
+     Las sombras son capas SOBRE la tabla, no un degradado que finge ser el
+     fondo. El truco habitual —cuatro degradados con `background-attachment`—
+     necesita conocer el color exacto de lo que hay detrás, y esta tabla se
+     monta de las dos maneras: suelta sobre el lienzo, y a sangre dentro de un
+     panel con `flush`. Son dos fondos distintos, y con uno solo declarado la
+     sombra dejaría un borde de otro color en el otro caso.
+
+     Van sobre la tinta con alfa y no sobre un gris fijo: en los seis temas la
+     tinta contrasta con su propia superficie por definición, que es justamente
+     lo que una sombra necesita.
+
+     Los atributos los escribe el componente al desplazar; ver el porqué ahí. */
+  .loki-tabla-marco { position: relative; min-width: 0; }
+
+  .loki-tabla-marco::before,
+  .loki-tabla-marco::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 20px;
+    pointer-events: none;
+    /* Por encima del encabezado pegajoso (z-index 3) y de la columna de
+       acciones anclada (2 y 4): si no, la sombra se dibuja debajo de ellos y
+       el borde que hay que señalar es justo el que queda tapado. */
+    z-index: 5;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+  .loki-tabla-marco::before {
+    left: 0;
+    background: linear-gradient(to right, rgb(var(--text-hi) / 0.17), rgb(var(--text-hi) / 0));
+  }
+  .loki-tabla-marco::after {
+    right: 0;
+    background: linear-gradient(to left, rgb(var(--text-hi) / 0.17), rgb(var(--text-hi) / 0));
+  }
+  .loki-tabla-marco[data-mas-izq]::before,
+  .loki-tabla-marco[data-mas-der]::after { opacity: 1; }
+
+  /* La región sólo es enfocable cuando desborda, y entonces necesita foco
+     visible: sin esto, tabular hasta la tabla no se vería en ninguna parte y
+     las flechas moverían algo que el usuario no sabe que tiene tomado. */
+  .loki-tabla-visor:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 3px var(--focus-ring);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .loki-tabla-marco::before,
+    .loki-tabla-marco::after { transition: none; }
+  }
+  .loki-tabla { width: 100%; border-collapse: separate; border-spacing: 0; }
+
+  .loki-th {
+    background: rgb(var(--surface-subtle));
+    padding: 9px 18px;
+    font: 600 10px/1 var(--sans);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgb(var(--text-mid));
+    border-bottom: 1px solid rgb(var(--border));
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 3;
+  }
+  .loki-col-ck { width: 34px; }
+  .loki-col-exp { width: 34px; }
+
+  .loki-td {
+    height: var(--row-h);
+    padding: 0 18px;
+    font-size: 12.5px;
+    color: rgb(var(--text-base));
+    border-bottom: 1px solid rgb(var(--border-soft));
+    white-space: nowrap;
+  }
+  .loki-td-n {
+    text-align: right;
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: rgb(var(--text-hi));
+  }
+  /* ── La columna de acciones va anclada a la derecha ──────────────────────────
+     No es cosmético. La tabla vive dentro de `.loki-tabla-visor`, que tiene su
+     propio desplazamiento horizontal: eso significa que la tabla NUNCA se ve
+     forzada a encoger — crece hasta lo que pide su contenido y lo que sobra
+     queda fuera de la vista. Como las acciones son la última columna, eran las
+     primeras en desaparecer, y encima sólo se muestran al pasar el puntero: dos
+     motivos para no encontrarlas. Medido el 2026-08-12 en «Mis solicitudes»:
+     1.269 px de tabla en 1.232 px de hueco, y para llegar al botón de una fila
+     había que arrastrar la tabla de lado.
+
+     Recortar anchos habría tapado ese caso y vuelto a fallar en la próxima
+     pantalla más angosta. Anclada, el botón está siempre donde se lo espera.
+
+     El fondo es obligatorio: sin él se ve pasar por debajo lo que se desplaza. Y
+     se replican el `hover` y la selección de la fila para que esta celda no
+     quede como un recuadro que no se ilumina con las demás. */
+  .loki-td-acts,
+  .loki-th-acts {
+    position: sticky;
+    right: 0;
+  }
+  .loki-td-acts { background: rgb(var(--surface-panel)); z-index: 2; }
+  .loki-th-acts { z-index: 4; }
+  .loki-fila-r:hover > .loki-td-acts { background: rgb(var(--surface-subtle)); }
+  .loki-fila-r[data-sel] > .loki-td-acts { background: rgb(var(--surface-inset)); }
+
+  .loki-fila-r:last-child > .loki-td { border-bottom: none; }
+  .loki-fila-r:hover > .loki-td { background: rgb(var(--surface-subtle)); }
+  .loki-fila-r[data-sel] > .loki-td { background: rgb(var(--surface-inset)); }
+
+  /* La marca de plazo: 3px en el borde izquierdo. Es lo que permite escanear el
+     estado sin leer la columna. */
+  .loki-fila-r > .loki-td:first-child { position: relative; }
+  .loki-fila-r[data-plazo] > .loki-td:first-child::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+  }
+  .loki-fila-r[data-plazo='vencido'] > .loki-td:first-child::before { background: var(--plazo-vencido); }
+  .loki-fila-r[data-plazo='porvencer'] > .loki-td:first-child::before { background: var(--plazo-porvencer); }
+  .loki-fila-r[data-plazo='aldia'] > .loki-td:first-child::before { background: var(--plazo-aldia); }
+
+  .loki-ck {
+    width: 16px;
+    height: 16px;
+    border: 1px solid rgb(var(--border-input));
+    border-radius: var(--r-badge);
+    display: grid;
+    place-items: center;
+    background: rgb(var(--surface-panel));
+    color: transparent;
+    transition: background 140ms var(--ease), border-color 140ms var(--ease);
+  }
+  .loki-ck:hover { border-color: rgb(var(--border-hover)); }
+  .loki-fila-r[data-sel] .loki-ck {
+    background: var(--btn-bg);
+    border-color: var(--btn-bg);
+    color: var(--btn-fg);
+  }
+
+  .loki-exp {
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    color: rgb(var(--text-low));
+    border-radius: var(--r-badge);
+    transition: transform 160ms var(--ease), color 150ms var(--ease);
+  }
+  .loki-exp:hover { color: rgb(var(--text-hi)); }
+  .loki-exp-abierto { transform: rotate(90deg); }
+
+  /* Acciones de fila: ocultas hasta hover Y focus-within. Sólo con hover serían
+     inalcanzables por teclado, y el recorrido completo por teclado es requisito. */
+  .loki-acts {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+    opacity: 0;
+    transform: translateX(4px);
+    transition: opacity 150ms var(--ease), transform 150ms var(--ease);
+  }
+  .loki-fila-r:hover .loki-acts,
+  .loki-fila-r:focus-within .loki-acts {
+    opacity: 1;
+    transform: none;
+  }
+  /* Sin puntero que se pose NO hay hover, y `focus-within` tampoco alcanza: en una tableta
+     las acciones quedaban invisibles y sin forma de revelarlas. Ahí van siempre a la vista
+     — el revelado es una comodidad de escritorio, no la regla. */
+  @media (hover: none) {
+    .loki-acts {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* El detalle va como fila hermana para poder compararlo con las vecinas. */
+  .loki-td-det {
+    padding: 14px 18px;
+    background: rgb(var(--surface-subtle));
+    border-bottom: 1px solid rgb(var(--border-soft));
+  }
+
+  /* ── Encabezado de grupo ─────────────────────────────────────────────────────
+     Una fila propia que nombra al bloque que sigue. Se eligió esto sobre borrar la
+     celda repetida —el patrón que había en Criterios de categoría—: una celda en
+     blanco es ambigua (¿está vacía o repite la de arriba?) y encima se deshace al
+     ordenar por otra columna, porque el "primero del bloque" deja de serlo.
+
+     Se distingue de una fila de datos por peso y caja alta, no por color de fondo:
+     un fondo más la confundiría con la fila seleccionada. */
+  .loki-td-grupo {
+    height: auto;
+    padding: 12px 18px 5px;
+    font: 600 10px/1 var(--sans);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgb(var(--text-mid));
+    white-space: nowrap;
+  }
+  /* El primero no necesita separarse de nada: pegado al encabezado se lee como parte de él. */
+  .loki-fila-r:first-child > .loki-td-grupo,
+  tbody > tr:first-child > .loki-td-grupo {
+    padding-top: 7px;
+  }
+
+  /* ── Fila de cierre ──────────────────────────────────────────────────────────
+     El borde superior más marcado es lo que la separa del último registro: sin él,
+     un subtotal se lee como una fila más de la lista. Va alineada a la derecha
+     porque lo que cierra es una cifra, y su etiqueta la acompaña desde la izquierda. */
+  .loki-td-pie {
+    border-top: 1px solid rgb(var(--border));
+    border-bottom: none;
+    text-align: right;
+    color: rgb(var(--text-mid));
+  }
+  .loki-td-pie.loki-td-n {
+    font-weight: 600;
+    color: rgb(var(--text-hi));
+  }
+}
+
+@layer components {
+  .loki-ref { font: 500 11.5px var(--mono); color: var(--accent-ink); }
+  .loki-ref:hover { text-decoration: underline; }
+  .loki-nm { font-weight: 500; color: rgb(var(--text-hi)); }
+}
+
+@layer components {
+  /* El punto suelto del ejemplo INCORRECTO: existe para mostrar por qué el color
+     no puede viajar solo. No se usa en ningún otro lado, y no debe. */
+  .loki-punto-suelto {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 9999px;
+  }
+}
+
+@layer components {
+  /* ── Fila de KPIs: UN panel dividido, no cuatro tarjetas ─────────────────────
+     Cuatro tarjetas separadas por aire se leen como cuatro cosas distintas. Son
+     cuatro caras del mismo dato, y el panel único lo dice sin escribirlo. */
+  .loki-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    background: rgb(var(--surface-panel));
+    border: 1px solid rgb(var(--border));
+    border-radius: var(--r-panel);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .loki-kpi {
+    padding: var(--pad-panel);
+    border-right: 1px solid rgb(var(--border-soft));
+    text-align: left;
+    width: 100%;
+    min-width: 0;
+    position: relative;
+    transition: background 150ms var(--ease);
+  }
+  .loki-kpi:last-child { border-right: none; }
+
+  /* ── Más de una fila de indicadores ────────────────────────────────────────
+     Con la rejilla fija de cuatro, seis KPIs dejan la segunda fila coja. Cuando
+     la pantalla pide un número de columnas, el panel pasa a dibujarse con
+     LÍNEAS DE REJILLA (gap de 1 px sobre el color del borde) en vez de un borde
+     por celda: así las filas se separan igual que las columnas, sin depender de
+     saber cuál celda cierra cada fila. Sin la clase, todo queda como estaba. */
+  .loki-kpis-rejilla {
+    grid-template-columns: repeat(var(--kpi-cols, 4), 1fr);
+    gap: 1px;
+    background: rgb(var(--border-soft));
+  }
+  .loki-kpis-rejilla .loki-kpi {
+    border-right: none;
+    background: rgb(var(--surface-panel));
+  }
+  .loki-kpis-rejilla .loki-kpi:hover { background: rgb(var(--surface-subtle)); }
+  .loki-kpis-rejilla .loki-kpi[data-sel] { background: rgb(var(--surface-inset)); }
+  .loki-kpi:hover { background: rgb(var(--surface-subtle)); }
+  /* Cada KPI es un FILTRO: el seleccionado se marca con una barra de 2px abajo. */
+  .loki-kpi[data-sel] { background: rgb(var(--surface-inset)); }
+  .loki-kpi[data-sel]::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: var(--accent);
+  }
+  .loki-kpi-lb {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font: 600 10.5px/1 var(--sans);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgb(var(--text-mid));
+  }
+  .loki-kpi-lb i { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+  .loki-kpi-v {
+    display: block;
+    margin-top: 10px;
+    font: 600 26px/1 var(--mono);
+    color: rgb(var(--text-hi));
+    font-variant-numeric: tabular-nums;
+  }
+  .loki-kpi-d {
+    margin-top: 6px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .loki-kpi-d em { font: 600 11.5px/1 var(--sans); font-style: normal; }
+  .loki-kpi-d span span { font: 400 11px/1 var(--sans); color: rgb(var(--text-low)); }
+
+  .loki-spark { display: flex; align-items: flex-end; gap: 3px; height: 20px; flex: none; }
+  .loki-spark i { width: 4px; border-radius: 1px; display: block; }
+
+  @media (max-width: 900px) {
+    .loki-kpis { grid-template-columns: repeat(2, 1fr); }
+    .loki-kpi:nth-child(2) { border-right: none; }
+    .loki-kpi:nth-child(-n + 2) { border-bottom: 1px solid rgb(var(--border-soft)); }
+    /* En rejilla las líneas ya las pone el gap: acá sólo baja a dos columnas. */
+    .loki-kpis-rejilla { grid-template-columns: repeat(2, 1fr); }
+    .loki-kpis-rejilla .loki-kpi { border-bottom: none; }
+  }
+
+  /* ── Cabecera de página ──────────────────────────────────────────────────────
+     La acción primaria de la VISTA vive acá, no en la cabecera de un panel. */
+  .loki-pg-head { display: flex; align-items: flex-end; gap: 24px; flex-wrap: wrap; }
+  .loki-pg-head > .tx { flex: 1; min-width: min(100%, 30ch); }
+  .loki-pg-head p {
+    margin-top: 6px;
+    max-width: 66ch;
+    color: rgb(var(--text-low));
+    font-size: 12.5px;
+    line-height: 1.55;
+    text-wrap: pretty;
+  }
+
+  /* Buscador de la bandeja: es un campo de verdad, no el disparador de la paleta. */
+  /* `loki-find-plano` es el MISMO campo sin caja: para quien ya pone la suya —la cabecera de
+     la paleta de comandos, el marco de un combobox—. Comparte todo lo demás **a propósito**,
+     sobre todo el apagado de la ✕ nativa de abajo: una variante que se quedara fuera de ese
+     selector volvería a mostrar dos cruces en Chrome y ninguna en Firefox, que es el defecto
+     que este contrato existe para cerrar. */
+  .loki-find,
+  .loki-find-plano {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: rgb(var(--text-low));
+  }
+  .loki-find {
+    height: var(--h-control-sm);
+    padding: 0 11px;
+    border: 1px solid rgb(var(--border-input));
+    border-radius: var(--r-control);
+    background: rgb(var(--surface-panel));
+    min-width: 220px;
+    flex: none;
+  }
+  .loki-find-plano {
+    width: 100%;
+    min-width: 0;
+  }
+  .loki-find input,
+  .loki-find-plano input {
+    flex: 1;
+    outline: none;
+    border: 0;
+    background: transparent;
+    color: rgb(var(--text-hi));
+    font: 400 12.5px var(--sans);
+    min-width: 0;
+  }
+  /* La ✕ de limpiar la dibuja `CampoBusqueda`, no el navegador.
+     `type="search"` pinta una propia en WebKit y NINGUNA en Firefox: dejarla puesta
+     da DOS cruces en Chrome y ninguna consistencia entre navegadores. Se apaga acá
+     —donde vive el contrato del campo— y no en el componente, para que valga también
+     para cualquier `input[type=search]` que se monte dentro de un `.loki-find`.
+
+     ⚠️ Y para la variante SIN marco también: si `.loki-find-plano` se quedara fuera de este
+     selector, la paleta de comandos y el combobox volverían a tener DOS cruces en Chrome y
+     ninguna en Firefox. Es el defecto que este contrato existe para cerrar, y una variante
+     nueva es exactamente por dónde se cuela de vuelta. */
+  .loki-find input[type='search']::-webkit-search-cancel-button,
+  .loki-find input[type='search']::-webkit-search-decoration,
+  .loki-find-plano input[type='search']::-webkit-search-cancel-button,
+  .loki-find-plano input[type='search']::-webkit-search-decoration {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .loki-find:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--focus-ring); }
+
+  .loki-fchip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: var(--h-control-sm);
+    padding: 0 11px;
+    border: 1px solid rgb(var(--border-input));
+    border-radius: var(--r-control);
+    font: 500 12px/1 var(--sans);
+    color: rgb(var(--text-base));
+    background: rgb(var(--surface-panel));
+    flex: none;
+  }
+  .loki-fchip b { font: 600 12px/1 var(--mono); color: var(--accent-ink); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   NAVEGACIÓN — el movimiento que orienta
+
+   Regla que gobierna todo este bloque: **una microanimación existe para explicar
+   un cambio, no para adornarlo.** Si no responde «¿qué pasó?» o «¿dónde estoy?»,
+   sobra — y en una interfaz que se usa ocho horas, lo que sobra molesta.
+
+   De ahí las tres duraciones: 120 ms para lo que sigue al dedo (hover), 180 ms
+   para lo que informa (la marca del índice), 220 ms para lo que reemplaza una
+   pantalla. Por encima de ~250 ms el movimiento deja de leerse como respuesta y
+   empieza a leerse como espera.
+
+   ⚠️ Nada de acá necesita su propio `prefers-reduced-motion`: la regla global de
+   la capa `base` ya neutraliza animaciones, transiciones Y scroll suave para
+   todo `[data-loki-shell]`. Escribir la excepción de nuevo en cada componente
+   es cómo se termina olvidando en uno.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@layer components {
+  /* El desplazamiento suave vive en el CONTENEDOR que hace scroll, no en `html`:
+     en este shell el que se mueve es el `<main>`, y ponerlo en `html` no hace
+     nada — el salto al ancla se ve instantáneo y parece que la animación falló. */
+  .loki-scroll-suave {
+    scroll-behavior: smooth;
+  }
+
+  /* ── Índice lateral ──────────────────────────────────────────────────────
+     La marca activa es un filete de 2 px a la izquierda que CRECE desde el
+     centro, no un fondo que aparece. Un fondo compite con las tarjetas de la
+     página; un filete es el mismo lenguaje que el canal numerado de las
+     secciones, así que se lee como parte de la misma estructura. */
+  .loki-indice-item {
+    position: relative;
+    transition:
+      color 120ms var(--ease),
+      background-color 120ms var(--ease);
+  }
+
+  .loki-indice-item::before {
+    content: '';
+    position: absolute;
+    inset-inline-start: 0;
+    top: 50%;
+    width: 2px;
+    height: 0;
+    translate: 0 -50%;
+    border-radius: 2px;
+    background: var(--accent);
+    transition: height 180ms var(--ease);
+  }
+
+  .loki-indice-item[aria-current='true']::before {
+    height: 1.15rem;
+  }
+
+  /* ── Entrada de una ruta ─────────────────────────────────────────────────
+     Seis píxeles y 220 ms. Es deliberadamente poco: lo que hay que comunicar es
+     «esto es contenido nuevo», no llamar la atención sobre la transición.
+
+     Sube en vez de aparecer y ya: un desvanecido puro no dice de dónde vino el
+     contenido, y en una aplicación de bandejas —donde se entra y se sale de la
+     misma pantalla decenas de veces— la dirección es la que evita la sensación
+     de haberse perdido. */
+  .loki-ruta {
+    animation: loki-entra-ruta 220ms var(--ease) both;
+  }
+
+  @keyframes loki-entra-ruta {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* ── La marca del ítem activo del riel ───────────────────────────────────
+     Vive con el resto del riel, más arriba en este mismo archivo, y no acá: son
+     dos reglas de la misma especificidad y sólo el orden decide, así que tienen
+     que estar juntas. Buscar `.loki-riel-item::before`. */
+}

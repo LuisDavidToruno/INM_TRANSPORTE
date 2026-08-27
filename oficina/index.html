@@ -1,0 +1,51 @@
+<!doctype html>
+<!--
+  `data-loki-shell` marca el árbol donde vive el reset de LOKI.
+
+  El reset está acotado a este atributo y no aplicado a `html` a secas por una
+  razón que se entiende recién cuando pasa: si mañana este bundle se monta DENTRO
+  de una página que ya tiene su propio CSS (una app heredada, un CMS, un portal),
+  un reset global desarma esa página entera. Con el atributo, la costura entre los
+  dos mundos queda entre páginas y nunca dentro de una.
+
+  Cuesta un atributo. Ahorra el día que alguien tenga que convivir.
+-->
+<html lang="es" data-loki-shell>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SIGTI · Transporte institucional</title>
+
+    <!--
+      El script anti-parpadeo. Va ANTES de cualquier CSS y es bloqueante a
+      propósito: fija el tema en la raíz antes del primer pintado.
+
+      Sin esto la página aparece en claro y salta al tema elegido cuando React
+      monta. No es un detalle estético: en el tema oscuro es un fogonazo blanco
+      en cada recarga, y es lo primero que hace que una interfaz se sienta barata.
+
+      ⚠️ Las dos claves de abajo son las MISMAS que usa `src/tema/TemaProvider.tsx`.
+      Están escritas dos veces porque acá no hay módulos todavía. Si cambian en un
+      lado, cambian en el otro — y si no, el tema se guarda pero no se restaura.
+    -->
+    <script>
+      try {
+        var t =
+          localStorage.getItem('loki.tema') ||
+          (matchMedia('(prefers-color-scheme: dark)').matches ? 'oscuro' : 'claro');
+        document.documentElement.setAttribute('data-tema', t);
+        document.documentElement.setAttribute(
+          'data-densidad',
+          localStorage.getItem('loki.densidad') || 'comoda',
+        );
+      } catch (e) {
+        /* Modo privado o almacenamiento bloqueado: se queda con el tema por
+           defecto del CSS. Que falle acá no puede impedir que la página cargue. */
+      }
+    </script>
+  </head>
+  <body>
+    <div id="raiz"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
