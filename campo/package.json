@@ -1,0 +1,16 @@
+{
+  "name": "sigti-campo",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "SIGTI — cliente de campo. Núcleo offline, sin dependencias de plataforma.",
+  "scripts": {
+    "test": "node --test \"nucleo/**/*.prueba.ts\"",
+    "typecheck": "tsc --noEmit",
+    "verificar": "npm run typecheck && npm test"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "typescript": "7.0.2"
+  }
+}
