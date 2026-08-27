@@ -5,9 +5,25 @@
 | **Alcance** | 125 historias `HU-001`–`HU-125`, 18 casos de uso, 21 `RNF-xx`, 97 `RN-xx` en lo que las historias las citan, `docs/07-gestion/backlog.md` |
 | **Fecha** | 2026-08-24 |
 | **Ambiente** | Sprint 0 — documentación. No hay código, no hay datos reales, no hay producción. La severidad mide **la consecuencia si el artefacto llega a código tal como está**, no un incidente |
-| **Estado** | Abierto. Corrige quien produjo el artefacto; QA verifica después |
+| **Estado** | **Los 21 llevan nota de corrección en su artefacto.** Verificados por muestreo, no uno por uno — ver la sección siguiente |
+| **Verificación de cierre** | 2026-08-26, contra los artefactos vivos |
 | **No repite** | Los 19 hallazgos de [`H-B3-001`](H-B3-001-hallazgos-de-casos-de-uso.md) |
 
+
+## Estado de corrección — verificado el 2026-08-26
+
+**Los 21 hallazgos aparecen citados por su identificador en el artefacto que corrigen**, casi siempre bajo una *«Nota de corrección»* que explica qué estaba mal y qué manda. Ochenta y cuatro archivos de `docs/` llevan hoy una referencia de ese tipo.
+
+**Lo que se verificó y lo que no.** Se comprobó uno por uno que cada identificador esté citado, y se abrieron a lectura los cuatro de mayor consecuencia. **No se releyeron los veintiuno completos.** Quien necesite certeza sobre uno concreto tiene que abrir su artículo, no fiarse de esta línea.
+
+| Verificado a fondo | Qué se comprobó |
+|---|---|
+| `HB34-01` | [`HU-061`](../../02-requisitos/historias/HU-061-relevo-de-motorista-en-ruta.md) abre con la nota de corrección: era la misma historia que [`HU-045`](../../02-requisitos/historias/HU-045-relevo-de-motorista-en-ruta.md) y resolvían distinto el mismo caso. Zanjado por [`RN-10`](../../01-negocio/reglas/RN-10-licencia-vigente-en-todo-el-rango.md), que aplica expresamente a la sustitución en ruta. **Es la regla que el código implementa hoy** |
+| `HB34-02` | Cubierto en la misma nota: `I-11` bloquea ahora en el momento en que se asigna el motorista |
+| `HB34-05` | M-01 y M-02 ya tienen historias — 34 archivos las citan |
+| `HB34-07` | [`HU-088`](../../02-requisitos/historias/HU-088-conciliar-galonaje-contra-kilometraje.md) |
+
+Los restantes —`HB34-03`, `HB34-04`, `HB34-06`, `HB34-08` a `HB34-21`— están citados en sus historias y en [`backlog.md`](../../07-gestion/backlog.md); no se auditó el contenido de cada corrección.
 ## Lo que la revisión encontró bien, para no perder tiempo buscándolo otra vez
 
 Estas comprobaciones se corrieron sobre las 125 historias y **salieron limpias**. No hay hallazgo en ellas:

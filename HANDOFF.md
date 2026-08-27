@@ -119,8 +119,9 @@ Registro completo en [`docs/07-gestion/insumos-pendientes.md`](docs/07-gestion/i
 1. **Ratificar o revertir [`DP-002`](docs/07-gestion/decisiones-de-producto/DP-002-segregacion-en-delegaciones-pequenas.md)** — segregación en delegaciones pequeñas
 2. **El nombre de la institución en los mockups** — dicen *Instituto Nacional de Migración*; según `DP-001` el sistema es genérico y eso es configuración
 3. **La contradicción del salvoconducto** — la paridad con el papel exige reproducir el formato; el requisito de campo exige que cuatro datos vayan arriba y en grande. Si el formato no los pone ahí, hay que decidir cuál gana
-4. **¿El reclamo de peaje cierra la misión o la marca con hallazgo?** — resuelto provisionalmente a favor de lo primero
-5. **Sesión de refinamiento** sobre las historias en borrador. Los cuatro analistas aplicaron el criterio de forma distinta; la mayoría pasaría sin tocarse
+4. **¿El reclamo de peaje cierra la misión o la marca con hallazgo?** — resuelto provisionalmente a favor de lo primero, y anotado `[C]` en la máquina de estados por si se revierte (`HB3-02`)
+5. **¿Quién aprueba el descargo de un bien — `ACT-08` o también `ACT-09`?** El mapa de procesos admite los dos, la máquina de estados dice uno, y `NRM-02` está `[P]`: la norma no lo zanja, así que lo zanja el PO (`HB3-16`)
+6. **Sesión de refinamiento** sobre las historias en borrador. Los cuatro analistas aplicaron el criterio de forma distinta; la mayoría pasaría sin tocarse
 
 ### Documentación exigida por LOKI — falta la de raíz
 
@@ -130,9 +131,25 @@ Siguen ausentes **`ARQUITECTURA.md`** y **`DESPLIEGUE.md`** en la raíz. Ahora s
 
 `DESPLIEGUE.md` tiene una dependencia real: el procedimiento de respaldo y restauración es **de dos piezas** —base más almacén de archivos, consistentes entre sí ([`ADR-004`](docs/03-arquitectura/adr/ADR-004-adjuntos-fuera-de-la-base.md))— y `RNF-09` exige que lo ejecute personal no especialista en ≤ 2 h. Escribirlo sin la instancia real confirmada sería escribir la mitad.
 
-### Los informes de hallazgos siguen diciendo «Abierto»
+### Veinte hallazgos siguen abiertos, y hasta hoy figuraban como cerrados
 
-Los cinco archivos de [`docs/05-calidad/hallazgos/`](docs/05-calidad/hallazgos/) conservan en su encabezado el estado con que se emitieron —*«Abierto»*, *«Ninguna corrección aplicada»*, *«Pendiente de corrección»*— pese a que las correcciones ya se aplicaron. Es la misma falla que este archivo tenía: trabajo cerrado figurando como abierto. Corregir el campo **Estado** de los cinco.
+Los cinco informes de [`docs/05-calidad/hallazgos/`](docs/05-calidad/hallazgos/) conservaban el estado con que se emitieron —*«Abierto»*, *«Ninguna corrección aplicada»*, *«Pendiente de corrección»*—. Al verificarlos contra los artefactos vivos el 2026-08-26, **hallazgo por hallazgo y no contra el mensaje del commit**, apareció lo contrario de lo que se esperaba: el campo estaba mal, pero también lo estaba la suposición de que todo se había corregido.
+
+| Informe | Corregidos | **Abiertos** |
+|---|---|---|
+| [`H-B1-001`](docs/05-calidad/hallazgos/H-B1-001-revision-qa-bloque-1.md) QA del Bloque 1 | 17 | **11** |
+| [`H-B1-002`](docs/05-calidad/hallazgos/H-B1-002-revision-normativa-bloque-1.md) normativa del Bloque 1 | 13 | **7** |
+| [`H-B3-001`](docs/05-calidad/hallazgos/H-B3-001-hallazgos-de-casos-de-uso.md) casos de uso | 17 | **2** |
+| [`H-B34-001`](docs/05-calidad/hallazgos/H-B34-001-revision-qa-bloque-3.md) QA del Bloque 3 | 21 citados, verificados por muestreo | — |
+| [`H-B34-002`](docs/05-calidad/hallazgos/H-B34-002-revision-arquitectura-bloque-4.md) arquitectura del Bloque 4 | 25 citados, verificados por muestreo | — |
+
+Cada informe lleva ahora su desglose. **Los tres que hay que mirar antes de seguir programando:**
+
+1. **`HB1-01` quedó corregido a medias.** El Nivel 2 del régimen de excepción se suspendió con `DP-002`, pero **el Nivel 3 sobrevive** y sigue diciendo que ante una emergencia *«el sistema no lo bloquea»* — contra `RN-01` y contra `BD-06`, que no tiene salida por emergencia. Es la tercera posición que el hallazgo denunció, todavía escrita.
+2. **`HN1-18` y `HN1-09` no tienen regla.** La constatación física de la flota es `[V]` —NOGECI V-15 y Circular CGR-010-2026— y no existe `RN-xx` que la implemente. El paquete de evidencia **por vehículo o por período** tampoco: el sistema entrega por misión y el TSC pide por vehículo.
+3. **`HN1-14` es una escalada de nivel viva.** `RN-52` marca `[V]` que el MARCI exige control de acceso y registro de consultas; la ficha `NRM-01` **no dice nada de eso**. Es el patrón que `CLAUDE.md` prohíbe expresamente, y sobrevivió a la corrección de `HN1-03`, que iba justamente sobre eso.
+
+Ninguno bloquea el código de hoy: `HB1-01` toca un régimen que no se implementa, y los otros son artefactos sin regla. **Sí bloquean cerrar el Sprint 0.**
 
 ## Lo que está cerrado
 

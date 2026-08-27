@@ -8,8 +8,48 @@
 | **Fecha** | 2026-08-06 |
 | **Sprint / Bloque** | Sprint 0 / Bloque 1 |
 | **Hallazgos** | 28 — 5 Críticas, 9 Altas, 10 Medias, 4 Bajas |
-| **Estado** | Abierto. Corrige quien produjo cada artefacto; QA verifica después |
+| **Estado** | **17 de 28 corregidos y verificados. 11 siguen abiertos** — desglose en la sección siguiente |
+| **Verificación de cierre** | 2026-08-26, contra los artefactos vivos. No contra el mensaje del commit que dijo haberlos corregido |
 
+
+## Estado de corrección — verificado el 2026-08-26
+
+Este informe se emitió el 2026-08-06 y se quedó diciendo *«Abierto»* mientras las correcciones se aplicaban. **La verificación se hizo contra los artefactos vivos**, hallazgo por hallazgo, no contra el mensaje del commit que declaró el lote cerrado. Once no estaban corregidos.
+
+### Corregidos y verificados — 17
+
+| Hallazgo | Dónde se comprueba |
+|---|---|
+| `HB1-02` | [`RN-14`](../../01-negocio/reglas/RN-14-sustitucion-de-motorista.md) lleva el acta de corrección: el caso límite es hoy bloqueo duro, coherente con `I-11`. [`RN-01`](../../01-negocio/reglas/RN-01-segregacion-de-funciones.md) cita `I-11` |
+| `HB1-03` · `HB1-12` | [`RN-06`](../../01-negocio/reglas/RN-06-transiciones-de-estado-de-la-orden.md) |
+| `HB1-04` | [`RN-05`](../../01-negocio/reglas/RN-05-registro-cerrado-no-se-edita.md): *«No existe la reapertura»*. Se retiró el `[C]` que preguntaba quién podía reabrir — era la pregunta equivocada |
+| `HB1-05` | [`RN-39`](../../01-negocio/reglas/RN-39-parametros-normativos-con-vigencia.md) exige el doble control carga↔aprobación, y declara que no se desactiva |
+| `HB1-06` · `HB1-07` | [`RN-19`](../../01-negocio/reglas/RN-19-vehiculo-no-operativo-no-se-asigna.md), [`RN-26`](../../01-negocio/reglas/RN-26-fondo-de-combustible-aprobado.md), [`RN-32`](../../01-negocio/reglas/RN-32-entrega-de-combustible-contra-orden-de-mision.md) |
+| `HB1-08` | [`RN-23`](../../01-negocio/reglas/RN-23-permiso-de-circulacion-en-dia-inhabil.md): el permiso ya no exige que la misión esté programada, basta que esté aprobada |
+| `HB1-09` | [`RN-35`](../../01-negocio/reglas/RN-35-estimacion-de-peajes-antes-de-aprobar.md), [`RN-33`](../../01-negocio/reglas/RN-33-categoria-de-peaje-derivada-de-ficha-tecnica.md) |
+| `HB1-10` · `HB1-13` | [`RN-48`](../../01-negocio/reglas/RN-48-datos-espejo-de-solo-lectura.md), [`RN-49`](../../01-negocio/reglas/RN-49-reconciliacion-periodica-del-espejo.md), [`RN-50`](../../01-negocio/reglas/RN-50-degradacion-por-sincronizacion-detenida.md) |
+| `HB1-11` | La matriz 8 × 8 de `orden-de-mision.md` §3.3 **se eliminó**: duplicaba `I-01`–`I-17` y por eso divergía. Ahora remite a la autoridad. **Queda declarada, no oculta, una divergencia menor**: `Conduce × Programa` y `Conduce × Cierra` no existen en `I-01`–`I-17`, y [`RN-01`](../../01-negocio/reglas/RN-01-segregacion-de-funciones.md) lo dice en su propia nota |
+| `HB1-14` | [`PR-01`](../../01-negocio/procesos/PR-01-movilizacion-institucional.md): `T-18` lo ejecuta `ACT-06`, o `ACT-10` en digitación diferida. `ACT-05` levanta **acta de recepción** y no cierra la bitácora |
+| `HB1-16` | [`RN-10`](../../01-negocio/reglas/RN-10-licencia-vigente-en-todo-el-rango.md) mide contra todo el rango más la holgura, igual que `BD-02`. **Es lo que el código implementa hoy** |
+| `HB1-19` | [`RN-21`](../../01-negocio/reglas/RN-21-capacidad-de-pasajeros-y-carga.md) |
+| `HB1-21` | [`RN-24`](../../01-negocio/reglas/RN-24-vehiculo-de-servicio-exceptuado.md) |
+| `HB1-22` | `PC-11` distingue el retorno ordinario del **retorno constatado en oficina**, donde no bloquea. Corregido por la vía de `HB3-04` |
+
+### Siguen abiertos — 11
+
+| Hallazgo | Sev. | Qué falta, comprobado hoy |
+|---|---|---|
+| `HB1-01` | Crítica | **Corregido a medias.** El Nivel 2 de [`actores-y-roles`](../../01-negocio/actores-y-roles.md) §5.4 quedó suspendido con ⛔ y `DP-002`, y las acciones 27–28 tachadas. **El Nivel 3 sobrevive intacto** y sigue diciendo *«el sistema no lo bloquea»* para la emergencia — contra `RN-01` (*«La emergencia no es excepción»*) y contra `BD-06`, que no tiene salida por emergencia. La tercera posición que el hallazgo denunció sigue escrita |
+| `HB1-15` | Media | La lista de criterios de hallazgo sigue siendo `H-01`–`H-08` y sigue declarada cerrada (*«si y solo si»*, *«no es un cajón de sastre»*). Los cinco criterios de `RN-08`, `RN-21`, `RN-29`, `RN-32` y `RN-47` siguen sin `H-nn`. Se evaluó abrir `H-09` y **se descartó** al resolver `HB3-02`, pero solo para el caso del peaje |
+| `HB1-17` | Media | `T-08` sigue diciendo *«el estimado congelado en la aprobación»* mientras `INV-07` y `T-02` lo congelan **en el envío**, y [`RN-41`](../../01-negocio/reglas/RN-41-congelamiento-del-valor-al-autorizar.md) sigue enunciando el congelamiento al autorizar. Tres momentos, un solo valor |
+| `HB1-18` | Media | **Corregido a medias.** De 97 reglas, **4** citan la tabla `I-01`–`I-17`. Es más que las cero de entonces, y sigue sin ser la cobertura que el hallazgo pedía |
+| `HB1-20` | Media | El [`README` de reglas](../../01-negocio/reglas/README.md) mantiene `RN-12` marcada `Sí*` con la leyenda *«el bloqueo es configurable»*, y [`RN-12`](../../01-negocio/reglas/RN-12-disponibilidad-del-motorista.md) mantiene *«No el bloqueo»*. La leyenda tampoco define el valor `Sí` a secas |
+| `HB1-23` | Media | `PC-12` sigue exigiendo el manifiesto **antes** del despacho, y `T-12` sigue emitiéndolo **como efecto** del despacho. La circularidad está intacta. Tampoco existe `BD-nn` de custodia vigente para `T-12` |
+| `HB1-24` | Media | [`RN-04`](../../01-negocio/reglas/RN-04-anulacion-como-asiento-reverso.md) sigue diciendo que el borrador descartado se registra *«sin conservar el contenido»*; `orden-de-mision.md` sigue diciendo que pasa a `ANULADA` con motivo. Se contradicen sobre si `INV-40`–`INV-43` aplican |
+| `HB1-25` | Baja | Los objetivos 6 y 10 de [`vision-de-producto.md`](../../00-vision/vision-de-producto.md) están **sin tocar**. El 6 sigue sin número; el 10 sigue midiendo *«ubicación actualizada ≥ 90 %»* sin ventana temporal, penalizando la misión sin cobertura que el producto dice atender |
+| `HB1-26` | Baja | El [`glosario`](../../00-vision/glosario.md) **no menciona ninguno** de los diez estados del ciclo de vida — cero coincidencias. Por su propia regla, `APROBADA` no podría usarse en un artefacto |
+| `HB1-27` | Baja | Los pendientes A–K siguen en `actores-y-roles` §9 sin remitir al insumo numerado que los duplica. El pendiente **D** sigue siendo el insumo **#26** escrito dos veces |
+| `HB1-28` | Baja | **Corregido a medias.** El diagrama de `PR-01` incorporó `T-03` y `T-10`. **Siguen faltando `T-11`, `T-16` y `T-20`** — y `T-16` es la que importa: el único camino de la misión suspendida con consumo |
 > **Nota de método.** Cada hallazgo trae el caso concreto que lo demuestra: inputs, estado y qué sale mal. Donde el hallazgo se sostiene sobre una cita, la cita es literal. No se reporta nada que no se pueda convertir en una prueba.
 
 ---

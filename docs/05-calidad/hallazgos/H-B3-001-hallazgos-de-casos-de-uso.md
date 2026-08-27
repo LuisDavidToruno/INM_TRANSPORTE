@@ -4,8 +4,31 @@
 |---|---|
 | **Origen** | Bloque 3, redacción de `CU-01` a `CU-18` por cuatro analistas en paralelo |
 | **Fecha** | 2026-08-13 |
-| **Estado** | Consolidado. Pendiente de corrección |
+| **Estado** | **17 de 19 corregidos y verificados. 2 siguen abiertos** — desglose en la sección siguiente |
+| **Verificación de cierre** | 2026-08-26, contra los artefactos vivos |
 
+
+## Estado de corrección — verificado el 2026-08-26
+
+Diecisiete de los diecinueve están corregidos y verificados contra los artefactos vivos. **Dos siguen abiertos**, y uno de los cerrados lo está a reserva de una decisión del PO.
+
+| Hallazgo | Estado | Dónde se comprueba |
+|---|---|---|
+| `HB3-01` | Corregido | `BD-01` compara hoy contra los tres — creador, remitente y **solicitante de derecho**. Es el bloqueo que el código implementa |
+| `HB3-02` | Corregido **a reserva del PO** | [`RN-92`](../../01-negocio/reglas/RN-92-reclamo-por-discrepancia-de-peaje.md) y `orden-de-mision.md` §7.2. Se descartó abrir un `H-09` para no marcar a la institución por un error del concesionario. **Si el PO prefiere lo contrario, se revierte** — está anotado como `[C]` en la propia máquina de estados |
+| `HB3-03` · `HB3-06` · `HB3-12` | Corregidos | [`CU-12`](../../02-requisitos/casos-de-uso/CU-12-solicitar-y-aprobar-fondo-de-combustible.md), [`CU-13`](../../02-requisitos/casos-de-uso/CU-13-emitir-y-entregar-asignacion-de-combustible.md), `orden-de-mision.md` |
+| `HB3-04` | Corregido | `PC-11` de [`PR-01`](../../01-negocio/procesos/PR-01-movilizacion-institucional.md) distingue el **retorno constatado en oficina**, donde el odómetro incoherente no bloquea la captura: se registra, se marca y se bloquea la liquidación. Cierra también `HB1-22` |
+| `HB3-05` | Corregido | [`RN-01`](../../01-negocio/reglas/RN-01-segregacion-de-funciones.md) e `I-11`: quien conduce no pudo haber ejercido ninguna de las funciones 2 a 5 |
+| `HB3-07` · `HB3-08` | Corregidos | [`RN-23`](../../01-negocio/reglas/RN-23-permiso-de-circulacion-en-dia-inhabil.md), [`RN-24`](../../01-negocio/reglas/RN-24-vehiculo-de-servicio-exceptuado.md), [`CU-03`](../../02-requisitos/casos-de-uso/CU-03-permiso-de-circulacion-en-dia-inhabil.md) |
+| `HB3-09` | Corregido | [`RN-33`](../../01-negocio/reglas/RN-33-categoria-de-peaje-derivada-de-ficha-tecnica.md), [`RN-35`](../../01-negocio/reglas/RN-35-estimacion-de-peajes-antes-de-aprobar.md) |
+| `HB3-10` · `HB3-11` | Corregidos | [`CU-05`](../../02-requisitos/casos-de-uso/CU-05-emitir-orden-de-mision-y-documentos.md), [`CU-16`](../../02-requisitos/casos-de-uso/CU-16-cerrar-el-expediente-de-la-mision.md), `PR-01` |
+| `HB3-14` | Corregido | [`HU-037`](../../02-requisitos/historias/HU-037-emision-anticipada-en-delegacion-sin-cobertura.md) |
+| `HB3-15` | Corregido | [`RN-23`](../../01-negocio/reglas/RN-23-permiso-de-circulacion-en-dia-inhabil.md): *«El permiso no requiere que la misión esté programada: basta con que esté aprobada»*, y el caso de la misión aprobada el jueves para salir el sábado quedó escrito |
+| `HB3-17` | Corregido | [`HU-104`](../../02-requisitos/historias/HU-104-retirar-de-flota-un-bien-ajeno.md) — devolver un comodato ya no obliga a un asiento falso sobre un bien ajeno |
+| `HB3-18` | Corregido | [`RN-25`](../../01-negocio/reglas/RN-25-salvoconducto-con-folio-y-qr.md) |
+| `HB3-19` | Corregido | [`RN-02`](../../01-negocio/reglas/RN-02-escalamiento-de-autorizacion.md) ya no usa *«puesto superior»*: el escalamiento se nombra por el nivel de la cadena |
+| **`HB3-13`** | **Abierto** | La interrupción sigue teniendo tres desenlaces en `CE-02` y cuatro en [`RN-70`](../../01-negocio/reglas/RN-70-interrupcion-en-ruta-con-desenlace-obligatorio.md), que trata *pendiente de resolución* como si fuera un desenlace. Sin zanjarlo, el tablero del Jefe de Transporte infla el conteo de misiones resueltas |
+| **`HB3-16`** | **Abierto** | [`mapa-de-procesos`](../../01-negocio/mapa-de-procesos.md) `PR-02` sigue admitiendo que aprueben el descargo `ACT-08` **o** `ACT-09`; la máquina de estados dice `ACT-08`. `NRM-02` sigue `[P]`, así que la norma no zanja: **es decisión de producto** |
 Ninguno de estos hallazgos lo encontró una revisión. Los encontró **alguien usando el diseño** para escribir un flujo concreto y chocando con que no cerraba.
 
 Todos los casos de uso siguieron al artefacto autoridad según la [precedencia de `CLAUDE.md`](../../../CLAUDE.md) y dejaron la divergencia anotada. **Ninguno la resolvió en silencio.**

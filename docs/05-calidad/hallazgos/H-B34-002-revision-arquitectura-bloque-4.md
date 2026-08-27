@@ -6,9 +6,26 @@
 | **Fecha** | 2026-08-24 |
 | **Ámbito revisado** | `docs/03-arquitectura/modelo-datos/README.md`, `docs/03-arquitectura/modelo-datos/diccionario-de-datos.md`, `docs/04-diseno/mapa-de-navegacion.md`, `docs/04-diseno/inventario-de-pantallas.md`, `docs/04-diseno/brief-para-diseno.md` |
 | **Contrastado contra** | `estados/orden-de-mision.md` (autoridad en estados), los 21 `RNF`, las 97 `RN`, `actores-y-roles.md` (autoridad en actores e incompatibilidades), los 28 `CE`, las 125 `HU`, `CLAUDE.md` |
-| **Estado** | Emitido. Ninguna corrección aplicada — este archivo es el único que se escribió |
+| **Estado** | **Los 25 llevan nota de corrección en su artefacto.** Verificados por muestreo, no uno por uno — ver la sección siguiente |
+| **Verificación de cierre** | 2026-08-26, contra los artefactos vivos |
 | **Numeración** | `HB34-50` en adelante, para no colisionar con la revisión del Bloque 3 |
 
+
+## Estado de corrección — verificado el 2026-08-26
+
+El encabezado decía *«Emitido. Ninguna corrección aplicada — este archivo es el único que se escribió»*. **Eso dejó de ser cierto:** los 25 hallazgos están citados por identificador en el modelo de datos, el diccionario, los `RNF`, tres ADR y el inventario de pantallas.
+
+**Lo que se verificó y lo que no.** Se comprobó uno por uno que cada identificador esté citado, y se abrieron a lectura los cuatro críticos —los que el propio informe declaró *imposibles de agregar después*—. **No se releyeron los veinticinco completos.**
+
+| Crítico | Qué se comprobó |
+|---|---|
+| `HB34-50` | El segundo eje de tiempo existe. [`ADR-006`](../../03-arquitectura/adr/ADR-006-temporalidad-bitemporal.md) fija las **dos parejas de fechas**, y está marcado irreversible en `CLAUDE.md`. El código las lleva |
+| `HB34-51` | El alcance del encadenamiento quedó definido; la cadena de hash se serializa con `sp_getapplock` dentro de la transacción, para que dos escrituras concurrentes no la bifurquen |
+| `HB34-52` | [`RNF-21`](../../02-requisitos/no-funcionales/RNF-21-integridad-de-folios-y-correlativos.md) separa hoy el **identificador interno** —técnico, generado en el dispositivo— del **folio** impreso, y plantea el caso de cinco dispositivos sin conexión entre sí |
+| `HB34-53` | [`ADR-004`](../../03-arquitectura/adr/ADR-004-adjuntos-fuera-de-la-base.md) — los adjuntos viven fuera de la base, y con ellos el segmento depurable |
+| `HB34-74` | `docs/04-diseno/mockups/` existe, con su `README.md` y el tablero |
+
+Los altos, medios y bajos —`HB34-54` a `HB34-73`— están citados en el [modelo de datos](../../03-arquitectura/modelo-datos/README.md), el [diccionario](../../03-arquitectura/modelo-datos/diccionario-de-datos.md), el [mapa de navegación](../../04-diseno/mapa-de-navegacion.md) y el [inventario de pantallas](../../04-diseno/inventario-de-pantallas.md); no se auditó el contenido de cada corrección.
 **Nota de severidad.** Todo corre en documentación de Sprint 0; no hay código ni datos reales. «Crítico» aquí significa **propiedad que no se puede agregar después sin rehacer el modelo**, no incidente. «Alto» significa contradicción entre un artefacto y su autoridad que va a producir código equivocado. «Medio» y «Bajo», inconsistencias corregibles en su sitio.
 
 ---
