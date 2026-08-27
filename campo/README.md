@@ -24,6 +24,7 @@ cd campo && npm run verificar
 |---|---|
 | [`DiarioLocal`](nucleo/DiarioLocal.ts) | `P-1` — el dispositivo manda **transiciones**, nunca «el estado». Y `RNF-03`: lo que el servidor no acusó **sigue pendiente**, así que una sincronización cortada a la mitad no pierde nada |
 | [`Conciliacion`](nucleo/Conciliacion.ts) | [`RN-45`](../docs/01-negocio/reglas/RN-45-cero-sobrescritura-silenciosa.md) — **cero sobrescritura silenciosa**. Dos versiones distintas del mismo hecho conservan las dos y van a cola humana |
+| [`SubrangoDeFolios`](nucleo/Folios.ts) | [`RN-44`](../docs/01-negocio/reglas/RN-44-identificadores-y-folios-en-el-cliente.md) y `RNF-21` — el folio se toma **sin consultar al servidor**, y el subrango es **del dispositivo, no de la delegación** |
 
 ### La decisión que más costará entender dentro de un año
 
@@ -39,7 +40,7 @@ El caso concreto que esto atrapa: el motorista registra el retorno con 84.320 km
 |---|---|
 | **La aplicación React Native** — pantallas, cámara, GPS en segundo plano | Necesita máquina con Android SDK y Java |
 | **La persistencia SQLite cifrada** | Módulo nativo. El `DiarioLocal` de hoy guarda **en memoria** y lo dice en su propia documentación |
-| **Folios pre-asignados por dispositivo** | [`RN-44`](../docs/01-negocio/reglas/RN-44-identificadores-y-folios-en-el-cliente.md) · `RNF-21` — **dos dispositivos de la misma delegación sin red colisionan** (`HB34-52`) |
+| **La asignación de subrangos** — quién los reparte, cuándo se recargan, y el aviso antes de que un dispositivo salga con el saldo bajo | El consumo ya está; **repartirlos es de `M-01`**, que no existe |
 | **Adjuntos diferidos** — ≥ 200 fotografías por dispositivo | [`ADR-004`](../docs/03-arquitectura/adr/ADR-004-adjuntos-fuera-de-la-base.md) |
 | **El endpoint de sincronización en el servidor** | El núcleo produce el lote; nadie lo recibe todavía |
 | **`RNF-12`** — ≤ 25 % de batería en 8 h, gama baja | **No se ha medido nada.** Es el requisito más ajustado del sistema |
