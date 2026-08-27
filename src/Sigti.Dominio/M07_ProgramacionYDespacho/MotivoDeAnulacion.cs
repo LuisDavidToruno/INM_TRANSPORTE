@@ -1,7 +1,7 @@
 namespace Sigti.Dominio.M07_ProgramacionYDespacho;
 
 /// <summary>
-/// Por qué se anula una misión aprobada (`T-09`).
+/// Por qué se anula una misión — <b>aprobada (`T-09`) o ya programada (`T-13`)</b>.
 ///
 /// <b>Es un catálogo cerrado a propósito, y no por rigidez.</b> La tipificación de
 /// estas anulaciones <b>es</b> el indicador de déficit de flota que la institución
@@ -9,6 +9,13 @@ namespace Sigti.Dominio.M07_ProgramacionYDespacho;
 /// existe y es útil, pero es complemento, nunca sustituto.
 ///
 /// Una cola de aprobadas que nadie depura oculta el déficit real.
+///
+/// ── Por qué el mismo catálogo sirve a las dos ────────────────────────────────
+/// Porque la pregunta que contesta es la misma: <i>por qué esta movilización no se hizo</i>.
+/// Lo que cambia entre `T-09` y `T-13` es <b>qué se libera al anular</b> —una programada
+/// suelta vehículo y motorista comprometidos—, y eso lo dice el estado del que se viene,
+/// que ya queda en el diario. Duplicar el catálogo daría dos listas que se van a separar,
+/// y el indicador tendría que sumar dos vocabularios.
 /// </summary>
 public enum MotivoDeAnulacion
 {

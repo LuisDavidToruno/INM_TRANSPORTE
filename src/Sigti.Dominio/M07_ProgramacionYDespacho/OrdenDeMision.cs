@@ -216,6 +216,85 @@ public sealed class OrdenDeMision
     }
 
     /// <summary>
+    /// `T-11` — PROGRAMADA → APROBADA. <b>Desprogramar liberando recursos.</b>
+    ///
+    /// ── Por qué no existe un «quitar el vehículo» sin esto ───────────────────
+    /// `EF-01`: <i>«nunca se le quita el vehículo a una misión sin devolverla explícitamente
+    /// a la cola: una misión que pierde su vehículo en silencio se descubre el día de la
+    /// salida, en el predio»</i>. Ésta es la puerta por la que se libera un recurso, y la
+    /// única. Es además el paso obligado de la cuarta salida de un conflicto de `BD-11` —
+    /// escalar la prioridad desplaza a la primera misión <b>por acá</b>, no borrándole la
+    /// reserva.
+    ///
+    /// ── Liberar es no volver a tomar ─────────────────────────────────────────
+    /// No hay reserva que borrar: la ocupación es la proyección del diario y sólo cuenta
+    /// mientras el estado la sostiene. Al volver a `APROBADA`, el vehículo queda libre por
+    /// el solo hecho de que el diario siguió. La transición de `T-08` que reservó
+    /// <b>permanece</b> en el diario — nada se deshace (P-3) —, simplemente deja de contar.
+    ///
+    /// ── La aprobación NO se pierde ───────────────────────────────────────────
+    /// <i>«La solicitud vuelve a la cola de programación conservando su aprobación
+    /// original»</i>. Por eso vuelve a `APROBADA` y no a `SOLICITADA`: obligar a que la
+    /// jefatura vuelva a firmar por un problema de flota es castigar a quien pidió.
+    ///
+    /// ⚠️ <b>Dos efectos de `T-11` no ocurren todavía</b>, y no por descuido: la anulación
+    /// del folio reservado (`EF-02`) necesita el circuito de rangos por delegación, que es
+    /// de `M-01`; y el retorno del vehículo a `DISPONIBLE` necesita el estado operativo de
+    /// `M-03`, que tampoco existe. Ninguno de los dos se finge.
+    /// </summary>
+    /// <param name="motivo">
+    /// <b>Obligatorio.</b> Texto libre y no tipificado, a diferencia de la anulación: acá el
+    /// motivo no alimenta el indicador de déficit —la misión sigue viva y se va a
+    /// reprogramar—, sino que explica a la dependencia por qué perdió el vehículo que ya
+    /// tenía. Es la notificación que `EF-01` exige al desplazar por prioridad.
+    /// </param>
+    public void Desprogramar(IdPersona ejecuta, string motivo, DateTimeOffset momento)
+    {
+        ExigirEstado(EstadoDeMision.Programada, "T-11");
+
+        if (string.IsNullOrWhiteSpace(motivo))
+            // Se usa `BloqueoDuro` con el identificador de la transición, como ya hace
+            // `T-22` con su justificación. Un tipo de excepción nuevo para lo mismo
+            // obligaría a la API a mapear dos formas de la misma negativa.
+            throw new BloqueoDuro("T-11",
+                "Desprogramar exige motivo: la dependencia pierde un vehículo que ya tenía " +
+                "asignado y tiene derecho a saber por qué.");
+
+        Registrar("T-11", EstadoDeMision.Aprobada, ejecuta, momento, motivo.Trim());
+    }
+
+    /// <summary>
+    /// `T-13` — PROGRAMADA → ANULADA. <b>Anular una misión ya programada</b>, con motivo
+    /// tipificado.
+    ///
+    /// ── Qué la distingue de `T-09` ───────────────────────────────────────────
+    /// Que acá <b>había recursos comprometidos</b>. La misión no muere sola: libera un
+    /// vehículo y un motorista que estaban tomados, y por eso la tipificación importa más,
+    /// no menos — es la que dice si el recurso se liberó por déficit, por desistimiento o
+    /// por causa externa.
+    ///
+    /// ── Y de `T-11` ──────────────────────────────────────────────────────────
+    /// `T-11` devuelve la misión a la cola: sigue queriendo salir. `T-13` la mata. La
+    /// tabla de transiciones lo marca <b>irreversible</b>: de `ANULADA` no se vuelve, y
+    /// quien quiera el viaje presenta una solicitud nueva. Confundirlas dejaría una misión
+    /// viva sin vehículo o una muerta ocupando flota.
+    /// </summary>
+    public void AnularProgramada(
+        IdPersona ejecuta,
+        MotivoDeAnulacion motivo,
+        string? comentario,
+        DateTimeOffset momento)
+    {
+        ExigirEstado(EstadoDeMision.Programada, "T-13");
+
+        var texto = string.IsNullOrWhiteSpace(comentario)
+            ? motivo.ToString()
+            : $"{motivo} · {comentario.Trim()}";
+
+        Registrar("T-13", EstadoDeMision.Anulada, ejecuta, momento, texto);
+    }
+
+    /// <summary>
     /// `T-09` — APROBADA → ANULADA. Motivo obligatorio y <b>tipificado</b>.
     ///
     /// El comentario acompaña al motivo; no lo reemplaza. Sin tipificación no hay

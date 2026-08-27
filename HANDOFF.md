@@ -246,16 +246,62 @@ para revelar el solape lo estaba escondiendo. Ahora se apilan en subfilas, y dos
 que **se tocan** cuentan como solape: el vehículo no puede estar volviendo de Danlí y
 saliendo a Juticalpa el mismo día.
 
-**⚠️ Y esto dejó a la vista que `BD-11` no bloquea.** Se programaron dos misiones sobre el
-mismo pick-up para los mismos días y el sistema aceptó las dos. La máquina de estados es
-taxativa —*«no sobre-asigna, ni siquiera con advertencia; dos misiones con el mismo
-vehículo el mismo día es el error que termina con un servidor público esperando en la
-puerta»*—. Ya estaba registrado como pendiente abajo; lo nuevo es que **ahora es
-implementable**: el dato para detectarlo existe.
+### `BD-11` bloquea, y `T-11`/`T-13` dan la vuelta
 
-### `BD-07` sigue sin evaluarse, y `BD-04` a `BD-11` tampoco
+**El sistema dejó de sobre-asignar.** `EF-01` es taxativo —*«no sobre-asigna, ni siquiera
+con advertencia»*— y la regla estaba escrita sin implementar: se podían programar dos
+misiones sobre el mismo pick-up los mismos días.
 
-`BD-02` y `BD-03` ya están implementadas y probadas — **`BD-12` también, ver arriba.** **`BD-07` no** — estado y compatibilidad del vehículo. Necesita dos cosas que todavía no existen:
+**La aritmética del solape vive en el dominio, no en el `WHERE`.** Puesta en SQL no se
+puede ejercer sin base, y los casos de borde se prueban a través de tres capas o no se
+prueban. Los extremos son **inclusivos de los dos lados**: una misión que retorna el jueves
+y otra que sale el jueves chocan. Verificado mutando el operador a `<` — las dos pruebas de
+borde fallan, que es lo que las hace valer algo.
+
+El bloqueo **nombra al titular** —folio, dependencia y franja—, porque las cuatro salidas
+de `EF-01` empiezan todas por saber a quién llamar. Y va también en la **vista previa**: las
+salidas se deciden antes de apretar el botón.
+
+**`T-11` desprogramar y `T-13` anular una programada.** Hasta hoy una misión programada no
+se podía deshacer: un vehículo asignado por error quedaba tomado hasta que alguien lo
+despachara. `T-11` la devuelve a `APROBADA` conservando su aprobación —no se obliga a la
+jefatura a firmar otra vez por un problema de flota— y **es el paso obligado de la cuarta
+salida de `EF-01`**: desplazar por prioridad pasa por devolver a la cola, nunca por quitar
+el vehículo en silencio.
+
+| Pieza | Qué |
+|---|---|
+| [`ReservaDeRecurso`](src/Sigti.Dominio/M07_ProgramacionYDespacho/ReservaDeRecurso.cs) | El solape, con los tres datos que `EF-01` exige mostrar |
+| `ConsultaDeOcupacion.ReservasDeAsync` | Trae por **recurso**, sin filtrar por fecha: el solape es la regla |
+| `OrdenDeMision.Desprogramar` / `AnularProgramada` | `T-11` y `T-13`. La primera es reversible vía `T-08`; la segunda no se vuelve |
+| [`ConflictoDeAgenda.tsx`](oficina/src/modulos/M07_Programacion/ConflictoDeAgenda.tsx) | Nombra al titular y ofrece la única salida que existe |
+| [`Cola.tsx`](oficina/src/modulos/M07_Programacion/Cola.tsx) | Tercer segmento «Programadas», con las dos salidas distinguidas |
+
+**Nueve pruebas existentes empezaron a fallar, y tenían que fallar**: todas programaban
+sobre el mismo motorista en la misma franja. Eran nueve dobles asignaciones que pasaban
+porque la regla no existía. **El arreglo no fue debilitar la regla** — fue que cada prueba
+tenga su par vehículo+motorista.
+
+**⚠️ La ventana reservada es más angosta que la que `EF-01` prescribe.** Las holguras
+institucionales —previa y posterior, por institución y tipo de vehículo— son el **insumo #1,
+`[C]`**. Hoy se reserva `[salida, retorno + holgura declarada]`, el mismo rango que evalúa
+`BD-02`. Mientras no se decidan, **el bloqueo deja pasar solapes que después bloqueará**. Es
+la dirección segura del error: inventar valores bloquearía misiones legítimas contra
+números que nadie decidió.
+
+**Dos efectos de `T-11` no ocurren**, y no por descuido: anular el folio reservado (`EF-02`)
+necesita los rangos por delegación de `M-01`; y devolver el vehículo a `DISPONIBLE` necesita
+el estado operativo de `M-03`. Ninguno de los dos se finge.
+
+**Dos cosas más salieron de mirar la pantalla.** La lista de salida decía *«vehículos
+**libres** que la licencia habilita»* y el servidor sólo había filtrado por licencia — ahora
+filtra por las dos, porque una salida que vuelve a bloquear no es salida. Y los diálogos
+tenían **dos botones de salida**: `Modal` ya rinde el suyo, y encima el llamador agregaba
+otro. El de anulación venía así desde antes.
+
+### `BD-07` sigue sin evaluarse, y `BD-04` a `BD-10` tampoco
+
+`BD-02` y `BD-03` ya están implementadas y probadas — **`BD-11` y `BD-12` también, ver arriba.** **`BD-07` no** — estado y compatibilidad del vehículo. Necesita dos cosas que todavía no existen:
 
 - La **matriz de compatibilidad** entre el objeto del traslado y el tipo de vehículo (`M-02`)
 - La **categoría de peaje** resuelta por vehículo (`M-18`, `NRM-10`) — sin ella el estimado de peajes no es verificable, y quien autoriza no puede comprobar el cálculo

@@ -127,6 +127,47 @@ export async function anular(
   });
 }
 
+/** Las misiones ya programadas — las que tienen vehículo y motorista tomados. */
+export async function colaDeProgramadas(): Promise<Expediente[]> {
+  if (!BASE) return conRetardo([]);
+  const crudos = await pedir<ExpedienteDelServidor[]>('/misiones?estado=Programada');
+  return crudos.map(alExpediente);
+}
+
+/**
+ * `T-11` — devolver la misión a la cola liberando vehículo y motorista.
+ *
+ * <b>El motivo es texto libre, y no es un descuido.</b> A diferencia de la anulación, acá
+ * la misión sigue viva y se va a reprogramar: el motivo no alimenta el indicador de
+ * déficit, explica a la dependencia por qué perdió el vehículo que ya tenía.
+ */
+export async function desprogramar(id: string, ejecuta: string, motivo: string): Promise<void> {
+  if (!BASE) return conRetardo(undefined);
+  await pedir(`/misiones/${id}/desprogramar`, {
+    method: 'POST',
+    body: JSON.stringify({ ejecuta, motivo, momento: new Date().toISOString() }),
+  });
+}
+
+/**
+ * `T-13` — anular una misión ya programada. Motivo <b>tipificado</b>, como `T-09`.
+ *
+ * No es lo mismo que <c>desprogramar</c>: ésta la mata y no se vuelve. La otra la devuelve
+ * a la cola.
+ */
+export async function anularProgramada(
+  id: string,
+  ejecuta: string,
+  motivo: MotivoDeAnulacion,
+  comentario: string,
+): Promise<void> {
+  if (!BASE) return conRetardo(undefined);
+  await pedir(`/misiones/${id}/anular-programada`, {
+    method: 'POST',
+    body: JSON.stringify({ ejecuta, motivo, comentario, momento: new Date().toISOString() }),
+  });
+}
+
 /** Los expedientes que esperan pronunciamiento de esta jefatura. */
 export async function bandejaDeAutorizacion(): Promise<Expediente[]> {
   if (!BASE) return conRetardo(expedientesDeMuestra());

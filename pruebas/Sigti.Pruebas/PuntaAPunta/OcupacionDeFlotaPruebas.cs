@@ -220,6 +220,117 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
     }
 
     [Fact]
+    public async Task Desprogramar_libera_el_recurso_y_otra_mision_lo_puede_tomar()
+    {
+        // **El ciclo completo, y es lo que `T-11` existe para permitir.** Hasta ahora una
+        // misión programada no se podía deshacer: un vehículo asignado por error quedaba
+        // tomado hasta que alguien lo despachara.
+        //
+        // Es además la cuarta salida de un conflicto de `BD-11` —escalar la prioridad—:
+        // `EF-01` exige que desplazar a una misión pase por devolverla explícitamente a la
+        // cola, nunca por quitarle el vehículo en silencio.
+        var r = await Sembrar("OC-0021");
+
+        var primera = Ulid.NewUlid().ToString();
+        var segunda = Ulid.NewUlid().ToString();
+
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        await CrearYAprobar(cliente, primera);
+        await Programar(cliente, primera, r);
+        Assert.Single(await BarrasDe(cliente, r.Vehiculo));
+
+        // La segunda choca, como debe.
+        await CrearYAprobar(cliente, segunda);
+        var chocada = await cliente.PostAsJsonAsync($"/misiones/{segunda}/programar", new
+        {
+            Ejecuta = "P-TRANSPORTE",
+            Momento,
+            IdVehiculo = r.Vehiculo,
+            IdConductor = r.Conductor,
+        });
+        Assert.Equal(System.Net.HttpStatusCode.Conflict, chocada.StatusCode);
+
+        // Se libera la primera.
+        var liberacion = await cliente.PostAsJsonAsync($"/misiones/{primera}/desprogramar", new
+        {
+            Ejecuta = "P-TRANSPORTE",
+            Momento,
+            Motivo = "Desplazada por prioridad superior",
+        });
+        liberacion.EnsureSuccessStatusCode();
+
+        Assert.Empty(await BarrasDe(cliente, r.Vehiculo));
+
+        // Y ahora la segunda sí entra. **Este es el punto**: liberar no es cosmético.
+        await Programar(cliente, segunda, r);
+
+        var barra = Assert.Single(await BarrasDe(cliente, r.Vehiculo));
+        Assert.Equal("Programada", barra.GetProperty("estado").GetString());
+
+        // La primera conserva su aprobación: vuelve a la cola, no a solicitada.
+        var estado = await cliente.GetFromJsonAsync<JsonElement>($"/misiones/{primera}");
+        Assert.Equal("Aprobada", estado.GetProperty("estado").GetString());
+    }
+
+    [Fact]
+    public async Task Desprogramar_sin_motivo_se_rechaza()
+    {
+        // La dependencia pierde un vehículo que ya tenía. Una notificación sin razón no es
+        // una notificación.
+        var r = await Sembrar("OC-0022");
+        var id = Ulid.NewUlid().ToString();
+
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        await CrearYAprobar(cliente, id);
+        await Programar(cliente, id, r);
+
+        var respuesta = await cliente.PostAsJsonAsync($"/misiones/{id}/desprogramar", new
+        {
+            Ejecuta = "P-TRANSPORTE",
+            Momento,
+            Motivo = "  ",
+        });
+
+        Assert.Equal(System.Net.HttpStatusCode.Conflict, respuesta.StatusCode);
+        // Y no quedó a medias: el vehículo sigue tomado.
+        Assert.Single(await BarrasDe(cliente, r.Vehiculo));
+    }
+
+    [Fact]
+    public async Task Anular_una_programada_libera_el_recurso_y_la_mata()
+    {
+        // `T-13`. La diferencia con `T-11` es que de acá no se vuelve: quien quiera el
+        // viaje presenta una solicitud nueva.
+        var r = await Sembrar("OC-0023");
+        var id = Ulid.NewUlid().ToString();
+
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        await CrearYAprobar(cliente, id);
+        await Programar(cliente, id, r);
+        Assert.Single(await BarrasDe(cliente, r.Vehiculo));
+
+        var anulacion = await cliente.PostAsJsonAsync($"/misiones/{id}/anular-programada", new
+        {
+            Ejecuta = "P-TRANSPORTE",
+            Momento,
+            Motivo = "CausaExterna",
+            Comentario = "Cierre de carretera por derrumbe",
+        });
+        anulacion.EnsureSuccessStatusCode();
+
+        Assert.Empty(await BarrasDe(cliente, r.Vehiculo));
+
+        var estado = await cliente.GetFromJsonAsync<JsonElement>($"/misiones/{id}");
+        Assert.Equal("Anulada", estado.GetProperty("estado").GetString());
+    }
+
+    [Fact]
     public async Task Una_mision_fuera_de_la_ventana_no_aparece()
     {
         // Sin esto, la pantalla de una semana mostraría la ocupación de todo el año y el

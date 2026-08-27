@@ -368,6 +368,41 @@ misiones.MapPost("/{id}/anular", async (
     return Results.Ok(new { id, estado = estado.ToString() });
 });
 
+// `T-11` — desprogramar. La única puerta por la que se libera un recurso: `EF-01` prohíbe
+// quitarle el vehículo a una misión sin devolverla explícitamente a la cola, porque una
+// misión que lo pierde en silencio se descubre el día de la salida, en el predio.
+//
+// Motivo LIBRE y no tipificado, a diferencia de la anulación: acá la misión sigue viva y
+// lo que el motivo explica es a la dependencia por qué perdió el vehículo que ya tenía.
+misiones.MapPost("/{id}/desprogramar", async (
+    string id, EjecutarTransicion peticion, ServicioDeMisiones servicio) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    var estado = await servicio.TransicionarAsync(
+        ulid,
+        e => e.Desprogramar(new IdPersona(peticion.Ejecuta), peticion.Motivo ?? "", peticion.Momento),
+        peticion.Momento);
+
+    return Results.Ok(new { id, estado = estado.ToString() });
+});
+
+// `T-13` — anular una ya programada. Motivo TIPIFICADO, como `T-09`: es el mismo indicador
+// de déficit de flota, y una programada que se anula libera además recursos comprometidos.
+misiones.MapPost("/{id}/anular-programada", async (
+    string id, AnularMision peticion, ServicioDeMisiones servicio) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    var estado = await servicio.TransicionarAsync(
+        ulid,
+        e => e.AnularProgramada(new IdPersona(peticion.Ejecuta), peticion.Motivo,
+                                peticion.Comentario, peticion.Momento),
+        peticion.Momento);
+
+    return Results.Ok(new { id, estado = estado.ToString() });
+});
+
 // Programar y despachar llevan la asignación en el cuerpo: son las dos transiciones que
 // evalúan BD-02 y BD-03, y se revalidan en cada una con los datos del momento.
 // Sólo `T-08` recibe los recursos: es la que reserva. `T-12` revalida sobre lo ya
