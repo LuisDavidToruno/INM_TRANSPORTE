@@ -181,6 +181,40 @@ misiones.MapPost("/{id}/anular", async (
 ConAsignacion("programar", (e, quien, a, m, p, cuando) => e.Programar(quien, a, m, p, cuando));
 ConAsignacion("despachar", (e, quien, a, m, p, cuando) => e.Despachar(quien, a, m, p, cuando));
 
+// T-20: devolver la liquidación para rehacerla. La alternativa a devolverla es cerrarla
+// mal, y un descargo mal conciliado que se cierra ya no se corrige: se revierte.
+misiones.MapPost("/{id}/devolver-liquidacion", async (
+    string id, EjecutarTransicion peticion, ServicioDeMisiones servicio) =>
+{
+    if (string.IsNullOrWhiteSpace(peticion.Motivo))
+        return Results.BadRequest(new { mensaje = "Devolver una liquidación exige motivo: quien la rehace tiene que saber qué corregir." });
+
+    var estado = await servicio.TransicionarAsync(
+        Ulid.Parse(id),
+        e => e.DevolverLiquidacion(new IdPersona(peticion.Ejecuta), peticion.Momento, peticion.Motivo!),
+        peticion.Momento);
+
+    return Results.Ok(new { id, estado = estado.ToString() });
+});
+
+// T-21 y T-22 son UN SOLO endpoint a propósito. El cliente manda los criterios
+// detectados; el destino lo decide el dominio. Si fueran dos rutas, quien cierra elegiría
+// —y §7.2 dice exactamente lo contrario: «el criterio decide y él lo confirma».
+misiones.MapPost("/{id}/cerrar", async (
+    string id, CerrarMision peticion, ServicioDeMisiones servicio) =>
+{
+    var criterios = (peticion.Criterios ?? [])
+        .Select(c => new HallazgoDetectado(c.Criterio, c.Detalle))
+        .ToList();
+
+    var estado = await servicio.TransicionarAsync(
+        Ulid.Parse(id),
+        e => e.Cerrar(new IdPersona(peticion.Ejecuta), peticion.Momento, criterios, peticion.Justificacion),
+        peticion.Momento);
+
+    return Results.Ok(new { id, estado = estado.ToString() });
+});
+
 app.Run();
 return;
 
@@ -313,3 +347,16 @@ internal sealed record CargarParametro(
 
 /// <summary>Expuesto para que las pruebas de punta a punta puedan levantar la aplicación.</summary>
 public partial class Program;
+
+/// <summary>
+/// El cierre. <b>No lleva estado destino</b>: lo decide el dominio a partir de los
+/// criterios, porque `orden-de-mision.md` §7.2 dice que quien cierra no elige.
+/// </summary>
+internal sealed record CerrarMision(
+    string Ejecuta,
+    DateTimeOffset Momento,
+    IReadOnlyList<CriterioDetectado>? Criterios,
+    string? Justificacion);
+
+/// <summary>Un `H-nn` que se cumplió, con el caso concreto que lo demuestra.</summary>
+internal sealed record CriterioDetectado(string Criterio, string Detalle);

@@ -77,9 +77,24 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
         await Asignar(cliente, id, "despachar", "P-ENCARGADO", idVehiculo: "v-001", idConductor: "c-001");
         await Transicionar(cliente, id, "iniciar-ruta", "P-MOTORISTA");
         await Transicionar(cliente, id, "retornar", "P-MOTORISTA");
-        var final = await Transicionar(cliente, id, "liquidar", "P-TRANSPORTE");
+        var liquidada = await Transicionar(cliente, id, "liquidar", "P-TRANSPORTE");
+        Assert.Contains("Liquidada", await liquidada.Content.ReadAsStringAsync());
 
-        Assert.Contains("Liquidada", await final.Content.ReadAsStringAsync());
+        // `BD-06` en el cierre: quien liquidó no puede cerrar. Es el último par de la
+        // cadena, y en una delegación pequeña la misma persona tiene los dos botones.
+        var cierraQuienLiquido = await cliente.PostAsJsonAsync(
+            $"/misiones/{id}/cerrar",
+            new { Ejecuta = "P-TRANSPORTE", Momento, Criterios = Array.Empty<object>(), Justificacion = (string?)null });
+        Assert.Equal(HttpStatusCode.Conflict, cierraQuienLiquido.StatusCode);
+        Assert.Contains("BD-06", await cierraQuienLiquido.Content.ReadAsStringAsync());
+
+        // Sin criterios detectados, el expediente cierra limpio. Quien cierra no eligió
+        // ese destino: no hay forma de pedirlo.
+        var final = await cliente.PostAsJsonAsync(
+            $"/misiones/{id}/cerrar",
+            new { Ejecuta = "P-GERENCIA", Momento, Criterios = Array.Empty<object>(), Justificacion = (string?)null });
+        Assert.Equal(HttpStatusCode.OK, final.StatusCode);
+        Assert.Contains("Cerrada", await final.Content.ReadAsStringAsync());
 
         await using var contexto = baseDePruebas.Contexto();
 
@@ -92,11 +107,12 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
             .ToListAsync();
 
         // T-01 crear · T-02 enviar · T-05 aprobar · T-08 programar · T-12 despachar
-        // T-14 iniciar ruta · T-18 retornar · T-19 liquidar.
-        // Son ocho, y que sean ocho y no nueve es la prueba de que el intento bloqueado
-        // por BD-01 no dejó rastro: no ocurrió.
+        // T-14 iniciar ruta · T-18 retornar · T-19 liquidar · T-21 cerrar.
+        // Son nueve, y que sean nueve y no once es la prueba de que los dos intentos
+        // bloqueados --BD-01 al autorizar y BD-06 al cerrar-- no dejaron rastro: no
+        // ocurrieron. Un bloqueo duro no es una transición fallida; es una que no pasó.
         Assert.Equal(
-            new[] { "T-01", "T-02", "T-05", "T-08", "T-12", "T-14", "T-18", "T-19" },
+            new[] { "T-01", "T-02", "T-05", "T-08", "T-12", "T-14", "T-18", "T-19", "T-21" },
             transiciones.Select(t => t.Transicion));
 
         // Y cada transición dejó su asiento encadenado, uno por una.
