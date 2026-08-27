@@ -52,7 +52,16 @@ export interface ResultadoDeAsignacion {
   finDeRangoEvaluado: string;
   /** Qué categoría sí habilitaría este vehículo. Nombrar lo que falta, no lo que sobra. */
   categoriaRequerida: string | null;
+  /**
+   * `BD-12`, no `BD-02`.
+   *
+   * <b>`Advertencia` no impide programar</b>: exige acuse. Era la condición 3 de `BD-02`
+   * y bloqueaba siempre, sin excepción posible — corregido con el hallazgo `HN1-13`,
+   * porque esa etiqueta venía de `DP-001 D-12`, que nunca habló de restricciones médicas.
+   */
+  efectoDeLaRestriccion: 'Ninguno' | 'Advertencia' | 'Bloqueo';
   restriccionEnConflicto: string | null;
+  condicionQueActivaLaRestriccion: string | null;
   motivoDeDocumentacion: string;
   advertenciasDeDocumentacion: string[];
   /** Los caminos de salida, que van en la misma pantalla del rechazo. */

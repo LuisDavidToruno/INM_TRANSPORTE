@@ -118,6 +118,14 @@ function titular(
   v: VehiculoDeFlota,
   c: ConductorDisponible,
 ): string {
+  // `BD-12` no llega por `r.motivo` --que es de `BD-02`-- sino por su propio efecto.
+  if (r.efectoDeLaRestriccion === 'Bloqueo')
+    return (
+      ` tiene la restricción «», y el catálogo la ` +
+      `tipifica como incompatible con «», que es una ` +
+      `condición que esta misión declara.`
+    );
+
   switch (r.motivo) {
     case 'CategoriaNoHabilitaElVehiculo':
       return (
@@ -136,9 +144,6 @@ function titular(
         `posterior.`
       );
 
-    case 'RestriccionMedicaIncompatible':
-      return `${c.nombre} tiene la restricción «${r.restriccionEnConflicto}» y la misión declara conducción de 19:00 a 23:00.`;
-
     default:
       // El bloqueo vino de `BD-03`, no de `BD-02`.
       return `La documentación de ${v.siglas} no habilita esta misión: ${r.motivoDeDocumentacion}.`;
@@ -147,6 +152,9 @@ function titular(
 
 /** Las tres causas se resuelven distinto, así que la salida también se dice distinto. */
 function queHacer(r: ResultadoDeAsignacion, v: VehiculoDeFlota): string {
+  if (r.efectoDeLaRestriccion === 'Bloqueo')
+    return 'O se reprograma la misión dentro del horario que la restricción permite, o se asigna a alguien sin esa restricción. El catálogo la tipifica como incompatibilizante, y eso no se levanta desde acá.';
+
   switch (r.motivo) {
     case 'CategoriaNoHabilitaElVehiculo':
       return 'Cambie de conductor o de vehículo. La categoría no se puede levantar desde acá, y reintentar con la misma persona va a dar el mismo resultado.';
@@ -155,9 +163,6 @@ function queHacer(r: ResultadoDeAsignacion, v: VehiculoDeFlota): string {
       // La ventana ya no se puede acortar desde esta pantalla, y decirlo importa: era
       // justamente la salida fácil que volvía inútil el bloqueo.
       return 'No basta que esté vigente el día de salida: el conductor manejaría sin licencia el tramo final. O se renueva la licencia antes de la salida, o se asigna a otra persona, o la dependencia solicita una ventana más corta — que no se cambia desde acá.';
-
-    case 'RestriccionMedicaIncompatible':
-      return 'O se reprograma la misión dentro del horario que la restricción permite, o se asigna a alguien sin esa restricción.';
 
     default:
       return `Regularice la documentación de ${v.siglas} en su expediente vehicular.`;

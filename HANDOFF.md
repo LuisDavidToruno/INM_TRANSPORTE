@@ -58,24 +58,36 @@ El 2026-08-26 bloqueó durante horas la carga de **cualquier binario .NET recié
 
 **Puede repetirse con cualquier binario nuevo.** Si vuelve a aparecer `0x800711C7`, no es el código: es SAC evaluando un ensamblado que todavía no tiene reputación. Las salidas son esperar, trabajar en otra máquina, o instalar WSL2 — **apagar SAC es irreversible** sin reinstalar Windows, así que no es la primera opción.
 
-### `BD-12` está corregido en los artefactos y a medias en el código
+### ⚠️ `BD-12` está escrito en las tres capas y **la suite no se pudo correr**
 
-Al cerrar `HN1-13` las restricciones médicas salieron de `BD-02` a un bloqueo propio, **`BD-12`**, con el efecto decidido por el catálogo en vez de bloqueo duro sin excepción. Los artefactos ya lo dicen; el código todavía no.
+El circuito completo de `BD-12` —restricciones médicas fuera de `BD-02`, con efecto por catálogo— está implementado. **Lo que falta es la única parte que importa para confiar en él: verlo pasar.**
 
-| Pieza | Estado |
-|---|---|
-| [`orden-de-mision.md`](docs/03-arquitectura/estados/orden-de-mision.md) — autoridad | ✅ `BD-12` definido, listado en `T-08`, `T-12` y `T-17`; `BD-02` bajó a dos condiciones |
-| [`ReglasDeRestriccionMedica`](src/Sigti.Dominio/M05_Motoristas/ReglasDeRestriccionMedica.cs) | ✅ Escrita, con tres pruebas |
-| [`ReglasDeHabilitacion`](src/Sigti.Dominio/M05_Motoristas/ReglasDeHabilitacion.cs) | ⚠️ **Sigue evaluando la condición 3** y devolviendo `RestriccionMedicaIncompatible` como bloqueo sin excepción |
-| `EvaluacionDeAsignacion`, la API y `RechazoPorLicencia.tsx` | ⚠️ Dependen de ese motivo. Cambian con el anterior |
+| Capa | Qué se hizo | Verificación |
+|---|---|---|
+| [`orden-de-mision.md`](docs/03-arquitectura/estados/orden-de-mision.md) | `BD-12` definido; `BD-02` bajó a dos condiciones | ✅ Enlaces comprobados |
+| [`ReglasDeHabilitacion`](src/Sigti.Dominio/M05_Motoristas/ReglasDeHabilitacion.cs) | Retirada la condición 3, el parámetro y el valor del enum | ✅ Compila |
+| [`ReglasDeRestriccionMedica`](src/Sigti.Dominio/M05_Motoristas/ReglasDeRestriccionMedica.cs) | Evaluación nueva | ✅ Sus 3 pruebas pasaron **antes** de este cambio |
+| [`CatalogoProvisionalDeRestricciones`](src/Sigti.Aplicacion/M05_Motoristas/CatalogoProvisionalDeRestricciones.cs) | Catálogo provisional, insumo #42 | ⚠️ **Sus 3 pruebas nunca corrieron** |
+| [`EvaluacionDeAsignacion`](src/Sigti.Aplicacion/M07_ProgramacionYDespacho/EvaluacionDeAsignacion.cs) | `BD-12` aparte; solo el bloqueo impide | ✅ Compila · ⚠️ sin prueba |
+| [`Program.cs`](src/Sigti.Api/Program.cs) | Catálogo registrado | ✅ Compila |
+| [`Asignacion.tsx`](oficina/src/modulos/M07_Programacion/Asignacion.tsx) | Advertencia con **acuse obligatorio**: el botón queda inerte hasta marcarlo (`RN-11`) | ✅ `tsc` limpio · ⚠️ **sin ver en pantalla** |
+| [`RechazoPorLicencia.tsx`](oficina/src/modulos/M07_Programacion/RechazoPorLicencia.tsx) | Distingue el bloqueo de `BD-12` del de `BD-02` | ✅ `tsc` limpio · ⚠️ sin ver en pantalla |
 
-**Qué falta:** retirar la condición 3 de `ReglasDeHabilitacion`, hacer que el servicio evalúe `BD-12` aparte, y que la pantalla distinga **bloqueo** de **advertencia con acuse** — hoy solo sabe rechazar. La clase lleva el aviso en su propio comentario para que nadie la lea como alineada.
+**Por qué no corrió.** Smart App Control bloqueó la carga de todo binario .NET recién compilado (`0x800711C7`) durante **más de cincuenta intentos**, en dos rutas distintas y en Debug y Release. No es el código: es el entorno, y ya está descrito arriba. Tampoco se pudo levantar la API, así que la pantalla no se verificó en el navegador.
 
-**Por qué quedó a medias:** Smart App Control volvió a bloquear la carga de `Sigti.Dominio.dll` recién compilada (`0x800711C7`) y la suite no corrió. El cambio toca tres capas y **no se hace a ciegas**. La verificación de las pruebas nuevas quedó así: la primera y la tercera se vieron fallar y la primera se vio pasar; **la tercera no se pudo confirmar en verde**.
+**Qué hacer antes de confiar en esto:**
+
+```bash
+dotnet test
+```
+
+Deben pasar **66**: las 63 anteriores más las tres de `CatalogoProvisionalDeRestriccionesPruebas`. **Si esta máquina sigue bloqueada, córrelo en la otra.** Después, levantar la API y comprobar en la pantalla de asignación que una restricción sin clasificar muestra la advertencia y que el botón no se habilita sin el acuse.
+
+**Lo que el compilador sí prueba:** que `MotivoDeNoHabilitacion.RestriccionMedicaIncompatible` no quedó referenciado en ningún lado, que el nuevo parámetro del constructor está cableado, y que el contrato del cliente coincide con el del servidor. Lo que no prueba es la conducta.
 
 ### `BD-07` sigue sin evaluarse, y `BD-04` a `BD-11` tampoco
 
-`BD-02` y `BD-03` ya están implementadas y probadas. **`BD-07` no** — estado y compatibilidad del vehículo. Necesita dos cosas que todavía no existen:
+`BD-02` y `BD-03` ya están implementadas y probadas — `BD-12` está implementada y **sin probar**, ver arriba. **`BD-07` no** — estado y compatibilidad del vehículo. Necesita dos cosas que todavía no existen:
 
 - La **matriz de compatibilidad** entre el objeto del traslado y el tipo de vehículo (`M-02`)
 - La **categoría de peaje** resuelta por vehículo (`M-18`, `NRM-10`) — sin ella el estimado de peajes no es verificable, y quien autoriza no puede comprobar el cálculo

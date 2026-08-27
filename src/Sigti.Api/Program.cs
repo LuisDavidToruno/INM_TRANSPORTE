@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Sigti.Aplicacion.M02_Parametros;
 using Sigti.Aplicacion.M03_Flota;
+using Sigti.Aplicacion.M05_Motoristas;
 using Sigti.Aplicacion.M07_ProgramacionYDespacho;
 using Sigti.Datos;
 using Sigti.Dominio.M02_Parametros;
@@ -30,6 +31,7 @@ constructor.Services.AddScoped<ServicioDeParametros>();
 constructor.Services.AddScoped<ConsultaDeMisiones>();
 constructor.Services.AddScoped<EvaluacionDeAsignacion>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeFlota>();
+constructor.Services.AddSingleton<CatalogoProvisionalDeRestricciones>();
 constructor.Services.AddSingleton<IParametrosDeLaInstitucion, ParametrosProvisionales>();
 // El cliente de oficina corre en otro origen durante el desarrollo. En producción
 // se sirve desde el mismo host y esto sobra — por eso solo se activa en Development.

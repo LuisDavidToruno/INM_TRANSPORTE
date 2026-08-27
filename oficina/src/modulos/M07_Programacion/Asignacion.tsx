@@ -221,6 +221,11 @@ function Habilitada({
   enviando: boolean;
   onProgramar(): void;
 }): ReactElement {
+  // `RN-11`: «La advertencia no se puede cerrar sin acuse: queda registrado quién la vio,
+  // cuándo y con qué justificación decidió continuar.» El botón queda inerte hasta eso.
+  const exigeAcuse = resultado.efectoDeLaRestriccion === 'Advertencia';
+  const [acusada, setAcusada] = useState(false);
+
   return (
     <Panel titulo="Verificación de habilitación">
       <div className="tw:flex tw:flex-col tw:gap-4">
@@ -238,6 +243,30 @@ function Habilitada({
           </Nota>
         )}
 
+        {resultado.efectoDeLaRestriccion === 'Advertencia' && (
+          <Nota tono="aviso">
+            <div className="tw:flex tw:flex-col tw:gap-2">
+              <p className="tw:font-medium">
+                {conductor.nombre} tiene la restricción «{resultado.restriccionEnConflicto}».
+              </p>
+              {/* `BD-12`: el catálogo no la tipifica como incompatibilizante, así que no
+                  bloquea. Pero `RN-11` exige que la advertencia no se cierre sin acuse —
+                  y mientras el insumo #42 siga abierto, casi toda restricción real va a
+                  llegar por acá, sin clasificar. */}
+              <p className="tw:text-sm">
+                El catálogo no la tipifica como incompatibilizante para esta misión, así que no
+                bloquea la programación. <b>Queda registrado que usted la vio y decidió continuar</b>,
+                y esa constancia va en el expediente y en la liquidación.
+              </p>
+              <p className="tw:text-xs tw:text-[var(--txt-2)]">
+                El catálogo oficial de restricciones de la DNVT todavía no está cargado —
+                insumo #42. Hasta que lo esté, las restricciones sin clasificar llegan como
+                ésta, y advertir es lo correcto: callarlas sería peor.
+              </p>
+            </div>
+          </Nota>
+        )}
+
         <dl className="tw:grid tw:gap-x-8 tw:gap-y-3 tw:text-sm tw:sm:grid-cols-2">
           <Insumo termino="Quien conduce" valor={conductor.nombre} />
           <Insumo termino="Licencia" valor={`${resultado.numeroDeLicencia} · ${resultado.categoria}`} />
@@ -250,7 +279,27 @@ function Habilitada({
           />
         </dl>
 
-        <Boton variante="primario" cargando={enviando} disabled={enviando} onClick={onProgramar}>
+        {exigeAcuse && (
+          <label className="tw:flex tw:cursor-pointer tw:items-start tw:gap-2.5 tw:text-sm">
+            <input
+              type="checkbox"
+              checked={acusada}
+              onChange={(e) => setAcusada(e.target.checked)}
+              className="tw:mt-0.5"
+            />
+            <span>
+              He visto la restricción de {conductor.nombre} y decido continuar. Entiendo que
+              queda registrado a mi nombre.
+            </span>
+          </label>
+        )}
+
+        <Boton
+          variante="primario"
+          cargando={enviando}
+          disabled={enviando || (exigeAcuse && !acusada)}
+          onClick={onProgramar}
+        >
           Programar la misión
         </Boton>
       </div>

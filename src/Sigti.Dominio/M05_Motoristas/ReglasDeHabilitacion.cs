@@ -6,8 +6,7 @@ public enum MotivoDeNoHabilitacion
 {
     Ninguno,
     CategoriaNoHabilitaElVehiculo,
-    LicenciaVenceDentroDelRango,
-    RestriccionMedicaIncompatible
+    LicenciaVenceDentroDelRango
 }
 
 /// <summary>
@@ -34,17 +33,15 @@ public sealed record ResultadoDeHabilitacion(
 /// Pura: sin base de datos, sin reloj. Las fechas entran como parámetro, que es lo que
 /// `ADR-006` y `ADR-007` necesitan y lo que la guarda NingunaReglaLeeElReloj exige.
 ///
-/// <b>Sin excepción configurable</b> (`DP-001, D-12`) — para las condiciones 1 y 2.
+/// <b>Dos condiciones</b>, y ambas <b>sin excepción configurable</b> (`DP-001, D-12`):
+/// categoría que no cubre el vehículo, y licencia vencida dentro del rango. Son las dos
+/// que el PO decidió, palabra por palabra.
 ///
-/// <b>⚠️ Esta clase todavía no refleja la corrección de `HN1-13`.</b> Sigue evaluando las
-/// restricciones médicas como condición 3 de `BD-02`, con bloqueo duro y sin excepción.
-/// La máquina de estados —autoridad— ya las sacó a <c>BD-12</c>, donde el efecto lo decide
-/// el catálogo: bloqueo solo para las tipificadas como incompatibilizantes, advertencia con
-/// acuse para el resto (`RN-11`). La evaluación nueva vive en
-/// <see cref="ReglasDeRestriccionMedica"/> y está probada; falta <b>retirar la condición 3
-/// de aquí</b> y propagar el cambio a <c>EvaluacionDeAsignacion</c>, a la API y a la
-/// pantalla de asignación. No se hizo en el mismo paso porque Smart App Control impidió
-/// correr la suite, y ese cambio rompe tres capas si sale mal.
+/// <b>Las restricciones médicas ya no están aquí</b> (hallazgo `HN1-13`). Eran la condición
+/// 3 y heredaban un «sin excepción» que nadie les dio. Viven en <c>BD-12</c>, evaluadas por
+/// <see cref="ReglasDeRestriccionMedica"/>, donde el efecto lo decide el catálogo: bloqueo
+/// solo para las tipificadas como incompatibilizantes, advertencia con acuse para el resto
+/// (`RN-11`).
 /// </summary>
 public static class ReglasDeHabilitacion
 {
@@ -58,11 +55,9 @@ public static class ReglasDeHabilitacion
         FichaTecnica vehiculo,
         VentanaDeMision ventana,
         MatrizDeLicencias matriz,
-        DateTimeOffset conocidoAl,
-        IReadOnlyList<string>? restriccionesQueLaMisionContradice = null)
+        DateTimeOffset conocidoAl)
     {
-        var motivo = Determinar(
-            licencia, vehiculo, ventana, matriz, conocidoAl, restriccionesQueLaMisionContradice ?? []);
+        var motivo = Determinar(licencia, vehiculo, ventana, matriz, conocidoAl);
 
         return new ResultadoDeHabilitacion(
             Habilita: motivo == MotivoDeNoHabilitacion.Ninguno,
@@ -80,8 +75,7 @@ public static class ReglasDeHabilitacion
         FichaTecnica vehiculo,
         VentanaDeMision ventana,
         MatrizDeLicencias matriz,
-        DateTimeOffset conocidoAl,
-        IReadOnlyList<string> contradichas)
+        DateTimeOffset conocidoAl)
     {
         // 1. Habilitación por categoría, contra los atributos de la ficha técnica y la
         //    matriz vigente A LA FECHA DE SALIDA PREVISTA, no a la de captura.
@@ -91,10 +85,6 @@ public static class ReglasDeHabilitacion
         // 2. Vigencia en TODO el rango, no solo el día de salida.
         if (licencia.Vencimiento < ventana.FinDelRango)
             return MotivoDeNoHabilitacion.LicenciaVenceDentroDelRango;
-
-        // 3. Restricciones médicas compatibles con lo que la misión exige.
-        if (licencia.Restricciones.Intersect(contradichas, StringComparer.OrdinalIgnoreCase).Any())
-            return MotivoDeNoHabilitacion.RestriccionMedicaIncompatible;
 
         return MotivoDeNoHabilitacion.Ninguno;
     }
