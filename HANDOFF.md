@@ -28,7 +28,7 @@ Con `BD-01`, `BD-02` y `BD-03` evaluándose de verdad, la caducidad de la aproba
 | 3 — Requisitos | 18 casos de uso, **150 historias** con Gherkin, 21 no funcionales, backlog | ✅ Revisado y corregido en `3f4ced4` |
 | 4 — Diseño | Modelo de datos bitemporal con 43 entidades, 126 pantallas, **41 maquetadas** | ✅ Revisado y corregido en `3f4ced4` |
 
-**414 documentos de análisis · 4,543 líneas de C# a mano y 2,193 de TypeScript propio · 60 pruebas · 46 commits.**
+**406 documentos de análisis · 4,177 líneas de C# de producción y 1,965 de pruebas · 2,558 de TypeScript propio · 66 pruebas en verde · 58 commits.** Las de C# excluyen las migraciones generadas; las de TypeScript, el sistema de diseño de LOKI. Las reglas de negocio son **103**.
 
 Las líneas de C# excluyen las migraciones de EF, que son generadas. El TypeScript excluye el sistema de diseño de LOKI, que se copió, no se escribió.
 
@@ -64,36 +64,27 @@ Y no afecta solo a las pruebas: `dotnet run` de la API falla igual, con `Sigti.D
 
 SAC **no tiene lista de exclusiones**: es activo / evaluación / apagado, y de apagado no se vuelve. Con eso, las salidas reales son dos: **correrlo en la otra máquina**, o que el PO decida apagar SAC sabiendo que es de un solo sentido.
 
-### ⚠️ `BD-12` está escrito en las tres capas y **la suite no se pudo correr**
+### `BD-12` cerrado en las tres capas, y verificado
 
-El circuito completo de `BD-12` —restricciones médicas fuera de `BD-02`, con efecto por catálogo— está implementado. **Lo que falta es la única parte que importa para confiar en él: verlo pasar.**
+Las restricciones médicas salieron de `BD-02` a un bloqueo propio, con el efecto decidido por el catálogo. **Suite en 66/66 el 2026-08-27**, incluidas las tres pruebas de `CatalogoProvisionalDeRestricciones` que en su momento no pudieron correr.
 
-| Capa | Qué se hizo | Verificación |
-|---|---|---|
-| [`orden-de-mision.md`](docs/03-arquitectura/estados/orden-de-mision.md) | `BD-12` definido; `BD-02` bajó a dos condiciones | ✅ Enlaces comprobados |
-| [`ReglasDeHabilitacion`](src/Sigti.Dominio/M05_Motoristas/ReglasDeHabilitacion.cs) | Retirada la condición 3, el parámetro y el valor del enum | ✅ Compila |
-| [`ReglasDeRestriccionMedica`](src/Sigti.Dominio/M05_Motoristas/ReglasDeRestriccionMedica.cs) | Evaluación nueva | ✅ Sus 3 pruebas pasaron **antes** de este cambio |
-| [`CatalogoProvisionalDeRestricciones`](src/Sigti.Aplicacion/M05_Motoristas/CatalogoProvisionalDeRestricciones.cs) | Catálogo provisional, insumo #42 | ⚠️ **Sus 3 pruebas nunca corrieron** |
-| [`EvaluacionDeAsignacion`](src/Sigti.Aplicacion/M07_ProgramacionYDespacho/EvaluacionDeAsignacion.cs) | `BD-12` aparte; solo el bloqueo impide | ✅ Compila · ⚠️ sin prueba |
-| [`Program.cs`](src/Sigti.Api/Program.cs) | Catálogo registrado | ✅ Compila |
-| [`Asignacion.tsx`](oficina/src/modulos/M07_Programacion/Asignacion.tsx) | Advertencia con **acuse obligatorio**: el botón queda inerte hasta marcarlo (`RN-11`) | ✅ `tsc` limpio · ⚠️ **sin ver en pantalla** |
-| [`RechazoPorLicencia.tsx`](oficina/src/modulos/M07_Programacion/RechazoPorLicencia.tsx) | Distingue el bloqueo de `BD-12` del de `BD-02` | ✅ `tsc` limpio · ⚠️ sin ver en pantalla |
+| Capa | Qué quedó |
+|---|---|
+| [`orden-de-mision.md`](docs/03-arquitectura/estados/orden-de-mision.md) | `BD-12` definido y listado en `T-08`, `T-12` y `T-17`; `BD-02` con sus dos condiciones |
+| [`ReglasDeHabilitacion`](src/Sigti.Dominio/M05_Motoristas/ReglasDeHabilitacion.cs) | Sin la condición 3, sin el parámetro, sin el valor del enum |
+| [`ReglasDeRestriccionMedica`](src/Sigti.Dominio/M05_Motoristas/ReglasDeRestriccionMedica.cs) | La evaluación nueva, con 3 pruebas |
+| [`CatalogoProvisionalDeRestricciones`](src/Sigti.Aplicacion/M05_Motoristas/CatalogoProvisionalDeRestricciones.cs) | ⚠️ **Provisional** — insumo #42. Con 3 pruebas |
+| [`EvaluacionDeAsignacion`](src/Sigti.Aplicacion/M07_ProgramacionYDespacho/EvaluacionDeAsignacion.cs) | `BD-12` aparte; **solo el bloqueo impide programar** |
+| [`Asignacion.tsx`](oficina/src/modulos/M07_Programacion/Asignacion.tsx) | La advertencia con **acuse obligatorio**: el botón queda inerte hasta marcarlo (`RN-11`) |
+| [`RechazoPorLicencia.tsx`](oficina/src/modulos/M07_Programacion/RechazoPorLicencia.tsx) | Distingue el bloqueo de `BD-12` del de `BD-02` |
 
-**Por qué no corrió.** Smart App Control bloqueó la carga de todo binario .NET recién compilado (`0x800711C7`) durante **más de cincuenta intentos**, en dos rutas distintas y en Debug y Release. No es el código: es el entorno, y ya está descrito arriba. Tampoco se pudo levantar la API, así que la pantalla no se verificó en el navegador.
+**Lo único que falta es verlo en pantalla.** La advertencia y el acuse pasan las pruebas del dominio y compilan, pero **nadie los ha abierto en el navegador** — cuando SAC lo permitió, la API no llegó a levantarse. Antes de darlo por bueno de cara al usuario: levantar la API, elegir un conductor con restricción sin clasificar, y comprobar que la advertencia aparece y que el botón no se habilita sin marcar el acuse.
 
-**Qué hacer antes de confiar en esto:**
-
-```bash
-dotnet test
-```
-
-Deben pasar **66**: las 63 anteriores más las tres de `CatalogoProvisionalDeRestriccionesPruebas`. **Si esta máquina sigue bloqueada, córrelo en la otra.** Después, levantar la API y comprobar en la pantalla de asignación que una restricción sin clasificar muestra la advertencia y que el botón no se habilita sin el acuse.
-
-**Lo que el compilador sí prueba:** que `MotivoDeNoHabilitacion.RestriccionMedicaIncompatible` no quedó referenciado en ningún lado, que el nuevo parámetro del constructor está cableado, y que el contrato del cliente coincide con el del servidor. Lo que no prueba es la conducta.
+**Y una decisión que conviene mirar.** El catálogo provisional tipifica **una sola** restricción como bloqueante — *«conducción diurna únicamente»*, la única que `RN-11` sostiene contrastable por sistema. Todo lo demás advierte. Mientras el insumo #42 siga abierto ése va a ser el caso mayoritario: **hoy el sistema casi no bloquea por restricción médica**. Si la institución espera lo contrario, el arreglo no es tocar código — es conseguir el catálogo de la DNVT.
 
 ### `BD-07` sigue sin evaluarse, y `BD-04` a `BD-11` tampoco
 
-`BD-02` y `BD-03` ya están implementadas y probadas — `BD-12` está implementada y **sin probar**, ver arriba. **`BD-07` no** — estado y compatibilidad del vehículo. Necesita dos cosas que todavía no existen:
+`BD-02` y `BD-03` ya están implementadas y probadas — **`BD-12` también, ver arriba.** **`BD-07` no** — estado y compatibilidad del vehículo. Necesita dos cosas que todavía no existen:
 
 - La **matriz de compatibilidad** entre el objeto del traslado y el tipo de vehículo (`M-02`)
 - La **categoría de peaje** resuelta por vehículo (`M-18`, `NRM-10`) — sin ella el estimado de peajes no es verificable, y quien autoriza no puede comprobar el cálculo
