@@ -50,6 +50,10 @@ El caso concreto que esto atrapa: el motorista registra el retorno con 84.320 km
 
 **El lote no es atómico, a propósito.** Que una transición no entre no puede impedir que las otras seis sí: el dispositivo lleva siete días de trabajo encima, y perderlo todo por un expediente inexistente sería el fallo que este endpoint existe para evitar. La respuesta separa `aplicadas`, `yaConocidas` y `rechazadas`, y las dos primeras son lo que el dispositivo puede sacar de su cola.
 
+`POST /adjuntos` recibe el binario **como formulario, no como JSON**: en base64 crecería un 33 %, y sobre la red de un retén ese tercio se paga en tiempo y en batería. El archivo va al sistema de archivos por año y mes —**fecha del hecho, no de subida**, porque `P-4` manda y siete días sin red no cambian a qué mes pertenece una foto—, y a la base va solo su rastro.
+
+**El hash se verifica al recibir, no solo se guarda.** Guardarlo sin comprobarlo lo volvería decorativo: un archivo truncado por la red de un retén quedaría registrado como íntegro, y el defecto aparecería meses después al armar el paquete de evidencia — cuando ya no se puede volver a tomar la foto. El rechazo devuelve **los dos hashes**, para que se pueda diagnosticar en vez de adivinar.
+
 ## Lo que falta
 
 | Qué | Dónde |
@@ -57,8 +61,8 @@ El caso concreto que esto atrapa: el motorista registra el retorno con 84.320 km
 | **La aplicación React Native** — pantallas, cámara, GPS en segundo plano | Necesita máquina con Android SDK y Java |
 | **El cifrado en reposo** | El esquema, las consultas y la durabilidad están probados; **que el archivo quede ilegible sin la clave, no**. Se verifica en el dispositivo |
 | **La asignación de subrangos** — quién los reparte, cuándo se recargan, y el aviso antes de que un dispositivo salga con el saldo bajo | El consumo ya está; **repartirlos es de `M-01`**, que no existe |
-| **La subida de los adjuntos** — la cola existe; **nadie sube el binario todavía**. Y el servidor no tiene dónde recibirlo | `ADR-004` fija el almacén de archivos; no está construido |
 | **La compresión automática** que `RNF-03` exige para llegar a ≥ 200 fotografías | Es de la cámara, en el módulo nativo |
+| **El respaldo de dos piezas** — base y almacén de archivos, **consistentes entre sí** | `ADR-004` lo exige *«desde el principio, no adaptado después»*, y `RNF-09` da 2 h a personal no especialista. No está escrito |
 | **La cola de resolución de conflictos** | El núcleo los **detecta** (`Conciliacion`) y el servidor todavía no los recibe: hoy solo sincronizan `T-14` y `T-18`, que un dispositivo no captura dos veces. La cola es de `M-16` |
 | **`RNF-12`** — ≤ 25 % de batería en 8 h, gama baja | **No se ha medido nada.** Es el requisito más ajustado del sistema |
 

@@ -16,6 +16,7 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     public DbSet<Asiento> Asientos => Set<Asiento>();
     public DbSet<FilaDeExpediente> Expedientes => Set<FilaDeExpediente>();
     public DbSet<VersionDeParametro> Parametros => Set<VersionDeParametro>();
+    public DbSet<FilaDeAdjunto> Adjuntos => Set<FilaDeAdjunto>();
 
     /// <summary>
     /// ULID en binary(16) y no en texto: 16 bytes contra 26, y conserva la monotonía que
@@ -120,6 +121,26 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             transicion.HasIndex(t => t.IdDeCaptura)
                 .IsUnique()
                 .HasFilter("[IdDeCaptura] IS NOT NULL");
+        });
+
+        modelo.Entity<FilaDeAdjunto>(adjunto =>
+        {
+            adjunto.ToTable("Adjunto", schema: "mision");
+
+            adjunto.HasKey(a => a.Id);
+            adjunto.Property(a => a.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            adjunto.Property(a => a.IdTransicion).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            adjunto.Property(a => a.Ruta).HasMaxLength(400).IsRequired();
+            adjunto.Property(a => a.Hash).HasMaxLength(80).IsRequired();
+            adjunto.Property(a => a.Tipo).HasMaxLength(120).IsRequired();
+            adjunto.Property(a => a.Clasificacion).HasMaxLength(32).IsRequired();
+
+            // Encontrar los adjuntos con dato personal es lo que hace atendible un
+            // habeas data, y lo que permite depurar sin recorrer treinta mil filas.
+            adjunto.HasIndex(a => a.Clasificacion);
+
+            // Todo adjunto respalda un hecho: el paquete de evidencia se arma por ahi.
+            adjunto.HasIndex(a => a.IdTransicion);
         });
 
         modelo.Entity<Asiento>(asiento =>

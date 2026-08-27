@@ -35,3 +35,4 @@ oficina/dist/
 
 # Variables locales del cliente de oficina
 oficina/.env.local
+src/Sigti.Api/adjuntos/

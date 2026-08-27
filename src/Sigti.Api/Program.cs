@@ -32,6 +32,12 @@ constructor.Services.AddScoped<ServicioDeParametros>();
 constructor.Services.AddScoped<ConsultaDeMisiones>();
 constructor.Services.AddScoped<EvaluacionDeAsignacion>();
 constructor.Services.AddScoped<ServicioDeSincronizacion>();
+constructor.Services.AddScoped<ServicioDeAdjuntos>();
+// El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
+// pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
+constructor.Services.AddSingleton(new AlmacenDeArchivos(
+    constructor.Configuration["Adjuntos:Raiz"]
+    ?? Path.Combine(constructor.Environment.ContentRootPath, "adjuntos")));
 constructor.Services.AddSingleton<CatalogoProvisionalDeFlota>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeRestricciones>();
 constructor.Services.AddSingleton<IParametrosDeLaInstitucion, ParametrosProvisionales>();
@@ -72,6 +78,8 @@ app.UseExceptionHandler(rama => rama.Run(async contexto =>
             new { mensaje = v.Message }),
         // La caducidad no es un BD-xx: su salida no es cambiar de vehículo sino anular
         // con motivo tipificado, y por eso lleva su propia forma en la respuesta.
+        AdjuntoCorrupto a => (StatusCodes.Status409Conflict,
+            (object)new { hashDeclarado = a.HashDeclarado, hashRecibido = a.HashRecibido, mensaje = a.Message }),
         AprobacionCaducada c2 => (StatusCodes.Status409Conflict,
             new { caducada = true, inicioDeLaVentana = c2.InicioDeLaVentana, mensaje = c2.Message }),
         _ => (StatusCodes.Status500InternalServerError, new { mensaje = "Error no controlado." })
@@ -198,7 +206,48 @@ ConAsignacion("despachar", (e, quien, a, m, p, cuando) => e.Despachar(quien, a, 
 // M-16 — Donde aterriza lo que el dispositivo capturó sin red.
 //
 // `RNF-03`: 7 días sin conectividad y **0 registros perdidos**. Del lado del servidor eso
-// es una sola propiedad: reenviar es inofensivo. Y tiene que serlo, porque el dispositivo
+
+// `ADR-004` — El binario al sistema de archivos; a la base solo su rastro.
+//
+// Va como formulario y no como JSON porque el binario en base64 crece un 33 %, y sobre
+// la red de un retén ese tercio se paga en tiempo y en batería.
+app.MapPost("/adjuntos", async (HttpRequest peticion, ServicioDeAdjuntos servicio) =>
+{
+    if (!peticion.HasFormContentType)
+        return Results.BadRequest(new { mensaje = "El adjunto se sube como formulario, con el archivo y su declaración." });
+
+    var formulario = await peticion.ReadFormAsync();
+    var archivo = formulario.Files["archivo"];
+
+    if (archivo is null)
+        return Results.BadRequest(new { mensaje = "Falta el archivo." });
+
+    if (!Identificador.Valido(formulario["idAdjunto"].ToString(), out var idAdjunto, out var e1)) return e1;
+    if (!Identificador.Valido(formulario["idTransicion"].ToString(), out var idTransicion, out var e2)) return e2;
+
+    if (!DateTimeOffset.TryParse(formulario["capturadoEn"].ToString(), out var capturadoEn))
+        return Results.BadRequest(new { mensaje = "«capturadoEn» tiene que ser una marca de tiempo con desfase (ADR-007)." });
+
+    await using var contenido = archivo.OpenReadStream();
+
+    var resultado = await servicio.RecibirAsync(
+        new AdjuntoQueLlega(
+            idAdjunto,
+            idTransicion,
+            formulario["hash"].ToString(),
+            archivo.ContentType,
+            formulario["clasificacion"].ToString(),
+            capturadoEn),
+        contenido,
+        DateTimeOffset.UtcNow);
+
+    // 201 la primera vez, 200 el reenvío. El dispositivo puede sacarlo de su cola en
+    // los dos casos; distinguirlos sirve para diagnosticar, no para decidir.
+    return resultado.EsNuevo
+        ? Results.Created($"/adjuntos/{idAdjunto}", new { id = idAdjunto.ToString(), ruta = resultado.Ruta })
+        : Results.Ok(new { id = idAdjunto.ToString(), ruta = resultado.Ruta, yaConocido = true });
+});
+
 // que no supo si el servidor recibió VA a reenviar.
 //
 // Responde 200 aunque haya rechazos: el lote no es atómico. Que una transición no entre

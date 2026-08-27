@@ -10,7 +10,7 @@ Punto único de entrada para saber en qué va el proyecto. Si algo figura acá c
 
 **Hay stack, y hay autorización para programar.** La [designación de LOKI del 2026-08-26](docs/07-gestion/designaciones/2026-08-26-stack-y-arranque.md) fijó el stack y el PO autorizó el arranque. Eso activó la cláusula de revisión que [`ADR-000`](docs/03-arquitectura/adr/ADR-000-diferir-seleccion-de-stack.md) escribió para sí mismo, y [`ADR-002`](docs/03-arquitectura/adr/ADR-002-adoptar-el-stack-tecnologico.md) lo supera formalmente.
 
-**Ya hay código, camina, y se ve.** El backend atraviesa API → Aplicación → Dominio → SQL Server → bitácora encadenada, con **74 pruebas**. Y hay **seis pantallas de oficina conectadas a la API real**, no a datos de muestra.
+**Ya hay código, camina, y se ve.** El backend atraviesa API → Aplicación → Dominio → SQL Server → bitácora encadenada, con **77 pruebas**. Y hay **seis pantallas de oficina conectadas a la API real**, no a datos de muestra.
 
 El circuito que funciona hoy, de punta a punta y verificado contra SQL Server:
 
@@ -28,7 +28,7 @@ Con `BD-01`, `BD-02`, `BD-03`, `BD-06` y `BD-12` evaluándose de verdad, la cadu
 | 3 — Requisitos | 18 casos de uso, **150 historias** con Gherkin, 21 no funcionales, backlog | ✅ Revisado y corregido en `3f4ced4` |
 | 4 — Diseño | Modelo de datos bitemporal con 43 entidades, 126 pantallas, **41 maquetadas** | ✅ Revisado y corregido en `3f4ced4` |
 
-**406 documentos de análisis · 4,177 líneas de C# de producción y 1,965 de pruebas · 2,558 de TypeScript propio · **74 pruebas de backend y 19 del núcleo de campo** · 66 commits.** Las de C# excluyen las migraciones generadas; las de TypeScript, el sistema de diseño de LOKI. Las reglas de negocio son **103**.
+**406 documentos de análisis · 4,177 líneas de C# de producción y 1,965 de pruebas · 2,558 de TypeScript propio · **77 pruebas de backend y 19 del núcleo de campo** · 67 commits.** Las de C# excluyen las migraciones generadas; las de TypeScript, el sistema de diseño de LOKI. Las reglas de negocio son **103**.
 
 Las líneas de C# excluyen las migraciones de EF, que son generadas. El TypeScript excluye el sistema de diseño de LOKI, que se copió, no se escribió.
 
@@ -134,6 +134,26 @@ El circuito se cerró: hay un dispositivo que sabe qué mandar y un servidor que
 **El lote no es atómico, a propósito.** Se comprobó con un lote de dos donde el primero apuntaba a un expediente inexistente: el primero se rechazó con motivo legible, **el segundo entró**, y el expediente avanzó a `RETORNADA`. El dispositivo lleva siete días de trabajo encima; perderlo todo por un expediente que falta sería el fallo que este endpoint existe para evitar.
 
 **Lo que el endpoint todavía no acepta, y lo dice:** solo `T-14` y `T-18`. La bitácora de paradas y eventos necesita `M-08`, que no está construido — aceptarla ahora sería fingir que existe.
+
+### `POST /adjuntos` — el binario al sistema de archivos, el rastro a la base
+
+`ADR-004` implementado y **verificado contra la API real**. La aritmética que lo decidió: ≈ 8 GB anuales de datos relacionales contra ≈ 30 GB de adjuntos. Meterlos en la base cuadruplicaría el respaldo y sacaría la restauración de las 2 h que `RNF-09` exige de personal no especialista.
+
+| Caso | Respuesta |
+|---|---|
+| Subida correcta | **201** con la ruta relativa, y el archivo en `2026/03/` |
+| Reenvío | **200** con `yaConocido` — el dispositivo lo saca de su cola igual |
+| **Llegó truncado** | **409 con los dos hashes**, y **no se registró nada** |
+
+**El hash se verifica, no solo se guarda.** Guardarlo sin comprobarlo lo volvería decorativo: un archivo truncado por la red de un retén quedaría registrado como íntegro y el defecto aparecería meses después, al armar el paquete de evidencia — cuando ya no se puede volver a tomar la foto.
+
+**Va como formulario, no como JSON.** En base64 el binario crece un 33 %, y sobre la red de un retén ese tercio se paga en tiempo y en batería.
+
+**El archivo se organiza por fecha del hecho, no de subida** (`P-4`). Un adjunto capturado el 20 de marzo y subido el 27 —siete días sin red— pertenece a marzo; ordenarlo por subida dispersaría una misma misión entre dos carpetas y el respaldo por período dejaría de coincidir con el expediente.
+
+**La ruta que se guarda es relativa**, nunca absoluta: la institución puede mover el almacén a un disco más barato o de solo lectura sin tocar una fila.
+
+**Lo que falta, y `ADR-004` lo pide explícitamente:** el **respaldo de dos piezas** —base y almacén, consistentes entre sí—, que el ADR exige *«desde el principio, no adaptado después»*. No está escrito, y es lo que `DESPLIEGUE.md` necesita para poder escribirse.
 
 ### `BD-12` cerrado en las tres capas, y verificado
 
