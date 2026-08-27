@@ -40,7 +40,13 @@ public sealed class ExpedientesDeMision(SigtiDbContext contexto)
                     new IdPersona(t.Ejecuta),
                     new DateTimeOffset(t.MomentoUtc, TimeSpan.Zero).ToOffset(TimeSpan.FromMinutes(t.DesfaseMinutos)),
                     t.Motivo,
-                    t.IdDeCaptura)));
+                    t.IdDeCaptura,
+                    // Los dos o ninguno. Una reserva a medias -- vehiculo sin conductor --
+                    // no es un estado que el dominio pueda representar, y dejarla pasar
+                    // pondria a ocupar un vehiculo sin decir quien lo lleva.
+                    t.VehiculoTomado is { } vehiculo && t.ConductorTomado is { } conductor
+                        ? new RecursosTomados(vehiculo, conductor)
+                        : null)));
     }
 
     /// <summary>
@@ -87,7 +93,9 @@ public sealed class ExpedientesDeMision(SigtiDbContext contexto)
                 Ejecuta = transicion.Ejecuta.Valor,
                 MomentoUtc = transicion.Momento.UtcDateTime,
                 DesfaseMinutos = (int)transicion.Momento.Offset.TotalMinutes,
-                Motivo = transicion.Motivo
+                Motivo = transicion.Motivo,
+                VehiculoTomado = transicion.Recursos?.Vehiculo,
+                ConductorTomado = transicion.Recursos?.Conductor
             });
         }
 

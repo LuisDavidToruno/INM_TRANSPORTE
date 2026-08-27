@@ -115,6 +115,15 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
 
             transicion.Property(t => t.IdDeCaptura).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
 
+            // La reserva de `T-08`, como DATO y no como prosa dentro del motivo.
+            transicion.Property(t => t.VehiculoTomado).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+            transicion.Property(t => t.ConductorTomado).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+
+            // La ocupacion se consulta por vehiculo y ventana. Sin este indice, saber si el
+            // pick-up esta libre el jueves recorre el diario entero de la institucion.
+            // Filtrado porque casi ninguna transicion reserva.
+            transicion.HasIndex(t => t.VehiculoTomado).HasFilter("[VehiculoTomado] IS NOT NULL");
+
             // El diario de un expediente no admite dos transiciones en la misma posición.
             transicion.HasIndex(t => new { t.ExpedienteId, t.Orden }).IsUnique();
 

@@ -23,10 +23,16 @@ namespace Sigti.Dominio.M07_ProgramacionYDespacho;
 /// <b>Nulo cuando el hecho nació en la oficina</b>, contra la API y con red: ahí no hubo
 /// captura diferida que reconciliar.
 /// </param>
+/// <param name="Recursos">
+/// Qué quedó tomado. <b>Sólo lo lleva la transición que reserva</b> — hoy `T-08`. Es lo
+/// que hace que la ocupación de la flota sea una proyección del diario y no una segunda
+/// tabla que se pueda desincronizar. Ver <see cref="RecursosTomados"/>.
+/// </param>
 public sealed record Transicion(
     string Id,
     EstadoDeMision Destino,
     IdPersona Ejecuta,
     DateTimeOffset Momento,
     string? Motivo,
-    Ulid? IdDeCaptura = null);
+    Ulid? IdDeCaptura = null,
+    RecursosTomados? Recursos = null);

@@ -123,19 +123,32 @@ public sealed class OrdenDeMision
         Registrar("T-05", EstadoDeMision.Aprobada, ejecuta, momento, motivo);
     }
 
-    /// <summary>`T-08` — APROBADA → PROGRAMADA. Aquí se reserva vehículo y motorista (`EF-01`).</summary>
+    /// <summary>
+    /// `T-08` — APROBADA → PROGRAMADA. Aquí se reserva vehículo y motorista (`EF-01`).
+    ///
+    /// <b>Y ahora la reserva existe como dato.</b> Hasta que se agregó <paramref name="recursos"/>,
+    /// esta transición decía que reservaba y la identidad del vehículo sólo quedaba dentro
+    /// del texto de evidencia — con lo cual nadie podía preguntar qué tiene tomado el
+    /// pick-up el jueves sin leer prosa. Ver <see cref="RecursosTomados"/> para por qué va
+    /// en el diario y no en una tabla de reservas.
+    /// </summary>
+    /// <param name="recursos">
+    /// Opcional para no romper a quien sólo evalúa la regla. <b>Sin esto la misión queda
+    /// programada y el vehículo se sigue ofreciendo libre</b>, así que la API siempre lo manda.
+    /// </param>
     public void Programar(
         IdPersona ejecuta,
         AsignacionDeMision asignacion,
         MatrizDeLicencias matriz,
         PoliticaDeDocumentacion politica,
-        DateTimeOffset momento)
+        DateTimeOffset momento,
+        RecursosTomados? recursos = null)
     {
         ExigirEstado(EstadoDeMision.Aprobada, "T-08");
         ExigirAprobacionVigente(DateOnly.FromDateTime(momento.Date));
         var evidencia = ExigirHabilitacionYDocumentacion(asignacion, matriz, politica, momento);
 
-        Registrar("T-08", EstadoDeMision.Programada, ejecuta, momento, evidencia);
+        Registrar("T-08", EstadoDeMision.Programada, ejecuta, momento, evidencia, recursos: recursos);
     }
 
     /// <summary>
@@ -355,6 +368,6 @@ public sealed class OrdenDeMision
 
     private void Registrar(
         string id, EstadoDeMision destino, IdPersona ejecuta, DateTimeOffset momento, string? motivo,
-        Ulid? idDeCaptura = null) =>
-        _diario.Add(new Transicion(id, destino, ejecuta, momento, motivo, idDeCaptura));
+        Ulid? idDeCaptura = null, RecursosTomados? recursos = null) =>
+        _diario.Add(new Transicion(id, destino, ejecuta, momento, motivo, idDeCaptura, recursos));
 }

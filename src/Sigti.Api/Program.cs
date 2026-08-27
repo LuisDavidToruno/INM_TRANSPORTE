@@ -37,6 +37,7 @@ constructor.Services.AddScoped<ServicioDeAdjuntos>();
 constructor.Services.AddScoped<ConsultaDeFlota>();
 constructor.Services.AddScoped<ConsultaDeConductores>();
 constructor.Services.AddScoped<ConsultaDelOrganigrama>();
+constructor.Services.AddScoped<ConsultaDeOcupacion>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
 constructor.Services.AddSingleton(new AlmacenDeArchivos(
@@ -273,6 +274,34 @@ app.MapGet("/organigrama/antiguedad", async (ConsultaDelOrganigrama organigrama)
     });
 });
 
+// La ocupación de la flota — lo que `PT-026` necesita para que elegir vehículo deje de
+// ser adivinar.
+//
+// **Es una proyección del diario, no una tabla de reservas** (P-1). La reserva vive en la
+// transición que reservó, y por eso liberar es no volver a tomar: una misión anulada deja
+// de ocupar porque el diario siguió, sin que nadie borre nada.
+//
+// La ventana se recibe y **no se lee del reloj** (`ADR-007`). Sin fechas, siete días desde
+// hoy: es lo que la pantalla pide por omisión, y devolver la flota entera desde el origen
+// del tiempo no serviría a nadie.
+app.MapGet("/flota/ocupacion", async (DateOnly? desde, DateOnly? hasta, ConsultaDeOcupacion ocupacion) =>
+{
+    var inicio = desde ?? DateOnly.FromDateTime(DateTime.UtcNow.Date);
+    var fin = hasta ?? inicio.AddDays(6);
+
+    // Un rango invertido no es una consulta vacía: es una peticion mal armada, y
+    // devolver cero carriles la haria pasar por «no hay flota ocupada».
+    if (fin < inicio)
+        return Results.BadRequest(new { mensaje = "La fecha final es anterior a la inicial." });
+
+    return Results.Ok(new
+    {
+        desde = inicio,
+        hasta = fin,
+        carriles = await ocupacion.EnVentanaAsync(inicio, fin),
+    });
+});
+
 // Evalúa sin comprometer nada: la pantalla muestra el resultado AL ELEGIR, y sale del
 // mismo dominio que después bloquea T-08.
 misiones.MapPost("/{id}/evaluar-asignacion", async (
@@ -341,8 +370,10 @@ misiones.MapPost("/{id}/anular", async (
 
 // Programar y despachar llevan la asignación en el cuerpo: son las dos transiciones que
 // evalúan BD-02 y BD-03, y se revalidan en cada una con los datos del momento.
-ConAsignacion("programar", (e, quien, a, m, p, cuando) => e.Programar(quien, a, m, p, cuando));
-ConAsignacion("despachar", (e, quien, a, m, p, cuando) => e.Despachar(quien, a, m, p, cuando));
+// Sólo `T-08` recibe los recursos: es la que reserva. `T-12` revalida sobre lo ya
+// reservado y volver a tomar ahí duplicaría la reserva sin liberar la anterior.
+ConAsignacion("programar", (e, quien, a, m, p, cuando, recursos) => e.Programar(quien, a, m, p, cuando, recursos));
+ConAsignacion("despachar", (e, quien, a, m, p, cuando, _) => e.Despachar(quien, a, m, p, cuando));
 
 // M-16 — Donde aterriza lo que el dispositivo capturó sin red.
 //
@@ -470,7 +501,7 @@ return;
 
 void ConAsignacion(
     string ruta,
-    Action<OrdenDeMision, IdPersona, AsignacionDeMision, MatrizDeLicencias, PoliticaDeDocumentacion, DateTimeOffset> aplicar) =>
+    Action<OrdenDeMision, IdPersona, AsignacionDeMision, MatrizDeLicencias, PoliticaDeDocumentacion, DateTimeOffset, RecursosTomados?> aplicar) =>
     misiones.MapPost($"/{{id}}/{ruta}", async (
         string id,
         AsignarYTransicionar peticion,
@@ -512,7 +543,7 @@ void ConAsignacion(
                 var salida = expediente.Solicitud.Ventana.Salida;
                 aplicar(expediente, new IdPersona(peticion.Ejecuta), asignacion,
                         parametros.MatrizVigenteAl(salida), parametros.PoliticaVigenteAl(salida),
-                        peticion.Momento);
+                        peticion.Momento, new RecursosTomados(idVehiculo, idConductor));
             },
             peticion.Momento);
 

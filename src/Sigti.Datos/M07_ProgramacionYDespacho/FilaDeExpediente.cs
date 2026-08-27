@@ -56,4 +56,19 @@ public sealed class FilaDeTransicion
     /// </summary>
     public Ulid? IdDeCaptura { get; init; }
     public string? Motivo { get; init; }
+
+    /// <summary>
+    /// El vehículo que esta transición tomó. <b>Nulo en toda transición que no reserva</b>,
+    /// que son casi todas.
+    ///
+    /// Va acá y no en una tabla de reservas porque el estado es la proyección del diario
+    /// (P-1). Con esto, <b>liberar es no volver a tomar</b>: `T-11` y `T-13` no borran
+    /// nada, y una misión anulada deja de ocupar por el solo hecho de que el diario siguió.
+    /// Una tabla aparte tendría que acordarse de borrar, y el día que no lo haga queda un
+    /// vehículo fantasma ocupado que el sistema reporta como sin disponibilidad.
+    /// </summary>
+    public Ulid? VehiculoTomado { get; init; }
+
+    /// <summary>Quien conduce. Va en pareja con <see cref="VehiculoTomado"/>.</summary>
+    public Ulid? ConductorTomado { get; init; }
 }
