@@ -121,7 +121,7 @@ const COLUMNAS: ColumnaDef<Expediente>[] = [
     // El folio es el enlace, no la fila entera: así el recorrido por teclado
     // llega al expediente sin inventar un manejador de tecla sobre un <tr>.
     celda: (e) => (
-      <Enlace href={`/autorizacion/`}>
+      <Enlace href={`/autorizacion/${e.id}`}>
         <span className="font-mono text-[13px] tabular-nums">{e.folio}</span>
       </Enlace>
     ),
