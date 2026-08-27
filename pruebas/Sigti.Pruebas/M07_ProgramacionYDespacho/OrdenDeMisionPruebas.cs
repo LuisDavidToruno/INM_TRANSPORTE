@@ -91,6 +91,26 @@ public class OrdenDeMisionPruebas
     }
 
     [Fact]
+    public void La_ventana_que_evalua_BD_02_es_la_de_la_solicitud_y_no_se_puede_sustituir()
+    {
+        // Quien programa NO declara la ventana. Si pudiera, acortaría el rango hasta que
+        // la licencia del motorista disponible alcanzara — y `BD-02` dejaría de proteger
+        // justo a quien autoriza. La asignación ya no lleva ventana: el compilador impide
+        // pasar otra.
+        var expediente = Aprobada();
+
+        // Licencia que cubre hasta el retorno, pero NO la holgura posterior del expediente.
+        var asignacion = Asignacion.ConLicenciaHasta(Solicitud.Ventana.Retorno);
+
+        var bloqueo = Assert.Throws<BloqueoDuro>(
+            () => expediente.Programar(Transporte, asignacion, Asignacion.Matriz,
+                                       PoliticaDeDocumentacion.PorDefecto, Momento));
+
+        Assert.Equal("BD-02", bloqueo.Precondicion);
+        Assert.Contains(Solicitud.Ventana.FinDelRango.ToString("yyyy-MM-dd"), bloqueo.Message);
+    }
+
+    [Fact]
     public void Una_aprobacion_caducada_no_se_puede_programar()
     {
         // «Se calcula la fecha de caducidad de la aprobación: si no se programa antes del

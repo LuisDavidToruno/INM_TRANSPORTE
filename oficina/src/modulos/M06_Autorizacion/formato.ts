@@ -30,17 +30,31 @@ const FECHA_LARGA = new Intl.DateTimeFormat('es-HN', {
  */
 const SIN_FECHA = 'Sin fecha registrada';
 
+/**
+ * Convierte lo que llega del servidor en una fecha bien situada.
+ *
+ * <b>Una fecha sin hora —`2028-04-30`— la interpreta JavaScript como medianoche
+ * UTC</b>, y formatearla en UTC−6 la corre al día anterior. Ese defecto se veía en
+ * la pantalla de asignación: una licencia que vence el 30 se mostraba venciendo el
+ * 29. En una pantalla sobre vigencia de licencias eso no es cosmético — es decirle
+ * a quien programa que le queda un día menos del que tiene.
+ *
+ * Las fechas con hora ya traen su desfase y se respetan tal cual (`ADR-007`).
+ */
+const comoFecha = (iso: string): Date =>
+  /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T00:00:00`) : new Date(iso);
+
 const esUtilizable = (iso: string): boolean => {
   if (!iso) return false;
-  const fecha = new Date(iso);
+  const fecha = comoFecha(iso);
   return !Number.isNaN(fecha.getTime()) && fecha.getFullYear() > 1900;
 };
 
 export const diaYHora = (iso: string): string =>
-  esUtilizable(iso) ? FECHA.format(new Date(iso)) : SIN_FECHA;
+  esUtilizable(iso) ? FECHA.format(comoFecha(iso)) : SIN_FECHA;
 
 export const momentoCompleto = (iso: string): string =>
-  esUtilizable(iso) ? FECHA_LARGA.format(new Date(iso)) : SIN_FECHA;
+  esUtilizable(iso) ? FECHA_LARGA.format(comoFecha(iso)) : SIN_FECHA;
 
 const SOLO_FECHA = new Intl.DateTimeFormat('es-HN', { dateStyle: 'long' });
 
@@ -52,7 +66,7 @@ const SOLO_FECHA = new Intl.DateTimeFormat('es-HN', { dateStyle: 'long' });
  * una fecha de vencimiento vacía en una pantalla de bloqueo legal.
  */
 export const soloFecha = (iso: string): string =>
-  esUtilizable(iso) ? SOLO_FECHA.format(new Date(iso)) : SIN_FECHA;
+  esUtilizable(iso) ? SOLO_FECHA.format(comoFecha(iso)) : SIN_FECHA;
 
 /**
  * Cuánto falta, en palabras.
@@ -63,7 +77,7 @@ export const soloFecha = (iso: string): string =>
 export function faltanDias(iso: string, ahora: Date = new Date()): string {
   if (!esUtilizable(iso)) return '';
 
-  const dias = Math.round((new Date(iso).getTime() - ahora.getTime()) / 86_400_000);
+  const dias = Math.round((comoFecha(iso).getTime() - ahora.getTime()) / 86_400_000);
 
   if (dias < 0) return dias === -1 ? 'fue ayer' : `fue hace ${Math.abs(dias)} días`;
   if (dias === 0) return 'es hoy';

@@ -1,0 +1,99 @@
+import { pedir } from './misiones';
+
+/**
+ * Flota, conductores y evaluación de asignación.
+ *
+ * <b>La evaluación de `BD-02` no se repite acá.</b> Vive en `Sigti.Dominio` y el
+ * cliente pide el resultado: dos implementaciones de la precondición que traslada
+ * responsabilidad legal directa a quien autoriza es la peor duplicación posible de
+ * este sistema — y la que nadie notaría hasta el siniestro.
+ *
+ * Por la misma razón el catálogo de flota viene del servidor: si el cliente tuviera
+ * su propia lista, tendría que saber evaluar para mostrar el resultado al elegir.
+ */
+
+export interface FichaTecnica {
+  tipoDeVehiculo: string;
+  clase: string;
+  pesoBrutoKg: number;
+  capacidadPasajeros: number;
+  llevaRemolque: boolean;
+}
+
+export interface VehiculoDeFlota {
+  id: string;
+  siglas: string;
+  /** Nula cuando no tiene placa metálica. Es estado válido: hay desabastecimiento. */
+  placa: string | null;
+  ficha: FichaTecnica;
+}
+
+export interface ConductorDisponible {
+  id: string;
+  nombre: string;
+  /** `RN-57` verifica sobre quien efectivamente conduce, esté o no en el padrón. */
+  esDelPadron: boolean;
+  licencia: {
+    numero: string;
+    categoria: string;
+    vencimiento: string;
+    restricciones: string[];
+  };
+}
+
+/** El resultado que calcula el servidor, con toda su evidencia. */
+export interface ResultadoDeAsignacion {
+  habilita: boolean;
+  motivo: string;
+  numeroDeLicencia: string;
+  categoria: string;
+  venceLicencia: string;
+  versionDeMatriz: string;
+  finDeRangoEvaluado: string;
+  /** Qué categoría sí habilitaría este vehículo. Nombrar lo que falta, no lo que sobra. */
+  categoriaRequerida: string | null;
+  restriccionEnConflicto: string | null;
+  motivoDeDocumentacion: string;
+  advertenciasDeDocumentacion: string[];
+  /** Los caminos de salida, que van en la misma pantalla del rechazo. */
+  conductoresQueHabilitan: string[];
+  vehiculosQueHabilita: string[];
+}
+
+export const flota = (): Promise<VehiculoDeFlota[]> => pedir<VehiculoDeFlota[]>('/flota');
+
+export const conductores = (): Promise<ConductorDisponible[]> =>
+  pedir<ConductorDisponible[]>('/conductores');
+
+/**
+ * Evalúa sin comprometer nada. La ventana <b>no viaja</b>: sale de la solicitud, y por
+ * eso quien programa no puede acortarla para que una licencia alcance.
+ */
+export const evaluarAsignacion = (
+  idExpediente: string,
+  idVehiculo: string,
+  idConductor: string,
+  hayConduccionNocturna: boolean,
+): Promise<ResultadoDeAsignacion> =>
+  pedir<ResultadoDeAsignacion>(`/misiones/${idExpediente}/evaluar-asignacion`, {
+    method: 'POST',
+    body: JSON.stringify({
+      idVehiculo,
+      idConductor,
+      hayConduccionNocturna,
+      momento: new Date().toISOString(),
+    }),
+  });
+
+/** `T-08` — Programar. Solo viajan identificadores. */
+export const programar = async (
+  idExpediente: string,
+  ejecuta: string,
+  idVehiculo: string,
+  idConductor: string,
+): Promise<void> => {
+  await pedir(`/misiones/${idExpediente}/programar`, {
+    method: 'POST',
+    body: JSON.stringify({ ejecuta, idVehiculo, idConductor, momento: new Date().toISOString() }),
+  });
+};

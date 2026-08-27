@@ -68,12 +68,13 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
 
         // BD-02 al despachar: una licencia que vence antes del fin del rango bloquea,
         // aunque esté vigente el día de salida.
-        var vencida = await Asignar(cliente, id, "programar", "P-TRANSPORTE",
-            venceLicencia: new DateOnly(2026, 3, 22), esperado: HttpStatusCode.Conflict);
-        Assert.Contains("BD-02", await vencida.Content.ReadAsStringAsync());
+        // BD-02: la licencia B de José Ramón Cruz no habilita un camión de 12,000 kg.
+        var noHabilita = await Asignar(cliente, id, "programar", "P-TRANSPORTE",
+            idVehiculo: "v-002", idConductor: "c-001", esperado: HttpStatusCode.Conflict);
+        Assert.Contains("BD-02", await noHabilita.Content.ReadAsStringAsync());
 
-        await Asignar(cliente, id, "programar", "P-TRANSPORTE", venceLicencia: new DateOnly(2027, 1, 1));
-        await Asignar(cliente, id, "despachar", "P-ENCARGADO", venceLicencia: new DateOnly(2027, 1, 1));
+        await Asignar(cliente, id, "programar", "P-TRANSPORTE", idVehiculo: "v-001", idConductor: "c-001");
+        await Asignar(cliente, id, "despachar", "P-ENCARGADO", idVehiculo: "v-001", idConductor: "c-001");
         await Transicionar(cliente, id, "iniciar-ruta", "P-MOTORISTA");
         await Transicionar(cliente, id, "retornar", "P-MOTORISTA");
         var final = await Transicionar(cliente, id, "liquidar", "P-TRANSPORTE");
@@ -112,16 +113,56 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
     }
 
     [Fact]
-    public async Task Omitir_la_clase_normativa_es_error_de_peticion_y_no_una_moto_por_omision()
+    public async Task Un_vehiculo_que_no_existe_en_la_flota_es_404_y_no_una_ficha_inventada()
     {
-        // Sin este rechazo, `ClaseNormativa` ausente se deserializa como el valor 0 del
-        // enumerado —`Motocicleta`— y el servidor evalúa `BD-02` contra un vehículo que
-        // el cliente nunca declaró. Bloquearía, que es la dirección segura, pero con un
-        // mensaje que no tiene nada que ver con lo que pasó.
+        // El cliente manda IDENTIFICADORES, no la ficha técnica. Antes mandaba la ficha
+        // y podía declarar 2,800 kg de un camión de 12,000: BD-02 se evaluaba contra un
+        // vehículo que no existe. Ahora ese error ni se puede expresar.
         var id = Ulid.NewUlid().ToString();
         using var aplicacion = Aplicacion();
         using var cliente = aplicacion.CreateClient();
 
+        await CrearYAprobar(cliente, id);
+
+        var respuesta = await cliente.PostAsJsonAsync($"/misiones/{id}/programar", new
+        {
+            Ejecuta = "P-TRANSPORTE",
+            Momento,
+            IdVehiculo = "v-inexistente",
+            IdConductor = "c-001",
+        });
+
+        Assert.Equal(HttpStatusCode.NotFound, respuesta.StatusCode);
+    }
+
+    /// <summary>
+    /// Programar y despachar llevan <b>identificadores del catálogo</b>, no la ficha ni
+    /// la ventana: la ficha la resuelve el servidor y la ventana sale de la solicitud.
+    /// </summary>
+    private static async Task<HttpResponseMessage> Asignar(
+        HttpClient cliente,
+        string id,
+        string ruta,
+        string ejecuta,
+        string idVehiculo,
+        string idConductor,
+        HttpStatusCode esperado = HttpStatusCode.OK)
+    {
+        var respuesta = await cliente.PostAsJsonAsync($"/misiones/{id}/{ruta}", new
+        {
+            Ejecuta = ejecuta,
+            Momento,
+            IdVehiculo = idVehiculo,
+            IdConductor = idConductor,
+        });
+
+        Assert.Equal(esperado, respuesta.StatusCode);
+        return respuesta;
+    }
+
+    /// <summary>Deja un expediente aprobado y listo para programar.</summary>
+    private async Task CrearYAprobar(HttpClient cliente, string id)
+    {
         await cliente.PostAsJsonAsync("/misiones", new
         {
             Id = id,
@@ -137,71 +178,6 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
         });
         await Transicionar(cliente, id, "enviar", "P-ASISTENTE");
         await Transicionar(cliente, id, "aprobar", "P-JEFATURA");
-
-        var respuesta = await cliente.PostAsJsonAsync($"/misiones/{id}/programar", new
-        {
-            Ejecuta = "P-TRANSPORTE",
-            Momento,
-            Salida = new DateOnly(2026, 3, 20),
-            Retorno = new DateOnly(2026, 3, 22),
-            HolguraDias = 1,
-            NumeroDeLicencia = "0801-1990-01234",
-            CategoriaDeLicencia = "B",
-            VenceLicencia = new DateOnly(2027, 1, 1),
-            TipoDeVehiculo = "PICKUP",
-            // ClaseNormativa ausente a propósito.
-            PesoBrutoKg = 2_800,
-            CapacidadPasajeros = 5,
-            LlevaRemolque = false,
-            TieneConstanciaSustitutaDePlaca = true,
-            VenceMatricula = new DateOnly(2027, 1, 1),
-            IdentificacionInstitucionalVerificada = true,
-        });
-
-        Assert.Equal(HttpStatusCode.BadRequest, respuesta.StatusCode);
-    }
-
-    /// <summary>
-    /// Programar y despachar llevan la asignación. La <b>placa va nula a propósito</b>:
-    /// sin placa metálica es estado válido y no debe bloquear (`BD-03`).
-    /// </summary>
-    private static async Task<HttpResponseMessage> Asignar(
-        HttpClient cliente,
-        string id,
-        string ruta,
-        string ejecuta,
-        DateOnly venceLicencia,
-        HttpStatusCode esperado = HttpStatusCode.OK)
-    {
-        var respuesta = await cliente.PostAsJsonAsync($"/misiones/{id}/{ruta}", new
-        {
-            Ejecuta = ejecuta,
-            Momento,
-            Salida = new DateOnly(2026, 3, 20),
-            Retorno = new DateOnly(2026, 3, 22),
-            HolguraDias = 1,
-            NumeroDeLicencia = "0801-1990-01234",
-            CategoriaDeLicencia = "B",
-            VenceLicencia = venceLicencia,
-            RestriccionesDeLicencia = (string[]?)null,
-            TipoDeVehiculo = "PICKUP",
-            // La clase normativa es la del Artículo 4, no el nombre del catálogo
-            // institucional: `PICKUP` es texto libre de la institución y `Automovil`
-            // es lo que la matriz resuelve.
-            ClaseNormativa = "Automovil",
-            PesoBrutoKg = 2_800,
-            CapacidadPasajeros = 5,
-            LlevaRemolque = false,
-            Placa = (string?)null,
-            TieneConstanciaSustitutaDePlaca = true,
-            VenceMatricula = new DateOnly(2027, 1, 1),
-            VencePoliza = new DateOnly(2027, 1, 1),
-            VenceRevisionMecanica = new DateOnly(2027, 1, 1),
-            IdentificacionInstitucionalVerificada = true
-        });
-
-        Assert.Equal(esperado, respuesta.StatusCode);
-        return respuesta;
     }
 
     private static async Task<HttpResponseMessage> Transicionar(

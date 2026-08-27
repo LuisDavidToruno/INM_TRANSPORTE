@@ -42,6 +42,5 @@ internal static class Asignacion
             VencePoliza = new DateOnly(2027, 1, 1),
             VenceRevisionMecanica = new DateOnly(2027, 1, 1),
             IdentificacionInstitucionalVerificada = true
-        },
-        Ventana: Ventana);
+        });
 }

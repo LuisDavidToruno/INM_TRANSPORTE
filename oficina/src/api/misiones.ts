@@ -26,7 +26,7 @@ export class BloqueoDuro extends Error {
   }
 }
 
-async function pedir<T>(ruta: string, opciones?: RequestInit): Promise<T> {
+export async function pedir<T>(ruta: string, opciones?: RequestInit): Promise<T> {
   const respuesta = await fetch(`${BASE}${ruta}`, {
     ...opciones,
     headers: { 'content-type': 'application/json', ...opciones?.headers },
@@ -73,10 +73,9 @@ interface ExpedienteDelServidor {
 
 const alExpediente = (s: ExpedienteDelServidor): Expediente => ({
   ...s,
-  // Las fechas del servidor son DateOnly. Se llevan a mediodía local para que
-  // formatearlas no las corra un día por el desfase de UTC−6 (`ADR-007`).
-  salidaPrevista: `${s.salidaPrevista}T12:00:00`,
-  retornoPrevisto: `${s.retornoPrevisto}T12:00:00`,
+  // Las fechas sin hora viajan tal cual: `comoFecha()` en `formato.ts` las sitúa en
+  // local. Corregirlas acá también sería tener dos mecanismos para lo mismo, y el
+  // día que uno cambie el otro seguiría corriendo la fecha en silencio.
   validaciones: [
     {
       clase: 'advertencia',

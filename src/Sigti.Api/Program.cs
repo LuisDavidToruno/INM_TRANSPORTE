@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Sigti.Aplicacion.M02_Parametros;
+using Sigti.Aplicacion.M03_Flota;
 using Sigti.Aplicacion.M07_ProgramacionYDespacho;
 using Sigti.Datos;
 using Sigti.Dominio.M02_Parametros;
@@ -27,6 +28,8 @@ constructor.Services.ConfigureHttpJsonOptions(opciones =>
 constructor.Services.AddScoped<ServicioDeMisiones>();
 constructor.Services.AddScoped<ServicioDeParametros>();
 constructor.Services.AddScoped<ConsultaDeMisiones>();
+constructor.Services.AddScoped<EvaluacionDeAsignacion>();
+constructor.Services.AddSingleton<CatalogoProvisionalDeFlota>();
 constructor.Services.AddSingleton<IParametrosDeLaInstitucion, ParametrosProvisionales>();
 // El cliente de oficina corre en otro origen durante el desarrollo. En producción
 // se sirve desde el mismo host y esto sobra — por eso solo se activa en Development.
@@ -108,6 +111,21 @@ Transicion("iniciar-ruta", (e, quien, cuando) => e.IniciarRuta(quien, cuando));
 Transicion("retornar", (e, quien, cuando) => e.Retornar(quien, cuando));
 Transicion("liquidar", (e, quien, cuando) => e.Liquidar(quien, cuando));
 
+// Catálogo provisional: M-03 y M-05 no existen. Va por el servidor y no por el
+// cliente para que la evaluación de BD-02 tenga UNA sola implementación.
+app.MapGet("/flota", (CatalogoProvisionalDeFlota flota) => Results.Ok(flota.Vehiculos));
+app.MapGet("/conductores", (CatalogoProvisionalDeFlota flota) => Results.Ok(flota.Conductores));
+
+// Evalúa sin comprometer nada: la pantalla muestra el resultado AL ELEGIR, y sale del
+// mismo dominio que después bloquea T-08.
+misiones.MapPost("/{id}/evaluar-asignacion", async (
+    string id, EvaluarAsignacion peticion, EvaluacionDeAsignacion evaluacion) =>
+    await evaluacion.EvaluarAsync(
+        Ulid.Parse(id), peticion.IdVehiculo, peticion.IdConductor,
+        peticion.HayConduccionNocturna, peticion.Momento) is { } resultado
+        ? Results.Ok(resultado)
+        : Results.NotFound(new { mensaje = "No existe el expediente, el vehículo o el conductor." }));
+
 var parametros = app.MapGroup("/parametros");
 
 // HU-144: la carga nace PENDIENTE. Una carga que ya resolviera volvería decorativo el
@@ -171,50 +189,44 @@ void ConAsignacion(
         string id,
         AsignarYTransicionar peticion,
         ServicioDeMisiones servicio,
+        CatalogoProvisionalDeFlota flota,
         IParametrosDeLaInstitucion parametros) =>
     {
-        var ventana = new VentanaDeMision(peticion.Salida, peticion.Retorno, peticion.HolguraDias);
+        // El cliente manda IDENTIFICADORES, no la ficha técnica. Si mandara la ficha,
+        // podría declarar 2,800 kg de un camión de 12,000 y BD-02 se evaluaría contra
+        // un vehículo que no existe.
+        if (flota.Vehiculo(peticion.IdVehiculo) is not { } vehiculo)
+            return Results.NotFound(new { mensaje = $"No existe el vehículo {peticion.IdVehiculo}." });
 
-        // La clase normativa NO tiene valor por omisión razonable. Ausente, el
-        // enumerado vale 0 —`Motocicleta`— y `BD-02` se evaluaría contra un vehículo
-        // que el cliente nunca declaró: bloquearía, que es la dirección segura, pero
-        // con un mensaje que no tiene nada que ver con lo que pasó.
-        if (peticion.ClaseNormativa is not { } clase)
-        {
-            return Results.BadRequest(new
-            {
-                campo = "claseNormativa",
-                mensaje =
-                    "Declare la clase normativa del vehículo: Motocicleta, TricicloCuadriciclo, " +
-                    "Automovil, Camion o Autobus. Es lo que resuelve la matriz licencia↔vehículo " +
-                    "del Artículo 4, y no se deduce del tipo de vehículo del catálogo institucional.",
-            });
-        }
-
-        // Los parámetros se resuelven a la FECHA DEL HECHO, no a la de captura (P-4).
-        var matriz = parametros.MatrizVigenteAl(ventana.Salida);
-        var politica = parametros.PoliticaVigenteAl(ventana.Salida);
+        if (flota.Conductor(peticion.IdConductor) is not { } conductor)
+            return Results.NotFound(new { mensaje = $"No existe el conductor {peticion.IdConductor}." });
 
         var asignacion = new AsignacionDeMision(
-            new Licencia(peticion.NumeroDeLicencia, peticion.CategoriaDeLicencia,
-                peticion.VenceLicencia, peticion.RestriccionesDeLicencia ?? []),
-            new FichaTecnica(peticion.TipoDeVehiculo, clase, peticion.PesoBrutoKg,
-                peticion.CapacidadPasajeros, peticion.LlevaRemolque),
+            conductor.Licencia,
+            vehiculo.Ficha,
             new DocumentacionDelVehiculo
             {
-                Placa = peticion.Placa,
-                TieneConstanciaSustitutaDePlaca = peticion.TieneConstanciaSustitutaDePlaca,
-                VenceMatricula = peticion.VenceMatricula,
-                VencePoliza = peticion.VencePoliza,
-                VenceRevisionMecanica = peticion.VenceRevisionMecanica,
-                IdentificacionInstitucionalVerificada = peticion.IdentificacionInstitucionalVerificada
-            },
-            ventana);
+                Placa = vehiculo.Placa,
+                TieneConstanciaSustitutaDePlaca = vehiculo.Placa is null,
+                // ⚠️ M-04 no existe: no hay vencimientos reales. Queda dicho acá y en
+                // EvaluacionDeAsignacion, en lugar de fingir que se verificó.
+                VenceMatricula = new DateOnly(2030, 12, 31),
+                VencePoliza = new DateOnly(2030, 12, 31),
+                VenceRevisionMecanica = new DateOnly(2030, 12, 31),
+                IdentificacionInstitucionalVerificada = true,
+            });
 
         var estado = await servicio.TransicionarAsync(
             Ulid.Parse(id),
-            expediente => aplicar(expediente, new IdPersona(peticion.Ejecuta), asignacion,
-                                  matriz, politica, peticion.Momento),
+            expediente =>
+            {
+                // Los parámetros se resuelven a la fecha del hecho, que sale de la
+                // solicitud y no de la petición (P-4).
+                var salida = expediente.Solicitud.Ventana.Salida;
+                aplicar(expediente, new IdPersona(peticion.Ejecuta), asignacion,
+                        parametros.MatrizVigenteAl(salida), parametros.PoliticaVigenteAl(salida),
+                        peticion.Momento);
+            },
             peticion.Momento);
 
         return Results.Ok(new { id, estado = estado.ToString() });
@@ -262,6 +274,10 @@ internal sealed record CrearMision(
 /// </summary>
 internal sealed record EjecutarTransicion(string Ejecuta, DateTimeOffset Momento, string? Motivo = null);
 
+/// <summary>Qué se quiere asignar. La ventana NO viaja: sale de la solicitud.</summary>
+internal sealed record EvaluarAsignacion(
+    string IdVehiculo, string IdConductor, bool HayConduccionNocturna, DateTimeOffset Momento);
+
 /// <summary>El motivo sale del catálogo cerrado; el comentario lo acompaña.</summary>
 internal sealed record AnularMision(
     string Ejecuta, MotivoDeAnulacion Motivo, string? Comentario, DateTimeOffset Momento);
@@ -273,25 +289,8 @@ internal sealed record AnularMision(
 internal sealed record AsignarYTransicionar(
     string Ejecuta,
     DateTimeOffset Momento,
-    DateOnly Salida,
-    DateOnly Retorno,
-    int HolguraDias,
-    string NumeroDeLicencia,
-    CategoriaDeLicencia CategoriaDeLicencia,
-    DateOnly VenceLicencia,
-    IReadOnlyList<string>? RestriccionesDeLicencia,
-    string TipoDeVehiculo,
-    /// <summary>Obligatoria. Sin ella la matriz se resolvería contra una clase que nadie declaró.</summary>
-    ClaseNormativa? ClaseNormativa,
-    int PesoBrutoKg,
-    int CapacidadPasajeros,
-    bool LlevaRemolque,
-    string? Placa,
-    bool TieneConstanciaSustitutaDePlaca,
-    DateOnly VenceMatricula,
-    DateOnly? VencePoliza,
-    DateOnly? VenceRevisionMecanica,
-    bool IdentificacionInstitucionalVerificada);
+    string IdVehiculo,
+    string IdConductor);
 
 /// <summary>
 /// Carga de un parámetro normativo. El respaldo y la fuente son <b>obligatorios</b>:

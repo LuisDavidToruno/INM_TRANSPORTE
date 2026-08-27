@@ -205,11 +205,14 @@ public sealed class OrdenDeMision
     /// licencia, categoría, vencimiento, versión de la matriz, atributos del vehículo y
     /// fin de rango evaluado. Es lo que se muestra ante un siniestro.
     /// </summary>
-    private static string ExigirHabilitacionYDocumentacion(
+    private string ExigirHabilitacionYDocumentacion(
         AsignacionDeMision asignacion, MatrizDeLicencias matriz, PoliticaDeDocumentacion politica, DateTimeOffset conocidoAl)
     {
+        // La ventana es la de la solicitud. No hay forma de pasar otra.
+        var ventana = Solicitud.Ventana;
+
         var habilitacion = ReglasDeHabilitacion.Evaluar(
-            asignacion.Licencia, asignacion.Vehiculo, asignacion.Ventana, matriz, conocidoAl);
+            asignacion.Licencia, asignacion.Vehiculo, ventana, matriz, conocidoAl);
 
         if (!habilitacion.Habilita)
             throw new BloqueoDuro("BD-02",
@@ -219,7 +222,7 @@ public sealed class OrdenDeMision
                 $"rango evaluado hasta {habilitacion.FinDeRangoEvaluado:yyyy-MM-dd}.");
 
         var documentacion = ReglasDeDocumentacion.Evaluar(
-            asignacion.Documentacion, asignacion.Ventana, politica);
+            asignacion.Documentacion, ventana, politica);
 
         if (!documentacion.Habilita)
             throw new BloqueoDuro("BD-03",
