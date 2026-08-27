@@ -268,6 +268,58 @@ public sealed class OrdenDeMision
         Registrar("T-19", EstadoDeMision.Liquidada, ejecuta, momento, motivo: null);
     }
 
+    public void DevolverLiquidacion(IdPersona ejecuta, DateTimeOffset momento, string motivo)
+    {
+        ExigirEstado(EstadoDeMision.Liquidada, "T-20");
+        Registrar("T-20", EstadoDeMision.Retornada, ejecuta, momento, motivo);
+    }
+
+    public void Cerrar(
+        IdPersona ejecuta,
+        DateTimeOffset momento,
+        IReadOnlyList<HallazgoDetectado> criterios,
+        string? justificacion)
+    {
+        ExigirEstado(EstadoDeMision.Liquidada, "T-21");
+        ExigirSegregacionDeCierre(ejecuta);
+
+        if (criterios.Count > 0)
+        {
+            if (string.IsNullOrWhiteSpace(justificacion))
+                throw new BloqueoDuro("T-22",
+                    "Un cierre con hallazgo exige justificación: el criterio lo decide el sistema, " +
+                    "pero qué se hizo con él lo declara quien cierra. Criterios detectados: " +
+                    string.Join(", ", criterios.Select(c => c.Criterio)) + ".");
+
+            var detectados = string.Join(" · ", criterios.Select(c => $"{c.Criterio}: {c.Detalle}"));
+            Registrar("T-22", EstadoDeMision.CerradaConHallazgo, ejecuta, momento,
+                motivo: $"{detectados} — justificación: {justificacion}");
+            return;
+        }
+
+        Registrar("T-21", EstadoDeMision.Cerrada, ejecuta, momento, motivo: null);
+    }
+
+    /// <summary>
+    /// `BD-06` en `T-21` y `T-22` — <b>quien cierra ≠ quien liquidó</b>.
+    ///
+    /// Es el último par de la cadena de segregación, y el más fácil de saltarse en una
+    /// delegación pequeña: la misma persona elaboró el descargo conciliado y tiene a mano
+    /// el botón de cerrar. Si cierra su propia liquidación, nadie la revisó.
+    ///
+    /// Se deriva del diario y no de un campo — `P-1` vale también para los datos que las
+    /// precondiciones necesitan.
+    /// </summary>
+    private void ExigirSegregacionDeCierre(IdPersona ejecuta)
+    {
+        var liquidoPor = _diario.LastOrDefault(t => t.Id == "T-19")?.Ejecuta;
+
+        if (liquidoPor is not null && ejecuta == liquidoPor)
+            throw new BloqueoDuro("BD-06",
+                "Quien elaboró la liquidación no puede cerrar la misión. " +
+                "Cerrar es el acto que verifica el descargo, y verificar el propio trabajo no es verificar.");
+    }
+
     /// <summary>
     /// `BD-01` — Segregación entre solicitante y autorizador.
     ///
