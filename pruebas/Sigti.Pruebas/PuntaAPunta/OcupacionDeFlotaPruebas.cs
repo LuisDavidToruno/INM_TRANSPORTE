@@ -414,6 +414,94 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
     }
 
     [Fact]
+    public async Task BD_13_impide_despachar_un_vehiculo_sin_custodio()
+    {
+        // «Un vehículo del Estado sin responsable identificado es un hallazgo esperando
+        // ocurrir.» Y no es una formalidad: sin custodio no hay de quién recibir el bien ni
+        // a quién devolverlo, y el acta de entrega quedaría sin una de sus dos firmas.
+        //
+        // Contra la base, que es donde `ConsultaDeCustodias` se ejerce de verdad: el
+        // vehículo se siembra **sin** custodia.
+        var sinCustodio = await SembrarSinCustodia("SC-0001");
+        var id = Ulid.NewUlid().ToString();
+
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        await CrearYAprobar(cliente, id);
+        await Programar(cliente, id, sinCustodio);
+
+        // Programar SÍ se pudo: `BD-13` es de `T-12`, no de `T-08`. El vehículo se puede
+        // reservar; lo que no se puede es entregarlo.
+        Assert.Single(await BarrasDe(cliente, sinCustodio.Vehiculo));
+
+        var despacho = await cliente.PostAsJsonAsync($"/misiones/{id}/despachar", new
+        {
+            Ejecuta = "P-ENCARGADO",
+            Momento,
+            IdVehiculo = sinCustodio.Vehiculo,
+            IdConductor = sinCustodio.Conductor,
+        });
+
+        Assert.Equal(System.Net.HttpStatusCode.Conflict, despacho.StatusCode);
+
+        var cuerpo = await despacho.Content.ReadAsStringAsync();
+        Assert.Contains("BD-13", cuerpo);
+        Assert.Contains("no tiene ninguna custodia registrada", cuerpo);
+
+        // Y la misión quedó donde estaba, con su vehículo reservado.
+        var estado = await cliente.GetFromJsonAsync<JsonElement>($"/misiones/{id}");
+        Assert.Equal("Programada", estado.GetProperty("estado").GetString());
+    }
+
+    [Fact]
+    public async Task Registrar_la_custodia_destraba_el_despacho()
+    {
+        // El recíproco. Sin él, `BD-13` podría estar bloqueando todo despacho y la prueba
+        // anterior seguiría en verde: lo que hay que probar es que bloquea por la AUSENCIA
+        // de custodio, no por despachar.
+        var v = await SembrarSinCustodia("SC-0002");
+        var id = Ulid.NewUlid().ToString();
+
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        await CrearYAprobar(cliente, id);
+        await Programar(cliente, id, v);
+
+        // Se firma la tarjeta de responsabilidad.
+        await using (var contexto = baseDePruebas.Contexto())
+            await FlotaSembrada.CustodiarAsync(contexto, Ulid.Parse(v.Vehiculo));
+
+        await Despachar(cliente, id, v);
+
+        var estado = await cliente.GetFromJsonAsync<JsonElement>($"/misiones/{id}");
+        Assert.Equal("Despachada", estado.GetProperty("estado").GetString());
+
+        // Y el diario dice quién respondía por el bien al salir: es la pregunta que la
+        // cadena de custodia existe para contestar años después.
+        var despacho = estado.GetProperty("diario").EnumerateArray()
+            .Single(t => t.GetProperty("id").GetString() == "T-12");
+        Assert.Contains("P-CUSTODIO", despacho.GetProperty("motivo").GetString()!);
+    }
+
+    /// <summary>
+    /// Un pick-up y su motorista, <b>sin custodia registrada</b>. Es el estado que `BD-13`
+    /// bloquea, y hay que poder llegar a él para probarlo.
+    /// </summary>
+    private async Task<FlotaSembrada.ParaProgramar> SembrarSinCustodia(string prefijo)
+    {
+        await using var contexto = baseDePruebas.Contexto();
+        var r = await FlotaSembrada.ParaProgramarAsync(contexto, prefijo);
+
+        var fila = contexto.Custodias.Single(c => c.VehiculoId == Ulid.Parse(r.Vehiculo));
+        contexto.Custodias.Remove(fila);
+        await contexto.SaveChangesAsync();
+
+        return r;
+    }
+
+    [Fact]
     public async Task Una_mision_fuera_de_la_ventana_no_aparece()
     {
         // Sin esto, la pantalla de una semana mostraría la ocupación de todo el año y el

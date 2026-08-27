@@ -1,4 +1,5 @@
 using Sigti.Dominio.M03_Flota;
+using Sigti.Dominio.Organizacion;
 using Sigti.Dominio.M05_Motoristas;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
 
@@ -28,6 +29,18 @@ internal static class Asignacion
             RegistradoDesde: new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.FromHours(-6)),
             RegistradoHasta: null)
     ]);
+
+    /// <summary>
+    /// Una custodia vigente y abierta, para las pruebas que <b>no</b> ejercen `BD-13`.
+    ///
+    /// Desde que el despacho la exige, toda prueba que despache tiene que contestar quién
+    /// responde por el vehículo. Las que no prueban la custodia usan ésta; las que sí,
+    /// arman la suya. Un valor por omisión en el dominio habría hecho lo contrario:
+    /// que olvidarse de contestar pasara desapercibido, que es justo lo que el bloqueo
+    /// existe para impedir.
+    /// </summary>
+    public static readonly IReadOnlyList<CustodiaDelVehiculo> Custodiado =
+        [new CustodiaDelVehiculo(new IdPersona("P-CUSTODIO"), new DateOnly(2025, 1, 1), null)];
 
     public static AsignacionDeMision Valida() => ConLicenciaHasta(new DateOnly(2027, 1, 1));
 

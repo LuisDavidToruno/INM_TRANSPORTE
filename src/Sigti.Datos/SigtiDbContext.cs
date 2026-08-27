@@ -20,6 +20,7 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     public DbSet<FilaDeVehiculo> Vehiculos => Set<FilaDeVehiculo>();
     public DbSet<FilaDeConductor> Conductores => Set<FilaDeConductor>();
     public DbSet<FilaDeAsignacionDePuesto> AsignacionesDePuesto => Set<FilaDeAsignacionDePuesto>();
+    public DbSet<FilaDeCustodia> Custodias => Set<FilaDeCustodia>();
 
     /// <summary>
     /// ULID en binary(16) y no en texto: 16 bytes contra 26, y conserva la monotonía que
@@ -192,6 +193,27 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             // Encontrar lo que vence pronto es lo que sostiene RN-17, y sin indice eso
             // seria un recorrido completo de la flota cada vez que alguien abre la alerta.
             vehiculo.HasIndex(v => v.VenceMatricula);
+        });
+
+        modelo.Entity<FilaDeCustodia>(custodia =>
+        {
+            custodia.ToTable("Custodia", schema: "flota");
+
+            custodia.HasKey(c => c.Id);
+            custodia.Property(c => c.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            custodia.Property(c => c.VehiculoId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            custodia.Property(c => c.Custodio).HasMaxLength(64).IsRequired();
+            custodia.Property(c => c.Acta).HasMaxLength(200);
+
+            // BD-13 pregunta SIEMPRE por vehiculo, y lo hace en el camino critico del
+            // despacho. Sin indice, cada despacho recorreria el historial de custodias de
+            // toda la institucion -- que crece para siempre, porque nada se borra.
+            custodia.HasIndex(c => c.VehiculoId);
+
+            // NO hay indice unico sobre (vehiculo, vigente): dos custodias solapadas son un
+            // error de datos, pero impedirlo en la base impediria tambien registrar el
+            // traspaso el mismo dia -- que es como ocurre, con acta y sin hueco entre las
+            // dos. El solape se detecta al consultar, no se prohibe al escribir.
         });
 
         modelo.Entity<FilaDeAdjunto>(adjunto =>

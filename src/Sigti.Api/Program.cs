@@ -38,6 +38,7 @@ constructor.Services.AddScoped<ConsultaDeFlota>();
 constructor.Services.AddScoped<ConsultaDeConductores>();
 constructor.Services.AddScoped<ConsultaDelOrganigrama>();
 constructor.Services.AddScoped<ConsultaDeOcupacion>();
+constructor.Services.AddScoped<ConsultaDeCustodias>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
 constructor.Services.AddSingleton(new AlmacenDeArchivos(
@@ -409,16 +410,16 @@ misiones.MapPost("/{id}/anular-programada", async (
 // reservado y volver a tomar ahí duplicaría la reserva sin liberar la anterior.
 // `BD-11` sólo la evalúa `T-08`: es la que toma. `T-12` despacha sobre lo ya reservado,
 // y volver a comprobar el solape ahí chocaría contra la reserva de la propia misión.
-ConAsignacion("programar", (e, quien, a, m, p, cuando, recursos, reservas, _) =>
+ConAsignacion("programar", (e, quien, a, m, p, cuando, recursos, reservas, _, __) =>
     e.Programar(quien, a, m, p, cuando, recursos, reservas));
-ConAsignacion("despachar", (e, quien, a, m, p, cuando, _, __, ___) =>
-    e.Despachar(quien, a, m, p, cuando));
+ConAsignacion("despachar", (e, quien, a, m, p, cuando, _, __, ___, custodias) =>
+    e.Despachar(quien, a, m, p, cuando, custodias));
 
 // `T-10` — cambiar el vehículo o quien conduce SIN soltar la misión. Comparte la
 // resolución de recursos con programar y despachar: es la misma verificación de que el
 // identificador existe y la misma construcción de la asignación contra la que se evalúan
 // `BD-02` y `BD-03`. Lo único propio es el motivo, y por eso viaja en la misma petición.
-ConAsignacion("reasignar", (e, quien, a, m, p, cuando, recursos, reservas, peticion) =>
+ConAsignacion("reasignar", (e, quien, a, m, p, cuando, recursos, reservas, peticion, _) =>
     e.Reasignar(quien, a, peticion.Motivo, peticion.Comentario, m, p, cuando, recursos, reservas));
 
 // M-16 — Donde aterriza lo que el dispositivo capturó sin red.
@@ -547,7 +548,7 @@ return;
 
 void ConAsignacion(
     string ruta,
-    Action<OrdenDeMision, IdPersona, AsignacionDeMision, MatrizDeLicencias, PoliticaDeDocumentacion, DateTimeOffset, RecursosTomados?, IReadOnlyList<ReservaDeRecurso>?, AsignarYTransicionar> aplicar) =>
+    Action<OrdenDeMision, IdPersona, AsignacionDeMision, MatrizDeLicencias, PoliticaDeDocumentacion, DateTimeOffset, RecursosTomados?, IReadOnlyList<ReservaDeRecurso>?, AsignarYTransicionar, IReadOnlyList<CustodiaDelVehiculo>> aplicar) =>
     misiones.MapPost($"/{{id}}/{ruta}", async (
         string id,
         AsignarYTransicionar peticion,
@@ -555,6 +556,7 @@ void ConAsignacion(
         ConsultaDeConductores padron,
         ConsultaDeFlota flota,
         ConsultaDeOcupacion ocupacion,
+        ConsultaDeCustodias custodias,
         IParametrosDeLaInstitucion parametros) =>
     {
         // El cliente manda IDENTIFICADORES, no la ficha técnica. Si mandara la ficha,
@@ -584,6 +586,11 @@ void ConAsignacion(
         // Las reservas se traen SIN filtrar por fecha: el solape lo decide el dominio.
         var reservas = await ocupacion.ReservasDeAsync(idVehiculo, idConductor, ulid);
 
+        // El historial de custodia, igual: la vigencia se resuelve a la fecha del HECHO, y
+        // solo `T-12` la usa. Se trae siempre porque son pocas filas y porque una consulta
+        // condicional aqui obligaria a saber, en el enrutador, cual transicion la necesita.
+        var historialDeCustodia = await custodias.DeVehiculoAsync(idVehiculo);
+
         var estado = await servicio.TransicionarAsync(
             ulid,
             expediente =>
@@ -594,7 +601,7 @@ void ConAsignacion(
                 aplicar(expediente, new IdPersona(peticion.Ejecuta), asignacion,
                         parametros.MatrizVigenteAl(salida), parametros.PoliticaVigenteAl(salida),
                         peticion.Momento, new RecursosTomados(idVehiculo, idConductor), reservas,
-                        peticion);
+                        peticion, historialDeCustodia);
             },
             peticion.Momento);
 

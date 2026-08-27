@@ -409,17 +409,24 @@ public sealed class OrdenDeMision
     /// y despachar pueden pasar días, y una licencia no deja de vencerse porque ya la
     /// hayamos verificado una vez.
     /// </summary>
+    /// <param name="custodias">
+    /// El historial de custodia del vehículo — `BD-13`. <b>Obligatorio, no anulable</b>: es la
+    /// diferencia entre «no hay custodio» y «nadie preguntó», y en un bloqueo duro las dos
+    /// no pueden verse igual. El compilador obliga a que todo llamador conteste.
+    /// </param>
     public void Despachar(
         IdPersona ejecuta,
         AsignacionDeMision asignacion,
         MatrizDeLicencias matriz,
         PoliticaDeDocumentacion politica,
-        DateTimeOffset momento)
+        DateTimeOffset momento,
+        IReadOnlyList<CustodiaDelVehiculo> custodias)
     {
         ExigirEstado(EstadoDeMision.Programada, "T-12");
         var evidencia = ExigirHabilitacionYDocumentacion(asignacion, matriz, politica, momento);
+        var custodia = ExigirCustodiaVigente(custodias, momento);
 
-        Registrar("T-12", EstadoDeMision.Despachada, ejecuta, momento, evidencia);
+        Registrar("T-12", EstadoDeMision.Despachada, ejecuta, momento, evidencia + custodia);
     }
 
     /// <summary>
@@ -469,6 +476,49 @@ public sealed class OrdenDeMision
             $"{habilitacion.AtributosDelVehiculo.CapacidadPasajeros} pasajeros · " +
             $"rango hasta {habilitacion.FinDeRangoEvaluado:yyyy-MM-dd} · " +
             $"BD-03 verificada{advertencias}";
+    }
+
+    /// <summary>
+    /// `BD-13` — <b>un vehículo sin custodio vigente no se despacha.</b>
+    ///
+    /// ── Por qué es bloqueo y no advertencia ──────────────────────────────────
+    /// La máquina de estados lo dice sin margen: <i>«trasladar una custodia que no existe no
+    /// es posible: si nadie responde hoy por el bien, tampoco hay de quién recibirlo ni a
+    /// quién devolverlo, y el acta de entrega queda sin una de sus dos firmas»</i>. No es una
+    /// formalidad administrativa — es que la operación que `T-12` describe <b>no se puede
+    /// ejecutar</b>: no hay contraparte.
+    ///
+    /// `RN-22` lo declara <b>no configurable</b>, y `RN-22` misma admite que es incómodo:
+    /// <i>«vehículo asignado a una delegación sin custodio designado: bloqueo del despacho. Es
+    /// incómodo y es correcto — un vehículo del Estado sin responsable identificado es un
+    /// hallazgo esperando ocurrir»</i>.
+    ///
+    /// ── A qué fecha se evalúa ────────────────────────────────────────────────
+    /// A la del <b>hecho</b>, no a la de captura (P-4). Un despacho que se sincroniza tres días
+    /// después se juzga con el custodio que había el día en que el vehículo salió, no con el
+    /// de hoy: de lo contrario una rotación posterior invalidaría un despacho que fue
+    /// correcto cuando ocurrió.
+    /// </summary>
+    /// <returns>La constancia para el diario: quién respondía por el bien al salir.</returns>
+    private static string ExigirCustodiaVigente(
+        IReadOnlyList<CustodiaDelVehiculo> custodias,
+        DateTimeOffset momento)
+    {
+        var fecha = DateOnly.FromDateTime(momento.Date);
+        var vigente = custodias.FirstOrDefault(c => c.VigenteAl(fecha));
+
+        if (vigente is null)
+            throw new BloqueoDuro("BD-13",
+                $"El vehículo no tiene custodio vigente al {fecha:yyyy-MM-dd}: no hay de quién " +
+                "recibirlo ni a quién devolverlo, y el acta de entrega quedaría sin una de sus " +
+                "dos firmas. Registre la tarjeta de responsabilidad antes de despachar." +
+                // Decir cuántas hubo distingue «nunca tuvo custodio» de «la custodia cesó»,
+                // y son dos problemas con dos arreglos distintos.
+                (custodias.Count == 0
+                    ? " Este vehículo no tiene ninguna custodia registrada."
+                    : $" Tiene {custodias.Count} custodia(s) registrada(s), ninguna vigente a esa fecha."));
+
+        return $" · BD-13 verificada · custodio {vigente.Custodio.Valor} desde {vigente.Desde:yyyy-MM-dd}";
     }
 
     /// <summary>`T-14` — DESPACHADA → EN_RUTA. La ejecuta el motorista, y opera desconectado.</summary>

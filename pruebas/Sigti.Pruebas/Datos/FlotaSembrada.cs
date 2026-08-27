@@ -101,6 +101,7 @@ internal static class FlotaSembrada
             ClaseNormativa.Automovil, 2_800, 5, remolque: false));
 
         await contexto.SaveChangesAsync();
+        await CustodiarAsync(contexto, vehiculo);
 
         var conductor = await NuevoConductorAsync(contexto, $"Motorista de {siglas}");
 
@@ -139,6 +140,39 @@ internal static class FlotaSembrada
 
             Vehiculo(Motocicleta, "INS-M-007", "MHA221", "Motocicleta de mensajería",
                 ClaseNormativa.Motocicleta, 180, 1, remolque: false));
+
+        await contexto.SaveChangesAsync();
+
+        // Cada vehiculo con su custodio: desde `BD-13`, un vehiculo sin custodio vigente no
+        // se despacha. Las cuatro pruebas de punta a punta que despachaban empezaron a fallar
+        // al implementarlo, y tenian razon en fallar -- eran cuatro despachos de bienes del
+        // Estado sin nadie que respondiera por ellos.
+        await CustodiarAsync(contexto, Pickup, Camion, PickupConRemolque, Motocicleta);
+    }
+
+    /// <summary>
+    /// Registra una custodia vigente y abierta para cada vehiculo.
+    ///
+    /// <b>Abierta</b> -- `Hasta` nulo -- porque asi es como se registra una tarjeta de
+    /// responsabilidad: se firma con fecha de inicio y sin fecha de cese, que llega el dia
+    /// que llega.
+    /// </summary>
+    public static async Task CustodiarAsync(SigtiDbContext contexto, params Ulid[] vehiculos)
+    {
+        foreach (var vehiculo in vehiculos)
+        {
+            if (contexto.Custodias.Any(c => c.VehiculoId == vehiculo)) continue;
+
+            contexto.Custodias.Add(new FilaDeCustodia
+            {
+                Id = Ulid.NewUlid(),
+                VehiculoId = vehiculo,
+                Custodio = "P-CUSTODIO",
+                Desde = new DateOnly(2025, 1, 1),
+                Hasta = null,
+                Acta = "Acta de prueba",
+            });
+        }
 
         await contexto.SaveChangesAsync();
     }
