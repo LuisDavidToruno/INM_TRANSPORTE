@@ -91,6 +91,62 @@ public class OrdenDeMisionPruebas
     }
 
     [Fact]
+    public void Una_aprobacion_caducada_no_se_puede_programar()
+    {
+        // «Se calcula la fecha de caducidad de la aprobación: si no se programa antes del
+        // INICIO de la ventana solicitada, caduca.» Una cola de aprobadas que nadie
+        // depura oculta el déficit real de flota, que es el indicador que la institución
+        // necesita.
+        var expediente = Aprobada();
+        var salida = Asignacion.Ventana.Salida;
+
+        var bloqueo = Assert.Throws<AprobacionCaducada>(
+            () => expediente.Programar(Transporte, Asignacion.Valida(), Asignacion.Matriz,
+                                       PoliticaDeDocumentacion.PorDefecto, EnLaFecha(salida)));
+
+        Assert.Equal(salida, bloqueo.InicioDeLaVentana);
+        Assert.Equal(EstadoDeMision.Aprobada, expediente.Estado);
+    }
+
+    [Fact]
+    public void Programar_el_dia_anterior_al_inicio_todavia_se_puede()
+    {
+        // El límite es el inicio, no el fin: reservar un vehículo para un viaje que ya
+        // debía haber salido no es programar, es tapar un hueco.
+        var expediente = Aprobada();
+        var vispera = Asignacion.Ventana.Salida.AddDays(-1);
+
+        expediente.Programar(Transporte, Asignacion.Valida(), Asignacion.Matriz,
+                             PoliticaDeDocumentacion.PorDefecto, EnLaFecha(vispera));
+
+        Assert.Equal(EstadoDeMision.Programada, expediente.Estado);
+    }
+
+    [Fact]
+    public void Anular_exige_un_motivo_del_catalogo_y_lo_deja_en_el_diario()
+    {
+        // `T-09`: el motivo tipificado ES el indicador de déficit de flota. Un motivo de
+        // texto libre no produce ningún indicador — por eso el comentario es complemento
+        // y no sustituto.
+        var expediente = Aprobada();
+
+        expediente.Anular(
+            Transporte,
+            MotivoDeAnulacion.CaducadaPorFaltaDeProgramacion,
+            comentario: "No hubo pick-up disponible en la ventana.",
+            momento: Momento);
+
+        var anulacion = expediente.Diario.Single(t => t.Id == "T-09");
+
+        Assert.Equal(EstadoDeMision.Anulada, expediente.Estado);
+        Assert.Contains("CaducadaPorFaltaDeProgramacion", anulacion.Motivo);
+        Assert.Contains("No hubo pick-up disponible", anulacion.Motivo);
+    }
+
+    private static DateTimeOffset EnLaFecha(DateOnly fecha) =>
+        new(fecha.ToDateTime(new TimeOnly(9, 0)), TimeSpan.FromHours(-6));
+
+    [Fact]
     public void No_se_puede_despachar_una_mision_que_no_fue_programada()
     {
         // §3.4: APROBADA → DESPACHADA no existe. Sin programación no hay verificación de

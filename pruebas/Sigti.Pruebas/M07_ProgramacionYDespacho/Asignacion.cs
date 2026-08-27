@@ -10,8 +10,13 @@ namespace Sigti.Pruebas.M07_ProgramacionYDespacho;
 /// </summary>
 internal static class Asignacion
 {
+    /// <summary>
+    /// La ventana arranca DESPUÉS del momento de las pruebas —2026-03-12— a propósito.
+    /// Si empezara el mismo día, la aprobación estaría caducada y `T-08` no se podría
+    /// ejercer: programar el día de salida ya es tarde.
+    /// </summary>
     public static readonly VentanaDeMision Ventana =
-        new(new DateOnly(2026, 3, 12), new DateOnly(2026, 3, 14), HolguraDias: 1);
+        new(new DateOnly(2026, 3, 20), new DateOnly(2026, 3, 22), HolguraDias: 1);
 
     public static readonly FichaTecnica Pickup =
         new("PICKUP", ClaseNormativa.Automovil, PesoBrutoKg: 2_800, CapacidadPasajeros: 5, LlevaRemolque: false);

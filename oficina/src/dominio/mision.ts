@@ -88,6 +88,13 @@ export interface Transicion {
   motivo: string | null;
 }
 
+export type MotivoDeAnulacion =
+  | 'SinFlotaDisponible'
+  | 'SinMotoristaHabilitado'
+  | 'CaducadaPorFaltaDeProgramacion'
+  | 'DesistimientoDelSolicitante'
+  | 'CausaExterna';
+
 export interface Expediente {
   id: string;
   /** El número impreso que la institución cita en su descargo. Nunca se muestra el ULID. */
@@ -102,6 +109,8 @@ export interface Expediente {
   retornoPrevisto: string;
   diario: Transicion[];
   validaciones: Validacion[];
+  /** La ventana ya inició sin que nadie programara. Lo calcula el servidor. */
+  aprobacionCaducada?: boolean;
 }
 
 /**

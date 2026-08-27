@@ -1,4 +1,4 @@
-import type { Expediente, Transicion } from '../dominio/mision';
+import type { Expediente, MotivoDeAnulacion, Transicion } from '../dominio/mision';
 import { expedientesDeMuestra } from './muestra';
 
 /**
@@ -67,6 +67,7 @@ interface ExpedienteDelServidor {
   salidaPrevista: string;
   retornoPrevisto: string;
   holguraDias: number;
+  aprobacionCaducada: boolean;
   diario: Transicion[];
 }
 
@@ -88,6 +89,41 @@ const alExpediente = (s: ExpedienteDelServidor): Expediente => ({
     },
   ],
 });
+
+/**
+ * El catálogo cerrado de , con el texto que ve el usuario.
+ *
+ * Vive acá y no en el dominio porque el rótulo es de interfaz; el valor es el que
+ * viaja al servidor y ese sí es del dominio.
+ */
+export const MOTIVOS_DE_ANULACION: { valor: MotivoDeAnulacion; texto: string }[] = [
+  { valor: 'SinFlotaDisponible', texto: 'Sin flota disponible' },
+  { valor: 'SinMotoristaHabilitado', texto: 'Sin motorista habilitado' },
+  { valor: 'CaducadaPorFaltaDeProgramacion', texto: 'Caducada por falta de programación' },
+  { valor: 'DesistimientoDelSolicitante', texto: 'Desistimiento del solicitante' },
+  { valor: 'CausaExterna', texto: 'Causa externa' },
+];
+
+/** Los expedientes aprobados esperando vehículo y motorista. */
+export async function colaDeProgramacion(): Promise<Expediente[]> {
+  if (!BASE) return conRetardo([]);
+  const crudos = await pedir<ExpedienteDelServidor[]>('/misiones?estado=Aprobada');
+  return crudos.map(alExpediente);
+}
+
+/** `T-09` — Anular con motivo tipificado. El comentario acompaña; no sustituye. */
+export async function anular(
+  id: string,
+  ejecuta: string,
+  motivo: MotivoDeAnulacion,
+  comentario: string,
+): Promise<void> {
+  if (!BASE) return conRetardo(undefined);
+  await pedir(`/misiones/${id}/anular`, {
+    method: 'POST',
+    body: JSON.stringify({ ejecuta, motivo, comentario, momento: new Date().toISOString() }),
+  });
+}
 
 /** Los expedientes que esperan pronunciamiento de esta jefatura. */
 export async function bandejaDeAutorizacion(): Promise<Expediente[]> {

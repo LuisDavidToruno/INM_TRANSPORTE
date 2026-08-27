@@ -49,8 +49,8 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
             Dependencia = "Delegación de Choluteca",
             ObjetoDelTraslado = "Traslado de personal y equipo",
             Destino = "Choluteca",
-            Salida = new DateOnly(2026, 3, 12),
-            Retorno = new DateOnly(2026, 3, 14),
+            Salida = new DateOnly(2026, 3, 20),
+            Retorno = new DateOnly(2026, 3, 22),
             HolguraDias = 1,
             Momento,
         });
@@ -69,7 +69,7 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
         // BD-02 al despachar: una licencia que vence antes del fin del rango bloquea,
         // aunque esté vigente el día de salida.
         var vencida = await Asignar(cliente, id, "programar", "P-TRANSPORTE",
-            venceLicencia: new DateOnly(2026, 3, 14), esperado: HttpStatusCode.Conflict);
+            venceLicencia: new DateOnly(2026, 3, 22), esperado: HttpStatusCode.Conflict);
         Assert.Contains("BD-02", await vencida.Content.ReadAsStringAsync());
 
         await Asignar(cliente, id, "programar", "P-TRANSPORTE", venceLicencia: new DateOnly(2027, 1, 1));
@@ -130,8 +130,8 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
             Dependencia = "Delegación de Choluteca",
             ObjetoDelTraslado = "Traslado de personal y equipo",
             Destino = "Choluteca",
-            Salida = new DateOnly(2026, 3, 12),
-            Retorno = new DateOnly(2026, 3, 14),
+            Salida = new DateOnly(2026, 3, 20),
+            Retorno = new DateOnly(2026, 3, 22),
             HolguraDias = 1,
             Momento,
         });
@@ -142,8 +142,8 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
-            Salida = new DateOnly(2026, 3, 12),
-            Retorno = new DateOnly(2026, 3, 14),
+            Salida = new DateOnly(2026, 3, 20),
+            Retorno = new DateOnly(2026, 3, 22),
             HolguraDias = 1,
             NumeroDeLicencia = "0801-1990-01234",
             CategoriaDeLicencia = "B",
@@ -177,8 +177,8 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
         {
             Ejecuta = ejecuta,
             Momento,
-            Salida = new DateOnly(2026, 3, 12),
-            Retorno = new DateOnly(2026, 3, 14),
+            Salida = new DateOnly(2026, 3, 20),
+            Retorno = new DateOnly(2026, 3, 22),
             HolguraDias = 1,
             NumeroDeLicencia = "0801-1990-01234",
             CategoriaDeLicencia = "B",

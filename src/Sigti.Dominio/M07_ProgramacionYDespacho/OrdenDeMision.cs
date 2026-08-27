@@ -132,10 +132,49 @@ public sealed class OrdenDeMision
         DateTimeOffset momento)
     {
         ExigirEstado(EstadoDeMision.Aprobada, "T-08");
+        ExigirAprobacionVigente(DateOnly.FromDateTime(momento.Date));
         var evidencia = ExigirHabilitacionYDocumentacion(asignacion, matriz, politica, momento);
 
         Registrar("T-08", EstadoDeMision.Programada, ejecuta, momento, evidencia);
     }
+
+    /// <summary>
+    /// `T-09` — APROBADA → ANULADA. Motivo obligatorio y <b>tipificado</b>.
+    ///
+    /// El comentario acompaña al motivo; no lo reemplaza. Sin tipificación no hay
+    /// indicador de déficit de flota, que es para lo que sirve depurar esta cola.
+    /// </summary>
+    public void Anular(
+        IdPersona ejecuta,
+        MotivoDeAnulacion motivo,
+        string? comentario,
+        DateTimeOffset momento)
+    {
+        ExigirEstado(EstadoDeMision.Aprobada, "T-09");
+
+        var texto = string.IsNullOrWhiteSpace(comentario)
+            ? motivo.ToString()
+            : $"{motivo} · {comentario.Trim()}";
+
+        Registrar("T-09", EstadoDeMision.Anulada, ejecuta, momento, texto);
+    }
+
+    /// <summary>
+    /// «Si no se programa antes del <b>inicio</b> de la ventana solicitada, caduca»
+    /// —efectos de `T-05`—. Programar el mismo día de salida ya es tarde.
+    /// </summary>
+    private void ExigirAprobacionVigente(DateOnly fechaDelHecho)
+    {
+        if (fechaDelHecho >= Solicitud.Ventana.Salida)
+            throw new AprobacionCaducada(Solicitud.Ventana.Salida, fechaDelHecho);
+    }
+
+    /// <summary>
+    /// ¿Caducó la aprobación a esta fecha? Lo usa la cola de programación para
+    /// mostrarlo <b>antes</b> de que alguien lo intente, no como sorpresa al guardar.
+    /// </summary>
+    public bool AprobacionCaducadaAl(DateOnly fecha) =>
+        Estado == EstadoDeMision.Aprobada && fecha >= Solicitud.Ventana.Salida;
 
     /// <summary>
     /// `T-12` — PROGRAMADA → DESPACHADA. Exige estado PROGRAMADA: §3.4 prohíbe

@@ -63,6 +63,10 @@ app.UseExceptionHandler(rama => rama.Run(async contexto =>
             new { mensaje = n.Message }),
         VersionNoEncontrada v => (StatusCodes.Status404NotFound,
             new { mensaje = v.Message }),
+        // La caducidad no es un BD-xx: su salida no es cambiar de vehículo sino anular
+        // con motivo tipificado, y por eso lleva su propia forma en la respuesta.
+        AprobacionCaducada c2 => (StatusCodes.Status409Conflict,
+            new { caducada = true, inicioDeLaVentana = c2.InicioDeLaVentana, mensaje = c2.Message }),
         _ => (StatusCodes.Status500InternalServerError, new { mensaje = "Error no controlado." })
     };
 
@@ -137,6 +141,19 @@ parametros.MapPost("/{id}/aprobar", async (
         Ulid.Parse(id), new IdPersona(peticion.Ejecuta), peticion.Momento);
 
     return Results.Ok(new { id, concedida = intento.Concedida, motivo = intento.MotivoDelRechazo });
+});
+
+// T-09: la anulación exige motivo TIPIFICADO. El comentario es complemento, no
+// sustituto: sin tipificación no hay indicador de déficit de flota.
+misiones.MapPost("/{id}/anular", async (
+    string id, AnularMision peticion, ServicioDeMisiones servicio) =>
+{
+    var estado = await servicio.TransicionarAsync(
+        Ulid.Parse(id),
+        e => e.Anular(new IdPersona(peticion.Ejecuta), peticion.Motivo, peticion.Comentario, peticion.Momento),
+        peticion.Momento);
+
+    return Results.Ok(new { id, estado = estado.ToString() });
 });
 
 // Programar y despachar llevan la asignación en el cuerpo: son las dos transiciones que
@@ -244,6 +261,10 @@ internal sealed record CrearMision(
 /// dispositivo que capturó el hecho hace cuatro días sin señal (`ADR-007`).
 /// </summary>
 internal sealed record EjecutarTransicion(string Ejecuta, DateTimeOffset Momento, string? Motivo = null);
+
+/// <summary>El motivo sale del catálogo cerrado; el comentario lo acompaña.</summary>
+internal sealed record AnularMision(
+    string Ejecuta, MotivoDeAnulacion Motivo, string? Comentario, DateTimeOffset Momento);
 
 /// <summary>
 /// Programar y despachar. La <b>placa es opcional</b>: sin placa metálica es un estado

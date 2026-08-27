@@ -23,6 +23,11 @@ public sealed record VistaDeExpediente(
     DateOnly SalidaPrevista,
     DateOnly RetornoPrevisto,
     int HolguraDias,
+    /// <summary>
+    /// Si la aprobación ya caducó. Va en la vista para que la cola lo muestre <b>antes</b>
+    /// de que alguien lo intente, no como sorpresa al guardar.
+    /// </summary>
+    bool AprobacionCaducada,
     IReadOnlyList<VistaDeTransicion> Diario);
 
 public sealed record VistaDeTransicion(
@@ -71,7 +76,13 @@ public sealed class ConsultaDeMisiones(SigtiDbContext contexto)
         return fila is null ? null : Proyectar(fila);
     }
 
-    private static VistaDeExpediente Proyectar(FilaDeExpediente fila)
+    private static VistaDeExpediente Proyectar(FilaDeExpediente fila) => Proyectar(fila, DateOnly.FromDateTime(DateTime.UtcNow.AddHours(-6)));
+
+    /// <param name="hoy">
+    /// Entra como parámetro y no se lee del reloj acá adentro para que la proyección sea
+    /// reproducible: el mismo expediente visto con la misma fecha da lo mismo siempre.
+    /// </param>
+    private static VistaDeExpediente Proyectar(FilaDeExpediente fila, DateOnly hoy)
     {
         var diario = fila.Transiciones.OrderBy(t => t.Orden).ToList();
 
@@ -87,6 +98,8 @@ public sealed class ConsultaDeMisiones(SigtiDbContext contexto)
             SalidaPrevista: fila.Salida,
             RetornoPrevisto: fila.Retorno,
             HolguraDias: fila.HolguraDias,
+            AprobacionCaducada:
+                diario[^1].Destino == EstadoDeMision.Aprobada && hoy >= fila.Salida,
             Diario: diario
                 .Select(t => new VistaDeTransicion(
                     t.Transicion,

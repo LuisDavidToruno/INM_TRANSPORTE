@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarCog, ClipboardCheck, Palette } from 'lucide-react';
+import { CalendarClock, CalendarCog, ClipboardCheck, Palette } from 'lucide-react';
 
 import { Avisos, Nota, Shell, avisar } from '../ui';
 import type { GrupoNav, Miga } from '../ui';
@@ -15,6 +15,7 @@ const Vitrina = lazy(() => import('../vitrina/Vitrina'));
 import Bandeja from '../modulos/M06_Autorizacion/Bandeja';
 import Expediente from '../modulos/M06_Autorizacion/Expediente';
 import Asignacion from '../modulos/M07_Programacion/Asignacion';
+import Cola from '../modulos/M07_Programacion/Cola';
 import { bandejaDeAutorizacion, origenDeDatos } from '../api/misiones';
 
 /**
@@ -77,7 +78,10 @@ function Interior(): ReactElement {
     },
     {
       titulo: 'M-07 Programación y despacho',
-      items: [{ texto: 'Programar misión', icono: <CalendarCog />, href: '/programacion' }],
+      items: [
+        { texto: 'Cola de programación', icono: <CalendarClock />, href: '/programacion' },
+        { texto: 'Asignar vehículo', icono: <CalendarCog />, href: '/programacion/asignar' },
+      ],
     },
     { items: [{ texto: 'Sistema de diseño', icono: <Palette />, href: '/sistema-diseno' }] },
   ];
@@ -107,7 +111,9 @@ function Interior(): ReactElement {
         <Route path="/" element={<Navigate to="/autorizacion" replace />} />
         <Route path="/autorizacion" element={<Bandeja />} />
         <Route path="/autorizacion/:id" element={<Expediente />} />
-        <Route path="/programacion" element={<Asignacion />} />
+        <Route path="/programacion" element={<Cola />} />
+        <Route path="/programacion/asignar" element={<Asignacion />} />
+        <Route path="/programacion/:id" element={<Asignacion />} />
         <Route
           path="/sistema-diseno"
           element={
@@ -127,6 +133,7 @@ function migasDe(ruta: string): Miga[] {
     return [{ texto: "Autorización", href: "/autorizacion" }, "Expediente"];
   }
   if (ruta === '/autorizacion') return ["Autorización"];
+  if (ruta.startsWith('/programacion/')) return [{ texto: 'Programación', href: '/programacion' }, 'Asignación'];
   if (ruta === '/programacion') return ['Programación'];
   if (ruta === '/sistema-diseno') return ["Sistema de diseño"];
   return [];
