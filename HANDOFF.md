@@ -215,6 +215,44 @@ Las restricciones médicas salieron de `BD-02` a un bloqueo propio, con el efect
 
 **Y una decisión que conviene mirar.** El catálogo provisional tipifica **una sola** restricción como bloqueante — *«conducción diurna únicamente»*, la única que `RN-11` sostiene contrastable por sistema. Todo lo demás advierte. Mientras el insumo #42 siga abierto ése va a ser el caso mayoritario: **hoy el sistema casi no bloquea por restricción médica**. Si la institución espera lo contrario, el arreglo no es tocar código — es conseguir el catálogo de la DNVT.
 
+### La flota se reserva de verdad, y hay línea de tiempo por carriles
+
+**`T-08` decía que reservaba y no reservaba nada.** La máquina de estados la describe como
+*«aquí se reserva vehículo y motorista»* desde que se escribió; la identidad del vehículo
+quedaba **sólo dentro del texto de evidencia, en prosa**. La misión se programaba, el
+diario quedaba perfecto, y el vehículo se seguía ofreciendo libre. Duró así porque el
+síntoma —una pantalla que no muestra ocupación— es indistinguible de una pantalla que no
+la tiene.
+
+**La reserva vive en el diario, no en una tabla de reservas.** `P-1`: el estado es la
+proyección del diario. Una tabla aparte sería esa segunda copia con su forma propia de
+desincronizarse — una misión anulada cuya reserva sobrevive deja un **vehículo fantasma
+ocupado** y el sistema reporta falta de flota que no existe. Puesto en la transición,
+**liberar es no volver a tomar**.
+
+| Pieza | Qué |
+|---|---|
+| [`RecursosTomados`](src/Sigti.Dominio/M07_ProgramacionYDespacho/RecursosTomados.cs) | Lo que `T-08` toma. Identificadores, no la ficha: la ficha cambia y el diario es inmutable |
+| [`ConsultaDeOcupacion`](src/Sigti.Aplicacion/M07_ProgramacionYDespacho/ConsultaDeOcupacion.cs) | La proyección. Ocupa por **lista blanca** —`PROGRAMADA`, `DESPACHADA`, `EN_RUTA`— y no por descarte |
+| `GET /flota/ocupacion` | Recorta la ventana en SQL; devuelve las fechas **reales**, sin truncar |
+| [`LineaDeCarriles`](oficina/src/ui/LineaDeCarriles.tsx) | La primitiva de ~24 pantallas. Una sola sirve ocupación, vigencias e hitos |
+| [`Asignacion.tsx`](oficina/src/modulos/M07_Programacion/Asignacion.tsx) | `PT-026` con el cronograma **arriba** de la lista: *«¿cuál está libre?»* precede a *«¿este habilita?»* |
+
+**Dos cosas salieron de mirar la pantalla, no de razonar sobre el código.** La primera: el
+rótulo del lector de pantalla anunciaba «misión Correctivo» para un bloqueo de taller —
+falso, y además sugiere que se puede reprogramar. La segunda, más grave: **dos barras
+encimadas se dibujaban una sobre otra y sólo se veía la última**. El dibujo que existe
+para revelar el solape lo estaba escondiendo. Ahora se apilan en subfilas, y dos barras
+que **se tocan** cuentan como solape: el vehículo no puede estar volviendo de Danlí y
+saliendo a Juticalpa el mismo día.
+
+**⚠️ Y esto dejó a la vista que `BD-11` no bloquea.** Se programaron dos misiones sobre el
+mismo pick-up para los mismos días y el sistema aceptó las dos. La máquina de estados es
+taxativa —*«no sobre-asigna, ni siquiera con advertencia; dos misiones con el mismo
+vehículo el mismo día es el error que termina con un servidor público esperando en la
+puerta»*—. Ya estaba registrado como pendiente abajo; lo nuevo es que **ahora es
+implementable**: el dato para detectarlo existe.
+
 ### `BD-07` sigue sin evaluarse, y `BD-04` a `BD-11` tampoco
 
 `BD-02` y `BD-03` ya están implementadas y probadas — **`BD-12` también, ver arriba.** **`BD-07` no** — estado y compatibilidad del vehículo. Necesita dos cosas que todavía no existen:
@@ -254,6 +292,26 @@ Eran tres. Salieron la flota y el padrón. El que queda no finge ser otra cosa: 
 | **Padrón de motoristas** | `CatalogoProvisionalDeFlota` — ya solo los conductores | `M-05` |
 | **El folio** | `ConsultaDeMisiones.FolioProvisional` — sale como `PROV-xxxxxx` | El circuito de rangos por delegación. El **consumo** ya está en [`SubrangoDeFolios`](campo/nucleo/Folios.ts); falta **repartirlos**, que es de `M-01` |
 | **El catálogo de restricciones médicas** | `CatalogoProvisionalDeRestricciones` | Insumo **#42** — la DNVT no tiene fuente pública |
+
+### ⚠️ El tono secundario de las seis pantallas no se estaba aplicando
+
+`text-[var(--txt-2)]` y otras siete clases apuntaban a **variables que no existen en
+ninguna hoja**. Un `var()` sin definir no falla: la propiedad queda inválida y el color se
+hereda. Medido en el navegador: antes el texto secundario computaba `rgb(217,224,234)`,
+idéntico al del padre; ahora `rgb(159,173,192)`.
+
+Se veía bien porque casi siempre iba en `text-xs`, y un cuerpo más chico se lee más claro.
+Por eso duró seis pantallas sin que nadie lo notara: **el síntoma de un token roto es que
+no hay síntoma.**
+
+Las ocho eran vocabulario **inventado por las pantallas** — `ui/` estaba limpio. Es el
+problema del que advierten `CLASE_TONO` y `TOKEN_TONO`, y la propia vitrina lo tiene
+escrito: *«si necesitás un color que no está, falta un token: pedilo, no lo escribas a
+mano»*. 60 clases en 9 archivos, sustituidas por las utilidades reales del contrato.
+
+**Lo que queda de esto:** no hay nada que impida volver a escribirlo. Una comprobación que
+falle cuando una clase arbitraria referencia una variable no declarada cerraría la puerta;
+hoy la única defensa es acordarse.
 
 ### De las dos validaciones de `HU-009`, una ya se calcula
 

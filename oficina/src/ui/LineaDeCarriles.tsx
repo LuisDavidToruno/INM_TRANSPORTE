@@ -115,6 +115,50 @@ const esFinDeSemana = (f: Date): boolean => f.getDay() === 0 || f.getDay() === 6
 const textoDeFecha = (f: Date): string =>
   f.toLocaleDateString('es-HN', { day: 'numeric', month: 'long' });
 
+/** Alto de cada subfila de un carril. En `rem` para que siga a la tipografía del sistema. */
+const ALTO_SUBFILA = '2.25rem';
+
+interface Colocada {
+  barra: BarraDeCarril;
+  inicio: number;
+  fin: number;
+  largo: number;
+  entraAntes: boolean;
+  saleDespues: boolean;
+}
+
+/**
+ * Reparte las barras en subfilas para que <b>lo encimado se vea encimado</b>.
+ *
+ * ── Por qué esto no es un detalle de presentación ───────────────────────────
+ * Sin apilar, dos barras del mismo carril y los mismos días se dibujan una sobre otra y
+ * <b>sólo se ve la última</b>. El dibujo que existe para revelar el solape lo escondería,
+ * y quien programa concluiría que el vehículo tiene una sola misión ese día. Se detectó
+ * mirando la pantalla con dos misiones reales sobre el mismo pick-up.
+ *
+ * ── El reparto ──────────────────────────────────────────────────────────────
+ * Primera subfila donde quepa, recorriendo por fecha de inicio. Es voraz y no busca el
+ * mínimo de subfilas: para un carril de flota —dos o tres barras— la diferencia no
+ * existe, y un óptimo aquí costaría más de lo que vale.
+ *
+ * <b>Los dos extremos son inclusivos también acá.</b> Dos barras que se tocan —una termina
+ * el jueves y la otra empieza el jueves— <b>se solapan</b>: el vehículo no puede estar
+ * volviendo de Danlí y saliendo a Juticalpa el mismo día. Tratarlas como consecutivas las
+ * pondría en la misma subfila y borraría justo el conflicto que hay que ver.
+ */
+function apilar(barras: readonly Colocada[]): readonly (Colocada & { subfila: number })[] {
+  const finPorSubfila: number[] = [];
+
+  return [...barras]
+    .sort((a, b) => a.inicio - b.inicio || a.fin - b.fin)
+    .map((c) => {
+      let subfila = finPorSubfila.findIndex((fin) => fin < c.inicio);
+      if (subfila === -1) subfila = finPorSubfila.length;
+      finPorSubfila[subfila] = c.fin;
+      return { ...c, subfila };
+    });
+}
+
 export default function LineaDeCarriles({
   carriles,
   desde,
@@ -226,24 +270,30 @@ function Carril({
 
   const colocadas = useMemo(
     () =>
-      carril.barras
-        .map((barra) => {
-          // Recortar contra la ventana, no descartar. Una misión que empezó antes del
-          // lunes ocupa el lunes igual, y esconderla ofrecería libre un carril tomado.
-          const inicio = Math.max(0, diasEntre(desde, barra.desde));
-          const fin = Math.min(total - 1, diasEntre(desde, barra.hasta));
-          if (fin < inicio) return null;
-          return {
-            barra,
-            inicio,
-            largo: fin - inicio + 1,
-            entraAntes: aDia(barra.desde) < aDia(desde),
-            saleDespues: aDia(barra.hasta) > aDia(hasta),
-          };
-        })
-        .filter((c) => c !== null),
+      apilar(
+        carril.barras
+          .map((barra) => {
+            // Recortar contra la ventana, no descartar. Una misión que empezó antes del
+            // lunes ocupa el lunes igual, y esconderla ofrecería libre un carril tomado.
+            const inicio = Math.max(0, diasEntre(desde, barra.desde));
+            const fin = Math.min(total - 1, diasEntre(desde, barra.hasta));
+            if (fin < inicio) return null;
+            return {
+              barra,
+              inicio,
+              fin,
+              largo: fin - inicio + 1,
+              entraAntes: aDia(barra.desde) < aDia(desde),
+              saleDespues: aDia(barra.hasta) > aDia(hasta),
+            };
+          })
+          .filter((c) => c !== null),
+      ),
     [carril.barras, desde, hasta, total],
   );
+
+  // Alto por subfilas: el carril crece con lo que tiene encimado en vez de esconderlo.
+  const subfilas = colocadas.reduce((m, c) => Math.max(m, c.subfila + 1), 1);
 
   return (
     <div className="tw:flex tw:items-stretch">
@@ -279,20 +329,22 @@ function Carril({
             teclado; las posiciones en píxeles no llegan a un lector de pantalla. */}
         <ul
           aria-labelledby={idRotulo}
-          className="tw:relative tw:m-0 tw:flex tw:list-none tw:items-center tw:p-0"
-          style={{ minHeight: '2.25rem' }}
+          className="tw:relative tw:m-0 tw:list-none tw:p-0"
+          style={{ height: `calc(${subfilas} * ${ALTO_SUBFILA})` }}
         >
           {colocadas.length === 0 ? (
             <li className="tw:sr-only">Sin nada en la ventana.</li>
           ) : null}
 
-          {colocadas.map(({ barra, inicio, largo, entraAntes, saleDespues }) => (
+          {colocadas.map(({ barra, inicio, largo, subfila, entraAntes, saleDespues }) => (
             <li
               key={barra.id}
-              className="tw:absolute tw:top-1 tw:bottom-1"
+              className="tw:absolute"
               style={{
                 left: `calc(${inicio * anchoDia}% + 2px)`,
                 width: `calc(${largo * anchoDia}% - 4px)`,
+                top: `calc(${subfila} * ${ALTO_SUBFILA} + 0.25rem)`,
+                height: `calc(${ALTO_SUBFILA} - 0.5rem)`,
               }}
             >
               <Barra

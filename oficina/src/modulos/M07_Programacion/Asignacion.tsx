@@ -4,9 +4,21 @@ import { useNavigate, useParams } from 'react-router';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CircleCheck } from 'lucide-react';
 
-import { Boton, Nota, Panel, Pastilla, avisar } from '../../ui';
-import { conductores, evaluarAsignacion, flota, programar } from '../../api/flota';
-import type { ConductorDisponible, ResultadoDeAsignacion, VehiculoDeFlota } from '../../api/flota';
+import { Boton, LineaDeCarriles, Nota, Panel, Pastilla, avisar } from '../../ui';
+import type { CarrilDeLinea } from '../../ui';
+import {
+  conductores,
+  evaluarAsignacion,
+  flota,
+  ocupacionDeFlota,
+  programar,
+} from '../../api/flota';
+import type {
+  ConductorDisponible,
+  OcupacionDeFlota,
+  ResultadoDeAsignacion,
+  VehiculoDeFlota,
+} from '../../api/flota';
 import { BloqueoDuro, expediente as traerExpediente } from '../../api/misiones';
 import type { Expediente } from '../../dominio/mision';
 import { soloFecha } from '../M06_Autorizacion/formato';
@@ -26,6 +38,16 @@ import RechazoPorLicencia from './RechazoPorLicencia';
  * Esta pantalla **muestra** el resultado; no lo calcula. La regla vive en un solo
  * lugar, que es lo único que garantiza que lo que se ve al elegir sea lo mismo que
  * bloquea al guardar.
+ *
+ * ── El cronograma va ARRIBA de la lista, no al lado ──────────────────────────
+ * Porque la pregunta llega antes: *«¿cuál está libre?»* precede a *«¿este habilita?»*.
+ * Se construyó al revés —sólo la lista— y el dictamen de elementos visuales lo marcó
+ * como el error de mayor daño del inventario: con una lista, la única forma de saber si
+ * el pick-up está libre el jueves es abrir las misiones una por una.
+ *
+ * **El cronograma no bloquea nada.** Un vehículo ocupado se puede elegir igual: quien
+ * programa puede saber que esa misión se va a anular, o estar reprogramando a propósito.
+ * Lo que bloquea es `BD-02` y `BD-03`, en el servidor.
  */
 export default function Asignacion(): ReactElement {
   const { id = '' } = useParams();
@@ -71,6 +93,18 @@ export default function Asignacion(): ReactElement {
     },
   });
 
+  // Consulta aparte de la flota: si la ocupación falla, la pantalla tiene que dejar
+  // asignar igual. Es información para decidir, no una precondición.
+  const ocupacion = useQuery({
+    queryKey: ['ocupacion', expedienteQ.data?.salidaPrevista, expedienteQ.data?.retornoPrevisto],
+    queryFn: () =>
+      ocupacionDeFlota(
+        soloDia(expedienteQ.data!.salidaPrevista),
+        soloDia(expedienteQ.data!.retornoPrevisto),
+      ),
+    enabled: Boolean(expedienteQ.data),
+  });
+
   const expediente = expedienteQ.data;
   const vehiculos = flotaQ.data;
   const personas = conductoresQ.data;
@@ -83,6 +117,16 @@ export default function Asignacion(): ReactElement {
   return (
     <div className="tw:flex tw:flex-col tw:gap-6">
       <Cabecera expediente={expediente} />
+
+      <Panel titulo="Ocupación de la flota en la ventana solicitada">
+        <Cronograma
+          ocupacion={ocupacion.data}
+          fallo={ocupacion.isError}
+          elegido={idVehiculo}
+          desde={expediente.salidaPrevista}
+          hasta={expediente.retornoPrevisto}
+        />
+      </Panel>
 
       <div className="tw:grid tw:gap-5 tw:lg:grid-cols-2">
         <Panel titulo="Vehículo">
@@ -384,6 +428,97 @@ function Cargando(): ReactElement {
         <div className="tw:h-64 tw:animate-pulse tw:rounded tw:bg-subtle" />
       </div>
       <span className="tw:sr-only">Cargando el expediente y la flota…</span>
+    </div>
+  );
+}
+
+/** `YYYY-MM-DD` a partir de lo que viaja, que puede traer hora. */
+const soloDia = (fecha: string): string => fecha.slice(0, 10);
+
+/**
+ * Una fecha del servidor a `Date` **local a medianoche**.
+ *
+ * `new Date('2026-03-20')` la interpreta como UTC y en Honduras —UTC−6— la corre al 19
+ * por la tarde. La barra empezaría un día antes que la misión, que es exactamente el
+ * error que el cronograma existe para no cometer.
+ */
+function comoDiaLocal(fecha: string): Date {
+  const [a, m, d] = soloDia(fecha).split('-').map(Number);
+  return new Date(a!, m! - 1, d!);
+}
+
+/**
+ * El cronograma de flota.
+ *
+ * ── Por qué el vehículo elegido se resalta y los demás no ────────────────────
+ * Porque la pantalla tiene dos momentos: barrer para elegir, y confirmar lo elegido. Sin
+ * la marca, después de elegir hay que volver a buscar la fila en la lista para ver contra
+ * qué se cruza. El resalte es del carril, no de las barras: lo que cambia es a cuál
+ * mirar, no qué significa cada tramo.
+ */
+function Cronograma({
+  ocupacion,
+  fallo,
+  elegido,
+  desde,
+  hasta,
+}: {
+  ocupacion: OcupacionDeFlota | undefined;
+  fallo: boolean;
+  elegido: string;
+  desde: string;
+  hasta: string;
+}): ReactElement {
+  // Callar acá dejaría a quien programa creyendo que la flota está libre, que es la
+  // conclusión que lleva a asignar un vehículo ya tomado.
+  if (fallo) {
+    return (
+      <Nota tono="aviso">
+        No se pudo consultar la ocupación de la flota. Puede asignar igual —la habilitación
+        se verifica aparte—, pero <b>esta pantalla no le está diciendo cuál está libre</b>.
+      </Nota>
+    );
+  }
+
+  if (!ocupacion) {
+    return <p className="tw:text-sm tw:text-tinta-mid">Consultando qué tiene tomado cada vehículo…</p>;
+  }
+
+  const carriles: CarrilDeLinea[] = ocupacion.carriles.map((c) => ({
+    id: c.vehiculo,
+    titulo: c.siglas,
+    detalle: [c.tipoDeVehiculo, c.placa ?? 'sin placa metálica'].join(' · '),
+    barras: c.barras.map((b) => ({
+      id: b.mision,
+      titulo: b.folio,
+      desde: comoDiaLocal(b.desde),
+      hasta: comoDiaLocal(b.hasta),
+      detalle: `${b.destino}, ${b.estado.toLowerCase()}`,
+      queEs: 'misión',
+      // `EnRuta` en ámbar: el vehículo está afuera AHORA, y reprogramarlo no es lo
+      // mismo que mover una misión que todavía no sale.
+      tono: b.estado === 'EnRuta' ? 'aviso' : 'info',
+    })),
+  }));
+
+  return (
+    <div className="tw:flex tw:flex-col tw:gap-2">
+      <LineaDeCarriles
+        carriles={carriles.map((c) =>
+          // Lo NO elegido se apaga cuando ya hay elección. Antes de elegir, todos pesan
+          // igual: apagar por omisión sugeriría que algunos no son candidatos.
+          elegido && c.id !== elegido ? { ...c, inhabilitado: true } : c,
+        )}
+        desde={comoDiaLocal(desde)}
+        hasta={comoDiaLocal(hasta)}
+        queEsUnaBarra="misión"
+        vacio="La flota está vacía. No hay vehículos registrados para mostrar."
+      />
+      <p className="tw:text-xs tw:text-tinta-mid">
+        Un carril vacío es un vehículo libre en toda la ventana. Que esté libre{' '}
+        <b>no significa que habilite</b>: eso lo resuelve la verificación de licencia y
+        documentación al elegir.
+      </p>
     </div>
   );
 }

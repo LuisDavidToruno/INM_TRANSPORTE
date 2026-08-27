@@ -106,3 +106,43 @@ export const programar = async (
     body: JSON.stringify({ ejecuta, idVehiculo, idConductor, momento: new Date().toISOString() }),
   });
 };
+
+/**
+ * Un tramo en que el vehículo está tomado.
+ *
+ * <b>Los dos extremos son inclusivos.</b> `hasta` es el último día ocupado, no el primero
+ * libre: el retorno previsto es un día en que el vehículo sigue afuera.
+ */
+export interface BarraDeOcupacion {
+  mision: string;
+  folio: string;
+  destino: string;
+  desde: string;
+  hasta: string;
+  /** `Programada`, `Despachada` o `EnRuta`. Son los tres que comprometen el vehículo. */
+  estado: string;
+}
+
+export interface CarrilDeVehiculo {
+  vehiculo: string;
+  siglas: string;
+  placa: string | null;
+  tipoDeVehiculo: string;
+  barras: BarraDeOcupacion[];
+}
+
+export interface OcupacionDeFlota {
+  desde: string;
+  hasta: string;
+  carriles: CarrilDeVehiculo[];
+}
+
+/**
+ * Qué tiene tomado cada vehículo en la ventana.
+ *
+ * <b>Es una proyección del diario, no una tabla de reservas.</b> Se pide al servidor y no
+ * se deriva de la lista de misiones que ya tenga el cliente: eso obligaría al cliente a
+ * saber qué estados ocupan, y el día que se agregue uno habría dos respuestas.
+ */
+export const ocupacionDeFlota = (desde: string, hasta: string): Promise<OcupacionDeFlota> =>
+  pedir<OcupacionDeFlota>(`/flota/ocupacion?desde=${desde}&hasta=${hasta}`);
