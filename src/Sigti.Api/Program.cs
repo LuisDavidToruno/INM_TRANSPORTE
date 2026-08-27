@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
+using Sigti.Aplicacion.M01_Organizacion;
 using Sigti.Aplicacion.M02_Parametros;
 using Sigti.Aplicacion.M03_Flota;
 using Sigti.Aplicacion.M05_Motoristas;
@@ -35,6 +36,7 @@ constructor.Services.AddScoped<ServicioDeSincronizacion>();
 constructor.Services.AddScoped<ServicioDeAdjuntos>();
 constructor.Services.AddScoped<ConsultaDeFlota>();
 constructor.Services.AddScoped<ConsultaDeConductores>();
+constructor.Services.AddScoped<ConsultaDelOrganigrama>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
 constructor.Services.AddSingleton(new AlmacenDeArchivos(
@@ -247,6 +249,29 @@ app.MapGet("/conductores", async (ConsultaDeConductores padron) => Results.Ok(
             tieneRestricciones = !string.IsNullOrWhiteSpace(c.Restricciones),
         },
     })));
+
+// `HU-009` — la bandeja de autorización muestra **desde cuándo no se confirma el
+// espejo**, porque una jefatura que va a firmar sobre un organigrama de hace nueve días
+// tiene derecho a saberlo ANTES de firmar.
+//
+// Es una sola pregunta para toda la bandeja, no una por expediente: repetir un dato
+// global en cada fila lo convierte en ruido y deja de leerse.
+//
+// **Advierte, no bloquea.** La máquina de estados resuelve `T-05` como advertencia
+// registrada; bloquear la autorización por un problema de integración paralizaría a la
+// institución, que es el fallo que no se quiere (`HB1-10`).
+app.MapGet("/organigrama/antiguedad", async (ConsultaDelOrganigrama organigrama) =>
+{
+    var antiguedad = await organigrama.AntiguedadDelEspejoAsync(DateTimeOffset.UtcNow);
+
+    return Results.Ok(new
+    {
+        // Nulo y cero son cosas OPUESTAS: «nunca se confirmó» contra «se confirmó
+        // hace un momento». Se distinguen en el contrato, no en la interpretación.
+        nuncaConfirmado = antiguedad is null,
+        diasSinConfirmar = antiguedad?.Days,
+    });
+});
 
 // Evalúa sin comprometer nada: la pantalla muestra el resultado AL ELEGIR, y sale del
 // mismo dominio que después bloquea T-08.

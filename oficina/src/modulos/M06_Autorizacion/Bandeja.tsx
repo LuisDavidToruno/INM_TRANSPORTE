@@ -5,7 +5,8 @@ import { ClipboardCheck, CircleAlert, ShieldBan, TriangleAlert } from "lucide-re
 
 import { CampoBusqueda, Enlace, Nota, Pastilla, Tabla, Vacio } from "../../ui";
 import type { ColumnaDef } from '../../ui';
-import { bandejaDeAutorizacion } from '../../api/misiones';
+import { antiguedadDelEspejo, bandejaDeAutorizacion } from '../../api/misiones';
+import type { AntiguedadDelEspejo } from '../../api/misiones';
 import { advertencias, hayBloqueo } from '../../dominio/mision';
 import type { Expediente } from '../../dominio/mision';
 import { diaYHora, faltanDias } from './formato';
@@ -33,6 +34,14 @@ export default function Bandeja(): ReactElement {
     queryFn: bandejaDeAutorizacion,
   });
 
+  // Consulta aparte a propósito. Si la integración del organigrama está caída, la bandeja
+  // tiene que cargar igual: `RN-50` advierte, no bloquea, y una cabecera que no se puede
+  // pintar no puede llevarse por delante los expedientes que sí llegaron.
+  const espejo = useQuery({
+    queryKey: ['antiguedad-del-espejo'],
+    queryFn: antiguedadDelEspejo,
+  });
+
   const filas = useMemo(() => {
     if (!data) return [];
     const busqueda = filtro.trim().toLowerCase();
@@ -57,6 +66,8 @@ export default function Bandeja(): ReactElement {
   return (
     <div className="tw:flex tw:flex-col tw:gap-5">
       <Encabezado pendientes={data?.length ?? 0} cargando={isPending} />
+
+      <EstadoDelEspejo dato={espejo.data ?? null} fallo={espejo.isError} />
 
       <CampoBusqueda
         etiqueta="Buscar por folio, solicitante, dependencia o destino"
@@ -98,6 +109,63 @@ function Encabezado({ pendientes, cargando }: { pendientes: number; cargando: bo
             : `${pendientes} expedientes esperan su pronunciamiento.`}
       </p>
     </header>
+  );
+}
+
+/**
+ * Desde cuándo no se confirma el organigrama contra ARGOS — `HU-009`, `RN-50`.
+ *
+ * ── Por qué no hay umbral en este código ─────────────────────────────────────
+ * Porque no está decidido. `RN-50` marca `umbral_advertencia_desincronizacion` como
+ * <b>`[C]`, por confirmar con el PO y con Talento Humano</b>, y cablear acá un «más de
+ * siete días» sería inventar la norma en la capa que menos autoridad tiene para hacerlo.
+ * La pantalla dice el número; <b>quién lo considera demasiado es de la regla</b>, y
+ * cuando la regla tenga umbral, esta cabecera lo aplicará.
+ *
+ * ── El único caso que sí se puede juzgar sin umbral ──────────────────────────
+ * Que <b>nunca</b> se haya confirmado. Ahí no hay antigüedad que comparar contra nada:
+ * no hay espejo. Por eso ese caso sube de tono y los demás no.
+ *
+ * Y en ningún caso se impide autorizar: `HB1-10` corrigió justamente eso — bloquear por
+ * un problema de integración paraliza a la institución, que es el fallo que no se quiere.
+ */
+function EstadoDelEspejo({
+  dato,
+  fallo,
+}: {
+  dato: AntiguedadDelEspejo | null;
+  fallo: boolean;
+}): ReactElement | null {
+  // No saber y saber que está fresco son cosas distintas: callar en el primer caso
+  // dejaría a la jefatura creyendo que el organigrama sí se verificó.
+  if (fallo) {
+    return (
+      <Nota tono="aviso" icono={<TriangleAlert />}>
+        No se pudo consultar desde cuándo se confirma el organigrama. Los expedientes de
+        abajo son los suyos, pero <b>la competencia con que se listaron no se verificó</b>.
+      </Nota>
+    );
+  }
+
+  if (dato === null) return null;
+
+  if (dato.nuncaConfirmado) {
+    return (
+      <Nota tono="riesgo" icono={<CircleAlert />}>
+        <b>El organigrama nunca se ha confirmado contra ARGOS.</b> Puede autorizar —el
+        sistema no se lo impide—, pero la jerarquía con que se armó esta bandeja no está
+        respaldada por el sistema que es su dueño.
+      </Nota>
+    );
+  }
+
+  const dias = dato.diasSinConfirmar ?? 0;
+
+  return (
+    <p className="tw:text-xs tw:text-[var(--txt-2)]">
+      Organigrama confirmado contra ARGOS{' '}
+      {dias === 0 ? 'hoy' : dias === 1 ? 'ayer' : `hace ${dias} días`}.
+    </p>
   );
 }
 

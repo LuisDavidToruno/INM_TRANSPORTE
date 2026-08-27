@@ -50,10 +50,10 @@ export async function pedir<T>(ruta: string, opciones?: RequestInit): Promise<T>
 /**
  * Lo que el servidor devuelve hoy.
  *
- * <b>No trae `validaciones`</b>: el circuito de `HU-009` —antigüedad del espejo,
- * misiones sin liquidar del solicitante— vive en `M-01` y `M-13`, que no existen.
- * El adaptador lo dice en vez de fingir una lista vacía, porque una bandeja sin
- * reparos y una bandeja que no sabe si los hay son cosas distintas.
+ * <b>Trae el expediente, no el juicio completo sobre él.</b> De las dos mitades de
+ * `HU-009`, la antigüedad del espejo del organigrama ya se mide —`M-01`— y viaja
+ * aparte, por `/organigrama/antiguedad`: es un dato global de la bandeja, no de la
+ * fila. Los reparos por expediente siguen necesitando `M-13`.
  */
 interface ExpedienteDelServidor {
   id: string;
@@ -76,15 +76,18 @@ const alExpediente = (s: ExpedienteDelServidor): Expediente => ({
   // Las fechas sin hora viajan tal cual: `comoFecha()` en `formato.ts` las sitúa en
   // local. Corregirlas acá también sería tener dos mecanismos para lo mismo, y el
   // día que uno cambie el otro seguiría corriendo la fecha en silencio.
+  // La antigüedad del espejo ya NO va acá: se mide de verdad y se muestra en la cabecera
+  // de la bandeja. Lo que sigue faltando es el reparo **por expediente** —misiones sin
+  // liquidar del solicitante— que necesita `M-13`. Por eso esto no es una lista vacía:
+  // una bandeja sin reparos y una que no sabe si los hay son cosas distintas.
   validaciones: [
     {
       clase: 'advertencia',
-      regla: 'M-01',
-      titulo: 'Las validaciones de competencia todavía no las calcula el servidor',
+      regla: 'M-13',
+      titulo: 'Los reparos por expediente todavía no se calculan',
       detalle:
-        'La antigüedad del espejo de ARGOS y las misiones sin liquidar del solicitante ' +
-        'necesitan M-01 y M-13, que no están construidos. Lo que ve acá es el expediente, ' +
-        'no el juicio del sistema sobre él.',
+        'Las misiones sin liquidar del solicitante necesitan M-13, que no está ' +
+        'construido. La antigüedad del organigrama sí se mide, y está en la cabecera.',
     },
   ],
 });
@@ -212,4 +215,22 @@ export async function devolverLiquidacion(
     method: 'POST',
     body: JSON.stringify({ ejecuta, motivo, momento: new Date().toISOString() }),
   });
+}
+
+/**
+ * Desde cuándo no se confirma el espejo del organigrama — `HU-009`.
+ *
+ * <b>`nuncaConfirmado` y `diasSinConfirmar: 0` son cosas opuestas.</b> Una integración
+ * que jamás corrió y una que corrió hace un minuto no se pueden mostrar igual, y por eso
+ * el contrato las distingue en vez de dejarlo a la interpretación del cliente.
+ */
+export interface AntiguedadDelEspejo {
+  nuncaConfirmado: boolean;
+  diasSinConfirmar: number | null;
+}
+
+export async function antiguedadDelEspejo(): Promise<AntiguedadDelEspejo | null> {
+  // Sin servidor no se inventa un número: se dice que no se sabe.
+  if (!BASE) return conRetardo(null);
+  return pedir<AntiguedadDelEspejo>('/organigrama/antiguedad');
 }

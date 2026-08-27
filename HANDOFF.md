@@ -115,7 +115,13 @@ SAC **no tiene lista de exclusiones**: es activo / evaluación / apagado, y de a
 
 **Ocho pruebas**, y dos merecen mención: que un acto de febrero se juzgue con la ocupación de febrero —sin eso, reevaluar un expediente viejo diría que quien lo autorizó no tenía competencia, y quedaría indefendible por un artefacto del sistema— y que la coocupación durante un traspaso esté permitida, porque el traspaso real dura días.
 
-**Lo que falta de `M-01`:** la **persistencia** —hoy `Organigrama` recibe las asignaciones y no las lee de ninguna parte—, el **alcance de datos por dependencia**, y `RN-101` (cierre de asignación con custodias activas). Y la estructura de puestos **es de ARGOS** (`DP-001`): SIGTI consume el espejo y no crea puestos.
+**La persistencia ya está**, y es un **espejo, no un maestro**. La tabla `organizacion.AsignacionDePuestoEspejo` existe y está aplicada; `ConsultaDelOrganigrama` arma el organigrama desde ella **completo**, sin filtrar por «vigentes hoy» —porque `RN-100` resuelve a la fecha del hecho, y filtrar en SQL impediría reevaluar un expediente de febrero.
+
+**No hay endpoint de escritura, y es la decisión, no un pendiente.** `DP-001`: la estructura de puestos es de ARGOS y Talento Humano. `RN-48`: los datos de otro dueño se guardan marcados como espejo y **ninguna pantalla de SIGTI debe permitir editarlos**. Quien necesite corregir un puesto, lo corrige en ARGOS.
+
+**Un espejo envejece, y eso se mide.** La fila lleva `ConfirmadoAl` —que un maestro no necesitaría— y `GET /organigrama/antiguedad` lo expone. **Devuelve nulo cuando nunca se confirmó**, deliberadamente distinto de cero días: una integración que jamás corrió y una que corrió hace un minuto no se pueden mostrar igual. Es la peor forma de fallar, en silencio y con buena cara.
+
+**Lo que falta de `M-01`:** el **alcance de datos por dependencia**, `RN-101` (cierre de asignación con custodias activas) y **la integración que puebla el espejo** — hoy la tabla se llena sembrando, y el circuito real contra ARGOS no existe.
 
 ### `M-03` y `M-04` — la flota salió del código y `BD-03` empezó a bloquear
 
@@ -249,11 +255,15 @@ Eran tres. Salieron la flota y el padrón. El que queda no finge ser otra cosa: 
 | **El folio** | `ConsultaDeMisiones.FolioProvisional` — sale como `PROV-xxxxxx` | El circuito de rangos por delegación. El **consumo** ya está en [`SubrangoDeFolios`](campo/nucleo/Folios.ts); falta **repartirlos**, que es de `M-01` |
 | **El catálogo de restricciones médicas** | `CatalogoProvisionalDeRestricciones` | Insumo **#42** — la DNVT no tiene fuente pública |
 
-### Las validaciones de `HU-009` no las calcula el servidor
+### De las dos validaciones de `HU-009`, una ya se calcula
 
-La bandeja de autorización muestra un aviso que lo dice: la antigüedad del espejo de ARGOS y las misiones sin liquidar del solicitante necesitan `M-01` y `M-13`, que no existen.
+**La antigüedad del espejo del organigrama es real**: la bandeja la consulta a `/organigrama/antiguedad` y la muestra en la cabecera. Dejó de ser el texto fijo que no medía nada.
 
-**Una bandeja sin reparos y una bandeja que no sabe si los hay son cosas distintas**, y por eso el adaptador lo declara en lugar de devolver una lista vacía.
+**No hay umbral cableado, y es a propósito.** `RN-50` marca `umbral_advertencia_desincronizacion` como **`[C]`, por confirmar con el PO y con Talento Humano**. La pantalla dice el número de días; **quién lo considera demasiado es de la regla**, no del componente. El único caso que sí se puede juzgar sin umbral —que **nunca** se haya confirmado— es el único que sube de tono.
+
+Y en ningún caso impide autorizar: `HB1-10` corrigió justamente eso. Verificado en el navegador con los tres caminos —nueve días, nunca confirmado, y la consulta caída—: **en los tres el expediente sigue listado y autorizable**.
+
+**Lo que sigue faltando** son los reparos **por expediente** —misiones sin liquidar del solicitante—, que necesitan `M-13`. Por eso el adaptador no devuelve una lista vacía: **una bandeja sin reparos y una que no sabe si los hay son cosas distintas**.
 
 ### Cinco preguntas de la designación que bloquean
 

@@ -19,6 +19,7 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     public DbSet<FilaDeAdjunto> Adjuntos => Set<FilaDeAdjunto>();
     public DbSet<FilaDeVehiculo> Vehiculos => Set<FilaDeVehiculo>();
     public DbSet<FilaDeConductor> Conductores => Set<FilaDeConductor>();
+    public DbSet<FilaDeAsignacionDePuesto> AsignacionesDePuesto => Set<FilaDeAsignacionDePuesto>();
 
     /// <summary>
     /// ULID en binary(16) y no en texto: 16 bytes contra 26, y conserva la monotonía que
@@ -123,6 +124,23 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             transicion.HasIndex(t => t.IdDeCaptura)
                 .IsUnique()
                 .HasFilter("[IdDeCaptura] IS NOT NULL");
+        });
+
+        modelo.Entity<FilaDeAsignacionDePuesto>(asignacion =>
+        {
+            // Esquema propio y nombre que lo dice: es ESPEJO, no maestro (RN-48, DP-001).
+            // La estructura de puestos es de ARGOS; aqui no hay endpoint de escritura.
+            asignacion.ToTable("AsignacionDePuestoEspejo", schema: "organizacion");
+
+            asignacion.HasKey(a => a.Id);
+            asignacion.Property(a => a.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            asignacion.Property(a => a.Persona).HasMaxLength(64).IsRequired();
+            asignacion.Property(a => a.Puesto).HasMaxLength(64).IsRequired();
+
+            // Las dos preguntas que se hacen: quien ocupa un puesto, y que puestos tiene
+            // una persona. RN-100 resuelve las dos a la fecha del hecho.
+            asignacion.HasIndex(a => a.Puesto);
+            asignacion.HasIndex(a => a.Persona);
         });
 
         modelo.Entity<FilaDeConductor>(conductor =>
