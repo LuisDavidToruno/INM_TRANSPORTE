@@ -25,6 +25,15 @@ cd campo && npm run verificar
 | [`DiarioLocal`](nucleo/DiarioLocal.ts) | `P-1` — el dispositivo manda **transiciones**, nunca «el estado». Y `RNF-03`: lo que el servidor no acusó **sigue pendiente**, así que una sincronización cortada a la mitad no pierde nada |
 | [`Conciliacion`](nucleo/Conciliacion.ts) | [`RN-45`](../docs/01-negocio/reglas/RN-45-cero-sobrescritura-silenciosa.md) — **cero sobrescritura silenciosa**. Dos versiones distintas del mismo hecho conservan las dos y van a cola humana |
 | [`SubrangoDeFolios`](nucleo/Folios.ts) | [`RN-44`](../docs/01-negocio/reglas/RN-44-identificadores-y-folios-en-el-cliente.md) y `RNF-21` — el folio se toma **sin consultar al servidor**, y el subrango es **del dispositivo, no de la delegación** |
+| [`AlmacenSqlite`](nucleo/AlmacenSqlite.ts) | [`ADR-003`](../docs/03-arquitectura/adr/ADR-003-cliente-de-campo-instalado.md) — **fuente de verdad local, no caché**. Lo capturado sobrevive a que Android mate el proceso, que en gama baja ocurre sin avisar |
+
+### El corte del cifrado, dicho sin adornos
+
+`ADR-002` y `ADR-003` deciden **SQLCipher**, que es una compilación distinta de SQLite: se abre con `PRAGMA key` y **desde ahí todo el SQL es idéntico**. Node trae SQLite sin cifrar.
+
+Así que lo que está probado es **el esquema, las consultas y la durabilidad** — que es exactamente lo que corre en el dispositivo. Lo que **no** está probado es que el archivo quede ilegible sin la clave. Eso se verifica en el dispositivo, abriéndolo sin clave, y **no está hecho**.
+
+El corte es defendible porque la superficie que el cifrado cambia es una línea. Lo que no sería defendible es dar por probado el cifrado porque las consultas funcionan.
 
 ### La decisión que más costará entender dentro de un año
 
@@ -45,7 +54,7 @@ El caso concreto que esto atrapa: el motorista registra el retorno con 84.320 km
 | Qué | Dónde |
 |---|---|
 | **La aplicación React Native** — pantallas, cámara, GPS en segundo plano | Necesita máquina con Android SDK y Java |
-| **La persistencia SQLite cifrada** | Módulo nativo. El `DiarioLocal` de hoy guarda **en memoria** y lo dice en su propia documentación |
+| **El cifrado en reposo** | El esquema, las consultas y la durabilidad están probados; **que el archivo quede ilegible sin la clave, no**. Se verifica en el dispositivo |
 | **La asignación de subrangos** — quién los reparte, cuándo se recargan, y el aviso antes de que un dispositivo salga con el saldo bajo | El consumo ya está; **repartirlos es de `M-01`**, que no existe |
 | **Adjuntos diferidos** — ≥ 200 fotografías por dispositivo | [`ADR-004`](../docs/03-arquitectura/adr/ADR-004-adjuntos-fuera-de-la-base.md) |
 | **La cola de resolución de conflictos** | El núcleo los **detecta** (`Conciliacion`) y el servidor todavía no los recibe: hoy solo sincronizan `T-14` y `T-18`, que un dispositivo no captura dos veces. La cola es de `M-16` |

@@ -25,44 +25,40 @@ export interface TransicionCapturada {
 }
 
 /**
- * El diario de transiciones del dispositivo — la **fuente de verdad local**, no una
- * caché (`ADR-003`).
+ * Dónde vive el diario.
  *
- * ⚠️ Esta implementación guarda en memoria. La persistencia real es **SQLite cifrado
- * con SQLCipher** (`ADR-002`, `ADR-003`), y vive en el módulo nativo del cliente
- * Android. Se separa a propósito: la **regla** de qué se captura, qué queda pendiente y
- * qué se confirma es la misma con o sin disco, y así se puede probar sin dispositivo.
+ * Es un **puerto**, y existe porque el almacenamiento real —SQLite cifrado en el
+ * dispositivo— no se puede ejecutar en cualquier máquina, pero la regla de qué se
+ * captura y qué queda pendiente sí. Con esto la regla se prueba en milisegundos y el
+ * almacén se cambia sin tocarla.
  */
-export class DiarioLocal {
-  /**
-   * Indexado por identificador, no una lista.
-   *
-   * Es lo que hace **idempotente** el registro: el mismo hecho reenviado se reconoce en
-   * vez de duplicarse. El identificador nace en el dispositivo (`ADR-005`) y no cambia,
-   * así que sirve de identidad aunque el servidor nunca lo haya visto.
-   */
-  readonly #transiciones = new Map<string, TransicionCapturada>();
+export interface AlmacenDeDiario {
+  guardar(transicion: TransicionCapturada): void;
+  marcarConfirmadas(ids: readonly string[]): void;
+  pendientes(): readonly TransicionCapturada[];
+  total(): number;
+}
 
-  /**
-   * Lo que el servidor ya acusó.
-   *
-   * Se guarda **aparte del registro**, y por eso una confirmación que llega después de
-   * que el hecho se recapturó no lo pierde ni lo revive.
-   */
+/**
+ * Almacén en memoria — para probar la regla, y para nada más.
+ *
+ * ⚠️ **Pierde todo cuando el proceso muere**, y Android mata procesos sin avisar en gama
+ * baja, que es el equipo que `RNF-12` obliga a soportar. En el dispositivo va
+ * `AlmacenSqlite` o su equivalente cifrado.
+ */
+export class AlmacenEnMemoria implements AlmacenDeDiario {
+  readonly #transiciones = new Map<string, TransicionCapturada>();
   readonly #confirmadas = new Set<string>();
 
-  registrar(transicion: TransicionCapturada): void {
-    // Un hecho ya capturado no se sobrescribe con su reenvío: `RN-45` prohíbe la
-    // sobrescritura silenciosa, y aquí ni siquiera hace falta decidir — es el mismo
-    // hecho, con el mismo identificador, y el primero ya quedó.
+  guardar(transicion: TransicionCapturada): void {
+    // `RN-45`: el primero que quedó, queda. Un reenvío no sobrescribe el hecho original.
     if (this.#transiciones.has(transicion.idTransicion)) return;
 
     this.#transiciones.set(transicion.idTransicion, transicion);
   }
 
-  /** Lo que el servidor acusó. Lo que no venga en esta lista **sigue pendiente**. */
-  confirmar(idsAcusados: readonly string[]): void {
-    for (const id of idsAcusados) this.#confirmadas.add(id);
+  marcarConfirmadas(ids: readonly string[]): void {
+    for (const id of ids) this.#confirmadas.add(id);
   }
 
   pendientes(): readonly TransicionCapturada[] {
@@ -71,8 +67,41 @@ export class DiarioLocal {
     );
   }
 
-  /** Todo lo capturado, confirmado o no. El diario **no se vacía al sincronizar**. */
   total(): number {
     return this.#transiciones.size;
+  }
+}
+
+/**
+ * El diario de transiciones del dispositivo — la **fuente de verdad local**, no una
+ * caché (`ADR-003`).
+ *
+ * La regla vive acá; **dónde se guarda es del almacén**. Esa separación es lo que permite
+ * probar en cualquier máquina lo que en el dispositivo corre sobre **SQLite cifrado con
+ * SQLCipher** (`ADR-002`, `ADR-003`).
+ */
+export class DiarioLocal {
+  readonly #almacen: AlmacenDeDiario;
+
+  constructor(almacen: AlmacenDeDiario = new AlmacenEnMemoria()) {
+    this.#almacen = almacen;
+  }
+
+  registrar(transicion: TransicionCapturada): void {
+    this.#almacen.guardar(transicion);
+  }
+
+  /** Lo que el servidor acusó. Lo que no venga en esta lista **sigue pendiente**. */
+  confirmar(idsAcusados: readonly string[]): void {
+    this.#almacen.marcarConfirmadas(idsAcusados);
+  }
+
+  pendientes(): readonly TransicionCapturada[] {
+    return this.#almacen.pendientes();
+  }
+
+  /** Todo lo capturado, confirmado o no. El diario **no se vacía al sincronizar**. */
+  total(): number {
+    return this.#almacen.total();
   }
 }

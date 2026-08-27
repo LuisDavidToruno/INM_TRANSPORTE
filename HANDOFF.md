@@ -28,7 +28,7 @@ Con `BD-01`, `BD-02`, `BD-03`, `BD-06` y `BD-12` evaluándose de verdad, la cadu
 | 3 — Requisitos | 18 casos de uso, **150 historias** con Gherkin, 21 no funcionales, backlog | ✅ Revisado y corregido en `3f4ced4` |
 | 4 — Diseño | Modelo de datos bitemporal con 43 entidades, 126 pantallas, **41 maquetadas** | ✅ Revisado y corregido en `3f4ced4` |
 
-**406 documentos de análisis · 4,177 líneas de C# de producción y 1,965 de pruebas · 2,558 de TypeScript propio · **74 pruebas de backend y 11 del núcleo de campo** · 64 commits.** Las de C# excluyen las migraciones generadas; las de TypeScript, el sistema de diseño de LOKI. Las reglas de negocio son **103**.
+**406 documentos de análisis · 4,177 líneas de C# de producción y 1,965 de pruebas · 2,558 de TypeScript propio · **74 pruebas de backend y 14 del núcleo de campo** · 65 commits.** Las de C# excluyen las migraciones generadas; las de TypeScript, el sistema de diseño de LOKI. Las reglas de negocio son **103**.
 
 Las líneas de C# excluyen las migraciones de EF, que son generadas. El TypeScript excluye el sistema de diseño de LOKI, que se copió, no se escribió.
 
@@ -102,13 +102,14 @@ SAC **no tiene lista de exclusiones**: es activo / evaluación / apagado, y de a
 
 ### El cliente de campo arrancó por el núcleo, no por la pantalla
 
-Primera línea de código de [`campo/`](campo/README.md). **No es la aplicación Android** — es la lógica que `RNF-03` no perdona, en TypeScript puro, con **11 pruebas** que corren en cualquier máquina con Node.
+Primera línea de código de [`campo/`](campo/README.md). **No es la aplicación Android** — es la lógica que `RNF-03` no perdona, en TypeScript puro, con **14 pruebas** que corren en cualquier máquina con Node.
 
 | Pieza | Qué defiende |
 |---|---|
 | [`DiarioLocal`](campo/nucleo/DiarioLocal.ts) | `P-1` — el dispositivo manda **transiciones**, nunca «el estado». Y lo que el servidor no acusó **sigue pendiente**: la sincronización se corta a la mitad más veces de las que termina |
 | [`Conciliacion`](campo/nucleo/Conciliacion.ts) | [`RN-45`](docs/01-negocio/reglas/RN-45-cero-sobrescritura-silenciosa.md) — **cero sobrescritura silenciosa**. Las dos versiones se conservan y van a cola humana |
 | [`SubrangoDeFolios`](campo/nucleo/Folios.ts) | [`RN-44`](docs/01-negocio/reglas/RN-44-identificadores-y-folios-en-el-cliente.md) y `RNF-21` — cierra `HB34-52`, que era **crítico**: dos dispositivos de Tocoa sin red tomaban el mismo folio |
+| [`AlmacenSqlite`](campo/nucleo/AlmacenSqlite.ts) | [`ADR-003`](docs/03-arquitectura/adr/ADR-003-cliente-de-campo-instalado.md) — **fuente de verdad local, no caché**: lo capturado sobrevive a que Android mate el proceso, que en gama baja ocurre sin avisar |
 
 **Por qué se separó así, y no es solo circunstancia.** Esta máquina no tiene Android SDK, ni emulador, ni Java: una app React Native no se puede compilar ni ejecutar aquí, y escribirla entera habría producido cientos de líneas que nadie vio funcionar. Pero además **la regla de qué se captura, qué queda pendiente y qué es conflicto es la misma con o sin disco** — separada del almacenamiento se prueba en 70 ms en vez de en un dispositivo.
 
@@ -116,7 +117,7 @@ Primera línea de código de [`campo/`](campo/README.md). **No es la aplicación
 cd campo && npm run verificar
 ```
 
-**Lo que falta**, con lo que más pesa arriba: la **aplicación React Native** —necesita máquina con SDK—, la **persistencia SQLite cifrada** —hoy el diario guarda en memoria y lo dice en su propia documentación—, y los **adjuntos diferidos** de `ADR-004`. **El endpoint de sincronización ya existe** — ver abajo.
+**Lo que falta**, con lo que más pesa arriba: la **aplicación React Native** —necesita máquina con SDK—, el **cifrado en reposo** —el esquema y la durabilidad están probados; que el archivo quede ilegible sin la clave, no—, y los **adjuntos diferidos** de `ADR-004`. **El endpoint de sincronización ya existe** — ver abajo.
 
 ### `POST /sincronizacion` — el servidor ya recibe lo que el dispositivo capturó sin red
 
