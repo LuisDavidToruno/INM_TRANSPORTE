@@ -21,6 +21,31 @@ public class OrdenDeMisionPruebas
     private static readonly IdPersona Encargado = new("P-ENCARGADO");
     private static readonly IdPersona Motorista = new("P-MOTORISTA");
 
+    /// <summary>Lo que se pidió movilizar. Lo mismo para todas: no es lo que estas pruebas ejercen.</summary>
+    private static readonly DatosDeLaSolicitud Solicitud = new(
+        Dependencia: "Delegación de Choluteca",
+        ObjetoDelTraslado: "Traslado de personal y equipo",
+        Destino: "Choluteca",
+        Ventana: Asignacion.Ventana);
+
+    [Fact]
+    public void El_expediente_conserva_lo_que_se_pidio_movilizar()
+    {
+        // El sistema no gestiona «viajes de personas»: gestiona movilizaciones de
+        // recursos. Sin el objeto del traslado y la ventana, el expediente es una
+        // máquina de estados sin nada que autorizar — y `BD-09` no tendría contra qué
+        // verificar la compatibilidad.
+        var solicitud = new DatosDeLaSolicitud(
+            Dependencia: "Delegación de Choluteca",
+            ObjetoDelTraslado: "Traslado de 3 servidores y equipo de cómputo",
+            Destino: "Choluteca",
+            Ventana: new VentanaDeMision(new DateOnly(2026, 3, 20), new DateOnly(2026, 3, 21), 1));
+
+        var expediente = OrdenDeMision.Crear(Ulid.NewUlid(), Asistente, Jefe, solicitud, Momento);
+
+        Assert.Equal(solicitud, expediente.Solicitud);
+    }
+
     [Fact]
     public void Un_expediente_recien_creado_esta_en_borrador()
     {
@@ -28,6 +53,7 @@ public class OrdenDeMisionPruebas
             id: Ulid.NewUlid(),
             capturadaPor: Asistente,
             solicitanteDeDerecho: Jefe,
+            solicitud: Solicitud,
             momento: Momento);
 
         Assert.Equal(EstadoDeMision.Borrador, expediente.Estado);
@@ -39,13 +65,29 @@ public class OrdenDeMisionPruebas
         // El caso cotidiano que BD-01 no cubría antes del hallazgo HB3-01: la asistente
         // captura la solicitud para su jefe. Formalmente el jefe no creó ni envió nada
         // — pero es el solicitante, y la incompatibilidad I-01 sí se está violando.
-        var expediente = OrdenDeMision.Crear(Ulid.NewUlid(), Asistente, Jefe, Momento);
+        var expediente = OrdenDeMision.Crear(Ulid.NewUlid(), Asistente, Jefe, Solicitud, Momento);
         expediente.Enviar(Asistente, Momento);
 
         var bloqueo = Assert.Throws<BloqueoDuro>(() => expediente.Aprobar(Jefe, Momento));
 
         Assert.Equal("BD-01", bloqueo.Precondicion);
         Assert.Equal(EstadoDeMision.Solicitada, expediente.Estado);
+    }
+
+    [Fact]
+    public void El_motivo_de_la_autorizacion_queda_en_el_diario()
+    {
+        // `HU-009` exige que la constancia diga SOBRE QUÉ DATO se autorizó, y esa
+        // constancia se imprime en la orden. Un motivo que el sistema recibe y descarta
+        // deja a la jefatura respondiendo por una decisión cuya justificación no existe.
+        const string motivo =
+            "Autorizo con estructura de 98 horas de antigüedad. Verificada la compatibilidad del pick-up.";
+
+        var expediente = OrdenDeMision.Crear(Ulid.NewUlid(), Asistente, Jefe, Solicitud, Momento);
+        expediente.Enviar(Asistente, Momento);
+        expediente.Aprobar(Jefatura, Momento, motivo);
+
+        Assert.Equal(motivo, expediente.Diario.Single(t => t.Id == "T-05").Motivo);
     }
 
     [Fact]
@@ -107,6 +149,7 @@ public class OrdenDeMisionPruebas
             original.Id,
             original.CapturadaPor,
             original.SolicitanteDeDerecho,
+            original.Solicitud,
             original.Diario);
 
         Assert.Equal(original.Id, reconstruido.Id);
@@ -133,7 +176,7 @@ public class OrdenDeMisionPruebas
     /// <summary>Un expediente aprobado por la jefatura, que no es ni capturador ni solicitante.</summary>
     private static OrdenDeMision Aprobada()
     {
-        var expediente = OrdenDeMision.Crear(Ulid.NewUlid(), Asistente, Jefe, Momento);
+        var expediente = OrdenDeMision.Crear(Ulid.NewUlid(), Asistente, Jefe, Solicitud, Momento);
         expediente.Enviar(Asistente, Momento);
         expediente.Aprobar(Jefatura, Momento);
         return expediente;

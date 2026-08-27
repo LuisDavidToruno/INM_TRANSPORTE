@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
 using Sigti.Dominio.Organizacion;
 
@@ -26,6 +27,11 @@ public sealed class ExpedientesDeMision(SigtiDbContext contexto)
             fila.Id,
             new IdPersona(fila.CapturadaPor),
             new IdPersona(fila.SolicitanteDeDerecho),
+            new DatosDeLaSolicitud(
+                fila.Dependencia,
+                fila.ObjetoDelTraslado,
+                fila.Destino,
+                new VentanaDeMision(fila.Salida, fila.Retorno, fila.HolguraDias)),
             fila.Transiciones
                 .OrderBy(t => t.Orden)
                 .Select(t => new Transicion(
@@ -54,7 +60,13 @@ public sealed class ExpedientesDeMision(SigtiDbContext contexto)
             {
                 Id = expediente.Id,
                 CapturadaPor = expediente.CapturadaPor.Valor,
-                SolicitanteDeDerecho = expediente.SolicitanteDeDerecho.Valor
+                SolicitanteDeDerecho = expediente.SolicitanteDeDerecho.Valor,
+                Dependencia = expediente.Solicitud.Dependencia,
+                ObjetoDelTraslado = expediente.Solicitud.ObjetoDelTraslado,
+                Destino = expediente.Solicitud.Destino,
+                Salida = expediente.Solicitud.Ventana.Salida,
+                Retorno = expediente.Solicitud.Ventana.Retorno,
+                HolguraDias = expediente.Solicitud.Ventana.HolguraDias
             };
             contexto.Expedientes.Add(fila);
         }

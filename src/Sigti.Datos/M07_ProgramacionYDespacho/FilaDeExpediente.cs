@@ -14,6 +14,18 @@ public sealed class FilaDeExpediente
     public required Ulid Id { get; init; }
     public required string CapturadaPor { get; init; }
     public required string SolicitanteDeDerecho { get; init; }
+
+    /// <summary>Qué se pidió movilizar. Ver <c>DatosDeLaSolicitud</c> en el dominio.</summary>
+    public required string Dependencia { get; init; }
+
+    public required string ObjetoDelTraslado { get; init; }
+    public required string Destino { get; init; }
+
+    /// <summary>La ventana declarada por quien pide, no por quien programa.</summary>
+    public required DateOnly Salida { get; init; }
+
+    public required DateOnly Retorno { get; init; }
+    public required int HolguraDias { get; init; }
     public List<FilaDeTransicion> Transiciones { get; } = [];
 }
 

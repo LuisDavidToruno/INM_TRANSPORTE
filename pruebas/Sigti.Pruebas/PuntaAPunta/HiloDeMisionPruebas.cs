@@ -46,7 +46,13 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
             Id = id,
             CapturadaPor = "P-ASISTENTE",
             SolicitanteDeDerecho = "P-JEFE",
-            Momento
+            Dependencia = "Delegación de Choluteca",
+            ObjetoDelTraslado = "Traslado de personal y equipo",
+            Destino = "Choluteca",
+            Salida = new DateOnly(2026, 3, 12),
+            Retorno = new DateOnly(2026, 3, 14),
+            HolguraDias = 1,
+            Momento,
         });
         Assert.Equal(HttpStatusCode.Created, creacion.StatusCode);
 
@@ -105,6 +111,56 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
             "La bitácora del hilo completo no verifica: la cadena está rota.");
     }
 
+    [Fact]
+    public async Task Omitir_la_clase_normativa_es_error_de_peticion_y_no_una_moto_por_omision()
+    {
+        // Sin este rechazo, `ClaseNormativa` ausente se deserializa como el valor 0 del
+        // enumerado —`Motocicleta`— y el servidor evalúa `BD-02` contra un vehículo que
+        // el cliente nunca declaró. Bloquearía, que es la dirección segura, pero con un
+        // mensaje que no tiene nada que ver con lo que pasó.
+        var id = Ulid.NewUlid().ToString();
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        await cliente.PostAsJsonAsync("/misiones", new
+        {
+            Id = id,
+            CapturadaPor = "P-ASISTENTE",
+            SolicitanteDeDerecho = "P-JEFE",
+            Dependencia = "Delegación de Choluteca",
+            ObjetoDelTraslado = "Traslado de personal y equipo",
+            Destino = "Choluteca",
+            Salida = new DateOnly(2026, 3, 12),
+            Retorno = new DateOnly(2026, 3, 14),
+            HolguraDias = 1,
+            Momento,
+        });
+        await Transicionar(cliente, id, "enviar", "P-ASISTENTE");
+        await Transicionar(cliente, id, "aprobar", "P-JEFATURA");
+
+        var respuesta = await cliente.PostAsJsonAsync($"/misiones/{id}/programar", new
+        {
+            Ejecuta = "P-TRANSPORTE",
+            Momento,
+            Salida = new DateOnly(2026, 3, 12),
+            Retorno = new DateOnly(2026, 3, 14),
+            HolguraDias = 1,
+            NumeroDeLicencia = "0801-1990-01234",
+            CategoriaDeLicencia = "B",
+            VenceLicencia = new DateOnly(2027, 1, 1),
+            TipoDeVehiculo = "PICKUP",
+            // ClaseNormativa ausente a propósito.
+            PesoBrutoKg = 2_800,
+            CapacidadPasajeros = 5,
+            LlevaRemolque = false,
+            TieneConstanciaSustitutaDePlaca = true,
+            VenceMatricula = new DateOnly(2027, 1, 1),
+            IdentificacionInstitucionalVerificada = true,
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, respuesta.StatusCode);
+    }
+
     /// <summary>
     /// Programar y despachar llevan la asignación. La <b>placa va nula a propósito</b>:
     /// sin placa metálica es estado válido y no debe bloquear (`BD-03`).
@@ -129,6 +185,10 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
             VenceLicencia = venceLicencia,
             RestriccionesDeLicencia = (string[]?)null,
             TipoDeVehiculo = "PICKUP",
+            // La clase normativa es la del Artículo 4, no el nombre del catálogo
+            // institucional: `PICKUP` es texto libre de la institución y `Automovil`
+            // es lo que la matriz resuelve.
+            ClaseNormativa = "Automovil",
             PesoBrutoKg = 2_800,
             CapacidadPasajeros = 5,
             LlevaRemolque = false,

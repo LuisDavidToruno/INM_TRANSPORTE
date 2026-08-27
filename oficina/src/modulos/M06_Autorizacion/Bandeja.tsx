@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ClipboardCheck, CircleAlert, ShieldBan, TriangleAlert } from "lucide-react";
@@ -145,8 +145,14 @@ const COLUMNAS: ColumnaDef<Expediente>[] = [
     cabecera: 'Qué se moviliza',
     celda: (e) => (
       <div className="tw:flex tw:flex-col">
-        <span className="tw:line-clamp-1">{e.objetoDelTraslado}</span>
-        <span className="tw:text-xs tw:text-[var(--txt-2)]">Destino: {e.destino}</span>
+        {/* Un campo vacío se dice, no se deja en blanco: «Destino:» a secas parece
+            un error de la pantalla, y esconde que el dato falta en el expediente. */}
+        <span className="tw:line-clamp-1">
+          {e.objetoDelTraslado || <SinDato>Sin objeto declarado</SinDato>}
+        </span>
+        <span className="tw:text-xs tw:text-[var(--txt-2)]">
+          {e.destino ? `Destino: ${e.destino}` : <SinDato>Sin destino declarado</SinDato>}
+        </span>
       </div>
     ),
   },
@@ -164,6 +170,17 @@ const COLUMNAS: ColumnaDef<Expediente>[] = [
     valorOrden: (e) => e.salidaPrevista,
   },
 ];
+
+/**
+ * Un dato que el expediente no trae.
+ *
+ * En cursiva y con el tono secundario para que se lea como <b>ausencia declarada</b>
+ * y no como valor. Un guion o un espacio en blanco dejan al usuario preguntándose si
+ * el sistema perdió el dato o si nunca lo hubo.
+ */
+function SinDato({ children }: { children: ReactNode }): ReactElement {
+  return <span className="tw:italic tw:text-[var(--txt-2)]">{children}</span>;
+}
 
 /**
  * Bloqueo y advertencia no son grados de lo mismo, y por eso no comparten forma.

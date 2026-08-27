@@ -32,3 +32,6 @@ desktop.ini
 
 # Salida de Vite en la oficina
 oficina/dist/
+
+# Variables locales del cliente de oficina
+oficina/.env.local

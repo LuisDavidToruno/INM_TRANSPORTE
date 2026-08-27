@@ -16,12 +16,17 @@ public sealed class OrdenDeMision
 {
     private readonly List<Transicion> _diario = [];
 
-    private OrdenDeMision(Ulid id, IdPersona capturadaPor, IdPersona solicitanteDeDerecho)
+    private OrdenDeMision(
+        Ulid id, IdPersona capturadaPor, IdPersona solicitanteDeDerecho, DatosDeLaSolicitud solicitud)
     {
         Id = id;
         CapturadaPor = capturadaPor;
         SolicitanteDeDerecho = solicitanteDeDerecho;
+        Solicitud = solicitud;
     }
+
+    /// <summary>Qué se pidió movilizar, y cuándo. Lo declara quien pide, no quien programa.</summary>
+    public DatosDeLaSolicitud Solicitud { get; }
 
     /// <summary>
     /// Identificador ULID generado en el cliente (`ADR-005`). Nace con el expediente,
@@ -56,9 +61,10 @@ public sealed class OrdenDeMision
         Ulid id,
         IdPersona capturadaPor,
         IdPersona solicitanteDeDerecho,
+        DatosDeLaSolicitud solicitud,
         DateTimeOffset momento)
     {
-        var expediente = new OrdenDeMision(id, capturadaPor, solicitanteDeDerecho);
+        var expediente = new OrdenDeMision(id, capturadaPor, solicitanteDeDerecho, solicitud);
 
         expediente._diario.Add(new Transicion(
             Id: "T-01",
@@ -79,9 +85,10 @@ public sealed class OrdenDeMision
         Ulid id,
         IdPersona capturadaPor,
         IdPersona solicitanteDeDerecho,
+        DatosDeLaSolicitud solicitud,
         IEnumerable<Transicion> diario)
     {
-        var expediente = new OrdenDeMision(id, capturadaPor, solicitanteDeDerecho);
+        var expediente = new OrdenDeMision(id, capturadaPor, solicitanteDeDerecho, solicitud);
         expediente._diario.AddRange(diario);
 
         if (expediente._diario.Count == 0)
@@ -102,12 +109,18 @@ public sealed class OrdenDeMision
     /// <summary>
     /// `T-05` — SOLICITADA → APROBADA. Evalúa `BD-01`.
     /// </summary>
-    public void Aprobar(IdPersona ejecuta, DateTimeOffset momento)
+    /// <param name="motivo">
+    /// Sobre qué dato se autorizó. `T-05` no lo exige siempre, pero cuando la jefatura
+    /// acusó una advertencia —espejo antiguo, misiones sin liquidar— <b>es la constancia
+    /// que se imprime en la orden</b> (`HU-009`). Recibirlo y descartarlo dejaría a quien
+    /// autoriza respondiendo por una decisión cuya justificación no existe.
+    /// </param>
+    public void Aprobar(IdPersona ejecuta, DateTimeOffset momento, string? motivo = null)
     {
         ExigirEstado(EstadoDeMision.Solicitada, "T-05");
         ExigirSegregacionDeAutorizacion(ejecuta);
 
-        Registrar("T-05", EstadoDeMision.Aprobada, ejecuta, momento, motivo: null);
+        Registrar("T-05", EstadoDeMision.Aprobada, ejecuta, momento, motivo);
     }
 
     /// <summary>`T-08` — APROBADA → PROGRAMADA. Aquí se reserva vehículo y motorista (`EF-01`).</summary>

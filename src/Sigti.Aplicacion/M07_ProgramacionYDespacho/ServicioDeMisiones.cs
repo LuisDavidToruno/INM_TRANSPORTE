@@ -24,10 +24,11 @@ public sealed class ServicioDeMisiones(SigtiDbContext contexto)
         Ulid id,
         IdPersona capturadaPor,
         IdPersona solicitanteDeDerecho,
+        DatosDeLaSolicitud solicitud,
         DateTimeOffset momento,
         CancellationToken cancelacion = default)
     {
-        var expediente = OrdenDeMision.Crear(id, capturadaPor, solicitanteDeDerecho, momento);
+        var expediente = OrdenDeMision.Crear(id, capturadaPor, solicitanteDeDerecho, solicitud, momento);
         await ConfirmarAsync(expediente, momento, cancelacion);
         return expediente.Estado;
     }

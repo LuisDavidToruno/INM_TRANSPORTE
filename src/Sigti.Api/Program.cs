@@ -26,12 +26,22 @@ constructor.Services.ConfigureHttpJsonOptions(opciones =>
 
 constructor.Services.AddScoped<ServicioDeMisiones>();
 constructor.Services.AddScoped<ServicioDeParametros>();
+constructor.Services.AddScoped<ConsultaDeMisiones>();
 constructor.Services.AddSingleton<IParametrosDeLaInstitucion, ParametrosProvisionales>();
+// El cliente de oficina corre en otro origen durante el desarrollo. En producción
+// se sirve desde el mismo host y esto sobra — por eso solo se activa en Development.
+constructor.Services.AddCors(o => o.AddDefaultPolicy(p =>
+    p.WithOrigins("http://localhost:5180").AllowAnyHeader().AllowAnyMethod()));
+
 constructor.Services.AddOpenApi();
 
 var app = constructor.Build();
 
-if (app.Environment.IsDevelopment()) app.MapOpenApi();
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+    app.UseCors();
+}
 
 // Las precondiciones de bloqueo duro son negativas del negocio, no fallas del sistema:
 // 409 con el identificador de la precondición, para que el cliente pueda decir CUÁL
@@ -70,13 +80,26 @@ misiones.MapPost("/", async (CrearMision peticion, ServicioDeMisiones servicio) 
         Ulid.Parse(peticion.Id),
         new IdPersona(peticion.CapturadaPor),
         new IdPersona(peticion.SolicitanteDeDerecho),
+        new DatosDeLaSolicitud(
+            peticion.Dependencia,
+            peticion.ObjetoDelTraslado,
+            peticion.Destino,
+            new VentanaDeMision(peticion.Salida, peticion.Retorno, peticion.HolguraDias)),
         peticion.Momento);
 
     return Results.Created($"/misiones/{peticion.Id}", new { peticion.Id, estado = estado.ToString() });
 });
 
+misiones.MapGet("/", async (EstadoDeMision? estado, ConsultaDeMisiones consulta) =>
+    Results.Ok(await consulta.PorEstadoAsync(estado ?? EstadoDeMision.Solicitada)));
+
+misiones.MapGet("/{id}", async (string id, ConsultaDeMisiones consulta) =>
+    await consulta.PorIdAsync(Ulid.Parse(id)) is { } vista
+        ? Results.Ok(vista)
+        : Results.NotFound(new { mensaje = $"No existe el expediente {id}." }));
+
 Transicion("enviar", (e, quien, cuando) => e.Enviar(quien, cuando));
-Transicion("aprobar", (e, quien, cuando) => e.Aprobar(quien, cuando));
+TransicionConMotivo("aprobar", (e, quien, cuando, motivo) => e.Aprobar(quien, cuando, motivo));
 Transicion("iniciar-ruta", (e, quien, cuando) => e.IniciarRuta(quien, cuando));
 Transicion("retornar", (e, quien, cuando) => e.Retornar(quien, cuando));
 Transicion("liquidar", (e, quien, cuando) => e.Liquidar(quien, cuando));
@@ -135,6 +158,22 @@ void ConAsignacion(
     {
         var ventana = new VentanaDeMision(peticion.Salida, peticion.Retorno, peticion.HolguraDias);
 
+        // La clase normativa NO tiene valor por omisión razonable. Ausente, el
+        // enumerado vale 0 —`Motocicleta`— y `BD-02` se evaluaría contra un vehículo
+        // que el cliente nunca declaró: bloquearía, que es la dirección segura, pero
+        // con un mensaje que no tiene nada que ver con lo que pasó.
+        if (peticion.ClaseNormativa is not { } clase)
+        {
+            return Results.BadRequest(new
+            {
+                campo = "claseNormativa",
+                mensaje =
+                    "Declare la clase normativa del vehículo: Motocicleta, TricicloCuadriciclo, " +
+                    "Automovil, Camion o Autobus. Es lo que resuelve la matriz licencia↔vehículo " +
+                    "del Artículo 4, y no se deduce del tipo de vehículo del catálogo institucional.",
+            });
+        }
+
         // Los parámetros se resuelven a la FECHA DEL HECHO, no a la de captura (P-4).
         var matriz = parametros.MatrizVigenteAl(ventana.Salida);
         var politica = parametros.PoliticaVigenteAl(ventana.Salida);
@@ -142,7 +181,7 @@ void ConAsignacion(
         var asignacion = new AsignacionDeMision(
             new Licencia(peticion.NumeroDeLicencia, peticion.CategoriaDeLicencia,
                 peticion.VenceLicencia, peticion.RestriccionesDeLicencia ?? []),
-            new FichaTecnica(peticion.TipoDeVehiculo, peticion.ClaseNormativa, peticion.PesoBrutoKg,
+            new FichaTecnica(peticion.TipoDeVehiculo, clase, peticion.PesoBrutoKg,
                 peticion.CapacidadPasajeros, peticion.LlevaRemolque),
             new DocumentacionDelVehiculo
             {
@@ -164,6 +203,19 @@ void ConAsignacion(
         return Results.Ok(new { id, estado = estado.ToString() });
     });
 
+void TransicionConMotivo(
+    string ruta,
+    Action<OrdenDeMision, IdPersona, DateTimeOffset, string?> aplicar) =>
+    misiones.MapPost($"/{{id}}/{ruta}", async (string id, EjecutarTransicion peticion, ServicioDeMisiones servicio) =>
+    {
+        var estado = await servicio.TransicionarAsync(
+            Ulid.Parse(id),
+            expediente => aplicar(expediente, new IdPersona(peticion.Ejecuta), peticion.Momento, peticion.Motivo),
+            peticion.Momento);
+
+        return Results.Ok(new { id, estado = estado.ToString() });
+    });
+
 void Transicion(string ruta, Action<OrdenDeMision, IdPersona, DateTimeOffset> aplicar) =>
     misiones.MapPost($"/{{id}}/{ruta}", async (string id, EjecutarTransicion peticion, ServicioDeMisiones servicio) =>
     {
@@ -176,13 +228,22 @@ void Transicion(string ruta, Action<OrdenDeMision, IdPersona, DateTimeOffset> ap
     });
 
 internal sealed record CrearMision(
-    string Id, string CapturadaPor, string SolicitanteDeDerecho, DateTimeOffset Momento);
+    string Id,
+    string CapturadaPor,
+    string SolicitanteDeDerecho,
+    string Dependencia,
+    string ObjetoDelTraslado,
+    string Destino,
+    DateOnly Salida,
+    DateOnly Retorno,
+    int HolguraDias,
+    DateTimeOffset Momento);
 
 /// <summary>
 /// El momento lo declara el cliente, no lo inventa el servidor: puede venir de un
 /// dispositivo que capturó el hecho hace cuatro días sin señal (`ADR-007`).
 /// </summary>
-internal sealed record EjecutarTransicion(string Ejecuta, DateTimeOffset Momento);
+internal sealed record EjecutarTransicion(string Ejecuta, DateTimeOffset Momento, string? Motivo = null);
 
 /// <summary>
 /// Programar y despachar. La <b>placa es opcional</b>: sin placa metálica es un estado
@@ -199,7 +260,8 @@ internal sealed record AsignarYTransicionar(
     DateOnly VenceLicencia,
     IReadOnlyList<string>? RestriccionesDeLicencia,
     string TipoDeVehiculo,
-    ClaseNormativa ClaseNormativa,
+    /// <summary>Obligatoria. Sin ella la matriz se resolvería contra una clase que nadie declaró.</summary>
+    ClaseNormativa? ClaseNormativa,
     int PesoBrutoKg,
     int CapacidadPasajeros,
     bool LlevaRemolque,

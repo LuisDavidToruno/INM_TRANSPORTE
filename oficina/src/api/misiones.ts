@@ -1,4 +1,4 @@
-import type { Expediente } from '../dominio/mision';
+import type { Expediente, Transicion } from '../dominio/mision';
 import { expedientesDeMuestra } from './muestra';
 
 /**
@@ -47,10 +47,53 @@ async function pedir<T>(ruta: string, opciones?: RequestInit): Promise<T> {
   return (await respuesta.json()) as T;
 }
 
+/**
+ * Lo que el servidor devuelve hoy.
+ *
+ * <b>No trae `validaciones`</b>: el circuito de `HU-009` —antigüedad del espejo,
+ * misiones sin liquidar del solicitante— vive en `M-01` y `M-13`, que no existen.
+ * El adaptador lo dice en vez de fingir una lista vacía, porque una bandeja sin
+ * reparos y una bandeja que no sabe si los hay son cosas distintas.
+ */
+interface ExpedienteDelServidor {
+  id: string;
+  folio: string;
+  estado: Expediente['estado'];
+  capturadaPor: string;
+  solicitanteDeDerecho: string;
+  dependencia: string;
+  objetoDelTraslado: string;
+  destino: string;
+  salidaPrevista: string;
+  retornoPrevisto: string;
+  holguraDias: number;
+  diario: Transicion[];
+}
+
+const alExpediente = (s: ExpedienteDelServidor): Expediente => ({
+  ...s,
+  // Las fechas del servidor son DateOnly. Se llevan a mediodía local para que
+  // formatearlas no las corra un día por el desfase de UTC−6 (`ADR-007`).
+  salidaPrevista: `${s.salidaPrevista}T12:00:00`,
+  retornoPrevisto: `${s.retornoPrevisto}T12:00:00`,
+  validaciones: [
+    {
+      clase: 'advertencia',
+      regla: 'M-01',
+      titulo: 'Las validaciones de competencia todavía no las calcula el servidor',
+      detalle:
+        'La antigüedad del espejo de ARGOS y las misiones sin liquidar del solicitante ' +
+        'necesitan M-01 y M-13, que no están construidos. Lo que ve acá es el expediente, ' +
+        'no el juicio del sistema sobre él.',
+    },
+  ],
+});
+
 /** Los expedientes que esperan pronunciamiento de esta jefatura. */
 export async function bandejaDeAutorizacion(): Promise<Expediente[]> {
   if (!BASE) return conRetardo(expedientesDeMuestra());
-  return pedir<Expediente[]>('/misiones?estado=Solicitada');
+  const crudos = await pedir<ExpedienteDelServidor[]>('/misiones?estado=Solicitada');
+  return crudos.map(alExpediente);
 }
 
 export async function expediente(id: string): Promise<Expediente> {
@@ -59,7 +102,7 @@ export async function expediente(id: string): Promise<Expediente> {
     if (!encontrado) throw new Error(`No existe el expediente ${id}.`);
     return conRetardo(encontrado);
   }
-  return pedir<Expediente>(`/misiones/${id}`);
+  return alExpediente(await pedir<ExpedienteDelServidor>(`/misiones/${id}`));
 }
 
 /**
