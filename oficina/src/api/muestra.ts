@@ -125,5 +125,6 @@ export function expedientesDeMuestra(): Expediente[] {
 }
 
 function transicion(id: string, destino: Expediente['estado'], ejecuta: string, momento: string) {
-  return { id, destino, ejecuta, momento, motivo: null };
+  // Ninguna de la muestra reserva: son transiciones de captura y autorizacion.
+  return { id, destino, ejecuta, momento, motivo: null, vehiculoTomado: null, conductorTomado: null };
 }

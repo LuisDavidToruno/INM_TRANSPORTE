@@ -409,9 +409,17 @@ misiones.MapPost("/{id}/anular-programada", async (
 // reservado y volver a tomar ahí duplicaría la reserva sin liberar la anterior.
 // `BD-11` sólo la evalúa `T-08`: es la que toma. `T-12` despacha sobre lo ya reservado,
 // y volver a comprobar el solape ahí chocaría contra la reserva de la propia misión.
-ConAsignacion("programar", (e, quien, a, m, p, cuando, recursos, reservas) =>
+ConAsignacion("programar", (e, quien, a, m, p, cuando, recursos, reservas, _) =>
     e.Programar(quien, a, m, p, cuando, recursos, reservas));
-ConAsignacion("despachar", (e, quien, a, m, p, cuando, _, __) => e.Despachar(quien, a, m, p, cuando));
+ConAsignacion("despachar", (e, quien, a, m, p, cuando, _, __, ___) =>
+    e.Despachar(quien, a, m, p, cuando));
+
+// `T-10` — cambiar el vehículo o quien conduce SIN soltar la misión. Comparte la
+// resolución de recursos con programar y despachar: es la misma verificación de que el
+// identificador existe y la misma construcción de la asignación contra la que se evalúan
+// `BD-02` y `BD-03`. Lo único propio es el motivo, y por eso viaja en la misma petición.
+ConAsignacion("reasignar", (e, quien, a, m, p, cuando, recursos, reservas, peticion) =>
+    e.Reasignar(quien, a, peticion.Motivo, peticion.Comentario, m, p, cuando, recursos, reservas));
 
 // M-16 — Donde aterriza lo que el dispositivo capturó sin red.
 //
@@ -539,7 +547,7 @@ return;
 
 void ConAsignacion(
     string ruta,
-    Action<OrdenDeMision, IdPersona, AsignacionDeMision, MatrizDeLicencias, PoliticaDeDocumentacion, DateTimeOffset, RecursosTomados?, IReadOnlyList<ReservaDeRecurso>?> aplicar) =>
+    Action<OrdenDeMision, IdPersona, AsignacionDeMision, MatrizDeLicencias, PoliticaDeDocumentacion, DateTimeOffset, RecursosTomados?, IReadOnlyList<ReservaDeRecurso>?, AsignarYTransicionar> aplicar) =>
     misiones.MapPost($"/{{id}}/{ruta}", async (
         string id,
         AsignarYTransicionar peticion,
@@ -585,7 +593,8 @@ void ConAsignacion(
                 var salida = expediente.Solicitud.Ventana.Salida;
                 aplicar(expediente, new IdPersona(peticion.Ejecuta), asignacion,
                         parametros.MatrizVigenteAl(salida), parametros.PoliticaVigenteAl(salida),
-                        peticion.Momento, new RecursosTomados(idVehiculo, idConductor), reservas);
+                        peticion.Momento, new RecursosTomados(idVehiculo, idConductor), reservas,
+                        peticion);
             },
             peticion.Momento);
 
@@ -654,7 +663,15 @@ internal sealed record AsignarYTransicionar(
     string Ejecuta,
     DateTimeOffset Momento,
     string IdVehiculo,
-    string IdConductor);
+    string IdConductor,
+    /// <summary>
+    /// Sólo lo usa `T-10`. <b>Anulable acá y exigido en el dominio</b>: si la API lo hiciera
+    /// obligatorio, programar y despachar tendrían que mandar un motivo que no significa
+    /// nada, y la regla —que el cambio de recurso deja razón registrada— viviría en el
+    /// contrato HTTP en vez de en el negocio.
+    /// </summary>
+    MotivoDeReasignacion? Motivo = null,
+    string? Comentario = null);
 
 /// <summary>
 /// Carga de un parámetro normativo. El respaldo y la fuente son <b>obligatorios</b>:

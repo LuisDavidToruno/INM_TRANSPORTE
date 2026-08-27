@@ -1,4 +1,5 @@
 import { pedir } from './misiones';
+import type { MotivoDeReasignacion } from '../dominio/mision';
 
 /**
  * Flota, conductores y evaluación de asignación.
@@ -164,3 +165,40 @@ export interface OcupacionDeFlota {
  */
 export const ocupacionDeFlota = (desde: string, hasta: string): Promise<OcupacionDeFlota> =>
   pedir<OcupacionDeFlota>(`/flota/ocupacion?desde=${desde}&hasta=${hasta}`);
+
+export const MOTIVOS_DE_REASIGNACION: { valor: MotivoDeReasignacion; texto: string }[] = [
+  { valor: 'VehiculoATaller', texto: 'El vehículo entró a taller' },
+  { valor: 'MotoristaNoDisponible', texto: 'El motorista dejó de estar disponible' },
+  { valor: 'CambioDeRequerimiento', texto: 'Cambió lo que hay que mover' },
+  { valor: 'Consolidacion', texto: 'Se consolida con otra misión' },
+];
+
+/**
+ * `T-10` — cambiar el vehículo o quien conduce <b>sin soltar la misión</b>.
+ *
+ * No es desprogramar y volver a programar: ese rodeo devuelve la misión a la cola —donde
+ * otro puede tomarle el vehículo entre medio— y anula el folio reservado. Acá el folio no
+ * cambia, porque es el mismo expediente.
+ */
+export const reasignar = async (
+  idExpediente: string,
+  ejecuta: string,
+  idVehiculo: string,
+  idConductor: string,
+  motivo: MotivoDeReasignacion,
+  comentario: string,
+): Promise<void> => {
+  // Sin guarda de `BASE`, como el resto de este modulo: la flota no tiene datos de
+  // muestra. Una pantalla de asignacion sin servidor no puede fingir que asigno.
+  await pedir(`/misiones/${idExpediente}/reasignar`, {
+    method: 'POST',
+    body: JSON.stringify({
+      ejecuta,
+      idVehiculo,
+      idConductor,
+      motivo,
+      comentario,
+      momento: new Date().toISOString(),
+    }),
+  });
+};

@@ -246,6 +246,42 @@ para revelar el solape lo estaba escondiendo. Ahora se apilan en subfilas, y dos
 que **se tocan** cuentan como solape: el vehículo no puede estar volviendo de Danlí y
 saliendo a Juticalpa el mismo día.
 
+### `PROGRAMADA` tiene sus cuatro salidas
+
+La máquina de estados dice que desde `PROGRAMADA` **se puede** *«reasignar vehículo o
+motorista (`T-10`), desprogramar liberando recursos (`T-11`), despachar, anular»*. Las
+cuatro existen.
+
+**`T-10` no es `T-11` + `T-08`.** El rodeo pierde dos cosas: devuelve la misión a la cola
+—donde otro puede tomarle el vehículo entre medio— y `EF-02` **anula el folio reservado**.
+La ficha de `T-10` es explícita: *«el folio reservado no cambia: es el mismo expediente»*.
+
+**Es el caso de borde de `BD-11`, y el único.** Acá la misión **está ocupando** mientras se
+evalúa —a diferencia de `T-08`, que sale de `APROBADA`—: sin la exclusión de
+`ReservasDeAsync`, chocaría contra su propia reserva y ningún cambio sería posible. La
+exclusión estaba escrita anticipando esto; ahora se ejerce contra la base.
+
+**`T-10` NO revisa la caducidad de la aprobación, y `T-08` sí.** No es una omisión: sería
+al revés. La misión ya está programada y legítimamente a punto de salir, y si el vehículo
+se avería la mañana de la salida, cambiarlo es la única maniobra que le queda a la
+institución. Revisar caducidad ahí se la quitaría justo el día que la necesita.
+
+**El motivo es tipificado y tiene catálogo propio** —`VehiculoATaller`,
+`MotoristaNoDisponible`, `CambioDeRequerimiento`, `Consolidacion`—, distinto del de
+anulación. Miden cosas distintas: el de anulación mide **déficit de flota**, éste mide
+**fiabilidad de la flota y del padrón**. Un vehículo que entra a taller tres veces al mes no
+es déficit —hay vehículos—, es un vehículo malo, y mezclarlos haría que el reporte de
+déficit contara averías.
+
+La reasignación **reusa la pantalla de asignación**: misma decisión, mismas reglas, una sola
+implementación de la selección, el cronograma y la lectura del resultado. Se decide por el
+estado del expediente, no por una ruta aparte. La cabecera dice **cuál tiene hoy** —el
+diario ahora expone `vehiculoTomado` por transición— porque elegir a ciegas es cómo se
+reasigna al mismo que ya estaba.
+
+Las tres salidas van en la fila, **en orden de daño**: cambiar recurso, devolver a la cola,
+anular. Con el mismo peso visual, la más destructiva se usa cuando bastaba la anterior.
+
 ### `BD-11` bloquea, y `T-11`/`T-13` dan la vuelta
 
 **El sistema dejó de sobre-asignar.** `EF-01` es taxativo —*«no sobre-asigna, ni siquiera

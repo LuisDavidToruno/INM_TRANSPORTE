@@ -4,14 +4,16 @@ import { useNavigate, useParams } from 'react-router';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CircleCheck } from 'lucide-react';
 
-import { Boton, LineaDeCarriles, Nota, Panel, Pastilla, avisar } from '../../ui';
+import { Boton, Campo, LineaDeCarriles, Nota, Panel, Pastilla, avisar } from '../../ui';
 import type { CarrilDeLinea } from '../../ui';
 import {
+  MOTIVOS_DE_REASIGNACION,
   conductores,
   evaluarAsignacion,
   flota,
   ocupacionDeFlota,
   programar,
+  reasignar,
 } from '../../api/flota';
 import type {
   ConductorDisponible,
@@ -20,7 +22,8 @@ import type {
   VehiculoDeFlota,
 } from '../../api/flota';
 import { BloqueoDuro, expediente as traerExpediente } from '../../api/misiones';
-import type { Expediente } from '../../dominio/mision';
+import { recursoVigente } from '../../dominio/mision';
+import type { Expediente, MotivoDeReasignacion } from '../../dominio/mision';
 import { soloFecha } from '../M06_Autorizacion/formato';
 import ConflictoDeAgenda from './ConflictoDeAgenda';
 import RechazoPorLicencia from './RechazoPorLicencia';
@@ -46,6 +49,13 @@ import RechazoPorLicencia from './RechazoPorLicencia';
  * como el error de mayor daño del inventario: con una lista, la única forma de saber si
  * el pick-up está libre el jueves es abrir las misiones una por una.
  *
+ * ── La misma pantalla sirve para REASIGNAR ──────────────────────────────────
+ * `T-10`. Es la misma decisión —qué vehículo y quién conduce— con las mismas reglas
+ * evaluándose, así que duplicar la pantalla habría duplicado la selección, el cronograma
+ * y la lectura del resultado. Lo único que cambia es que hay un recurso saliente, y por eso
+ * aparece el motivo: la ficha de `T-10` lo exige tipificado, y es lo que distingue un
+ * vehículo que se avería seguido de uno que se cambió por consolidación.
+ *
  * **El cronograma no bloquea nada.** Un vehículo ocupado se puede elegir igual: quien
  * programa puede saber que esa misión se va a anular, o estar reprogramando a propósito.
  * Lo que bloquea es `BD-02` y `BD-03`, en el servidor.
@@ -58,6 +68,8 @@ export default function Asignacion(): ReactElement {
   const [idVehiculo, setVehiculo] = useState('');
   const [idConductor, setConductor] = useState('');
   const [nocturna, setNocturna] = useState(false);
+  const [motivo, setMotivo] = useState<MotivoDeReasignacion | ''>('');
+  const [comentario, setComentario] = useState('');
 
   const [expedienteQ, flotaQ, conductoresQ] = useQueries({
     queries: [
@@ -75,11 +87,25 @@ export default function Asignacion(): ReactElement {
     enabled: hayEleccion,
   });
 
+  // `Programada` ⇒ es una reasignación, no una programación. Se decide por el estado y no
+  // por una ruta aparte: la misma pantalla, la misma decisión, y una sola implementación
+  // de la selección, el cronograma y la lectura del resultado.
+  const reasignando = expedienteQ.data?.estado === 'Programada';
+
   const programacion = useMutation({
-    mutationFn: () => programar(id, 'Rolando Discua', idVehiculo, idConductor),
+    mutationFn: () =>
+      reasignando
+        ? reasignar(id, 'Rolando Discua', idVehiculo, idConductor,
+                    motivo as MotivoDeReasignacion, comentario)
+        : programar(id, 'Rolando Discua', idVehiculo, idConductor),
     onSuccess: async () => {
-      avisar.exito('Misión programada. El vehículo y el motorista quedaron reservados.');
+      avisar.exito(
+        reasignando
+          ? 'Recurso reasignado. El folio de la misión no cambió: es el mismo expediente.'
+          : 'Misión programada. El vehículo y el motorista quedaron reservados.',
+      );
       await cliente.invalidateQueries({ queryKey: ['cola-programacion'] });
+      await cliente.invalidateQueries({ queryKey: ['cola-programadas'] });
       navegar('/programacion');
     },
     onError: (e) => {
@@ -90,7 +116,11 @@ export default function Asignacion(): ReactElement {
         avisar.error(`${e.precondicion} — ${e.message}`);
         return;
       }
-      avisar.error('No se pudo programar. El expediente quedó como estaba.');
+      avisar.error(
+        reasignando
+          ? 'No se pudo reasignar. La misión quedó con el recurso que ya tenía.'
+          : 'No se pudo programar. El expediente quedó como estaba.',
+      );
     },
   });
 
@@ -117,7 +147,7 @@ export default function Asignacion(): ReactElement {
 
   return (
     <div className="tw:flex tw:flex-col tw:gap-6">
-      <Cabecera expediente={expediente} />
+      <Cabecera expediente={expediente} reasignando={reasignando} vehiculos={vehiculos} />
 
       <Panel titulo="Ocupación de la flota en la ventana solicitada">
         <Cronograma
@@ -179,6 +209,17 @@ export default function Asignacion(): ReactElement {
         </Panel>
       </div>
 
+      {reasignando && (
+        <Panel titulo="Por qué se cambia el recurso">
+          <MotivoDelCambio
+            motivo={motivo}
+            comentario={comentario}
+            onMotivo={setMotivo}
+            onComentario={setComentario}
+          />
+        </Panel>
+      )}
+
       <Panel titulo="Condiciones de la misión">
         <label className="tw:flex tw:cursor-pointer tw:items-start tw:gap-2 tw:text-sm">
           <input
@@ -220,6 +261,10 @@ export default function Asignacion(): ReactElement {
           vehiculo={vehiculo!}
           conductor={conductor!}
           enviando={programacion.isPending}
+          // Sin motivo no se reasigna, y el botón lo dice antes de que lo aprieten: el
+          // servidor bloquea igual, pero descubrirlo ahí obliga a rehacer la elección.
+          faltaMotivo={reasignando && !motivo}
+          etiqueta={reasignando ? 'Reasignar el recurso' : 'Programar la misión'}
           onProgramar={() => programacion.mutate()}
         />
       ) : (
@@ -237,15 +282,46 @@ export default function Asignacion(): ReactElement {
   );
 }
 
-function Cabecera({ expediente }: { expediente: Expediente }): ReactElement {
+function Cabecera({
+  expediente,
+  reasignando,
+  vehiculos,
+}: {
+  expediente: Expediente;
+  reasignando: boolean;
+  vehiculos: VehiculoDeFlota[];
+}): ReactElement {
+  // Cuál tiene HOY. Sale de la última transición que reservó, no de la primera: una misión
+  // ya reasignada tiene varias, y la primera es justamente el vehículo que se cambió.
+  const vigente = recursoVigente(expediente.diario);
+  const actual = vigente && vehiculos.find((v) => v.id === vigente.vehiculoTomado);
+
   return (
     <header className="tw:flex tw:flex-col tw:gap-2">
       <div className="tw:flex tw:flex-wrap tw:items-baseline tw:gap-x-4 tw:gap-y-1">
         <h1 className="tw:font-mono tw:text-xl tw:font-semibold tw:tabular-nums tw:tracking-tight">
           {expediente.folio}
         </h1>
-        <Pastilla tono="info">Aprobada</Pastilla>
+        <Pastilla tono="info">{reasignando ? 'Programada' : 'Aprobada'}</Pastilla>
       </div>
+
+      {reasignando && (
+        <p className="tw:text-sm">
+          {actual ? (
+            <>
+              Tiene asignado <b>{actual.siglas}</b>. Elija el recurso que lo reemplaza —{' '}
+              <b>el folio no cambia</b>, es el mismo expediente.
+            </>
+          ) : (
+            // No saber cuál tiene y no tener ninguno son cosas distintas, y callar aquí
+            // dejaría a quien reasigna creyendo lo segundo.
+            <>
+              No se pudo determinar qué vehículo tiene asignado. Puede reasignar igual, pero{' '}
+              <b>verifique contra el cronograma</b> cuál está ocupado por este folio.
+            </>
+          )}
+        </p>
+      )}
       <p className="tw:text-sm tw:text-tinta-mid">
         {expediente.objetoDelTraslado} · destino {expediente.destino}
       </p>
@@ -269,12 +345,17 @@ function Habilitada({
   vehiculo,
   conductor,
   enviando,
+  faltaMotivo,
+  etiqueta,
   onProgramar,
 }: {
   resultado: ResultadoDeAsignacion;
   vehiculo: VehiculoDeFlota;
   conductor: ConductorDisponible;
   enviando: boolean;
+  /** Reasignar sin motivo tipificado no se puede — `T-10`. */
+  faltaMotivo: boolean;
+  etiqueta: string;
   onProgramar(): void;
 }): ReactElement {
   // `RN-11`: «La advertencia no se puede cerrar sin acuse: queda registrado quién la vio,
@@ -353,13 +434,76 @@ function Habilitada({
         <Boton
           variante="primario"
           cargando={enviando}
-          disabled={enviando || (exigeAcuse && !acusada)}
+          disabled={enviando || (exigeAcuse && !acusada) || faltaMotivo}
           onClick={onProgramar}
         >
-          Programar la misión
+          {etiqueta}
         </Boton>
       </div>
     </Panel>
+  );
+}
+
+/**
+ * El motivo del cambio de recurso — `T-10`.
+ *
+ * ── Por qué es lista y no texto libre ────────────────────────────────────────
+ * Porque la tipificación <b>es</b> el indicador de fiabilidad de la flota: distingue el
+ * vehículo que entra a taller tres veces al mes del que se cambió por consolidación. Un
+ * campo libre produce «se dañó», «falla mecánica» y «taller» para el mismo hecho, y ningún
+ * reporte los suma.
+ *
+ * ── Y por qué no es el catálogo de la anulación ──────────────────────────────
+ * Porque miden cosas distintas. El de anulación mide <b>déficit de flota</b> —la
+ * movilización no se hizo—; éste mide que el recurso comprometido dejó de servir. Mezclarlos
+ * haría que el reporte de déficit contara averías.
+ */
+function MotivoDelCambio({
+  motivo,
+  comentario,
+  onMotivo,
+  onComentario,
+}: {
+  motivo: MotivoDeReasignacion | '';
+  comentario: string;
+  onMotivo(v: MotivoDeReasignacion): void;
+  onComentario(v: string): void;
+}): ReactElement {
+  return (
+    <div className="tw:flex tw:flex-col tw:gap-4">
+      <fieldset className="tw:flex tw:flex-col tw:gap-2">
+        <legend className="tw:mb-1 tw:text-sm tw:font-medium">Motivo</legend>
+        {MOTIVOS_DE_REASIGNACION.map((m) => (
+          <label
+            key={m.valor}
+            className="tw:flex tw:cursor-pointer tw:items-start tw:gap-2 tw:text-sm"
+          >
+            <input
+              type="radio"
+              name="motivo-reasignacion"
+              checked={motivo === m.valor}
+              onChange={() => onMotivo(m.valor)}
+              className="tw:mt-0.5 tw:size-4 tw:shrink-0 tw:accent-acento"
+            />
+            <span>{m.texto}</span>
+          </label>
+        ))}
+      </fieldset>
+
+      <Campo
+        etiqueta="Comentario"
+        ayuda="Complementa al motivo, no lo sustituye: «falla de frenos detectada en la revisión previa» dice qué pasó; el motivo dice qué se cuenta."
+      >
+        {(props) => (
+          <textarea
+            {...props}
+            rows={2}
+            value={comentario}
+            onChange={(e) => onComentario(e.target.value)}
+          />
+        )}
+      </Campo>
+    </div>
   );
 }
 

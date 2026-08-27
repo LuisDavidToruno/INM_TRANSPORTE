@@ -216,6 +216,74 @@ public sealed class OrdenDeMision
     }
 
     /// <summary>
+    /// `T-10` — PROGRAMADA → PROGRAMADA. <b>Cambiar el vehículo o quien conduce</b>, sin
+    /// soltar la misión.
+    ///
+    /// ── Por qué existe teniendo `T-11` + `T-08` ───────────────────────────────
+    /// Porque el rodeo pierde algo. Desprogramar y volver a programar devuelve la misión a
+    /// la cola —donde cualquiera puede tomar el vehículo entre medio— y, según `EF-02`,
+    /// <b>anula el folio reservado</b>. Acá <i>«el folio reservado no cambia: es el mismo
+    /// expediente»</i>. El vehículo se cambia sin que la misión pase por un estado en que no
+    /// tiene ninguno.
+    ///
+    /// ── La trazabilidad de la asignación original ────────────────────────────
+    /// `DP-001 D-07` la exige: <i>«el diario muestra a quién se había asignado, por qué se
+    /// cambió y a quién se asignó»</i>. Sale sola de que el diario sea de sólo agregar — la
+    /// reserva anterior <b>permanece</b> —, pero el motivo hay que escribirlo, y por eso es
+    /// obligatorio y tipificado.
+    ///
+    /// ── Por qué NO se revisa la caducidad de la aprobación ───────────────────
+    /// `T-08` sí la revisa: programar el día de salida ya es tarde. Acá sería al revés. La
+    /// misión <b>ya está programada</b> y legítimamente a punto de salir; si el vehículo se
+    /// avería la mañana de la salida, cambiarlo es exactamente lo que hay que poder hacer.
+    /// Revisar caducidad acá dejaría a la institución sin la única maniobra que le queda,
+    /// justo el día en que la necesita.
+    ///
+    /// Lo demás sí se revalida entero —`BD-02`, `BD-03` y `BD-11`— sobre el recurso
+    /// <b>entrante</b>: la ficha de `T-10` dice «todas las de `T-08` para el recurso entrante».
+    /// </summary>
+    /// <param name="reservas">
+    /// Las de <b>otras</b> misiones. Quien llama tiene que excluir a ésta: acá la misión
+    /// <b>está ocupando</b> —a diferencia de `T-08`, que sale de `APROBADA`— y sin excluirla
+    /// chocaría contra su propia reserva y ningún cambio sería posible.
+    /// </param>
+    /// <param name="motivo">
+    /// <b>Obligatorio y tipificado</b>, y por eso se recibe anulable: el motivo es el que
+    /// alimenta el indicador de fiabilidad de la flota, y un `T-10` sin él sería un cambio
+    /// de vehículo sin razón registrada. La exigencia vive acá y no en la API porque es
+    /// regla de negocio — la misma decisión que en `T-11`.
+    /// </param>
+    public void Reasignar(
+        IdPersona ejecuta,
+        AsignacionDeMision asignacion,
+        MotivoDeReasignacion? motivo,
+        string? comentario,
+        MatrizDeLicencias matriz,
+        PoliticaDeDocumentacion politica,
+        DateTimeOffset momento,
+        RecursosTomados? recursos = null,
+        IReadOnlyList<ReservaDeRecurso>? reservas = null)
+    {
+        ExigirEstado(EstadoDeMision.Programada, "T-10");
+
+        if (motivo is not { } tipificado)
+            throw new BloqueoDuro("T-10",
+                "Reasignar exige motivo tipificado: es lo que distingue un vehículo que se " +
+                "avería seguido de uno que se cambió por consolidación, y sin esa distinción " +
+                "no hay indicador de fiabilidad de la flota.");
+
+        var evidencia = ExigirHabilitacionYDocumentacion(asignacion, matriz, politica, momento);
+        var sinSolape = ExigirSinSolapamiento(reservas);
+
+        var texto = string.IsNullOrWhiteSpace(comentario)
+            ? tipificado.ToString()
+            : $"{tipificado} · {comentario.Trim()}";
+
+        Registrar("T-10", EstadoDeMision.Programada, ejecuta, momento,
+            $"{texto} — {evidencia}{sinSolape}", recursos: recursos);
+    }
+
+    /// <summary>
     /// `T-11` — PROGRAMADA → APROBADA. <b>Desprogramar liberando recursos.</b>
     ///
     /// ── Por qué no existe un «quitar el vehículo» sin esto ───────────────────

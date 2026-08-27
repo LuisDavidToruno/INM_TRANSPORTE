@@ -35,7 +35,17 @@ public sealed record VistaDeTransicion(
     string Destino,
     string Ejecuta,
     DateTimeOffset Momento,
-    string? Motivo);
+    string? Motivo,
+    /// <summary>
+    /// El vehículo que esta transición tomó. <b>Nulo en toda transición que no reserva.</b>
+    ///
+    /// Viaja porque la pantalla de reasignación necesita decir <i>cuál tiene hoy</i>: sin
+    /// eso, quien va a cambiar el vehículo tiene que deducirlo del cronograma buscando el
+    /// folio de su propia misión, y elegir a ciegas es cómo se reasigna al mismo que ya
+    /// estaba.
+    /// </summary>
+    string? VehiculoTomado,
+    string? ConductorTomado);
 
 /// <summary>
 /// Las lecturas de la oficina.
@@ -107,7 +117,9 @@ public sealed class ConsultaDeMisiones(SigtiDbContext contexto)
                     t.Ejecuta,
                     new DateTimeOffset(t.MomentoUtc, TimeSpan.Zero)
                         .ToOffset(TimeSpan.FromMinutes(t.DesfaseMinutos)),
-                    t.Motivo))
+                    t.Motivo,
+                    t.VehiculoTomado?.ToString(),
+                    t.ConductorTomado?.ToString()))
                 .ToList());
     }
 

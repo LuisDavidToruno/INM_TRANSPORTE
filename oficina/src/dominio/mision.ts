@@ -86,7 +86,34 @@ export interface Transicion {
   ejecuta: string;
   momento: string;
   motivo: string | null;
+  /** El vehículo que esta transición tomó. Nulo en toda transición que no reserva. */
+  vehiculoTomado: string | null;
+  conductorTomado: string | null;
 }
+
+/**
+ * Qué recurso tiene tomado la misión <b>ahora</b>.
+ *
+ * <b>La última que reservó, no la primera.</b> Una misión reasignada tiene dos o más
+ * transiciones con recursos en el diario —`T-08` y luego `T-10`— y la vigente es la
+ * última; tomar la primera mostraría el vehículo que ya se cambió, que es exactamente el
+ * dato con el que alguien reasignaría al mismo que ya estaba.
+ *
+ * Devuelve nulo si nunca se reservó: una aprobada sin programar no tiene recurso.
+ */
+export function recursoVigente(diario: readonly Transicion[]): Transicion | null {
+  for (let i = diario.length - 1; i >= 0; i--) {
+    const t = diario[i]!;
+    if (t.vehiculoTomado) return t;
+  }
+  return null;
+}
+
+export type MotivoDeReasignacion =
+  | 'VehiculoATaller'
+  | 'MotoristaNoDisponible'
+  | 'CambioDeRequerimiento'
+  | 'Consolidacion';
 
 export type MotivoDeAnulacion =
   | 'SinFlotaDisponible'

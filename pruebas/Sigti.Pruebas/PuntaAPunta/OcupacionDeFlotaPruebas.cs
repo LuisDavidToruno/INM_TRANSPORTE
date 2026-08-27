@@ -331,6 +331,89 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
     }
 
     [Fact]
+    public async Task Reasignar_mueve_la_barra_de_un_carril_al_otro()
+    {
+        // **El caso de borde de `BD-11` que sólo aparece en `T-10`.** Acá la misión está
+        // PROGRAMADA mientras se evalúa, así que ocupa: si la consulta no la excluyera,
+        // chocaría contra su propia reserva y ningún cambio sería posible. Contra la base,
+        // que es donde el `Where(e => e.Id != excluyendo)` se ejerce de verdad.
+        var original = await Sembrar("OC-0031");
+        var entrante = await Sembrar("OC-0032");
+
+        var id = Ulid.NewUlid().ToString();
+
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        await CrearYAprobar(cliente, id);
+        await Programar(cliente, id, original);
+
+        Assert.Single(await BarrasDe(cliente, original.Vehiculo));
+        Assert.Empty(await BarrasDe(cliente, entrante.Vehiculo));
+
+        var reasignacion = await cliente.PostAsJsonAsync($"/misiones/{id}/reasignar", new
+        {
+            Ejecuta = "P-TRANSPORTE",
+            Momento,
+            IdVehiculo = entrante.Vehiculo,
+            IdConductor = entrante.Conductor,
+            Motivo = "VehiculoATaller",
+            Comentario = "Falla de frenos detectada en la revisión previa",
+        });
+
+        reasignacion.EnsureSuccessStatusCode();
+
+        // La barra se movió de carril: el saliente quedó libre y el entrante tomado.
+        Assert.Empty(await BarrasDe(cliente, original.Vehiculo));
+        Assert.Single(await BarrasDe(cliente, entrante.Vehiculo));
+
+        // Y la misión NO pasó por un estado sin vehículo.
+        var estado = await cliente.GetFromJsonAsync<JsonElement>($"/misiones/{id}");
+        Assert.Equal("Programada", estado.GetProperty("estado").GetString());
+
+        // `DP-001 D-07`: el diario conserva a quién se había asignado y por qué se cambió.
+        var diario = estado.GetProperty("diario").EnumerateArray().ToList();
+        Assert.Contains(diario, t => t.GetProperty("id").GetString() == "T-08");
+        var cambio = diario.Single(t => t.GetProperty("id").GetString() == "T-10");
+        Assert.Contains("VehiculoATaller", cambio.GetProperty("motivo").GetString()!);
+    }
+
+    [Fact]
+    public async Task Reasignar_a_un_vehiculo_ya_tomado_bloquea()
+    {
+        // Cambiar de vehículo no es excusa para tomar uno ocupado: `BD-11` también acá.
+        var mia = await Sembrar("OC-0033");
+        var ajena = await Sembrar("OC-0034");
+
+        var propia = Ulid.NewUlid().ToString();
+        var deOtro = Ulid.NewUlid().ToString();
+
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        await CrearYAprobar(cliente, propia);
+        await Programar(cliente, propia, mia);
+
+        await CrearYAprobar(cliente, deOtro);
+        await Programar(cliente, deOtro, ajena);
+
+        var respuesta = await cliente.PostAsJsonAsync($"/misiones/{propia}/reasignar", new
+        {
+            Ejecuta = "P-TRANSPORTE",
+            Momento,
+            IdVehiculo = ajena.Vehiculo,
+            IdConductor = ajena.Conductor,
+            Motivo = "CambioDeRequerimiento",
+        });
+
+        Assert.Equal(System.Net.HttpStatusCode.Conflict, respuesta.StatusCode);
+        Assert.Contains("BD-11", await respuesta.Content.ReadAsStringAsync());
+
+        // Y la mía sigue con su vehículo original: no quedó sin ninguno.
+        Assert.Single(await BarrasDe(cliente, mia.Vehiculo));
+    }
+
+    [Fact]
     public async Task Una_mision_fuera_de_la_ventana_no_aparece()
     {
         // Sin esto, la pantalla de una semana mostraría la ocupación de todo el año y el

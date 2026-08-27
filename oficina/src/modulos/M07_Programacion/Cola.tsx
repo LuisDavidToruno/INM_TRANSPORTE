@@ -3,7 +3,19 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarClock, CircleAlert, TriangleAlert } from 'lucide-react';
 
-import { Boton, Campo, Enlace, Modal, Nota, Pastilla, Segmentado, Tabla, Vacio, avisar } from '../../ui';
+import {
+  Boton,
+  Campo,
+  Enlace,
+  EnlaceBoton,
+  Modal,
+  Nota,
+  Pastilla,
+  Segmentado,
+  Tabla,
+  Vacio,
+  avisar,
+} from '../../ui';
 import type { ColumnaDef } from '../../ui';
 import {
   MOTIVOS_DE_ANULACION,
@@ -227,10 +239,13 @@ const COLUMNAS_CADUCADAS = (
 /**
  * Las dos salidas de una misión programada, y <b>se ven distintas a propósito</b>.
  *
- * «Devolver a la cola» es reversible y no destructiva: la misión sigue viva y conserva su
- * aprobación. «Anular» la mata y no se vuelve. Ponerlas con el mismo peso visual invitaría
- * a usar la irreversible cuando bastaba la otra — y la diferencia entre las dos es que la
- * dependencia tenga que volver a pedir el viaje o no.
+ * <b>Tres salidas, en orden de daño.</b> «Cambiar recurso» (`T-10`) no suelta la misión ni
+ * pierde el folio: es la más barata y va primero. «Devolver a la cola» (`T-11`) la suelta
+ * pero la deja viva. «Anular» (`T-13`) la mata y no se vuelve.
+ *
+ * Ponerlas con el mismo peso visual invitaría a usar la más destructiva cuando bastaba la
+ * anterior — y la diferencia entre la primera y la última es que la dependencia tenga que
+ * volver a pedir el viaje o ni se entere.
  */
 const COLUMNAS_PROGRAMADAS = (
   alDesprogramar: (e: Expediente) => void,
@@ -253,10 +268,15 @@ const COLUMNAS_PROGRAMADAS = (
   {
     id: 'acciones',
     cabecera: '',
-    ancho: 260,
+    ancho: 360,
     celda: (e) => (
       <div className="tw:flex tw:gap-2">
-        <Boton variante="secundario" tamano="sm" onClick={() => alDesprogramar(e)}>
+        {/* Es un enlace y no un botón porque lleva a otra pantalla: la reasignación exige
+            elegir vehículo y motorista, y esa selección ya existe una sola vez. */}
+        <EnlaceBoton href={`/programacion/${e.id}`} variante="secundario" tamano="sm">
+          Cambiar recurso
+        </EnlaceBoton>
+        <Boton variante="fantasma" tamano="sm" onClick={() => alDesprogramar(e)}>
           Devolver a la cola
         </Boton>
         <Boton variante="fantasma" tamano="sm" onClick={() => alAnular(e)}>
