@@ -245,20 +245,20 @@ public sealed class OrdenDeMision
     }
 
     /// <summary>`T-14` — DESPACHADA → EN_RUTA. La ejecuta el motorista, y opera desconectado.</summary>
-    public void IniciarRuta(IdPersona ejecuta, DateTimeOffset momento)
+    public void IniciarRuta(IdPersona ejecuta, DateTimeOffset momento, Ulid? idDeCaptura = null)
     {
         ExigirEstado(EstadoDeMision.Despachada, "T-14");
-        Registrar("T-14", EstadoDeMision.EnRuta, ejecuta, momento, motivo: null);
+        Registrar("T-14", EstadoDeMision.EnRuta, ejecuta, momento, motivo: null, idDeCaptura);
     }
 
     /// <summary>
     /// `T-18` — EN_RUTA → RETORNADA. Registra un hecho consumado: por `P-2` no se bloquea,
     /// se validan coherencias que pueden derivar en cierre con hallazgo.
     /// </summary>
-    public void Retornar(IdPersona ejecuta, DateTimeOffset momento)
+    public void Retornar(IdPersona ejecuta, DateTimeOffset momento, Ulid? idDeCaptura = null)
     {
         ExigirEstado(EstadoDeMision.EnRuta, "T-18");
-        Registrar("T-18", EstadoDeMision.Retornada, ejecuta, momento, motivo: null);
+        Registrar("T-18", EstadoDeMision.Retornada, ejecuta, momento, motivo: null, idDeCaptura);
     }
 
     /// <summary>`T-19` — RETORNADA → LIQUIDADA.</summary>
@@ -351,6 +351,7 @@ public sealed class OrdenDeMision
     }
 
     private void Registrar(
-        string id, EstadoDeMision destino, IdPersona ejecuta, DateTimeOffset momento, string? motivo) =>
-        _diario.Add(new Transicion(id, destino, ejecuta, momento, motivo));
+        string id, EstadoDeMision destino, IdPersona ejecuta, DateTimeOffset momento, string? motivo,
+        Ulid? idDeCaptura = null) =>
+        _diario.Add(new Transicion(id, destino, ejecuta, momento, motivo, idDeCaptura));
 }

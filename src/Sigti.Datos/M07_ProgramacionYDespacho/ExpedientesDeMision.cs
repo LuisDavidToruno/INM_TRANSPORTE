@@ -39,7 +39,8 @@ public sealed class ExpedientesDeMision(SigtiDbContext contexto)
                     t.Destino,
                     new IdPersona(t.Ejecuta),
                     new DateTimeOffset(t.MomentoUtc, TimeSpan.Zero).ToOffset(TimeSpan.FromMinutes(t.DesfaseMinutos)),
-                    t.Motivo)));
+                    t.Motivo,
+                    t.IdDeCaptura)));
     }
 
     /// <summary>
@@ -79,6 +80,7 @@ public sealed class ExpedientesDeMision(SigtiDbContext contexto)
             {
                 Id = Ulid.NewUlid(),
                 ExpedienteId = expediente.Id,
+                IdDeCaptura = transicion.IdDeCaptura,
                 Orden = orden,
                 Transicion = transicion.Id,
                 Destino = transicion.Destino,

@@ -34,6 +34,12 @@ Lo que está en conflicto en este dominio son **odómetros, galones y montos**. 
 
 El caso concreto que esto atrapa: el motorista registra el retorno con 84.320 km; el encargado lo digita del papel con 84.302, una transposición al leer una hoja mojada. **Nadie notaría los 18 km de diferencia**, y esos 18 km son el denominador de [`RN-30`](../docs/01-negocio/reglas/RN-30-conciliacion-galonaje-kilometraje.md).
 
+## El servidor ya recibe
+
+`POST /sincronizacion` existe y es **idempotente**: el dispositivo que no supo si el servidor recibió reenvía, y el servidor lo reconoce en vez de duplicar. La unicidad la impone **la base** con un índice único sobre `IdDeCaptura` — no una comprobación previa, que sería una condición de carrera con dos lotes del mismo dispositivo en vuelo.
+
+**El lote no es atómico, a propósito.** Que una transición no entre no puede impedir que las otras seis sí: el dispositivo lleva siete días de trabajo encima, y perderlo todo por un expediente inexistente sería el fallo que este endpoint existe para evitar. La respuesta separa `aplicadas`, `yaConocidas` y `rechazadas`, y las dos primeras son lo que el dispositivo puede sacar de su cola.
+
 ## Lo que falta
 
 | Qué | Dónde |
@@ -42,7 +48,7 @@ El caso concreto que esto atrapa: el motorista registra el retorno con 84.320 km
 | **La persistencia SQLite cifrada** | Módulo nativo. El `DiarioLocal` de hoy guarda **en memoria** y lo dice en su propia documentación |
 | **La asignación de subrangos** — quién los reparte, cuándo se recargan, y el aviso antes de que un dispositivo salga con el saldo bajo | El consumo ya está; **repartirlos es de `M-01`**, que no existe |
 | **Adjuntos diferidos** — ≥ 200 fotografías por dispositivo | [`ADR-004`](../docs/03-arquitectura/adr/ADR-004-adjuntos-fuera-de-la-base.md) |
-| **El endpoint de sincronización en el servidor** | El núcleo produce el lote; nadie lo recibe todavía |
+| **La cola de resolución de conflictos** | El núcleo los **detecta** (`Conciliacion`) y el servidor todavía no los recibe: hoy solo sincronizan `T-14` y `T-18`, que un dispositivo no captura dos veces. La cola es de `M-16` |
 | **`RNF-12`** — ≤ 25 % de batería en 8 h, gama baja | **No se ha medido nada.** Es el requisito más ajustado del sistema |
 
 ## Por qué Node corre esto sin compilar

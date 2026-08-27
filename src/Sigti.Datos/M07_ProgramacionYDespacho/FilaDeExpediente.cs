@@ -45,5 +45,15 @@ public sealed class FilaDeTransicion
     public required string Ejecuta { get; init; }
     public required DateTime MomentoUtc { get; init; }
     public required int DesfaseMinutos { get; init; }
+
+    /// <summary>
+    /// El identificador que le puso <b>quien capturó el hecho</b> — el dispositivo de campo
+    /// (`ADR-005`). <b>Nulo cuando el hecho nació en la oficina</b>, con red.
+    ///
+    /// Su índice único es lo que hace que reenviar un lote sea inofensivo: la segunda vez
+    /// la base rechaza, en vez de duplicar. Es garantía, no comprobación — una comprobación
+    /// se puede olvidar al escribir el próximo endpoint.
+    /// </summary>
+    public Ulid? IdDeCaptura { get; init; }
     public string? Motivo { get; init; }
 }

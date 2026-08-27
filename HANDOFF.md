@@ -10,7 +10,7 @@ Punto único de entrada para saber en qué va el proyecto. Si algo figura acá c
 
 **Hay stack, y hay autorización para programar.** La [designación de LOKI del 2026-08-26](docs/07-gestion/designaciones/2026-08-26-stack-y-arranque.md) fijó el stack y el PO autorizó el arranque. Eso activó la cláusula de revisión que [`ADR-000`](docs/03-arquitectura/adr/ADR-000-diferir-seleccion-de-stack.md) escribió para sí mismo, y [`ADR-002`](docs/03-arquitectura/adr/ADR-002-adoptar-el-stack-tecnologico.md) lo supera formalmente.
 
-**Ya hay código, camina, y se ve.** El backend atraviesa API → Aplicación → Dominio → SQL Server → bitácora encadenada, con **72 pruebas**. Y hay **seis pantallas de oficina conectadas a la API real**, no a datos de muestra.
+**Ya hay código, camina, y se ve.** El backend atraviesa API → Aplicación → Dominio → SQL Server → bitácora encadenada, con **74 pruebas**. Y hay **seis pantallas de oficina conectadas a la API real**, no a datos de muestra.
 
 El circuito que funciona hoy, de punta a punta y verificado contra SQL Server:
 
@@ -28,7 +28,7 @@ Con `BD-01`, `BD-02`, `BD-03`, `BD-06` y `BD-12` evaluándose de verdad, la cadu
 | 3 — Requisitos | 18 casos de uso, **150 historias** con Gherkin, 21 no funcionales, backlog | ✅ Revisado y corregido en `3f4ced4` |
 | 4 — Diseño | Modelo de datos bitemporal con 43 entidades, 126 pantallas, **41 maquetadas** | ✅ Revisado y corregido en `3f4ced4` |
 
-**406 documentos de análisis · 4,177 líneas de C# de producción y 1,965 de pruebas · 2,558 de TypeScript propio · **72 pruebas de backend y 11 del núcleo de campo** · 63 commits.** Las de C# excluyen las migraciones generadas; las de TypeScript, el sistema de diseño de LOKI. Las reglas de negocio son **103**.
+**406 documentos de análisis · 4,177 líneas de C# de producción y 1,965 de pruebas · 2,558 de TypeScript propio · **74 pruebas de backend y 11 del núcleo de campo** · 64 commits.** Las de C# excluyen las migraciones generadas; las de TypeScript, el sistema de diseño de LOKI. Las reglas de negocio son **103**.
 
 Las líneas de C# excluyen las migraciones de EF, que son generadas. El TypeScript excluye el sistema de diseño de LOKI, que se copió, no se escribió.
 
@@ -116,7 +116,22 @@ Primera línea de código de [`campo/`](campo/README.md). **No es la aplicación
 cd campo && npm run verificar
 ```
 
-**Lo que falta**, con lo que más pesa arriba: la **aplicación React Native** —necesita máquina con SDK—, la **persistencia SQLite cifrada** —hoy el diario guarda en memoria y lo dice en su propia documentación—, **el endpoint de sincronización en el servidor** —el núcleo produce el lote y nadie lo recibe—, y los **adjuntos diferidos** de `ADR-004`.
+**Lo que falta**, con lo que más pesa arriba: la **aplicación React Native** —necesita máquina con SDK—, la **persistencia SQLite cifrada** —hoy el diario guarda en memoria y lo dice en su propia documentación—, y los **adjuntos diferidos** de `ADR-004`. **El endpoint de sincronización ya existe** — ver abajo.
+
+### `POST /sincronizacion` — el servidor ya recibe lo que el dispositivo capturó sin red
+
+El circuito se cerró: hay un dispositivo que sabe qué mandar y un servidor que sabe recibirlo, **verificado contra la API real**.
+
+| Envío | Respuesta | Diario |
+|---|---|---|
+| Primero | `aplicadas: [CAP001]` | Una `T-14` |
+| **Reenvío** — el dispositivo no recibió el acuse | `yaConocidas: [CAP001]`, acusada igual | **Sigue habiendo una sola** |
+
+**La idempotencia la garantiza la base, no una comprobación.** `IdDeCaptura` —el ULID que generó el dispositivo, `ADR-005`— tiene índice único con filtro. Un `SELECT` previo parece más limpio y es una condición de carrera: dos lotes del mismo dispositivo en vuelo a la vez pasarían los dos la comprobación. El índice no se equivoca, y **no se olvida al escribir el próximo endpoint**.
+
+**El lote no es atómico, a propósito.** Se comprobó con un lote de dos donde el primero apuntaba a un expediente inexistente: el primero se rechazó con motivo legible, **el segundo entró**, y el expediente avanzó a `RETORNADA`. El dispositivo lleva siete días de trabajo encima; perderlo todo por un expediente que falta sería el fallo que este endpoint existe para evitar.
+
+**Lo que el endpoint todavía no acepta, y lo dice:** solo `T-14` y `T-18`. La bitácora de paradas y eventos necesita `M-08`, que no está construido — aceptarla ahora sería fingir que existe.
 
 ### `BD-12` cerrado en las tres capas, y verificado
 

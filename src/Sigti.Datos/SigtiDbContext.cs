@@ -25,6 +25,11 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     private static readonly ValueConverter<Ulid, byte[]> UlidABinario =
         new(id => id.ToByteArray(), bytes => new Ulid(bytes));
 
+    /// <summary>El mismo, para las columnas que admiten nulo — `IdDeCaptura`.</summary>
+    private static readonly ValueConverter<Ulid?, byte[]?> UlidABinarioNulo =
+        new(id => id == null ? null : id.Value.ToByteArray(),
+            bytes => bytes == null ? null : new Ulid(bytes));
+
     protected override void OnModelCreating(ModelBuilder modelo)
     {
         modelo.Entity<VersionDeParametro>(parametro =>
@@ -104,8 +109,17 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             transicion.Property(t => t.Ejecuta).HasMaxLength(64).IsRequired();
             transicion.Property(t => t.Motivo).HasMaxLength(1000);
 
+            transicion.Property(t => t.IdDeCaptura).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+
             // El diario de un expediente no admite dos transiciones en la misma posición.
             transicion.HasIndex(t => new { t.ExpedienteId, t.Orden }).IsUnique();
+
+            // La idempotencia de la sincronización, garantizada por la base y no por una
+            // comprobación previa: el mismo hecho reenviado choca acá. `IsUnique` con
+            // filtro porque las transiciones de oficina no llevan identificador de captura.
+            transicion.HasIndex(t => t.IdDeCaptura)
+                .IsUnique()
+                .HasFilter("[IdDeCaptura] IS NOT NULL");
         });
 
         modelo.Entity<Asiento>(asiento =>

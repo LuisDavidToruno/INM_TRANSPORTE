@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Sigti.Aplicacion.M02_Parametros;
 using Sigti.Aplicacion.M03_Flota;
 using Sigti.Aplicacion.M05_Motoristas;
+using Sigti.Aplicacion.M16_Sincronizacion;
 using Sigti.Aplicacion.M07_ProgramacionYDespacho;
 using Sigti.Datos;
 using Sigti.Dominio.M02_Parametros;
@@ -30,6 +31,7 @@ constructor.Services.AddScoped<ServicioDeMisiones>();
 constructor.Services.AddScoped<ServicioDeParametros>();
 constructor.Services.AddScoped<ConsultaDeMisiones>();
 constructor.Services.AddScoped<EvaluacionDeAsignacion>();
+constructor.Services.AddScoped<ServicioDeSincronizacion>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeFlota>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeRestricciones>();
 constructor.Services.AddSingleton<IParametrosDeLaInstitucion, ParametrosProvisionales>();
@@ -192,6 +194,48 @@ misiones.MapPost("/{id}/anular", async (
 // evalúan BD-02 y BD-03, y se revalidan en cada una con los datos del momento.
 ConAsignacion("programar", (e, quien, a, m, p, cuando) => e.Programar(quien, a, m, p, cuando));
 ConAsignacion("despachar", (e, quien, a, m, p, cuando) => e.Despachar(quien, a, m, p, cuando));
+
+// M-16 — Donde aterriza lo que el dispositivo capturó sin red.
+//
+// `RNF-03`: 7 días sin conectividad y **0 registros perdidos**. Del lado del servidor eso
+// es una sola propiedad: reenviar es inofensivo. Y tiene que serlo, porque el dispositivo
+// que no supo si el servidor recibió VA a reenviar.
+//
+// Responde 200 aunque haya rechazos: el lote no es atómico. Que una transición no entre
+// no puede impedir que las otras seis sí — el dispositivo lleva siete días de trabajo y
+// perderlo todo por un expediente inexistente sería el fallo que este endpoint evita.
+app.MapPost("/sincronizacion", async (
+    LoteDeSincronizacion peticion, ServicioDeSincronizacion servicio) =>
+{
+    var hechos = new List<HechoCapturado>();
+
+    foreach (var h in peticion.Transiciones ?? [])
+    {
+        if (!Identificador.Valido(h.IdDeCaptura, out var idDeCaptura, out var error)) return error;
+        if (!Identificador.Valido(h.IdExpediente, out var idExpediente, out var errorExpediente))
+            return errorExpediente;
+
+        hechos.Add(new HechoCapturado(
+            idDeCaptura, idExpediente, h.Transicion, h.Ejecuta, h.OcurridoEn));
+    }
+
+    var resultado = await servicio.RecibirAsync(hechos);
+
+    return Results.Ok(new
+    {
+        dispositivo = peticion.IdDispositivo,
+        // Lo que el dispositivo puede sacar de su cola: aplicadas y ya conocidas por
+        // igual. Distinguirlas importa para diagnosticar, no para depurar la cola.
+        acusadas = resultado.Aplicadas.Concat(resultado.YaConocidas).Select(i => i.ToString()),
+        aplicadas = resultado.Aplicadas.Select(i => i.ToString()),
+        yaConocidas = resultado.YaConocidas.Select(i => i.ToString()),
+        rechazadas = resultado.Rechazadas.Select(r => new
+        {
+            idDeCaptura = r.IdDeCaptura.ToString(),
+            motivo = r.Motivo,
+        }),
+    });
+});
 
 // T-20: devolver la liquidación para rehacerla. La alternativa a devolverla es cerrarla
 // mal, y un descargo mal conciliado que se cierra ya no se corrige: se revierte.
@@ -414,3 +458,16 @@ internal static class Identificador
         return false;
     }
 }
+
+/// <summary>Lo que un dispositivo entrega al reconectar.</summary>
+internal sealed record LoteDeSincronizacion(
+    string IdDispositivo,
+    IReadOnlyList<HechoDelDispositivo>? Transiciones);
+
+/// <param name="IdDeCaptura">Lo generó el dispositivo (`ADR-005`). Identidad del hecho.</param>
+internal sealed record HechoDelDispositivo(
+    string IdDeCaptura,
+    string IdExpediente,
+    string Transicion,
+    string Ejecuta,
+    DateTimeOffset OcurridoEn);
