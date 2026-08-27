@@ -258,6 +258,50 @@ Lista de registros donde dos versiones entraron en conflicto al sincronizar. Se 
 
 ---
 
+## 11. Los estados de la Orden de Misión
+
+> **Incorporado tras el hallazgo `HB1-26`.** Este glosario se declara *«fuente de verdad para nombrar entidades, campos, pantallas y botones»* y añade que *«si un término no está aquí, no se usa en un artefacto»*. **No definía ninguno de los diez estados del ciclo de vida**, así que por su propia regla ni `APROBADA` podía escribirse en ninguna parte.
+>
+> La definición **normativa** de cada estado —qué se puede y qué no, sus invariantes— está en [`orden-de-mision.md` §3](../03-arquitectura/estados/orden-de-mision.md), que es la **autoridad**. Lo de aquí es el vocabulario: cómo se nombra y qué significa para quien lo lee en pantalla. Si divergen, manda la máquina de estados.
+
+| Estado | Qué significa para quien lo ve |
+|---|---|
+| `BORRADOR` | La necesidad se está capturando. Todavía no la ha visto nadie más y no compromete nada |
+| `SOLICITADA` | Presentada y esperando pronunciamiento de la jefatura. **El contenido ya está congelado**: lo que se apruebe es exactamente lo que se envió |
+| `APROBADA` | La jefatura la autorizó. **No reserva vehículo ni motorista**: autorizar la pertinencia del viaje no es lo mismo que comprometer la flota |
+| `PROGRAMADA` | Tiene vehículo y motorista asignados y reservados, y folio reservado. Todavía no salió |
+| `DESPACHADA` | Documentos emitidos, folio consumido, custodia del vehículo entregada al motorista. El vehículo está por salir |
+| `EN_RUTA` | Salió. La autoridad del expediente vive en el dispositivo que porta el motorista |
+| `RETORNADA` | El vehículo volvió y la bitácora está cerrada. **La ejecución no se reabre** |
+| `LIQUIDADA` | El descargo conciliado está hecho: fondo, combustible, peajes y kilometraje cuadran o tienen su desviación explicada |
+| `CERRADA` | El expediente terminó sin observaciones y es inmutable |
+| `CERRADA_CON_HALLAZGO` | Terminó completo, **con una observación que el control interno debe seguir**. No imputa responsabilidad ni sanciona: un vehículo robado en ruta produce hallazgo y nadie es culpable |
+
+Y las dos ramas que no son terminales del camino normal:
+
+| Estado | Qué significa |
+|---|---|
+| `RECHAZADA` | La jefatura no la autorizó, con motivo obligatorio. No se reabre: se presenta una nueva |
+| `ANULADA` | Se dejó sin efecto con motivo tipificado y autor. **Nunca se borra.** Una misión que ya salió no se anula — se liquida |
+
+### Términos del ciclo que se usan mucho y no estaban definidos
+
+| Término | Qué es |
+|---|---|
+| **Ventana efectiva** | El rango de la misión **más las holguras** previa y posterior. Es contra ésta que se valida la licencia, no contra la fecha de salida |
+| **Holgura** | Los días de margen que se suman antes y después de la ventana solicitada, para reservas y para vigencia documental |
+| **Paquete normativo congelado** | El conjunto de tablas —tarifas, calendario, matriz de licencias, rendimientos, umbrales— con que se calcula una misión, fijado al despachar. Aunque las tablas cambien mientras el vehículo está en ruta, esa misión sigue usando las suyas |
+| **Dispositivo portador** | El equipo designado que lleva el expediente a campo. Hay **exactamente uno** por misión despachada, y es donde reside la autoridad del dato mientras dura la ejecución |
+| **Sobregiro** | Consumo por encima del fondo asignado |
+| **Cadena divergente** | Dos registros del mismo hecho que no coinciden al sincronizar. No se resuelve descartando en silencio |
+| **Régimen de excepción** | El levantamiento declarado de incompatibilidades de segregación para delegaciones sin personal suficiente. ⛔ **Diseñado y no implementado** — ver [`DP-002`](../07-gestion/decisiones-de-producto/DP-002-segregacion-en-delegaciones-pequenas.md) |
+
+### Sobre `approve` en la lista de términos prohibidos
+
+Lo prohibido es **`approve` en inglés**, no el estado `APROBADA`. La prohibición apunta a que nadie escriba *«approve»* en una pantalla o en un campo; el estado canónico del ciclo de vida se llama `APROBADA` y así se escribe. El verbo que se usa en la interfaz es **autorizar**.
+
+---
+
 ## Términos prohibidos
 
 No se usan en artefactos, código ni interfaz. La columna derecha es lo que se usa en su lugar.

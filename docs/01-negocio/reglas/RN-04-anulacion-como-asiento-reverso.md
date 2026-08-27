@@ -26,7 +26,21 @@ El patrón de hallazgo que busca el TSC en flota es la **correlación entre cons
 
 Aplica desde el momento en que un registro **sale de `BORRADOR`**.
 
-**No aplica** a registros en `BORRADOR` que nunca fueron enviados a autorización ni impresos: un borrador puede descartarse, y ese descarte se registra como evento sin conservar el contenido. `[C]` confirmar con Auditoría Interna que este trato del borrador es aceptable; si no lo es, el borrador también se conserva.
+**No aplica el asiento reverso** a registros en `BORRADOR` que nunca fueron enviados a autorización ni impresos: no hubo transacción que revertir. **Pero eso no significa que el contenido desaparezca.**
+
+> **Corrección — hallazgo `HB1-24`.** Esta regla decía que el descarte *«se registra como evento sin conservar el contenido»*, y dejaba `[C]` si Auditoría Interna lo aceptaba. [`orden-de-mision.md`](../../03-arquitectura/estados/orden-de-mision.md) —**autoridad en transiciones e invariantes**— dice lo contrario y con fundamento: *«tampoco es un borrado físico: el expediente pasa a `ANULADA` con motivo "descartado antes de enviar" y queda fuera de los paquetes de evidencia de auditoría, marcado como tal»*.
+>
+> **Manda la máquina de estados.** El descarte es `T-03`, y `ANULADA` tiene sus invariantes `INV-40` a `INV-43` —motivo obligatorio, tipificado y con autor—, que un expediente vacío no podría satisfacer. Además contradecía el principio **P-3** del propio sistema: *«nada se borra, nada se sobrescribe»*.
+>
+> Se retira también el `[C]`: era la pregunta equivocada. No hay que confirmar si se puede borrar el borrador; **no se borra**, y lo que sí hay que resolver es otra cosa — abajo.
+
+**Qué pasa entonces con un borrador descartado:**
+
+1. Pasa a `ANULADA` por `T-03`, con motivo tipificado *«descartado antes de enviar»* y autor. **No se borra.**
+2. **Queda fuera de los paquetes de evidencia** ([`RN-98`](RN-98-paquete-de-evidencia-por-vehiculo-o-periodo.md)) y marcado como tal: no es ruido para el auditor, pero existe si lo pide.
+3. **No consumió folio** — el folio se reserva en `T-08` y se consume en `T-12`, y un borrador no llegó a ninguna de las dos. No hay correlativo que explicar.
+
+> `[C]` **Lo que sí queda por resolver, y no es lo mismo.** Un borrador de `M-17` puede llevar datos de personas externas. Conservarlo indefinidamente choca con la minimización de [`RN-51`](RN-51-minimizacion-de-datos-de-personas-externas.md) y con la política de retención diferenciada que [NRM-07](../normativa/NRM-07-transparencia-y-datos-personales.md) deja `[C]`. **La pregunta correcta es el plazo de depuración del dato personal de un borrador descartado**, no si el expediente se borra. Es insumo para Auditoría Interna y el OIP.
 
 **No aplica** a datos espejo de ARGOS y Talento Humano, cuyo ciclo de vida pertenece al sistema origen ([RN-48](RN-48-datos-espejo-de-solo-lectura.md)).
 

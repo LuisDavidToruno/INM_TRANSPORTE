@@ -744,18 +744,23 @@ Se nombran como candidatas y **sin número definitivo**: la numeración `RN-xx` 
 
 ## 9. Insumos pendientes que genera este documento
 
-**Ninguno de estos datos se ha inventado.** Deben trasladarse a [`docs/07-gestion/insumos-pendientes.md`](../07-gestion/insumos-pendientes.md).
+> **Corrección — hallazgo `HB1-27`.** Esta sección era un **segundo registro** de pendientes, con letras propias, y [`mapa-de-procesos` §9](mapa-de-procesos.md) tenía un tercero. Al menos dos ya existían numerados en [`insumos-pendientes.md`](../07-gestion/insumos-pendientes.md), con texto casi idéntico. **Dos registros del mismo pendiente producen dos estados del mismo hecho**: Auditoría Interna responde el insumo #26 y nadie cierra el pendiente D, o al revés.
+>
+> Deja de ser registro. **Es un índice**: cada letra remite a su insumo numerado, que es el único que se cierra. Donde no hay número, lo dice — y eso mismo es la tarea.
 
-| # | Pendiente | Bloquea |
-|---|---|---|
-| A | **Niveles y umbrales de autorización** — monto, destino, duración o tipo de carga que obligan a escalar por encima de la jefatura inmediata. **Propiedad de ARGOS**, se consumen por API | Acciones 2 y 9 de la matriz; todo M-06 y M-07 |
-| B | **¿Quién autoriza la misión de la máxima autoridad?** | Nota 1 de la matriz |
-| C | **¿Es delegable la firma del permiso de circulación en día u hora inhábil?** Mientras no se confirme, se trata como indelegable | `ACT-09`, sección 7.1 |
-| D | **¿Acepta la institución el régimen de excepción con controles compensatorios para delegaciones sin personal suficiente?** ¿Bajo qué formalidad y con qué vigencia máxima? Requiere pronunciamiento de Auditoría Interna | Toda la operación de delegaciones pequeñas — sección 5.4 |
-| E | **Mapa de delegaciones con su dotación real de personal** y qué puesto de sede central respalda a cada una | Nivel 1 de la sección 5.4 |
-| F | **¿Existe unidad de Bienes separada** o la función la absorbe la Gerencia Administrativa? | `ACT-14`; si se absorbe, se activa control compensatorio |
-| G | **¿Acepta la institución exponer un punto público de verificación de QR**, siendo el despliegue on-premise? | `ACT-15`, M-15 |
-| H | **Plazos parametrizables**: convalidación de actos en régimen de excepción, escalamiento por ausencia, solape máximo en coocupación de puesto, vigencia máxima de una delegación | Secciones 2.3, 5.4, 7.3 |
-| I | **¿Talento Humano administra la licencia de conducir** del servidor, o el padrón de licencias lo mantiene Transporte? | `ACT-17`, M-05 |
-| J | **¿Exige Auditoría Interna revisión del 100 %** de las misiones ejecutadas en régimen de excepción? | Control compensatorio 4, sección 5.4 |
-| K | **¿Se admite delegación en un puesto o debe ser nominativa** a una persona? ¿Se admite subdelegación? | Sección 7.1 |
+| # | Pendiente | Insumo | Bloquea |
+|---|---|---|---|
+| A | Niveles y umbrales de autorización — **propiedad de ARGOS**, se consumen por API | **#16** | Acciones 2 y 9 de la matriz; todo M-06 y M-07 |
+| B | ¿Quién autoriza la misión de la máxima autoridad? | **#28** | Nota 1 de la matriz |
+| C | ¿Es delegable la firma del permiso de circulación en día u hora inhábil? Mientras no se confirme, se trata como indelegable | **#29** | `ACT-09`, sección 7.1 |
+| D | ¿Acepta la institución el régimen de excepción con controles compensatorios? ¿Con qué formalidad y vigencia? Requiere pronunciamiento de Auditoría Interna | **#26** | Toda la operación de delegaciones pequeñas — sección 5.4, y [`DP-002`](../07-gestion/decisiones-de-producto/DP-002-segregacion-en-delegaciones-pequenas.md) |
+| E | Mapa de delegaciones con su dotación real de personal y qué puesto de sede respalda a cada una | **#27** | Nivel 1 de la sección 5.4 |
+| F | ¿Existe unidad de Bienes separada, o la absorbe la Gerencia Administrativa? | **#52** | `ACT-14`; si se absorbe, se activa control compensatorio |
+| G | ¿Acepta la institución exponer un punto público de verificación de QR, siendo el despliegue on-premise? | ⚠️ **sin registrar** | `ACT-15`, M-15, y el bloqueo duro de [`RN-25`](reglas/RN-25-salvoconducto-con-folio-y-qr.md) — es el hallazgo `HN1-17` |
+| H | Plazos parametrizables: convalidación, escalamiento por ausencia, solape en coocupación, vigencia máxima de delegación | **#32** parcial | [`RN-73`](reglas/RN-73-convalidacion-de-actos-sin-autorizacion-previa.md), sección 7.3 |
+| I | ¿Talento Humano administra la licencia de conducir? | ⚠️ **sin registrar** · se solapa con **#17** | `ADR-001`, [`RN-48`](reglas/RN-48-datos-espejo-de-solo-lectura.md) |
+| J | ¿Exige Auditoría Interna revisión del 100 % de las misiones en régimen de excepción? | ⚠️ **sin registrar** · depende de **#26** | Control compensatorio 4, sección 5.4 |
+| K | ¿Se admite delegación en un puesto, o debe ser nominativa? | ⚠️ **sin registrar** | [`RN-07`](reglas/RN-07-delegacion-de-autorizacion.md), sección 7.2 |
+
+**Los cuatro sin número hay que registrarlos en [`insumos-pendientes.md`](../07-gestion/insumos-pendientes.md)**, y entonces esta columna deja de tener huecos. Hasta que eso pase, `G` es el más caro: sostiene un bloqueo duro no configurable sobre una capacidad que la institución no ha dicho si acepta.
+

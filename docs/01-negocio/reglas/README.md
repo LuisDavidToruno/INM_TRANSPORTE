@@ -11,7 +11,7 @@ Plantilla: [`docs/plantillas/regla-de-negocio.md`](../../plantillas/regla-de-neg
 | Columna | Significado |
 |---|---|
 | **Tipo** | `Bloqueo duro` impide la operación · `Advertencia` deja continuar con acuse registrado · `Cálculo` produce un valor · `Derivación` resuelve un atributo a partir de otros |
-| **Cfg.** | Si el comportamiento se controla con un parámetro configurable. `Sí*` = el bloqueo es configurable; `No` = no se puede desactivar |
+| **Cfg.** | Qué se puede configurar. **`No`** = nada; ni el bloqueo ni su alcance se desactivan. **`Sí`** = hay parámetro, catálogo o umbral configurable, **pero el bloqueo en sí no se apaga** — es el valor de la mayoría de las filas. **`Sí*`** = **el bloqueo mismo es configurable** y se puede dejar apagado. Hoy **solo [RN-16](RN-16-seguro-y-revision-mecanica.md)** lo es, y lo dice en su ficha: el bloqueo por póliza y revisión nace **apagado por defecto** |
 | **Origen** | Ficha normativa `NRM-xx`, decisión de producto `DP-001`, decisión de arquitectura `ADR-001`, o premisa rectora del proyecto |
 
 Nivel de verificación (`[V]` `[P]` `[C]` `[I]`) va dentro de cada regla, marcado en cada afirmación normativa.
@@ -33,7 +33,7 @@ Nivel de verificación (`[V]` `[P]` `[C]` `[I]`) va dentro de cada regla, marcad
 | [RN-73](RN-73-convalidacion-de-actos-sin-autorizacion-previa.md) | El acto ejecutado sin autorización previa se convalida en plazo, y la cronología se declara tal como ocurrió | M-06, M-07, M-08, M-14, M-15 | Bloqueo + hallazgo | Sí | NRM-01, CE-01 |
 | [RN-74](RN-74-sin-atribucion-de-responsabilidad-en-campo.md) | El registro de campo no captura atribución de responsabilidad; se determina en el expediente | M-12, M-08, M-16, M-17 | Bloqueo duro | No | NRM-01, NRM-07, CE-03 |
 | [RN-100](RN-100-permisos-por-puesto-no-por-persona.md) | Los permisos se conceden al **puesto**, nunca a la persona; la autoría histórica es de la persona y no se reasigna | M-01, M-14, M-03, M-07 | Bloqueo duro | No | NRM-09, `HN1-18` |
-| [RN-101](RN-101-cierre-de-asignacion-de-puesto.md) | Una asignación de puesto **no se cierra con custodias físicas activas**; lo demás pasa al puesto | M-01, M-03, M-09, M-13, M-14 | Bloqueo duro | No el bloqueo | NRM-02, NRM-09, `HN1-18` |
+| [RN-101](RN-101-cierre-de-asignacion-de-puesto.md) | Una asignación de puesto **no se cierra con custodias físicas activas**; lo demás pasa al puesto | M-01, M-03, M-09, M-13, M-14 | Bloqueo duro | No | NRM-02, NRM-09, `HN1-18` |
 
 ## Habilitación del motorista
 
@@ -42,7 +42,7 @@ Nivel de verificación (`[V]` `[P]` `[C]` `[I]`) va dentro de cada regla, marcad
 | [RN-09](RN-09-matriz-licencia-vehiculo.md) | La categoría de licencia debe habilitar el tipo, el peso bruto y la capacidad del vehículo asignado | M-05, M-07, M-03 | Bloqueo duro | No† | NRM-06, DP-001 D-12 |
 | [RN-10](RN-10-licencia-vigente-en-todo-el-rango.md) | La licencia debe estar vigente durante todo el rango de la misión, no solo el día de salida | M-05, M-07 | Bloqueo duro | No | NRM-06, DP-001 D-12 |
 | [RN-11](RN-11-restricciones-medicas-del-motorista.md) | Las restricciones médicas de la licencia deben ser compatibles con las condiciones de la misión | M-05, M-07 | Bloqueo / advertencia | Sí | NRM-06 |
-| [RN-12](RN-12-disponibilidad-del-motorista.md) | No se asigna un motorista con permiso, vacaciones o incapacidad vigente según el espejo de Talento Humano | M-05, M-07, M-20 | Bloqueo duro | Sí* | DP-001 D-07, ADR-001 |
+| [RN-12](RN-12-disponibilidad-del-motorista.md) | No se asigna un motorista con permiso, vacaciones o incapacidad vigente según el espejo de Talento Humano | M-05, M-07, M-20 | Bloqueo duro | Sí | DP-001 D-07, ADR-001 |
 | [RN-13](RN-13-sin-doble-asignacion.md) | Un motorista y un vehículo no pueden estar asignados a dos misiones con ventanas traslapadas | M-07, M-03, M-05 | Bloqueo duro | Sí | NRM-01 |
 | [RN-14](RN-14-sustitucion-de-motorista.md) | La sustitución de motorista o vehículo revalida todas las habilitaciones y conserva la asignación original | M-07, M-08, M-05, M-03 | Bloqueo duro | No | DP-001 D-07, NRM-06 |
 | [RN-55](RN-55-habilitacion-vencida-durante-la-mision.md) | La habilitación que vence con la misión en ruta no detiene la ejecución, pero cierra el expediente con hallazgo | M-05, M-08, M-07, M-13 | Bloqueo duro | No | NRM-06, CE-11 |
@@ -205,8 +205,8 @@ Escrita tras el hallazgo `HN1-07`: `NRM-04` deja la cuota trimestral en alcance 
 | [RN-95](RN-95-conciliacion-contra-fuentes-externas.md) | El sistema concilia periódicamente contra fuentes externas, y cada diferencia abre expediente de hallazgo posterior | M-14, M-09, M-18, M-12, M-20 | Bloqueo duro | Sí | NRM-01, CE-28 |
 | [RN-96](RN-96-cierre-de-ejercicio-como-corte-de-imputacion.md) | El cierre de ejercicio es corte de imputación y de reporte; ningún expediente cambia de estado por una fecha | M-13, M-09, M-18, M-14, M-20 | Bloqueo duro | Sí | NRM-04, CE-27 |
 | [RN-97](RN-97-saldo-de-apertura-de-control-interno.md) | Lo no terminal al corte constituye el saldo de apertura del ejercicio siguiente, con antigüedad desde el hecho | M-14, M-13, M-12, M-03 | Bloqueo duro | No | NRM-01, CE-27 |
-| [RN-98](RN-98-paquete-de-evidencia-por-vehiculo-o-periodo.md) | La evidencia de auditoría se entrega también **por vehículo y por período**, no solo por misión | M-14, M-03, M-13, M-09, M-18, M-15 | Capacidad obligatoria | No la capacidad | NRM-01, `HN1-09` |
-| [RN-102](RN-102-reporte-publico-de-flota.md) | El **reporte público de flota** se produce sin depuración manual, agregado o anonimizado | M-14, M-17, M-03 | Capacidad obligatoria | Sí composición | NRM-07, DP-001 D-14, `HN1-18` |
+| [RN-98](RN-98-paquete-de-evidencia-por-vehiculo-o-periodo.md) | La evidencia de auditoría se entrega también **por vehículo y por período**, no solo por misión | M-14, M-03, M-13, M-09, M-18, M-15 | Capacidad obligatoria | Sí | NRM-01, `HN1-09` |
+| [RN-102](RN-102-reporte-publico-de-flota.md) | El **reporte público de flota** se produce sin depuración manual, agregado o anonimizado | M-14, M-17, M-03 | Capacidad obligatoria | Sí | NRM-07, DP-001 D-14, `HN1-18` |
 
 ---
 

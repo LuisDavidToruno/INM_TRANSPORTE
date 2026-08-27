@@ -255,7 +255,9 @@ SIGTI **sí** conserva el vínculo con los viáticos de ARGOS por clave comparti
 | Formatos en papel vigentes de bitácora, requisición, salida y control de combustible | PR-01, PR-11 | `[C]` — insumo #2 |
 | Informes de Auditoría Interna o del TSC sobre flota | PR-12 | `[C]` — insumo #19 |
 | Si el peaje se financia con el viático o es gasto de misión separado | PR-08 | `[C]` — insumo #25 |
-
+> **Corrección — hallazgo `HB1-27`.** Ésta era la **tercera** copia del mismo registro: [`insumos-pendientes.md`](../07-gestion/insumos-pendientes.md) los numera, [`actores-y-roles` §9](actores-y-roles.md) los volvía a listar con letras, y esta tabla los repetía otra vez. Tres registros del mismo hecho producen tres estados distintos de ese hecho.
+>
+> **El registro único es [`insumos-pendientes.md`](../07-gestion/insumos-pendientes.md).** Esta tabla y la de `actores-y-roles` §9 son índices que remiten a él, y solo él se cierra. Donde la letra todavía no tiene número, el número hay que crearlo — no se cierra la letra por su cuenta.
 Los que traen número están en [insumos-pendientes.md](../07-gestion/insumos-pendientes.md); los identificados con letra los genera [actores-y-roles.md](actores-y-roles.md) y **aún deben trasladarse a ese registro**. **Ninguno se suple con inferencia.**
 
 ---

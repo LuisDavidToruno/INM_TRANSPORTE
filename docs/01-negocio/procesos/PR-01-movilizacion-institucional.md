@@ -504,11 +504,21 @@ stateDiagram-v2
     APROBADA --> ANULADA: T-09 · ACT-04, ACT-02 o ACT-08
     PROGRAMADA --> ANULADA: T-13 · ACT-04 o ACT-08
     DESPACHADA --> ANULADA: T-15 · ACT-04 con ACT-07 y ACT-13, con devolución íntegra
+    SOLICITADA --> BORRADOR: T-04 · ACT-03 devuelve al solicitante para corregir
+    PROGRAMADA --> PROGRAMADA: T-10 · ACT-04 o ACT-10 reasigna vehículo o motorista
+    PROGRAMADA --> APROBADA: T-11 · ACT-04 o ACT-10 desprograma; el folio reservado se anula
+    DESPACHADA --> RETORNADA: T-16 · misión NO EJECUTADA que ya consumió fondo — no se anula, se liquida
+    EN_RUTA --> EN_RUTA: T-17 · ACT-06 con autorizador — prórroga o relevo, con código fuera de línea
+    LIQUIDADA --> RETORNADA: T-20 · ACT-08 devuelve la liquidación para rehacerla
     RECHAZADA --> [*]
     ANULADA --> [*]
     CERRADA --> [*]
     CERRADA_CON_HALLAZGO --> [*]
 ```
+
+> **Corrección — hallazgo `HB1-28`.** Este diagrama omitía cinco transiciones: `T-04`, `T-10`, `T-11`, `T-16` y `T-20`, más `T-17`, que el hallazgo no llegó a listar. Ahora están las **veintidós**, y coincide con [`orden-de-mision.md` §3.1](../../03-arquitectura/estados/orden-de-mision.md), que es la **autoridad**: si alguna vez divergen, manda esa y no ésta.
+>
+> La que importaba es **`T-16`**. Es el único camino previsto para la misión que se suspende **habiendo consumido fondo**, y es a la vez el caso que el §10 de este mismo proceso lista como frecuente. Un lector que trabajara solo con `PR-01` no sabía que existía — y sin ella lo único que parecía posible era anular, que es justamente lo que `EF-06` prohíbe: *«si se consumió aunque sea un lempira, la misión no se anula: se liquida»*.
 
 Anular después de emitir vales o de asignar fondo **no borra nada**: genera asiento reverso con motivo y autor, y los vales pasan a `ANULADO` con acta de `ACT-07`. En `DESPACHADA` la anulación exige **devolución íntegra** de lo entregado —vehículo, documentos y fondo— y concurren `ACT-04`, `ACT-07` y `ACT-13` (`T-15`). **Una misión que ya salió no se anula nunca**: desde `EN_RUTA` en adelante el camino es `T-18` registrar retorno, y lo que haya que corregir se corrige por asiento reverso. `[V]` NRM-01, [orden-de-mision.md](../../03-arquitectura/estados/orden-de-mision.md) §3.4.
 
@@ -755,7 +765,7 @@ Candidatos a `CE-xx`. **Ninguno se cierra sin regla de resolución**; los que no
 |---|---|
 | El vehículo se avería a mitad de ruta | `ACT-06` abre incidente desde el campo sin red; la misión queda `EN_RUTA` con estado `INTERRUMPIDA`; `ACT-04` decide reemplazo de vehículo o retorno; el fondo remanente y los peajes ya pagados se liquidan igual; el kilometraje se corta en el punto de la avería y `ACT-11` abre orden de trabajo en `PR-05` |
 | La licencia del motorista venció ayer y la misión sale hoy | PC-04 bloquea en el despacho aunque la programación fuera válida. `ACT-04` sustituye motorista conservando la asignación original en el historial. **No hay forma de forzarlo** |
-| La misión se canceló después de emitir los vales y entregar el fondo | Anulación por `ACT-08` con asiento reverso: vales a `ANULADO` con acta de `ACT-07`, devolución del fondo registrada con firma, misión a `ANULADA` con motivo. **La Orden de Misión no puede quedar anulada con fondo vivo.** Nada se borra |
+| La misión se canceló después de emitir los vales y entregar el fondo | **Depende de si se consumió, y esa distinción faltaba** (`HB1-24`). **Sin consumo:** anulación por `ACT-08` con asiento reverso — vales a `ANULADO` con acta de `ACT-07`, devolución íntegra del fondo registrada con firma, misión a `ANULADA` con motivo (`T-15`). **Con consumo, aunque sea de un lempira:** `EF-03`/`EF-06` de la [máquina de estados](../../03-arquitectura/estados/orden-de-mision.md) lo prohíben — **la misión no se anula, se liquida** por `T-16`, que existe exactamente para esto. En ambos casos: **la Orden de Misión no puede quedar anulada con fondo vivo**, y nada se borra |
 | La bitácora se llenó en papel porque no había señal ni dispositivo | Digitación diferida por `ACT-10`, con original adjunto, quién digitó, cuándo, y fecha del hecho distinta de la de captura `[V]` NRM-09 |
 | `ACT-15` detiene el vehículo y su teléfono no tiene datos para escanear el QR | El documento impreso lleva el hash visible y el folio; queda el contraste visual más la consulta telefónica a la institución `[I]`. `[C]` Pendiente G: si la institución acepta un punto de verificación público |
 | En la caseta le cobraron una categoría superior a la que le corresponde al vehículo | Se registra el monto realmente pagado, se marca **discrepancia de clasificación**, se conserva el ticket y se habilita el reclamo ante la SAPP `[V]` NRM-10. **El reclamo no condiciona el cierre de la misión**: es una cuenta por cobrar contra un tercero y sobrevive al cierre en su propio expediente — `T-21`, hallazgo `HB3-02` |

@@ -76,11 +76,20 @@ Las líneas base están pendientes de la institución piloto. **No se inventan**
 | 3 | Reducir el tiempo entre solicitud y despacho | Horas desde `SOLICITADA` hasta `DESPACHADA` | −50% | `[C]` medir hoy |
 | 4 | Cerrar el ciclo de conciliación de combustible | Misiones conciliadas galonaje–kilometraje | ≥ 95% de las cerradas | 0% hoy |
 | 5 | Detectar desviación de consumo antes que el auditor | Días entre el hecho y la detección | ≤ 30 días | `[C]` |
-| 6 | Producir evidencia de auditoría sin trabajo manual | Horas para armar un expediente por período | De días a minutos | `[C]` |
+| 6 | Producir evidencia de auditoría sin trabajo manual | Minutos para producir el **paquete de evidencia de un vehículo por trimestre** ([`RN-98`](../01-negocio/reglas/RN-98-paquete-de-evidencia-por-vehiculo-o-periodo.md)), desde que se pide hasta que está listo para entregar | **≤ 15 minutos** | `[C]` medir hoy: cuánto tarda armarlo a mano |
 | 7 | Que el registro de campo no dependa de la señal | Misiones registradas íntegramente offline y sincronizadas sin pérdida | 100% | — |
 | 8 | Adopción real en campo | Motoristas que registran desde el sistema en lugar de papel | ≥ 80% a los 3 meses | 0% hoy |
 | 9 | Evitar vencimientos sorpresa | Documentos vehiculares vencidos sin alerta previa | **Cero** | `[C]` |
-| 10 | Saber dónde está la flota | Vehículos en misión con estado y ubicación actualizados | ≥ 90% | 0% hoy |
+| 10 | Saber dónde está la flota | **Antigüedad mediana del último dato conocido** de cada vehículo en misión, **excluidas las misiones en zona declarada sin cobertura** | **≤ 4 h** en zona con cobertura | 0% hoy |
+
+
+> **Corrección — hallazgo `HB1-25`.** Los objetivos **6** y **10** no eran observables: no se podía escribir una prueba que dijera si se cumplieron.
+>
+> El **6** decía *«de días a minutos»*, sin número y sin definir qué era «un expediente por período». Ahora tiene unidad —el paquete de [`RN-98`](../01-negocio/reglas/RN-98-paquete-de-evidencia-por-vehiculo-o-periodo.md), que existe justamente para eso—, umbral y línea base medible.
+>
+> El **10** era peor, porque **castigaba el caso que el producto dice atender**. Medía *«ubicación actualizada ≥ 90 %»* sin definir «actualizado», y con la premisa rectora 5 y el principio *«el silencio no es un estado»*, una misión de cuatro días en La Mosquitia **no puede** tener ubicación reciente — por diseño, no por falla. Medido así, el 90 % penalizaba exactamente el escenario que la visión pone como prueba de éxito.
+>
+> Se cambió por **antigüedad mediana del último dato conocido**, que degrada con honestidad, y se excluyen explícitamente las zonas declaradas sin cobertura. Un indicador que exige lo imposible no se cumple: se falsea.
 
 El objetivo 8 es el que decide si el proyecto sirvió. Los demás son consecuencia de él: si el motorista vuelve al papel, ninguna otra métrica se cumple.
 
