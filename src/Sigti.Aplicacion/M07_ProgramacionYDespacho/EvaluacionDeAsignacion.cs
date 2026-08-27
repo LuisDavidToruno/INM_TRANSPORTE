@@ -48,7 +48,7 @@ public sealed record ResultadoDeAsignacion(
 /// </summary>
 public sealed class EvaluacionDeAsignacion(
     SigtiDbContext contexto,
-    CatalogoProvisionalDeFlota padron,
+    ConsultaDeConductores padron,
     ConsultaDeFlota flota,
     CatalogoProvisionalDeRestricciones restricciones,
     IParametrosDeLaInstitucion parametros)
@@ -67,7 +67,9 @@ public sealed class EvaluacionDeAsignacion(
         var vehiculo = Ulid.TryParse(idVehiculo, out var ulidVehiculo)
             ? await flota.PorIdAsync(ulidVehiculo, cancelacion)
             : null;
-        var conductor = padron.Conductor(idConductor);
+        var conductor = Ulid.TryParse(idConductor, out var ulidConductor)
+            ? await padron.PorIdAsync(ulidConductor, cancelacion)
+            : null;
 
         if (expediente is null || vehiculo is null || conductor is null) return null;
 
@@ -81,10 +83,10 @@ public sealed class EvaluacionDeAsignacion(
         string[] condiciones = hayConduccionNocturna ? [CondicionDeMision.ConduccionNocturna] : [];
 
         var restriccion = ReglasDeRestriccionMedica.Evaluar(
-            conductor.Licencia, condiciones, restricciones.Vigente);
+            conductor.Licencia(), condiciones, restricciones.Vigente);
 
         var habilitacion = ReglasDeHabilitacion.Evaluar(
-            conductor.Licencia, vehiculo.Ficha(), ventana, matriz, conocidoAl);
+            conductor.Licencia(), vehiculo.Ficha(), ventana, matriz, conocidoAl);
 
         var documentacion = ReglasDeDocumentacion.Evaluar(
             vehiculo.Documentacion(), ventana, politica);
@@ -109,19 +111,19 @@ public sealed class EvaluacionDeAsignacion(
 
             // Las salidas van en la misma respuesta porque van en la misma pantalla:
             // el usuario no puede resolver un rechazo de BD-02 reintentando.
-            ConductoresQueHabilitan: padron.Conductores
+            ConductoresQueHabilitan: (await padron.TodosAsync(cancelacion))
                 .Where(c => c.Id != conductor.Id)
                 .Where(c => ReglasDeHabilitacion.Evaluar(
-                    c.Licencia, vehiculo.Ficha(), ventana, matriz, conocidoAl).Habilita
+                    c.Licencia(), vehiculo.Ficha(), ventana, matriz, conocidoAl).Habilita
                     && ReglasDeRestriccionMedica.Evaluar(
-                        c.Licencia, condiciones, restricciones.Vigente).Efecto != EfectoDeRestriccion.Bloqueo)
-                .Select(c => c.Id)
+                        c.Licencia(), condiciones, restricciones.Vigente).Efecto != EfectoDeRestriccion.Bloqueo)
+                .Select(c => c.Id.ToString())
                 .ToList(),
 
             VehiculosQueHabilita: (await flota.ParaEvaluarAsync(cancelacion))
                 .Where(v => v.Id != vehiculo.Id)
                 .Where(v => ReglasDeHabilitacion.Evaluar(
-                    conductor.Licencia, v.Ficha(), ventana, matriz, conocidoAl).Habilita)
+                    conductor.Licencia(), v.Ficha(), ventana, matriz, conocidoAl).Habilita)
                 .Select(v => v.Id.ToString())
                 .ToList());
     }

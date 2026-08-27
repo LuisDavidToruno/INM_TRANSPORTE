@@ -62,7 +62,7 @@ public class FlotaRealPruebas(BaseDePruebas baseDePruebas)
             Ejecuta = "P-TRANSPORTE",
             Momento,
             IdVehiculo = idVehiculo,
-            IdConductor = "c-001",
+            IdConductor = FlotaSembrada.Conductor.ToString(),
         });
 
         Assert.Equal(HttpStatusCode.Conflict, respuesta.StatusCode);
@@ -93,7 +93,7 @@ public class FlotaRealPruebas(BaseDePruebas baseDePruebas)
             Ejecuta = "P-TRANSPORTE",
             Momento,
             IdVehiculo = idVehiculo,
-            IdConductor = "c-001",
+            IdConductor = FlotaSembrada.Conductor.ToString(),
         });
 
         Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
@@ -123,6 +123,7 @@ public class FlotaRealPruebas(BaseDePruebas baseDePruebas)
         var id = Ulid.NewUlid();
 
         await using var contexto = baseDePruebas.Contexto();
+        await FlotaSembrada.SembrarAsync(contexto);
 
         contexto.Vehiculos.Add(new FilaDeVehiculo
         {

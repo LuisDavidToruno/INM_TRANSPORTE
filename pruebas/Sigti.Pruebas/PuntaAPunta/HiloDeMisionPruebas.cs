@@ -72,11 +72,11 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
         // aunque esté vigente el día de salida.
         // BD-02: la licencia B de José Ramón Cruz no habilita un camión de 12,000 kg.
         var noHabilita = await Asignar(cliente, id, "programar", "P-TRANSPORTE",
-            idVehiculo: FlotaSembrada.Camion.ToString(), idConductor: "c-001", esperado: HttpStatusCode.Conflict);
+            idVehiculo: FlotaSembrada.Camion.ToString(), idConductor: FlotaSembrada.Conductor.ToString(), esperado: HttpStatusCode.Conflict);
         Assert.Contains("BD-02", await noHabilita.Content.ReadAsStringAsync());
 
-        await Asignar(cliente, id, "programar", "P-TRANSPORTE", idVehiculo: FlotaSembrada.Pickup.ToString(), idConductor: "c-001");
-        await Asignar(cliente, id, "despachar", "P-ENCARGADO", idVehiculo: FlotaSembrada.Pickup.ToString(), idConductor: "c-001");
+        await Asignar(cliente, id, "programar", "P-TRANSPORTE", idVehiculo: FlotaSembrada.Pickup.ToString(), idConductor: FlotaSembrada.Conductor.ToString());
+        await Asignar(cliente, id, "despachar", "P-ENCARGADO", idVehiculo: FlotaSembrada.Pickup.ToString(), idConductor: FlotaSembrada.Conductor.ToString());
         await Transicionar(cliente, id, "iniciar-ruta", "P-MOTORISTA");
         await Transicionar(cliente, id, "retornar", "P-MOTORISTA");
         var liquidada = await Transicionar(cliente, id, "liquidar", "P-TRANSPORTE");
@@ -149,7 +149,7 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
             Ejecuta = "P-TRANSPORTE",
             Momento,
             IdVehiculo = Ulid.NewUlid().ToString(),
-            IdConductor = "c-001",
+            IdConductor = FlotaSembrada.Conductor.ToString(),
         });
 
         Assert.Equal(HttpStatusCode.NotFound, respuesta.StatusCode);

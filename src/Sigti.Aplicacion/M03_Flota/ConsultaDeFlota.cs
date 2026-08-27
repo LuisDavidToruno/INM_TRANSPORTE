@@ -6,12 +6,10 @@ namespace Sigti.Aplicacion.M03_Flota;
 /// <summary>
 /// La flota, desde la base.
 ///
-/// <b>Reemplaza a `CatalogoProvisionalDeFlota` en la parte de vehículos.</b> Mientras la
-/// flota vivía en código, `BD-03` no podía bloquear: la documentación provisional
-/// devolvía vencimientos de 2030 para todo, y el código lo declaraba en un comentario
-/// para no fingir que había verificado algo.
-///
-/// El padrón de conductores sigue siendo provisional — es `M-05`, y no está construido.
+/// <b>Reemplazó al catálogo en código</b>, que ya no existe. Mientras la flota vivía ahí,
+/// `BD-03` no podía bloquear: la documentación provisional devolvía vencimientos de 2030
+/// para todo, y el código lo declaraba en un comentario para no fingir que había
+/// verificado algo.
 /// </summary>
 public sealed class ConsultaDeFlota(SigtiDbContext contexto)
 {

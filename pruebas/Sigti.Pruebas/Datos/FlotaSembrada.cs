@@ -1,5 +1,6 @@
 using Sigti.Datos;
 using Sigti.Dominio.M03_Flota;
+using Sigti.Dominio.M05_Motoristas;
 
 namespace Sigti.Pruebas.Datos;
 
@@ -34,6 +35,9 @@ internal static class FlotaSembrada
     /// <summary>Motocicleta. Exige `A`, y por eso la clase normativa no es opcional.</summary>
     public static readonly Ulid Motocicleta = Ulid.Parse("01JQ8Z000000000000000VEH04");
 
+    /// <summary>Licencia `B` vigente hasta 2028. Habilita el pick-up, no el camión.</summary>
+    public static readonly Ulid Conductor = Ulid.Parse("01JQ8Z000000000000000CON01");
+
     /// <summary>
     /// Siembra la flota si no está. Idempotente: las pruebas comparten la base y ninguna
     /// puede asumir que corre primero.
@@ -41,6 +45,17 @@ internal static class FlotaSembrada
     public static async Task SembrarAsync(SigtiDbContext contexto)
     {
         if (contexto.Vehiculos.Any(v => v.Id == Pickup)) return;
+
+        contexto.Conductores.Add(new FilaDeConductor
+        {
+            Id = Conductor,
+            Nombre = "José Ramón Cruz",
+            EsDelPadron = true,
+            NumeroDeLicencia = "08-1988-77120",
+            Categoria = CategoriaDeLicencia.B,
+            VenceLicencia = new DateOnly(2028, 4, 30),
+            Restricciones = null,
+        });
 
         contexto.Vehiculos.AddRange(
             Vehiculo(Pickup, "INS-P-014", "PBM8842", "Pick-up doble cabina",

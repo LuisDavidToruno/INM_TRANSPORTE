@@ -159,7 +159,7 @@ public class SincronizacionPruebas(BaseDePruebas baseDePruebas)
             Ejecuta = ejecuta,
             Momento,
             IdVehiculo = FlotaSembrada.Pickup.ToString(),
-            IdConductor = "c-001",
+            IdConductor = FlotaSembrada.Conductor.ToString(),
         });
         Assert.Equal(HttpStatusCode.OK, r.StatusCode);
     }

@@ -18,6 +18,7 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     public DbSet<VersionDeParametro> Parametros => Set<VersionDeParametro>();
     public DbSet<FilaDeAdjunto> Adjuntos => Set<FilaDeAdjunto>();
     public DbSet<FilaDeVehiculo> Vehiculos => Set<FilaDeVehiculo>();
+    public DbSet<FilaDeConductor> Conductores => Set<FilaDeConductor>();
 
     /// <summary>
     /// ULID en binary(16) y no en texto: 16 bytes contra 26, y conserva la monotonía que
@@ -122,6 +123,25 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             transicion.HasIndex(t => t.IdDeCaptura)
                 .IsUnique()
                 .HasFilter("[IdDeCaptura] IS NOT NULL");
+        });
+
+        modelo.Entity<FilaDeConductor>(conductor =>
+        {
+            conductor.ToTable("Conductor", schema: "motoristas");
+
+            conductor.HasKey(c => c.Id);
+            conductor.Property(c => c.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            conductor.Property(c => c.Nombre).HasMaxLength(160).IsRequired();
+
+            // La licencia es unica por persona y es lo que se cita ante un reten.
+            conductor.Property(c => c.NumeroDeLicencia).HasMaxLength(40).IsRequired();
+            conductor.HasIndex(c => c.NumeroDeLicencia).IsUnique();
+
+            conductor.Property(c => c.Categoria).HasConversion<string>().HasMaxLength(4).IsRequired();
+            conductor.Property(c => c.Restricciones).HasMaxLength(400);
+
+            // Lo que vence pronto sostiene RN-17, igual que en la flota.
+            conductor.HasIndex(c => c.VenceLicencia);
         });
 
         modelo.Entity<FilaDeVehiculo>(vehiculo =>

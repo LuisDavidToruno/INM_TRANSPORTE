@@ -209,9 +209,22 @@ Las **nueve** categorías del **Artículo 4 del Acuerdo 1012-2021** `[V]`, con l
 
 **Lo que queda abierto es el camino, no el dato:** el circuito de carga existe (`POST /parametros` y `POST /parametros/{id}/aprobar`, con doble control y asiento en bitácora), pero la matriz **no entra por él** — está escrita en C# en `ParametrosProvisionales`. Cargarla por el circuito y borrar esa clase es lo que le da doble control.
 
-### Dos catálogos siguen en código, y están marcados como provisionales
+### ⚠️ `M-05` está escrito y **la suite no pudo correr**
 
-Eran tres. **La flota salió** — `M-03` y `M-04` están en la base, con vencimientos reales, y `BD-03` bloquea de verdad. Ninguno de los que quedan finge ser otra cosa: los dos llevan su aviso en el propio archivo.
+El padrón de motoristas sale de la base y `CatalogoProvisionalDeFlota` **se borró**. Compila —los cinco proyectos, incluido el de pruebas—, pero **Smart App Control bloqueó `dotnet test` y `dotnet ef`** durante veinte intentos con `0x800711C7`, y **la migración `PadronDeConductores` no se aplicó a la base**.
+
+**Antes de confiar en esto:**
+
+```bash
+dotnet ef database update -p src/Sigti.Datos -s src/Sigti.Datos
+dotnet test
+```
+
+Deben pasar **80**. Este cambio **borra un archivo del que dependían cuatro pruebas** y toca `BD-02`, que es la precondición que traslada responsabilidad legal: no se da por bueno hasta verlo.
+
+### Un catálogo sigue en código, y está marcado como provisional
+
+Eran tres. Salieron la flota y el padrón. El que queda no finge ser otra cosa: lleva su aviso en el propio archivo.
 
 | Qué | Dónde | Qué falta para borrarlo |
 |---|---|---|

@@ -34,12 +34,12 @@ constructor.Services.AddScoped<EvaluacionDeAsignacion>();
 constructor.Services.AddScoped<ServicioDeSincronizacion>();
 constructor.Services.AddScoped<ServicioDeAdjuntos>();
 constructor.Services.AddScoped<ConsultaDeFlota>();
+constructor.Services.AddScoped<ConsultaDeConductores>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
 constructor.Services.AddSingleton(new AlmacenDeArchivos(
     constructor.Configuration["Adjuntos:Raiz"]
     ?? Path.Combine(constructor.Environment.ContentRootPath, "adjuntos")));
-constructor.Services.AddSingleton<CatalogoProvisionalDeFlota>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeRestricciones>();
 constructor.Services.AddSingleton<IParametrosDeLaInstitucion, ParametrosProvisionales>();
 // El cliente de oficina corre en otro origen durante el desarrollo. En producción
@@ -120,7 +120,41 @@ if (app.Environment.IsDevelopment())
 
         contextoDeSiembra.SaveChanges();
     }
+
+    if (!contextoDeSiembra.Conductores.Any())
+    {
+        contextoDeSiembra.Conductores.AddRange(
+            ConductorDeDesarrollo("01JQ8Z000000000000000CON01", "José Ramón Cruz", true,
+                "08-1988-77120", CategoriaDeLicencia.B, new DateOnly(2028, 4, 30), null),
+
+            ConductorDeDesarrollo("01JQ8Z000000000000000CON02", "Marlon Pineda", true,
+                "08-1979-40155", CategoriaDeLicencia.C, new DateOnly(2027, 9, 15), null),
+
+            // `RN-57`: quien conduce, sea o no del padrón. El funcionario con vehículo
+            // asignado no se exceptúa del bloqueo.
+            ConductorDeDesarrollo("01JQ8Z000000000000000CON03", "Dilcia Fúnez", false,
+                "08-1991-20388", CategoriaDeLicencia.A, new DateOnly(2029, 1, 31),
+                "CONDUCCION DIURNA UNICAMENTE"),
+
+            ConductorDeDesarrollo("01JQ8Z000000000000000CON04", "Wilmer Alvarado", true,
+                "08-1985-61207", CategoriaDeLicencia.BE, new DateOnly(2027, 11, 20), null));
+
+        contextoDeSiembra.SaveChanges();
+    }
 }
+
+static FilaDeConductor ConductorDeDesarrollo(
+    string id, string nombre, bool delPadron,
+    string licencia, CategoriaDeLicencia categoria, DateOnly vence, string? restricciones) => new()
+{
+    Id = Ulid.Parse(id),
+    Nombre = nombre,
+    EsDelPadron = delPadron,
+    NumeroDeLicencia = licencia,
+    Categoria = categoria,
+    VenceLicencia = vence,
+    Restricciones = restricciones,
+};
 
 static FilaDeVehiculo VehiculoDeDesarrollo(
     string id, string siglas, string? placa, string tipo,
@@ -198,7 +232,21 @@ app.MapGet("/flota", async (ConsultaDeFlota flota) => Results.Ok(
         },
         venceMatricula = v.VenceMatricula,
     })));
-app.MapGet("/conductores", (CatalogoProvisionalDeFlota flota) => Results.Ok(flota.Conductores));
+app.MapGet("/conductores", async (ConsultaDeConductores padron) => Results.Ok(
+    (await padron.TodosAsync()).Select(c => new
+    {
+        id = c.Id.ToString(),
+        nombre = c.Nombre,
+        esDelPadron = c.EsDelPadron,
+        licencia = new
+        {
+            numero = c.NumeroDeLicencia,
+            categoria = c.Categoria.ToString(),
+            vencimiento = c.VenceLicencia,
+            // El despachador ve QUE hay restriccion, no el diagnostico (RN-52).
+            tieneRestricciones = !string.IsNullOrWhiteSpace(c.Restricciones),
+        },
+    })));
 
 // Evalúa sin comprometer nada: la pantalla muestra el resultado AL ELEGIR, y sale del
 // mismo dominio que después bloquea T-08.
@@ -402,7 +450,7 @@ void ConAsignacion(
         string id,
         AsignarYTransicionar peticion,
         ServicioDeMisiones servicio,
-        CatalogoProvisionalDeFlota padron,
+        ConsultaDeConductores padron,
         ConsultaDeFlota flota,
         IParametrosDeLaInstitucion parametros) =>
     {
@@ -415,13 +463,16 @@ void ConAsignacion(
         if (await flota.PorIdAsync(idVehiculo) is not { } vehiculo)
             return Results.NotFound(new { mensaje = $"No existe el vehículo {peticion.IdVehiculo}." });
 
-        if (padron.Conductor(peticion.IdConductor) is not { } conductor)
+        if (!Identificador.Valido(peticion.IdConductor, out var idConductor, out var errorConductor))
+            return errorConductor;
+
+        if (await padron.PorIdAsync(idConductor) is not { } conductor)
             return Results.NotFound(new { mensaje = $"No existe el conductor {peticion.IdConductor}." });
 
         // La documentación sale de la BASE, con vencimientos reales. `BD-03` puede
         // bloquear de verdad — antes no podía, y el código lo decía.
         var asignacion = new AsignacionDeMision(
-            conductor.Licencia,
+            conductor.Licencia(),
             vehiculo.Ficha(),
             vehiculo.Documentacion());
 
