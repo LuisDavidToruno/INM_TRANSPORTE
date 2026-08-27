@@ -10,7 +10,15 @@ Punto único de entrada para saber en qué va el proyecto. Si algo figura acá c
 
 **Hay stack, y hay autorización para programar.** La [designación de LOKI del 2026-08-26](docs/07-gestion/designaciones/2026-08-26-stack-y-arranque.md) fijó el stack y el PO autorizó el arranque. Eso activó la cláusula de revisión que [`ADR-000`](docs/03-arquitectura/adr/ADR-000-diferir-seleccion-de-stack.md) escribió para sí mismo, y [`ADR-002`](docs/03-arquitectura/adr/ADR-002-adoptar-el-stack-tecnologico.md) lo supera formalmente.
 
-**Ya hay código, y camina.** El walking skeleton atraviesa API → Aplicación → Dominio → SQL Server → bitácora encadenada, con **53 pruebas**. `BD-01`, `BD-02` y `BD-03` se evalúan de verdad, y los parámetros normativos son bitemporales con doble control.
+**Ya hay código, camina, y se ve.** El backend atraviesa API → Aplicación → Dominio → SQL Server → bitácora encadenada, con **60 pruebas**. Y hay **cuatro pantallas de oficina conectadas a la API real**, no a datos de muestra.
+
+El circuito que funciona hoy, de punta a punta y verificado contra SQL Server:
+
+```
+solicitar → autorizar → cola de programación → asignar vehículo y motorista → programar
+```
+
+Con `BD-01`, `BD-02` y `BD-03` evaluándose de verdad, la caducidad de la aprobación, y la anulación con motivo tipificado.
 
 | Bloque | Qué produjo | Estado |
 |---|---|---|
@@ -20,9 +28,25 @@ Punto único de entrada para saber en qué va el proyecto. Si algo figura acá c
 | 3 — Requisitos | 18 casos de uso, **150 historias** con Gherkin, 21 no funcionales, backlog | ✅ Revisado y corregido en `3f4ced4` |
 | 4 — Diseño | Modelo de datos bitemporal con 43 entidades, 126 pantallas, **41 maquetadas** | ✅ Revisado y corregido en `3f4ced4` |
 
-**410 documentos y 48,723 líneas de documentación · 56 archivos y 4,716 líneas de C# · 39 commits.**
+**414 documentos de análisis · 4,543 líneas de C# a mano y 2,193 de TypeScript propio · 60 pruebas · 46 commits.**
+
+Las líneas de C# excluyen las migraciones de EF, que son generadas. El TypeScript excluye el sistema de diseño de LOKI, que se copió, no se escribió.
 
 El stack, en una línea: **.NET 10 + EF Core sobre SQL Server 2014 Standard** (restricción institucional, fuera de soporte), **React 19 + Vite** en oficina, **React Native + SQLite cifrado** en campo. El detalle, las funciones que 2014 no tiene y con qué se reemplazan están en la designación.
+
+### Cómo levantarlo
+
+```bash
+dotnet run --project src/Sigti.Api --urls http://localhost:5199
+```
+
+```bash
+cd oficina && npm run dev
+```
+
+La oficina necesita `oficina/.env.local` con `VITE_API=http://localhost:5199`. **Sin esa variable arranca con datos de muestra y lo dice en pantalla** — no finge estar conectada.
+
+La base de desarrollo es `SIGTI_Desarrollo` en `localhost`, creada en `COMPATIBILITY_LEVEL 120` como exige `ADR-002`. Las migraciones se aplican con `dotnet ef database update -p src/Sigti.Datos -s src/Sigti.Datos`.
 
 ## Lo que está abierto
 
@@ -51,6 +75,22 @@ Las **nueve** categorías del **Artículo 4 del Acuerdo 1012-2021** `[V]`, con l
 
 **Lo que queda abierto es el camino, no el dato:** el circuito de carga existe (`POST /parametros` y `POST /parametros/{id}/aprobar`, con doble control y asiento en bitácora), pero la matriz **no entra por él** — está escrita en C# en `ParametrosProvisionales`. Cargarla por el circuito y borrar esa clase es lo que le da doble control.
 
+### Tres catálogos viven en código, y están marcados como provisionales
+
+Ninguno finge ser otra cosa: los tres llevan su aviso en el propio archivo.
+
+| Qué | Dónde | Qué falta para borrarlo |
+|---|---|---|
+| **Flota y padrón de motoristas** | `Sigti.Aplicacion/M03_Flota/CatalogoProvisionalDeFlota.cs` | `M-03` y `M-05` con sus repositorios. La firma que ve el cliente no cambia |
+| **Documentación del vehículo** | Devuelta **conforme por omisión** en `EvaluacionDeAsignacion` y en el endpoint de programar | `M-04`. Hoy `BD-03` no puede bloquear por un vencimiento que el sistema no conoce, y eso queda dicho en el código en vez de fingir que se verificó |
+| **El folio** | `ConsultaDeMisiones.FolioProvisional` — sale como `PROV-xxxxxx` | El circuito de rangos por delegación de `RNF-21`. Lleva prefijo para que nadie lo cite en un descargo |
+
+### Las validaciones de `HU-009` no las calcula el servidor
+
+La bandeja de autorización muestra un aviso que lo dice: la antigüedad del espejo de ARGOS y las misiones sin liquidar del solicitante necesitan `M-01` y `M-13`, que no existen.
+
+**Una bandeja sin reparos y una bandeja que no sabe si los hay son cosas distintas**, y por eso el adaptador lo declara en lugar de devolver una lista vacía.
+
 ### Cinco preguntas de la designación que bloquean
 
 1. **Edición exacta y Service Pack** de la instancia 2014, y si el **cifrado de respaldo** está disponible ahí. Bloquea `RNF-13`
@@ -59,7 +99,9 @@ Las **nueve** categorías del **Artículo 4 del Acuerdo 1012-2021** `[V]`, con l
 4. **Aceptación por escrito** del riesgo de operar un motor fuera de soporte con datos personales de ciudadanos
 5. **Licenciamiento para la segunda institución.** No bloquea el piloto; bloquea la promesa de `RNF-19`
 
-### 85 insumos pendientes, de los cuales cuatro pesan
+### 83 insumos pendientes, de los cuales cuatro pesan
+
+De 85 filas en las secciones abiertas del registro, dos ya están marcadas cerradas: el **#23** —los cuatro PDF, descargados— y el **#79** —`BE` existe, `DE` no—.
 
 Registro completo en [`docs/07-gestion/insumos-pendientes.md`](docs/07-gestion/insumos-pendientes.md).
 
@@ -94,47 +136,54 @@ Los cinco archivos de [`docs/05-calidad/hallazgos/`](docs/05-calidad/hallazgos/)
 
 ## Lo que está cerrado
 
-**No confundir con lo anterior.** Esto ya se resolvió y no debe volver a listarse como pendiente:
+**No confundir con lo anterior.** Esto ya se resolvió y no debe volver a listarse como pendiente.
 
-- **Los ocho ADR y el C4 que la designación pedía.** Escritos el 2026-08-26: [`ADR-002`](docs/03-arquitectura/adr/ADR-002-adoptar-el-stack-tecnologico.md) a [`ADR-009`](docs/03-arquitectura/adr/ADR-009-modulos-verticales.md), más [`c4/contexto.md`](docs/03-arquitectura/c4/contexto.md) y [`c4/contenedores.md`](docs/03-arquitectura/c4/contenedores.md). `ADR-000` quedó marcado **Reemplazada por `ADR-002`**, sin editar su texto. Índice en [`adr/README.md`](docs/03-arquitectura/adr/README.md), con las **cinco decisiones irreversibles** señaladas
-- **La selección de stack.** Cerrada por la designación del 2026-08-26, con autorización del PO para programar, y formalizada en `ADR-002`
-- **Los 46 hallazgos de los Bloques 3 y 4**, incluidos los cinco críticos del Bloque 3 y las cuatro correcciones estructurales del Bloque 4 —`HB34-50` bitemporalidad, `HB34-51` alcance de la cadena de auditoría, `HB34-52` folio por dispositivo, `HB34-53` adjuntos clasificados y depurables—. Corregidos en `3f4ced4`, verificados en el texto de los artefactos. **M-01 y M-02 dejaron de estar sin cobertura**: las historias `HU-134` a `HU-150` cerraron el hueco y el total subió de 125 a 150
-- **Los 48 hallazgos de la revisión del Bloque 1**, incluidos los 8 críticos. Corregidos en `fd12ba5` y commits siguientes
-- **Los 19 hallazgos de los casos de uso** (`H-B3-001`), corregidos en `c8cb324`, en una sola pasada sobre los artefactos autoridad
-- **La contradicción de la tarifa de peaje** — resuelta el 2026-08-24 en contra de la fuente comercial, por cinco fuentes concordantes
-- **El bloqueante de exoneraciones para M-18** — cayó por otro lado: un pick-up es categoría liviana, L. 22
-- **El hueco de M-17** — tenía cero historias siendo alcance confirmado; ahora tiene 15
-- **La entrega de diseño** — 41 pantallas verificadas contra los requisitos, sin vocabulario prohibido, sin botones de eliminar, sin *continuar de todos modos* sobre bloqueos duros
+### Construido y verificado contra SQL Server
+
+| Qué | Dónde |
+|---|---|
+| **El expediente de misión**, con el estado como proyección del diario (`P-1`). No hay columna de estado que se pueda desincronizar | `M07_ProgramacionYDespacho/OrdenDeMision.cs` |
+| **`BD-01`** — segregación entre solicitante y autorizador, en el caso que el control no cubría antes de `HB3-01`: la asistente captura para su jefe | idem |
+| **`BD-02`** — licencia habilitante y vigente **durante todo el rango**, holgura incluida, resuelta por clase normativa y atributos de la ficha | `M05_Motoristas/ReglasDeHabilitacion.cs` |
+| **`BD-03`** — matrícula bloquea; la placa **no**; póliza y revisión configurables y apagadas | `M03_Flota/ReglasDeDocumentacion.cs` |
+| **Caducidad de la aprobación** — si no se programa antes del inicio de la ventana, caduca | `OrdenDeMision.ExigirAprobacionVigente` |
+| **`T-09`** — anulación con motivo **tipificado**; el comentario acompaña, no sustituye | `M07_ProgramacionYDespacho/MotivoDeAnulacion.cs` |
+| **La bitácora encadenada**, serializada con `sp_getapplock` dentro de la transacción. **20 escritores concurrentes no bifurcan la cadena** | `Sigti.Datos/Bitacora/EscritorDeBitacora.cs` |
+| **`M-02` bitemporal** — resolución a la fecha del hecho, bloqueo sin vigencia, doble control que registra también los intentos rechazados | `M02_Parametros/` |
+| **`ReglasDeVigencia`** — los dos ejes en un solo lugar, para que ningún módulo implemente uno y suponga que el otro viene puesto | `Sigti.Dominio/Reglas/` |
+
+### Cuatro pantallas de oficina, contra la API real
+
+| Pantalla | Qué resuelve |
+|---|---|
+| **`PT-013`** Bandeja de autorización | Las validaciones se ven **en la lista**, no al abrir. Advertencia y bloqueo no comparten forma, no solo color |
+| **`PT-014`** Expediente en decisión | En una sola pantalla, en el orden de la decisión. **No retira el botón de autorizar** con advertencias: `RN-50` lo prohíbe |
+| **`PT-025`** Cola de programación | Caducidad visible antes de intentar, y depuración con motivo del catálogo |
+| **`PT-026`/`PT-027`/`PT-028`** Asignación y rechazo | La evaluación corre **al elegir**. El rechazo nombra la categoría que se necesita y ofrece las salidas en la misma pantalla |
+
+### Decisiones que quedaron hechas estructura, no comprobación
+
+- **La ventana salió de `AsignacionDeMision`.** El agregado usa `Solicitud.Ventana` y el compilador impide pasar otra: quien programa no puede acortarla para que una licencia alcance
+- **La API recibe identificadores de catálogo**, no la ficha técnica. Declarar 2,800 kg de un camión de 12,000 ya no se puede expresar
+- **El respaldo documental de `M-02` es `required`.** El escenario de `HU-145` que rechaza una carga sin respaldo dejó de necesitar comprobación: ese estado no se construye
+- **La evaluación de `BD-02` vive en un solo lugar.** El cliente pide el resultado; no lo calcula
+
+### Del Sprint 0
+
+- **Los ocho ADR y el C4** que la designación pedía. `ADR-000` marcado *Reemplazada por `ADR-002`*, sin editar su texto
+- **Los 46 hallazgos de los Bloques 3 y 4**, y los 48 del Bloque 1, y los 19 de casos de uso
+- **Los cuatro PDF oficiales** del insumo #23, descargados y versionados en [`fuentes/`](docs/01-negocio/normativa/fuentes/)
+- **El insumo #79** — `BE` existe, `DE` no. Son nueve categorías, verificado en el Artículo 4
 
 ## Cómo seguir
 
-**El walking skeleton está cerrado y verificado.** `dotnet test` → **53 pruebas**, salida limpia. Necesita SQL Server en `localhost` con autenticación integrada; la suite crea y borra `SIGTI_Pruebas` sola.
+**Lo inmediato, y no depende de nadie externo:**
 
-Lo que el esqueleto dejó probado, y que antes solo estaba escrito en un ADR:
+1. **`PT-031` — constancia probatoria de las verificaciones practicadas.** Toda la evidencia ya está en el diario; falta el documento que el auditor pide. Es lo que convierte lo construido en algo defendible
+2. **Aplicar el script contra una instancia SQL Server 2014 real.** Sigue siendo el único control que atrapa una migración que el destino rechaza, y **no existe**. Lo revisado hasta hoy es inspección del script, no aplicación
+3. **Cargar la matriz de licencias por el circuito de `M-02`** y borrar `ParametrosProvisionales`
+4. **`M-03` y `M-04`** — ficha del vehículo y su documentación. Destraban `BD-03` de verdad y `BD-07` a medias
 
-| Unión | Estado |
-|---|---|
-| La cadena de hash no se bifurca con 20 escritores concurrentes sobre la misma cola | ✅ Verificado |
-| EF Core en nivel 120 emite DDL que SQL Server 2014 acepta | ⚠️ Revisado por inspección del script, **no aplicado contra una instancia 2014 real** |
-| ULID como clave agrupada en `binary(16)` | ✅ Persiste y recupera |
-| El expediente se reconstruye desde su diario, sin columna de estado | ✅ Verificado de punta a punta |
-| `BD-01` bloquea al solicitante de derecho, y el bloqueo sobrevive el viaje por la API | ✅ Verificado |
+**Lo que falta medir, y no puede esperar al Sprint 6:** **`RNF-12` — ≤ 25 % de batería en 8 h con seguimiento activo, en gama baja.** Es el único número donde React Native es medible peor que Kotlin, y [`ADR-003`](docs/03-arquitectura/adr/ADR-003-cliente-de-campo-instalado.md) tiene la contingencia escrita. Esa contingencia sirve si el número llega ahora. **No hay ni una línea del cliente de campo todavía.**
 
-La migración inicial está en `src/Sigti.Datos/Migraciones/` y el script idempotente en [`entrega/sql/sigti-inicial.sql`](entrega/sql/sigti-inicial.sql).
-
-**Lo que ya está ratificado:** `ADR-009` sin ceremonia de Clean, confirmado por el PO el 2026-08-26.
-
-**`M-02` está construido y persistido**: catálogo bitemporal en `catalogo.VersionDeParametro`, resolución a la fecha del hecho con bloqueo cuando no hay vigencia, doble control que registra también los intentos rechazados, y la vigencia extraída a [`Reglas/ReglasDeVigencia.cs`](src/Sigti.Dominio/Reglas/ReglasDeVigencia.cs) para que ningún módulo implemente un eje y suponga que el otro viene puesto.
-
-**`M-02` está cerrado de punta a punta:** carga con respaldo obligatorio, reglas de solape y de hueco, doble control con asiento del intento rechazado, bitemporalidad persistida y resolución a la fecha del hecho.
-
-**Lo que sigue, en orden:**
-
-1. **Bajar los cuatro PDF oficiales.** Veinte minutos, sin depender de nadie. Convierte la matriz provisional en normativa y destraba también el expediente del motorista y los códigos presupuestarios. **Es lo que más rinde por lo que cuesta**
-2. **Cargar la matriz por el circuito** en lugar de tenerla en C#, y borrar `ParametrosProvisionales`
-3. **`BD-07`**, que necesita la matriz de compatibilidad objeto↔vehículo y la categoría de peaje por vehículo (`M-18`, `NRM-10`)
-4. **Aplicar el script contra una instancia 2014 real.** Sigue siendo el único control que atrapa una migración que el destino rechaza, y no existe
-
-**Lo que falta medir, y no puede esperar al Sprint 6:** **`RNF-12` — ≤ 25 % de batería en 8 h con seguimiento activo, en gama baja.** Es el único número donde React Native es medible peor que Kotlin, y [`ADR-003`](docs/03-arquitectura/adr/ADR-003-cliente-de-campo-instalado.md) tiene la contingencia escrita: bajar el seguimiento a un módulo nativo, sin reescribir la aplicación. Esa contingencia sirve si el número llega ahora.
-
-**Lo que hay que gestionar en paralelo:** la sesión de levantamiento con la institución. El paquete está listo en [`docs/07-gestion/levantamiento/`](docs/07-gestion/levantamiento/) — guion de dos horas, los 19 formatos, 12 preguntas ordenadas por impacto, y los 28 casos especiales redactados para leerle a un motorista. Al mismo tiempo, confirmar en la instancia real la edición exacta de SQL Server, el Service Pack y el cifrado de respaldo — **sin esa instancia, el paso de CI que sostiene toda la estrategia del motor no existe.**
+**Lo que hay que gestionar en paralelo:** la sesión de levantamiento con la institución. El paquete está listo en [`docs/07-gestion/levantamiento/`](docs/07-gestion/levantamiento/) — guion de dos horas, los 19 formatos, 12 preguntas ordenadas por impacto, y los 28 casos especiales redactados para leerle a un motorista. Al mismo tiempo, confirmar en la instancia real la edición exacta de SQL Server, el Service Pack y el cifrado de respaldo.
