@@ -10,7 +10,7 @@ Punto único de entrada para saber en qué va el proyecto. Si algo figura acá c
 
 **Hay stack, y hay autorización para programar.** La [designación de LOKI del 2026-08-26](docs/07-gestion/designaciones/2026-08-26-stack-y-arranque.md) fijó el stack y el PO autorizó el arranque. Eso activó la cláusula de revisión que [`ADR-000`](docs/03-arquitectura/adr/ADR-000-diferir-seleccion-de-stack.md) escribió para sí mismo, y [`ADR-002`](docs/03-arquitectura/adr/ADR-002-adoptar-el-stack-tecnologico.md) lo supera formalmente.
 
-**Ya hay código, camina, y se ve.** El backend atraviesa API → Aplicación → Dominio → SQL Server → bitácora encadenada, con **80 pruebas**. Y hay **seis pantallas de oficina conectadas a la API real**, no a datos de muestra.
+**Ya hay código, camina, y se ve.** El backend atraviesa API → Aplicación → Dominio → SQL Server → bitácora encadenada, con **88 pruebas**. Y hay **seis pantallas de oficina conectadas a la API real**, no a datos de muestra.
 
 El circuito que funciona hoy, de punta a punta y verificado contra SQL Server:
 
@@ -28,7 +28,7 @@ Con `BD-01`, `BD-02`, `BD-03`, `BD-06` y `BD-12` evaluándose de verdad, la cadu
 | 3 — Requisitos | 18 casos de uso, **150 historias** con Gherkin, 21 no funcionales, backlog | ✅ Revisado y corregido en `3f4ced4` |
 | 4 — Diseño | Modelo de datos bitemporal con 43 entidades, 126 pantallas, **41 maquetadas** | ✅ Revisado y corregido en `3f4ced4` |
 
-**406 documentos de análisis · 4,177 líneas de C# de producción y 1,965 de pruebas · 2,558 de TypeScript propio · **80 pruebas de backend y 19 del núcleo de campo** · 68 commits.** Las de C# excluyen las migraciones generadas; las de TypeScript, el sistema de diseño de LOKI. Las reglas de negocio son **103**.
+**406 documentos de análisis · 4,177 líneas de C# de producción y 1,965 de pruebas · 2,558 de TypeScript propio · **88 pruebas de backend y 19 del núcleo de campo** · 71 commits.** Las de C# excluyen las migraciones generadas; las de TypeScript, el sistema de diseño de LOKI. Las reglas de negocio son **103**.
 
 Las líneas de C# excluyen las migraciones de EF, que son generadas. El TypeScript excluye el sistema de diseño de LOKI, que se copió, no se escribió.
 
@@ -99,6 +99,23 @@ SAC **no tiene lista de exclusiones**: es activo / evaluación / apagado, y de a
 **Un defecto que solo apareció al pulsar el botón:** la pantalla seguía mostrando *«Liquidada»* y ofreciendo cerrar un expediente ya cerrado. Corregido — si el expediente dejó `LIQUIDADA`, la pantalla lo dice y ofrece volver a la cola.
 
 **Lo que falta para que esto sirva de verdad:** los criterios `H-01` a `H-13` **no se detectan todavía**. `M-09`, `M-13` y `M-18` no existen, así que no hay conciliación de combustible, ni de peajes, ni cadena que evaluar — y **todo expediente cierra limpio**. La función que los calcula está marcada como provisional y devuelve lista vacía, en lugar de fingir una evaluación que no ocurrió.
+
+### `M-01` arrancó por lo que sostiene todo lo demás: permisos por puesto
+
+`RN-100` y `RN-101` estaban **escritas y sin ejecutar** desde que se cerraron los hallazgos. La primera ya no.
+
+| Pieza | Qué defiende |
+|---|---|
+| `Organigrama` | **El permiso se concede al puesto, nunca a la persona.** Y se resuelve **a la fecha del hecho**, no a la de consulta |
+| `Autoria` | **La autoría es de la persona y no se reasigna jamás** — con persona *y* puesto congelados |
+
+**Por qué esto no es burocracia de modelado.** `NRM-09` `[V]`: la rotación en el sector público es alta, y Honduras cambió de gobierno en enero de 2026. Con el permiso colgando de la persona, cada rotación obliga a reconstruir a mano quién puede hacer qué — y lo que ocurre en la práctica es que **se copian los permisos del saliente al entrante** *«para que pueda trabajar»*, arrastrando toda la acumulación indebida que el saliente había juntado. La segregación de `RN-01` se pierde sin que nadie decida perderla.
+
+**La mitad que se olvida** es el recíproco. El auditor no pregunta *«¿quién firmó?»*: pregunta **«¿quién autorizó esto y con qué competencia?»**. Guardar solo la persona deja el acto sin fundamento; solo el puesto, sin responsable. Por eso van los dos, y **congelados** — si el puesto fuera una referencia viva, una reestructuración reescribiría la historia sin que nadie lo pidiera.
+
+**Ocho pruebas**, y dos merecen mención: que un acto de febrero se juzgue con la ocupación de febrero —sin eso, reevaluar un expediente viejo diría que quien lo autorizó no tenía competencia, y quedaría indefendible por un artefacto del sistema— y que la coocupación durante un traspaso esté permitida, porque el traspaso real dura días.
+
+**Lo que falta de `M-01`:** la **persistencia** —hoy `Organigrama` recibe las asignaciones y no las lee de ninguna parte—, el **alcance de datos por dependencia**, y `RN-101` (cierre de asignación con custodias activas). Y la estructura de puestos **es de ARGOS** (`DP-001`): SIGTI consume el espejo y no crea puestos.
 
 ### `M-03` y `M-04` — la flota salió del código y `BD-03` empezó a bloquear
 
