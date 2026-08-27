@@ -103,9 +103,13 @@ misiones.MapGet("/", async (EstadoDeMision? estado, ConsultaDeMisiones consulta)
     Results.Ok(await consulta.PorEstadoAsync(estado ?? EstadoDeMision.Solicitada)));
 
 misiones.MapGet("/{id}", async (string id, ConsultaDeMisiones consulta) =>
-    await consulta.PorIdAsync(Ulid.Parse(id)) is { } vista
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    return await consulta.PorIdAsync(ulid) is { } vista
         ? Results.Ok(vista)
-        : Results.NotFound(new { mensaje = $"No existe el expediente {id}." }));
+        : Results.NotFound(new { mensaje = $"No existe el expediente {id}." });
+});
 
 Transicion("enviar", (e, quien, cuando) => e.Enviar(quien, cuando));
 TransicionConMotivo("aprobar", (e, quien, cuando, motivo) => e.Aprobar(quien, cuando, motivo));
@@ -122,11 +126,15 @@ app.MapGet("/conductores", (CatalogoProvisionalDeFlota flota) => Results.Ok(flot
 // mismo dominio que después bloquea T-08.
 misiones.MapPost("/{id}/evaluar-asignacion", async (
     string id, EvaluarAsignacion peticion, EvaluacionDeAsignacion evaluacion) =>
-    await evaluacion.EvaluarAsync(
-        Ulid.Parse(id), peticion.IdVehiculo, peticion.IdConductor,
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    return await evaluacion.EvaluarAsync(
+        ulid, peticion.IdVehiculo, peticion.IdConductor,
         peticion.HayConduccionNocturna, peticion.Momento) is { } resultado
         ? Results.Ok(resultado)
-        : Results.NotFound(new { mensaje = "No existe el expediente, el vehículo o el conductor." }));
+        : Results.NotFound(new { mensaje = "No existe el expediente, el vehículo o el conductor." });
+});
 
 var parametros = app.MapGroup("/parametros");
 
@@ -157,8 +165,10 @@ parametros.MapPost("/", async (CargarParametro peticion, ServicioDeParametros se
 parametros.MapPost("/{id}/aprobar", async (
     string id, EjecutarTransicion peticion, ServicioDeParametros servicio) =>
 {
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
     var intento = await servicio.AprobarAsync(
-        Ulid.Parse(id), new IdPersona(peticion.Ejecuta), peticion.Momento);
+        ulid, new IdPersona(peticion.Ejecuta), peticion.Momento);
 
     return Results.Ok(new { id, concedida = intento.Concedida, motivo = intento.MotivoDelRechazo });
 });
@@ -168,8 +178,10 @@ parametros.MapPost("/{id}/aprobar", async (
 misiones.MapPost("/{id}/anular", async (
     string id, AnularMision peticion, ServicioDeMisiones servicio) =>
 {
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
     var estado = await servicio.TransicionarAsync(
-        Ulid.Parse(id),
+        ulid,
         e => e.Anular(new IdPersona(peticion.Ejecuta), peticion.Motivo, peticion.Comentario, peticion.Momento),
         peticion.Momento);
 
@@ -189,8 +201,10 @@ misiones.MapPost("/{id}/devolver-liquidacion", async (
     if (string.IsNullOrWhiteSpace(peticion.Motivo))
         return Results.BadRequest(new { mensaje = "Devolver una liquidación exige motivo: quien la rehace tiene que saber qué corregir." });
 
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
     var estado = await servicio.TransicionarAsync(
-        Ulid.Parse(id),
+        ulid,
         e => e.DevolverLiquidacion(new IdPersona(peticion.Ejecuta), peticion.Momento, peticion.Motivo!),
         peticion.Momento);
 
@@ -207,8 +221,10 @@ misiones.MapPost("/{id}/cerrar", async (
         .Select(c => new HallazgoDetectado(c.Criterio, c.Detalle))
         .ToList();
 
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
     var estado = await servicio.TransicionarAsync(
-        Ulid.Parse(id),
+        ulid,
         e => e.Cerrar(new IdPersona(peticion.Ejecuta), peticion.Momento, criterios, peticion.Justificacion),
         peticion.Momento);
 
@@ -252,8 +268,10 @@ void ConAsignacion(
                 IdentificacionInstitucionalVerificada = true,
             });
 
+        if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
         var estado = await servicio.TransicionarAsync(
-            Ulid.Parse(id),
+            ulid,
             expediente =>
             {
                 // Los parámetros se resuelven a la fecha del hecho, que sale de la
@@ -273,8 +291,10 @@ void TransicionConMotivo(
     Action<OrdenDeMision, IdPersona, DateTimeOffset, string?> aplicar) =>
     misiones.MapPost($"/{{id}}/{ruta}", async (string id, EjecutarTransicion peticion, ServicioDeMisiones servicio) =>
     {
+        if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
         var estado = await servicio.TransicionarAsync(
-            Ulid.Parse(id),
+            ulid,
             expediente => aplicar(expediente, new IdPersona(peticion.Ejecuta), peticion.Momento, peticion.Motivo),
             peticion.Momento);
 
@@ -284,8 +304,10 @@ void TransicionConMotivo(
 void Transicion(string ruta, Action<OrdenDeMision, IdPersona, DateTimeOffset> aplicar) =>
     misiones.MapPost($"/{{id}}/{ruta}", async (string id, EjecutarTransicion peticion, ServicioDeMisiones servicio) =>
     {
+        if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
         var estado = await servicio.TransicionarAsync(
-            Ulid.Parse(id),
+            ulid,
             expediente => aplicar(expediente, new IdPersona(peticion.Ejecuta), peticion.Momento),
             peticion.Momento);
 
@@ -360,3 +382,35 @@ internal sealed record CerrarMision(
 
 /// <summary>Un `H-nn` que se cumplió, con el caso concreto que lo demuestra.</summary>
 internal sealed record CriterioDetectado(string Criterio, string Detalle);
+
+/// <summary>
+/// Convierte el identificador de la ruta, o dice por qué no pudo.
+///
+/// <b>Existe porque el identificador lo genera el cliente de campo, no el servidor</b>
+/// (`RNF-21`, `ADR-005`). Un dispositivo con un error de generación sincronizaría contra
+/// un <c>500 «Error no controlado»</c> y quien lo diagnostique no tendría nada — que es
+/// exactamente lo que pasaba antes de esto.
+///
+/// El mensaje dice la longitud y el alfabeto porque son los dos errores reales: 25
+/// caracteres en vez de 26, y las letras <c>I</c>, <c>L</c>, <c>O</c> y <c>U</c>, que
+/// base32 excluye para que nadie confunda un uno con una ele.
+/// </summary>
+internal static class Identificador
+{
+    internal static bool Valido(string id, out Ulid resultado, out IResult error)
+    {
+        if (Ulid.TryParse(id, out resultado))
+        {
+            error = Results.Empty;
+            return true;
+        }
+
+        error = Results.BadRequest(new
+        {
+            mensaje =
+                $"«{id}» no es un identificador de expediente válido. Son 26 caracteres en " +
+                "base32 de Crockford, sin las letras I, L, O ni U.",
+        });
+        return false;
+    }
+}

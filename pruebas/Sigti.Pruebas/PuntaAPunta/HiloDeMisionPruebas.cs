@@ -151,6 +151,24 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
         Assert.Equal(HttpStatusCode.NotFound, respuesta.StatusCode);
     }
 
+    [Fact]
+    public async Task Un_identificador_mal_formado_se_explica_en_vez_de_reventar()
+    {
+        // Encontrado usando la API a mano: un ULID de 25 caracteres —o con una `I`, que el
+        // alfabeto base32 excluye— producía **500 «Error no controlado»**.
+        //
+        // Importa más de lo que parece por `RNF-21`: **el identificador lo genera el
+        // cliente de campo**, no el servidor. Un dispositivo con un error de generación
+        // sincronizaría contra un 500 opaco, y quien lo diagnostique no tendría nada.
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        var respuesta = await cliente.GetAsync("/misiones/NO-ES-UN-ULID");
+
+        Assert.Equal(HttpStatusCode.BadRequest, respuesta.StatusCode);
+        Assert.Contains("identificador", await respuesta.Content.ReadAsStringAsync());
+    }
+
     /// <summary>
     /// Programar y despachar llevan <b>identificadores del catálogo</b>, no la ficha ni
     /// la ventana: la ficha la resuelve el servidor y la ventana sale de la solicitud.
