@@ -246,6 +246,51 @@ para revelar el solape lo estaba escondiendo. Ahora se apilan en subfilas, y dos
 que **se tocan** cuentan como solape: el vehículo no puede estar volviendo de Danlí y
 saliendo a Juticalpa el mismo día.
 
+### `PT-038` — el tablero del despachador, que el dictamen marcó como el peor error
+
+Estaba declarada **«completa»** en el inventario y maquetada como lista. Es la raíz de
+`ACT-05` en el mapa de navegación — lo primero que abre el Encargado de Despacho — y **no
+existía en código**.
+
+**Cuatro listas, no una tabla ordenable.** Qué **sale** hoy (hay que entregar vehículo,
+documentos y fondo), qué **vuelve** hoy (hay que recibirlo), qué está **afuera** (no se
+puede contar con esos vehículos) y qué **debía haber vuelto y no volvió**. Cuatro acciones
+con cuatro urgencias; una tabla con columna de estado obliga a filtrar mentalmente cada vez,
+y el despachador la abre veinte veces al día.
+
+**La cuarta es la que justifica la pantalla.** Una lista ordenada por fecha **no muestra un
+retorno vencido**: no aparece arriba, aparece en el pasado, donde nadie mira.
+
+| Pieza | Qué |
+|---|---|
+| [`ConsultaDelDiaDeDespacho`](src/Sigti.Aplicacion/M07_ProgramacionYDespacho/ConsultaDelDiaDeDespacho.cs) | Clasifica en las cuatro listas. Una misión atrasada se cuenta **una vez** |
+| `GET /despacho/dia?fecha=` | La fecha se recibe. Una fecha mal formada **no es «hoy»** |
+| [`Tablero.tsx`](oficina/src/modulos/M07_Programacion/Tablero.tsx) | `PT-038`, con el cronograma de la semana debajo |
+
+**Detalles que decidieron el comportamiento:** una misión que debía salir ayer y sigue
+`PROGRAMADA` **no salió**, así que sigue en «sale hoy» —con `==` desaparecería del tablero
+justo cuando hay que ir a buscarla—. Y una fecha mal formada devuelve `400`: caer a hoy en
+silencio haría que un enlace roto mostrara un tablero plausible del día equivocado, sobre el
+que el despachador actuaría.
+
+**⚠️ El eje de horas del dictamen NO se construyó, y no se finge.** El dictamen pide la
+ráfaga de las 5:30 con ocho salidas encimadas. **La ventana de la misión es sólo fecha**: la
+solicitud no declara hora de salida, así que no hay dato con el que ordenar el día por
+dentro. Un eje de horas dibujado sobre medianoches sería un gráfico que miente con
+precisión. Lo que sí se dibuja es el **cronograma de la semana**, que contesta la otra mitad
+—qué se traslapa con qué— y para el que el dato existe.
+
+### 🔎 Dos necesidades independientes piden el mismo campo ausente
+
+La **hora de salida de la solicitud** no existe, y ya la piden dos cosas distintas:
+
+- `BD-04` no puede juzgar la **hora** inhábil — sólo el día.
+- `PT-038` no puede desglosar el día por horas, que es la mitad de su razón de ser.
+
+Dos necesidades que llegaron por caminos separados apuntando al mismo campo es la señal más
+fuerte que hay de que falta. **Es decisión del PO**: agregar hora a `VentanaDeMision` toca la
+solicitud, `BD-02`, `BD-04` y el cliente de campo.
+
 ### La custodia vacante: tener tarjeta abierta no es tener custodio
 
 `BD-13` miraba la tarjeta de responsabilidad y la encontraba **abierta** — nadie la cerró,

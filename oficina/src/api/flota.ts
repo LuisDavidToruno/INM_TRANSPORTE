@@ -202,3 +202,37 @@ export const reasignar = async (
     }),
   });
 };
+
+/** Una misión en el tablero del día, con los nombres ya resueltos por el servidor. */
+export interface MisionDelDia {
+  mision: string;
+  folio: string;
+  estado: string;
+  dependencia: string;
+  destino: string;
+  objetoDelTraslado: string;
+  /** Las siglas. <b>Nulo</b> si la reserva apunta a un vehículo que ya no está en la flota. */
+  vehiculo: string | null;
+  motorista: string | null;
+  salida: string;
+  retorno: string;
+  diasDeAtraso: number;
+}
+
+/**
+ * `PT-038` — lo que el despachador tiene enfrente hoy.
+ *
+ * <b>Cuatro listas y no una tabla ordenable.</b> Son cuatro acciones distintas con cuatro
+ * urgencias distintas, y la cuarta es la que ninguna lista ordenada por fecha muestra sola:
+ * un retorno vencido no aparece «arriba», aparece en el pasado.
+ */
+export interface DiaDeDespacho {
+  fecha: string;
+  salenHoy: MisionDelDia[];
+  vuelvenHoy: MisionDelDia[];
+  afuera: MisionDelDia[];
+  atrasadas: MisionDelDia[];
+}
+
+export const diaDeDespacho = (fecha: string): Promise<DiaDeDespacho> =>
+  pedir<DiaDeDespacho>(`/despacho/dia?fecha=${fecha}`);

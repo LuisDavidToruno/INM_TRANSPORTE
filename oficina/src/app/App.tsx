@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarClock, ClipboardCheck, FileCheck2, Palette } from 'lucide-react';
+import { CalendarClock, ClipboardCheck, FileCheck2, Palette, LayoutDashboard } from 'lucide-react';
 
 import { Avisos, Nota, Shell, avisar } from '../ui';
 import type { GrupoNav, Miga } from '../ui';
@@ -16,6 +16,7 @@ import Bandeja from '../modulos/M06_Autorizacion/Bandeja';
 import Expediente from '../modulos/M06_Autorizacion/Expediente';
 import Asignacion from '../modulos/M07_Programacion/Asignacion';
 import Cola from '../modulos/M07_Programacion/Cola';
+import Tablero from '../modulos/M07_Programacion/Tablero';
 import ColaDeCierre from '../modulos/M13_Cierre/Cola';
 import Cierre from '../modulos/M13_Cierre/Cierre';
 import { bandejaDeAutorizacion, origenDeDatos } from '../api/misiones';
@@ -81,6 +82,10 @@ function Interior(): ReactElement {
     {
       titulo: 'M-07 Programación y despacho',
       items: [
+        // El tablero va PRIMERO: es la raíz de `ACT-05` en el mapa de navegación, y la
+        // cola de programación es de `ACT-04`. Son dos personas distintas entrando al
+        // mismo módulo, y el orden dice cuál abre cada una al empezar el día.
+        { texto: 'Tablero de despacho', icono: <LayoutDashboard />, href: '/despacho' },
         { texto: 'Cola de programación', icono: <CalendarClock />, href: '/programacion' },
       ],
     },
@@ -118,6 +123,7 @@ function Interior(): ReactElement {
         <Route path="/" element={<Navigate to="/autorizacion" replace />} />
         <Route path="/autorizacion" element={<Bandeja />} />
         <Route path="/autorizacion/:id" element={<Expediente />} />
+        <Route path="/despacho" element={<Tablero />} />
         <Route path="/programacion" element={<Cola />} />
         
         <Route path="/programacion/:id" element={<Asignacion />} />
@@ -144,6 +150,7 @@ function migasDe(ruta: string): Miga[] {
   if (ruta === '/autorizacion') return ["Autorización"];
   if (ruta.startsWith('/programacion/')) return [{ texto: 'Programación', href: '/programacion' }, 'Asignación'];
   if (ruta === '/programacion') return ['Programación'];
+  if (ruta === '/despacho') return ['Despacho'];
   if (ruta.startsWith('/cierre/')) return [{ texto: 'Cierre', href: '/cierre' }, 'Expediente'];
   if (ruta === '/cierre') return ['Cierre'];
   if (ruta === '/sistema-diseno') return ["Sistema de diseño"];

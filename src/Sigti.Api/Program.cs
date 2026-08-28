@@ -41,6 +41,7 @@ constructor.Services.AddScoped<ConsultaDelOrganigrama>();
 constructor.Services.AddScoped<ConsultaDeOcupacion>();
 constructor.Services.AddScoped<ConsultaDeCustodias>();
 constructor.Services.AddScoped<ConsultaDePermisos>();
+constructor.Services.AddScoped<ConsultaDelDiaDeDespacho>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -276,6 +277,31 @@ app.MapGet("/organigrama/antiguedad", async (ConsultaDelOrganigrama organigrama)
         nuncaConfirmado = antiguedad is null,
         diasSinConfirmar = antiguedad?.Days,
     });
+});
+
+// `PT-038` — el tablero del despachador. Cuatro listas y no una tabla ordenable: qué sale
+// hoy, qué vuelve hoy, qué está afuera y qué debía haber vuelto. Son cuatro acciones con
+// cuatro urgencias, y la cuarta es la que ninguna lista ordenada por fecha muestra sola —
+// un retorno vencido no aparece «arriba», aparece en el pasado.
+//
+// La fecha se RECIBE y no se lee del reloj (`ADR-007`). Sin ella, hoy en UTC: el
+// despachador abre la pantalla y ve su día, y quien reconstruye un día pasado lo pide.
+app.MapGet("/despacho/dia", async (string? fecha, ConsultaDelDiaDeDespacho tablero) =>
+{
+    // Una fecha mal formada NO es «hoy». Caer al día actual en silencio haría que un
+    // enlace roto mostrara un tablero plausible del día equivocado, que es peor que un
+    // error: el despachador actuaría sobre él.
+    if (fecha is not null && !DateOnly.TryParse(fecha, out _))
+        return Results.BadRequest(new
+        {
+            mensaje = $"«{fecha}» no es una fecha. Use el formato aaaa-mm-dd.",
+        });
+
+    var dia = fecha is null
+        ? DateOnly.FromDateTime(DateTime.UtcNow.Date)
+        : DateOnly.Parse(fecha);
+
+    return Results.Ok(await tablero.DeLaFechaAsync(dia));
 });
 
 // La ocupación de la flota — lo que `PT-026` necesita para que elegir vehículo deje de
