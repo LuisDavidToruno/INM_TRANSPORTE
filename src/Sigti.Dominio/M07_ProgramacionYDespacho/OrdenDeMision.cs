@@ -1,6 +1,7 @@
 using Sigti.Dominio.M02_Parametros;
 using Sigti.Dominio.M06_Solicitudes;
 using Sigti.Dominio.M08_Bitacora;
+using Sigti.Dominio.M09_Combustible;
 using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M05_Motoristas;
 using Sigti.Dominio.Organizacion;
@@ -610,7 +611,8 @@ public sealed class OrdenDeMision
         PoliticaDeDocumentacion politica,
         DateTimeOffset momento,
         CustodiaAlDespachar custodias,
-        CirculacionEnDiaInhabil circulacion)
+        CirculacionEnDiaInhabil circulacion,
+        int? odometroDeEntrega = null)
     {
         ExigirEstado(EstadoDeMision.Programada, "T-12");
         var evidencia = ExigirHabilitacionYDocumentacion(asignacion, matriz, politica, momento);
@@ -618,8 +620,164 @@ public sealed class OrdenDeMision
                        + AdvertirSiLaCustodiaEstaVacante(custodias, momento);
         var inhabil = ExigirPermisoSiCirculaEnDiaInhabil(circulacion);
 
+        // `INV-17` exige acta de entrega **con odómetro**. Va como dato del asiento y no
+        // dentro del texto porque `T-15` y `T-16` lo vuelven a leer: son las dos
+        // transiciones que tienen que probar que el vehículo NUNCA SALIÓ, y ocurren antes
+        // de `T-14` — así que la lectura de salida no existe todavía. La única contra la
+        // que pueden comparar es ésta.
+        var entrega = odometroDeEntrega is { } km
+            ? $" · acta de entrega con odómetro {km:N0} km"
+            : " · acta de entrega SIN odómetro: `INV-17` no se pudo verificar";
+
         Registrar("T-12", EstadoDeMision.Despachada, ejecuta, momento,
-            evidencia + custodia + inhabil);
+            evidencia + custodia + inhabil + entrega, odometro: odometroDeEntrega);
+    }
+
+    /// <summary>
+    /// `T-15` — Anular con devolución íntegra · `DESPACHADA` → `ANULADA`.
+    ///
+    /// <b>Es la transición más delicada del sistema</b>: hay documentos con folio emitidos y
+    /// dinero público entregado. La autoridad la describe así, y de ahí sale todo lo que sigue.
+    ///
+    /// ── La bifurcación que decide si esto es una anulación o un hecho ───────
+    /// §10.1 no deja margen: <i>«si hubo cualquier consumo, aunque sea parcial, `T-15` no está
+    /// disponible y el camino es `T-16`»</i>. No es un tecnicismo — <b>anular sería borrar un
+    /// hecho económico</b>. El dinero salió, se gastó, y un expediente `ANULADA` diría que
+    /// nunca ocurrió.
+    ///
+    /// ── No hay estado «anulación en trámite», y es a propósito ──────────────
+    /// La autoridad lo decidió: <i>«multiplicaría las transiciones sin agregar control, porque
+    /// el control real es la lista de devoluciones pendientes, no un nombre de estado»</i>.
+    /// Mientras falte una devolución, la misión <b>sigue en `DESPACHADA`</b> — que es lo que
+    /// hace este método al rechazar.
+    /// </summary>
+    /// <param name="odometroDeRetorno">
+    /// La lectura al recibir el vehículo. <b>El vehículo no salió</b>, así que tiene que
+    /// coincidir con la de entrega dentro de la tolerancia: si no coincide, salió y volvió, y
+    /// entonces esta transición no es la que corresponde.
+    /// </param>
+    public void AnularDespachada(
+        IdPersona ejecuta,
+        DateTimeOffset momento,
+        string motivo,
+        int odometroDeRetorno,
+        int toleranciaKm,
+        RecuentoDeAsignaciones? combustible = null)
+    {
+        ExigirEstado(EstadoDeMision.Despachada, "T-15");
+
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new BloqueoDuro("T-15",
+                "Anular una misión despachada exige motivo tipificado: hay folios emitidos y " +
+                "dinero entregado, y el descargo de ambos se sostiene en esta razón.");
+
+        var combustibleOk = ExigirDevolucionIntegra(combustible);
+        var odometro = ExigirQueElVehiculoNoHayaSalido(odometroDeRetorno, toleranciaKm);
+
+        Registrar("T-15", EstadoDeMision.Anulada, ejecuta, momento,
+            $"{motivo.Trim()} · {odometro}{combustibleOk}");
+    }
+
+    /// <summary>
+    /// `T-16` — Misión no ejecutada con consumo · `DESPACHADA` → `RETORNADA`.
+    ///
+    /// El caso típico que la autoridad nombra: <i>el motorista llenó el tanque la tarde
+    /// anterior y la misión se suspendió esa noche</i>. Hubo movimiento de fondos públicos, así
+    /// que la misión <b>tiene que liquidarse</b> aunque su kilometraje sea cero.
+    ///
+    /// Queda marcada como <b>no ejecutada</b> para que no contamine los indicadores de
+    /// kilometraje y rendimiento: una misión de cero kilómetros con treinta galones consumidos
+    /// destruiría el promedio de la flota y haría que `RN-30` señalara al vehículo equivocado.
+    /// </summary>
+    public void RegistrarNoEjecutadaConConsumo(
+        IdPersona ejecuta,
+        DateTimeOffset momento,
+        string motivo,
+        int odometroDeRetorno,
+        int toleranciaKm,
+        RecuentoDeAsignaciones? combustible = null)
+    {
+        ExigirEstado(EstadoDeMision.Despachada, "T-16");
+
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new BloqueoDuro("T-16", "`T-16` exige motivo tipificado.");
+
+        var odometro = ExigirQueElVehiculoNoHayaSalido(odometroDeRetorno, toleranciaKm);
+
+        // **No se exige que HAYA habido consumo.** La autoridad admite el otro caso en la
+        // misma frase: «hubo consumo O parte de lo entregado no es devolvible». Exigir consumo
+        // dejaría sin salida al vale entregado que no se puede devolver, que es un hecho
+        // económico igual de real y que tampoco cabe en `T-15`.
+        var detalle = combustible is null
+            ? " · asignaciones de combustible NO consultadas"
+            : $" · {combustible.ConConsumo} de {combustible.Total} asignación(es) con consumo";
+
+        Registrar("T-16", EstadoDeMision.Retornada, ejecuta, momento,
+            $"NO EJECUTADA — no computa para indicadores de kilometraje ni rendimiento. " +
+            $"{motivo.Trim()} · {odometro}{detalle}");
+    }
+
+    /// <summary>
+    /// `T-15` — la devolución íntegra del fondo, que es la precondición que más se incumple.
+    /// </summary>
+    private static string ExigirDevolucionIntegra(RecuentoDeAsignaciones? combustible)
+    {
+        if (combustible is null)
+            return " · devolución del fondo NO verificada: no se consultaron las asignaciones";
+
+        // El consumo manda sobre todo lo demás: aunque todo lo demás esté devuelto, un solo
+        // galón gastado convierte esto en un hecho económico que no se puede anular.
+        if (combustible.HuboConsumo)
+            throw new BloqueoDuro("T-15",
+                $"{combustible.ConConsumo} asignación(es) de esta misión ya tuvieron consumo. " +
+                "`T-15` no está disponible: anular sería borrar un hecho económico. El camino " +
+                "es `T-16`, que retorna la misión sin ejecutar y la liquida igual.");
+
+        if (combustible.EntregadasSinDevolver > 0)
+            throw new BloqueoDuro("T-15",
+                $"Faltan {combustible.EntregadasSinDevolver} devolución(es) de vales entregados. " +
+                "Mientras la devolución no esté completa la misión sigue DESPACHADA, con la " +
+                "anulación en trámite: el control es la lista de pendientes, no un estado nuevo.");
+
+        return combustible.Total == 0
+            ? " · sin combustible asignado"
+            : $" · {combustible.Total} asignación(es) devueltas o anuladas íntegras";
+    }
+
+    /// <summary>
+    /// `T-15` y `T-16` — <b>el vehículo no salió.</b>
+    ///
+    /// La autoridad lo exige en las dos: <i>«el odómetro final coincide con el de entrega
+    /// dentro de la tolerancia»</i>. Si no coincide, el vehículo salió y volvió — y entonces
+    /// ninguna de las dos transiciones es la que corresponde: es una misión ejecutada, y va
+    /// por `T-14` y `T-18`.
+    ///
+    /// La tolerancia existe porque mover el vehículo dentro del predio suma kilómetros reales.
+    /// </summary>
+    private string ExigirQueElVehiculoNoHayaSalido(int odometroDeRetorno, int toleranciaKm)
+    {
+        // **La de la ENTREGA, no la de la salida.** `T-14` no ocurrió: el vehículo tiene las
+        // llaves y no arrancó. Leer `T-14` acá devolvería siempre nulo y el control quedaría
+        // inerte — pasando siempre, que es la peor forma de no existir.
+        var salida = _diario.LastOrDefault(t => t.Id == "T-12")?.Odometro;
+
+        if (salida is null)
+            return "odómetro de entrega NO registrado: no se pudo comprobar que el vehículo no salió";
+
+        var recorrido = odometroDeRetorno - salida.Value;
+
+        if (recorrido < 0)
+            throw new BloqueoDuro("BD-05",
+                $"El odómetro de retorno ({odometroDeRetorno:N0} km) es menor que el de entrega " +
+                $"({salida:N0} km). Es físicamente imposible: corrija la lectura.");
+
+        if (recorrido > toleranciaKm)
+            throw new BloqueoDuro("T-15",
+                $"El vehículo recorrió {recorrido:N0} km desde la entrega, y la tolerancia es " +
+                $"{toleranciaKm:N0} km. Salió: esta misión se ejecutó, y se cierra por `T-18`, " +
+                "no anulándola.");
+
+        return $"odómetro {odometroDeRetorno:N0} km, {recorrido:N0} km desde la entrega — el vehículo no salió";
     }
 
     /// <summary>
@@ -968,11 +1126,46 @@ public sealed class OrdenDeMision
                $"{odometro.Lectura - desde:N0} km";
     }
 
-    /// <summary>`T-19` — RETORNADA → LIQUIDADA.</summary>
-    public void Liquidar(IdPersona ejecuta, DateTimeOffset momento)
+    /// <summary>
+    /// `T-19` — RETORNADA → LIQUIDADA.
+    ///
+    /// ── `INV-34`, que hasta hoy no se evaluaba ──────────────────────────────
+    /// <i>«Todas las asignaciones de fondo vinculadas están `LIQUIDADAS`»</i>, y §10.1 lo
+    /// repite: <b>`T-19` liquidar la misión exige que todas sus asignaciones estén
+    /// `LIQUIDADAS`</b>. Liquidar la misión con vales vivos es declarar cerrado el resultado
+    /// económico de un viaje cuyo dinero todavía nadie cuadró.
+    /// </summary>
+    /// <param name="combustible">
+    /// Nulo es <b>no evaluada</b>, y el diario lo dice. Hay expedientes anteriores a `M-09`, y
+    /// hacer pasar «no había con qué comprobar» por «se comprobó y estaba bien» es la mentira
+    /// que estas nulidades existen para no contar.
+    /// </param>
+    public void Liquidar(
+        IdPersona ejecuta, DateTimeOffset momento, RecuentoDeAsignaciones? combustible = null)
     {
         ExigirEstado(EstadoDeMision.Retornada, "T-19");
-        Registrar("T-19", EstadoDeMision.Liquidada, ejecuta, momento, motivo: null);
+
+        var constancia = ExigirCombustibleLiquidado(combustible);
+        Registrar("T-19", EstadoDeMision.Liquidada, ejecuta, momento, constancia);
+    }
+
+    /// <summary>`INV-34` — ningún vale vivo al liquidar la misión.</summary>
+    private static string ExigirCombustibleLiquidado(RecuentoDeAsignaciones? combustible)
+    {
+        if (combustible is null)
+            return "INV-34 NO evaluada: no se consultaron las asignaciones de combustible";
+
+        if (combustible.SinLiquidar > 0)
+            throw new BloqueoDuro("INV-34",
+                $"La misión tiene {combustible.SinLiquidar} asignación(es) de combustible sin " +
+                "liquidar. Liquidar la misión ahora sería declarar cerrado el resultado " +
+                "económico de un viaje cuyo dinero todavía nadie cuadró.");
+
+        return combustible.Total == 0
+            // Cero no se calla: «sin combustible asignado» y «no se revisó» tienen que
+            // distinguirse en el diario dos años después.
+            ? "sin combustible asignado a esta misión"
+            : $"{combustible.Total} asignación(es) de combustible, todas liquidadas";
     }
 
     public void DevolverLiquidacion(IdPersona ejecuta, DateTimeOffset momento, string motivo)
@@ -981,14 +1174,21 @@ public sealed class OrdenDeMision
         Registrar("T-20", EstadoDeMision.Retornada, ejecuta, momento, motivo);
     }
 
+    /// <param name="combustible">
+    /// §10.1: <b>`T-21` y `T-22` cerrar la misión exigen que todas estén conciliadas</b>, en
+    /// cualquiera de las dos formas. Una desviación <i>explicada</i> no impide cerrar; lo que
+    /// impide cerrar es un vale que nadie contrastó contra el kilometraje.
+    /// </param>
     public void Cerrar(
         IdPersona ejecuta,
         DateTimeOffset momento,
         IReadOnlyList<HallazgoDetectado> criterios,
-        string? justificacion)
+        string? justificacion,
+        RecuentoDeAsignaciones? combustible = null)
     {
         ExigirEstado(EstadoDeMision.Liquidada, "T-21");
         ExigirSegregacionDeCierre(ejecuta);
+        ExigirCombustibleConciliado(combustible);
 
         if (criterios.Count > 0)
         {
@@ -1005,6 +1205,25 @@ public sealed class OrdenDeMision
         }
 
         Registrar("T-21", EstadoDeMision.Cerrada, ejecuta, momento, motivo: null);
+    }
+
+    /// <summary>
+    /// §10.1 — <b>ningún vale sin conciliar al cerrar la misión.</b>
+    ///
+    /// `CONCILIADA` y `CONCILIADA_CON_DESVIACION` cuentan las dos: la desviación con causa
+    /// tipificada es un cierre con hallazgo, no un impedimento. Lo que no puede quedar es un
+    /// vale liquidado que nadie contrastó contra el kilometraje — ahí `RN-30` no llegó a
+    /// mirar, y el expediente se cerraría sin la única comprobación cruzada que tiene.
+    /// </summary>
+    private static void ExigirCombustibleConciliado(RecuentoDeAsignaciones? combustible)
+    {
+        if (combustible is null || combustible.SinConciliar == 0)
+            return;
+
+        throw new BloqueoDuro("T-21",
+            $"Quedan {combustible.SinConciliar} asignación(es) de combustible sin conciliar " +
+            "contra el kilometraje. Una desviación explicada no impide cerrar; un vale que " +
+            "nadie contrastó, sí.");
     }
 
     /// <summary>
