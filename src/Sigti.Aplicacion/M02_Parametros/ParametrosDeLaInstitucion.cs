@@ -1,3 +1,4 @@
+using Sigti.Dominio.M02_Parametros;
 using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M05_Motoristas;
 
@@ -11,6 +12,7 @@ public interface IParametrosDeLaInstitucion
 {
     MatrizDeLicencias MatrizVigenteAl(DateOnly fecha);
     PoliticaDeDocumentacion PoliticaVigenteAl(DateOnly fecha);
+    CalendarioDeDiasHabiles CalendarioVigenteAl(DateOnly fecha);
 }
 
 /// <summary>
@@ -68,6 +70,43 @@ public sealed class ParametrosProvisionales : IParametrosDeLaInstitucion
     ]);
 
     public MatrizDeLicencias MatrizVigenteAl(DateOnly fecha) => Matriz;
+
+    /// <summary>
+    /// ⚠️ <b>Calendario provisional, y SUBDECLARA lo inhábil.</b>
+    ///
+    /// ── Lo que declara ──────────────────────────────────────────────────────
+    /// Lunes a viernes hábiles. Es `[C]` —decisión institucional, insumo #1— y no una
+    /// afirmación normativa: se pone como omisión razonable para que `BD-04` pueda operar
+    /// sobre fines de semana, que es el caso mayoritario.
+    ///
+    /// ── Lo que NO declara, y es lo grave ────────────────────────────────────
+    /// <b>La lista de feriados está vacía.</b> Con esto, una misión que sale el 15 de
+    /// septiembre —Día de la Independencia— <b>pasa `BD-04` sin permiso</b>, y ese es
+    /// exactamente el día en que un vehículo del Estado circulando sin salvoconducto es más
+    /// visible.
+    ///
+    /// No se cargan porque la máquina de estados lo prohíbe: <i>«nunca se cablean los
+    /// feriados. El Art. 339 del Código del Trabajo fija los nacionales, pero existe
+    /// legislación posterior sobre los feriados de octubre que no se pudo verificar»</i> —
+    /// insumo #14, `[C]`. Inventar el articulado bloquearía misiones legítimas contra fechas
+    /// que nadie verificó, y ese error es peor que el que se comete acá.
+    ///
+    /// <b>Esta clase se borra</b> cuando los feriados se carguen por el circuito de `HU-144`
+    /// con su doble control, igual que la matriz.
+    /// </summary>
+    public CalendarioDeDiasHabiles CalendarioVigenteAl(DateOnly fecha) => CalendarioProvisional;
+
+    private static readonly CalendarioDeDiasHabiles CalendarioProvisional = new(
+        Version: "PROVISIONAL-SIN-FERIADOS",
+        DiasHabiles: new HashSet<DayOfWeek>
+        {
+            DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday,
+            DayOfWeek.Thursday, DayOfWeek.Friday,
+        },
+        // Vacía a propósito. La versión lo dice en su nombre para que aparezca en el diario
+        // de cada despacho: un asiento que cita `PROVISIONAL-SIN-FERIADOS` se puede auditar;
+        // uno que dice «calendario vigente» a secas, no.
+        Feriados: new HashSet<DateOnly>());
 
     /// <summary>Póliza y revisión apagadas: no son obligatorias por ley vigente (`DP-001, D-13`).</summary>
     public PoliticaDeDocumentacion PoliticaVigenteAl(DateOnly fecha) => PoliticaDeDocumentacion.PorDefecto;

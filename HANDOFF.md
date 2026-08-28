@@ -246,6 +246,56 @@ para revelar el solape lo estaba escondiendo. Ahora se apilan en subfilas, y dos
 que **se tocan** cuentan como solape: el vehículo no puede estar volviendo de Danlí y
 saliendo a Juticalpa el mismo día.
 
+### El despacho ya tiene sus dos controles que faltaban: `BD-13` y `BD-04`
+
+**`BD-13` — sin custodio vigente no se despacha.** No es una formalidad: la operación que
+`T-12` describe **no se puede ejecutar**. Sin custodio no hay de quién recibir el bien ni a
+quién devolverlo, y el acta de entrega queda sin una de sus dos firmas. La custodia es una
+**tabla con rango de fechas** —`RN-22` exige el historial completo consultable, y una
+columna `custodio_actual` contesta el presente y borra el pasado, que es el que pregunta la
+auditoría.
+
+**`BD-04` — circular en día inhábil exige permiso de la máxima autoridad.** El permiso
+ampara **vehículo, motorista, ruta y ventana**, la lectura más exigente de las tres que
+convivían (`HB3-07`), y de ahí sale sin regla aparte que **un relevo de motorista lo
+invalide**. La excepción de servicio exceptuado es **atributo del vehículo** (`RN-24`,
+`HB3-08`): una ambulancia con excepción vigente sale un domingo, y **el uso de la excepción
+queda registrado**.
+
+**Los dos parámetros son obligatorios y no anulables.** «No hay custodio» y «nadie preguntó»
+no pueden verse igual en un bloqueo duro. El compilador obligó a que cada llamador
+contestara, y rompió cuatro pruebas de despacho — que era la intención.
+
+| Pieza | Qué |
+|---|---|
+| [`CustodiaDelVehiculo`](src/Sigti.Dominio/M03_Flota/CustodiaDelVehiculo.cs) + `flota.Custodia` | La cadena de custodia permanente, con vigencia |
+| [`CalendarioDeDiasHabiles`](src/Sigti.Dominio/M02_Parametros/CalendarioDeDiasHabiles.cs) | Qué es inhábil. Parámetro, nunca cableado |
+| [`PermisoDeCirculacion`](src/Sigti.Dominio/M07_ProgramacionYDespacho/PermisoDeCirculacion.cs) + `mision.PermisoDeCirculacion` | El salvoconducto, con las cuatro cosas que ampara |
+| [`ServicioExceptuado`](src/Sigti.Dominio/M03_Flota/ServicioExceptuado.cs) | La excepción, en columnas del vehículo |
+
+**⚠️ El calendario provisional SUBDECLARA lo inhábil.** Declara lunes a viernes hábiles y
+**la lista de feriados está vacía**: con esto, una misión que sale el 15 de septiembre pasa
+`BD-04` sin permiso. No se cargan porque la autoridad lo prohíbe —*«nunca se cablean los
+feriados… existe legislación posterior sobre los de octubre que no se pudo verificar»*,
+insumo #14 `[C]`—. La versión se llama `PROVISIONAL-SIN-FERIADOS` y **aparece en el diario
+de cada despacho**, para que el asiento se pueda auditar.
+
+**⚠️ Tres cosas de `BD-04` no se evalúan ni se fingen.** La **hora** inhábil: la ventana de
+la misión no lleva horas, así que no hay contra qué contrastar un horario hábil (insumo #1
+`[C]`). El **salvoconducto impreso** que debe emitirse junto con la Orden de Misión: es de
+`M-15`. Y la **ruta** se compara por el destino declarado, que es lo único que el expediente
+lleva — dos misiones a Choluteca por caminos distintos se ven iguales; `[C]` con Auditoría
+Interna.
+
+**La custodia TEMPORAL tampoco existe** — el traslado al motorista al despachar, que se
+extingue al retorno. Es un registro distinto de la permanente, y mezclarlos haría imposible
+contestar quién respondía por el bien en ruta: la respuesta correcta son las dos personas.
+
+**🔎 Hallazgo en la autoridad, sin corregir.** La sección de `BD-13` cita `EF-05` para el
+traslado de custodia, y `EF-05` es *«Conciliación disparada al retornar»*. El traslado de
+custodia **no tiene `EF-nn` propio** — la lista va de `EF-01` a `EF-07` y ninguno lo cubre.
+No se corrige en silencio.
+
 ### `PROGRAMADA` tiene sus cuatro salidas
 
 La máquina de estados dice que desde `PROGRAMADA` **se puede** *«reasignar vehículo o
@@ -335,9 +385,9 @@ filtra por las dos, porque una salida que vuelve a bloquear no es salida. Y los 
 tenían **dos botones de salida**: `Modal` ya rinde el suyo, y encima el llamador agregaba
 otro. El de anulación venía así desde antes.
 
-### `BD-07` sigue sin evaluarse, y `BD-04` a `BD-10` tampoco
+### `BD-07` sigue sin evaluarse, y `BD-05` a `BD-10` tampoco
 
-`BD-02` y `BD-03` ya están implementadas y probadas — **`BD-11` y `BD-12` también, ver arriba.** **`BD-07` no** — estado y compatibilidad del vehículo. Necesita dos cosas que todavía no existen:
+`BD-02` y `BD-03` ya están implementadas y probadas — **`BD-04`, `BD-11`, `BD-12` y `BD-13` también, ver arriba.** **`BD-07` no** — estado y compatibilidad del vehículo. Necesita dos cosas que todavía no existen:
 
 - La **matriz de compatibilidad** entre el objeto del traslado y el tipo de vehículo (`M-02`)
 - La **categoría de peaje** resuelta por vehículo (`M-18`, `NRM-10`) — sin ella el estimado de peajes no es verificable, y quien autoriza no puede comprobar el cálculo

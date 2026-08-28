@@ -179,7 +179,7 @@ public class OrdenDeMisionPruebas
                                        // Con custodia vigente: lo que se prueba acá es que
                                        // el ESTADO impide despachar, y una custodia faltante
                                        // haría pasar la prueba por el motivo equivocado.
-                                       Asignacion.Custodiado));
+                                       Asignacion.Custodiado, Asignacion.SinDiasInhabiles()));
 
         Assert.Equal(EstadoDeMision.Programada, fallo.EstadoRequerido);
         Assert.Equal(EstadoDeMision.Aprobada, expediente.Estado);
@@ -246,7 +246,7 @@ public class OrdenDeMisionPruebas
         expediente.Programar(Transporte, Asignacion.Valida(), Asignacion.Matriz,
                              PoliticaDeDocumentacion.PorDefecto, Momento);
         expediente.Despachar(Encargado, Asignacion.Valida(), Asignacion.Matriz,
-                             PoliticaDeDocumentacion.PorDefecto, Momento, Asignacion.Custodiado);
+                             PoliticaDeDocumentacion.PorDefecto, Momento, Asignacion.Custodiado, Asignacion.SinDiasInhabiles());
         expediente.IniciarRuta(Motorista, Momento);
         expediente.Retornar(Motorista, Momento);
         expediente.Liquidar(Transporte, Momento);

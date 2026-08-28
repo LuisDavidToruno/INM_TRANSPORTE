@@ -64,6 +64,40 @@ public sealed class FilaDeVehiculo
     /// <summary>Franjas, leyenda y siglas verificadas — `RN-18`. Hallazgo frecuente.</summary>
     public required bool IdentificacionInstitucionalVerificada { get; init; }
 
+    /// <summary>
+    /// El servicio exceptuado del vehículo — `RN-24`. Nulo es el caso normal: <b>no</b> está
+    /// exceptuado.
+    ///
+    /// Va en columnas del vehículo y no en tabla aparte porque `RN-24` es taxativo: <i>«la
+    /// excepción es atributo del vehículo, no del viaje»</i>. Una tabla de excepciones
+    /// invitaría a registrar una por misión, que es exactamente lo que la regla prohíbe —
+    /// <i>«cualquier misión podría autoexceptuarse alegando urgencia, y el control se
+    /// vaciaría en una semana»</i>.
+    /// </summary>
+    public string? TipoDeServicioExceptuado { get; init; }
+
+    /// <summary>Qué documento sostiene la excepción. `RN-24` no admite la casilla sin respaldo.</summary>
+    public string? FundamentoDeLaExcepcion { get; init; }
+
+    public DateOnly? ExceptuadoDesde { get; init; }
+
+    /// <summary>Nulo con excepción vigente es <b>indefinida</b>, no eterna.</summary>
+    public DateOnly? ExceptuadoHasta { get; init; }
+
+    /// <summary>
+    /// La excepción como valor del dominio, o nula.
+    ///
+    /// <b>Exige tipo, fundamento y fecha de inicio a la vez.</b> Los tres o ninguno: una
+    /// excepción con tipo y sin fundamento es la casilla marcada que `RN-24` rechaza, y
+    /// dejarla pasar acá la volvería operativa igual.
+    /// </summary>
+    public ServicioExceptuado? Excepcion() =>
+        TipoDeServicioExceptuado is { } tipo
+        && FundamentoDeLaExcepcion is { } fundamento
+        && ExceptuadoDesde is { } desde
+            ? new ServicioExceptuado(tipo, fundamento, desde, ExceptuadoHasta)
+            : null;
+
     /// <summary>La ficha técnica que `BD-02` necesita, armada desde las columnas.</summary>
     public FichaTecnica Ficha() =>
         new(TipoDeVehiculo, Clase, PesoBrutoKg, CapacidadPasajeros, LlevaRemolque);

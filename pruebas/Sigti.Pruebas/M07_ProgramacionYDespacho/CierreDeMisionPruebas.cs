@@ -41,7 +41,7 @@ public class CierreDeMisionPruebas
         expediente.Programar(Transporte, Asignacion.Valida(),
             Asignacion.Matriz, PoliticaDeDocumentacion.PorDefecto, Momento);
         expediente.Despachar(new IdPersona("P-DESPACHO"), Asignacion.Valida(),
-            Asignacion.Matriz, PoliticaDeDocumentacion.PorDefecto, Momento, Asignacion.Custodiado);
+            Asignacion.Matriz, PoliticaDeDocumentacion.PorDefecto, Momento, Asignacion.Custodiado, Asignacion.SinDiasInhabiles());
         expediente.IniciarRuta(new IdPersona("P-MOTORISTA"), Momento);
         expediente.Retornar(new IdPersona("P-MOTORISTA"), Momento);
         expediente.Liquidar(Transporte, Momento);

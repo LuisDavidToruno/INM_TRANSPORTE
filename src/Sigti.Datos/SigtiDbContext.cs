@@ -21,6 +21,7 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     public DbSet<FilaDeConductor> Conductores => Set<FilaDeConductor>();
     public DbSet<FilaDeAsignacionDePuesto> AsignacionesDePuesto => Set<FilaDeAsignacionDePuesto>();
     public DbSet<FilaDeCustodia> Custodias => Set<FilaDeCustodia>();
+    public DbSet<FilaDePermisoDeCirculacion> Permisos => Set<FilaDePermisoDeCirculacion>();
 
     /// <summary>
     /// ULID en binary(16) y no en texto: 16 bytes contra 26, y conserva la monotonía que
@@ -214,6 +215,23 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             // error de datos, pero impedirlo en la base impediria tambien registrar el
             // traspaso el mismo dia -- que es como ocurre, con acta y sin hueco entre las
             // dos. El solape se detecta al consultar, no se prohibe al escribir.
+        });
+
+        modelo.Entity<FilaDePermisoDeCirculacion>(permiso =>
+        {
+            permiso.ToTable("PermisoDeCirculacion", schema: "mision");
+
+            permiso.HasKey(p => p.Id);
+            permiso.Property(p => p.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            permiso.Property(p => p.ExpedienteId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            permiso.Property(p => p.Vehiculo).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            permiso.Property(p => p.Motorista).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            permiso.Property(p => p.Folio).HasMaxLength(32).IsRequired();
+            permiso.Property(p => p.EmitidoPor).HasMaxLength(64).IsRequired();
+            permiso.Property(p => p.Destino).HasMaxLength(120).IsRequired();
+
+            // BD-04 pregunta por expediente en el camino critico del despacho.
+            permiso.HasIndex(p => p.ExpedienteId);
         });
 
         modelo.Entity<FilaDeAdjunto>(adjunto =>

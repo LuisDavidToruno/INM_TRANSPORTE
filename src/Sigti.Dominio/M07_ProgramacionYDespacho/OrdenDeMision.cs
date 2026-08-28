@@ -1,3 +1,4 @@
+using Sigti.Dominio.M02_Parametros;
 using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M05_Motoristas;
 using Sigti.Dominio.Organizacion;
@@ -414,19 +415,26 @@ public sealed class OrdenDeMision
     /// diferencia entre «no hay custodio» y «nadie preguntó», y en un bloqueo duro las dos
     /// no pueden verse igual. El compilador obliga a que todo llamador conteste.
     /// </param>
+    /// <param name="circulacion">
+    /// Lo que hace falta para juzgar `BD-04`: el calendario vigente, la excepción del
+    /// vehículo si la tiene, y los permisos emitidos. También obligatorio, y por lo mismo.
+    /// </param>
     public void Despachar(
         IdPersona ejecuta,
         AsignacionDeMision asignacion,
         MatrizDeLicencias matriz,
         PoliticaDeDocumentacion politica,
         DateTimeOffset momento,
-        IReadOnlyList<CustodiaDelVehiculo> custodias)
+        IReadOnlyList<CustodiaDelVehiculo> custodias,
+        CirculacionEnDiaInhabil circulacion)
     {
         ExigirEstado(EstadoDeMision.Programada, "T-12");
         var evidencia = ExigirHabilitacionYDocumentacion(asignacion, matriz, politica, momento);
         var custodia = ExigirCustodiaVigente(custodias, momento);
+        var inhabil = ExigirPermisoSiCirculaEnDiaInhabil(circulacion);
 
-        Registrar("T-12", EstadoDeMision.Despachada, ejecuta, momento, evidencia + custodia);
+        Registrar("T-12", EstadoDeMision.Despachada, ejecuta, momento,
+            evidencia + custodia + inhabil);
     }
 
     /// <summary>
@@ -519,6 +527,62 @@ public sealed class OrdenDeMision
                     : $" Tiene {custodias.Count} custodia(s) registrada(s), ninguna vigente a esa fecha."));
 
         return $" · BD-13 verificada · custodio {vigente.Custodio.Valor} desde {vigente.Desde:yyyy-MM-dd}";
+    }
+
+    /// <summary>
+    /// `BD-04` — <b>circular en día inhábil exige permiso de la máxima autoridad.</b>
+    ///
+    /// ── Las tres respuestas posibles, y ninguna se calla ─────────────────────
+    /// <b>No toca día inhábil</b> → nada que exigir, y se deja constancia del calendario contra
+    /// el que se juzgó: dentro de dos años, reconstruir por qué un sábado no exigió permiso
+    /// requiere saber qué calendario estaba vigente.
+    ///
+    /// <b>Toca día inhábil y el vehículo está exceptuado</b> → pasa, <b>y el uso de la excepción
+    /// queda registrado</b>. `BD-04` lo exige expresamente. Una excepción que se usa sin
+    /// dejar rastro es una excepción que nadie puede auditar, y `RN-24` existe justamente
+    /// porque la alternativa —autoexceptuarse alegando urgencia— vacía el control en una
+    /// semana.
+    ///
+    /// <b>Toca día inhábil y no hay excepción</b> → tiene que haber permiso que ampare
+    /// <b>vehículo, motorista, ruta y ventana</b>. Si no, bloqueo.
+    ///
+    /// ── Lo que este control NO cubre hoy ─────────────────────────────────────
+    /// La <b>hora</b> inhábil. `BD-04` habla de día <i>u hora</i>, y la ventana de la misión
+    /// no lleva horas: no hay contra qué contrastar un horario hábil. Y el <b>salvoconducto
+    /// impreso</b> que debe emitirse junto con la Orden de Misión es de `M-15`, que no existe.
+    /// Ninguno de los dos se finge.
+    /// </summary>
+    private string ExigirPermisoSiCirculaEnDiaInhabil(CirculacionEnDiaInhabil circulacion)
+    {
+        var ventana = Solicitud.Ventana;
+        var inhabiles = circulacion.Calendario.InhabilesEn(ventana);
+
+        if (inhabiles.Count == 0)
+            return $" · BD-04 no aplica · calendario {circulacion.Calendario.Version}";
+
+        var dias = string.Join(", ", inhabiles.Select(d => d.ToString("yyyy-MM-dd")));
+
+        if (circulacion.Excepcion is { } excepcion && excepcion.VigenteAl(ventana.Salida))
+            return $" · BD-04 exceptuada · servicio {excepcion.Tipo} vigente desde " +
+                   $"{excepcion.Desde:yyyy-MM-dd} · días inhábiles: {dias}";
+
+        var permiso = circulacion.Permisos.FirstOrDefault(
+            p => p.Ampara(circulacion.Vehiculo, circulacion.Motorista, Solicitud.Destino, ventana));
+
+        if (permiso is null)
+            throw new BloqueoDuro("BD-04",
+                $"La misión circula en día inhábil ({dias}) y no hay permiso de la máxima " +
+                "autoridad que ampare este vehículo, este motorista, este destino y esta " +
+                $"ventana ({ventana.Salida:yyyy-MM-dd} al {ventana.FinDelRango:yyyy-MM-dd}). " +
+                // Un relevo de motorista invalida el permiso, y quien despacha necesita
+                // saber si el problema es que no hay ninguno o que el que hay no le sirve.
+                (circulacion.Permisos.Count == 0
+                    ? "No hay ningún permiso registrado para esta misión."
+                    : $"Hay {circulacion.Permisos.Count} permiso(s) registrado(s), ninguno que ampare " +
+                      "esta combinación — un relevo de motorista invalida el permiso."));
+
+        return $" · BD-04 verificada · permiso {permiso.Folio} de {permiso.EmitidoPor.Valor} · " +
+               $"días inhábiles: {dias} · calendario {circulacion.Calendario.Version}";
     }
 
     /// <summary>`T-14` — DESPACHADA → EN_RUTA. La ejecuta el motorista, y opera desconectado.</summary>

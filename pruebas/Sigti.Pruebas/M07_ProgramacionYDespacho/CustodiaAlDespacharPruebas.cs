@@ -139,7 +139,7 @@ public class CustodiaAlDespacharPruebas
 
     private static void Despachar(OrdenDeMision expediente, IReadOnlyList<CustodiaDelVehiculo> custodias) =>
         expediente.Despachar(Encargado, Asignacion.Valida(), Asignacion.Matriz,
-                             PoliticaDeDocumentacion.PorDefecto, Momento, custodias);
+                             PoliticaDeDocumentacion.PorDefecto, Momento, custodias, Asignacion.SinDiasInhabiles());
 
     private static OrdenDeMision Programada()
     {

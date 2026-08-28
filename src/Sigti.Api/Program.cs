@@ -39,6 +39,7 @@ constructor.Services.AddScoped<ConsultaDeConductores>();
 constructor.Services.AddScoped<ConsultaDelOrganigrama>();
 constructor.Services.AddScoped<ConsultaDeOcupacion>();
 constructor.Services.AddScoped<ConsultaDeCustodias>();
+constructor.Services.AddScoped<ConsultaDePermisos>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
 constructor.Services.AddSingleton(new AlmacenDeArchivos(
@@ -410,16 +411,16 @@ misiones.MapPost("/{id}/anular-programada", async (
 // reservado y volver a tomar ahí duplicaría la reserva sin liberar la anterior.
 // `BD-11` sólo la evalúa `T-08`: es la que toma. `T-12` despacha sobre lo ya reservado,
 // y volver a comprobar el solape ahí chocaría contra la reserva de la propia misión.
-ConAsignacion("programar", (e, quien, a, m, p, cuando, recursos, reservas, _, __) =>
+ConAsignacion("programar", (e, quien, a, m, p, cuando, recursos, reservas, _, __, ___) =>
     e.Programar(quien, a, m, p, cuando, recursos, reservas));
-ConAsignacion("despachar", (e, quien, a, m, p, cuando, _, __, ___, custodias) =>
-    e.Despachar(quien, a, m, p, cuando, custodias));
+ConAsignacion("despachar", (e, quien, a, m, p, cuando, _, __, ___, custodias, circulacion) =>
+    e.Despachar(quien, a, m, p, cuando, custodias, circulacion));
 
 // `T-10` — cambiar el vehículo o quien conduce SIN soltar la misión. Comparte la
 // resolución de recursos con programar y despachar: es la misma verificación de que el
 // identificador existe y la misma construcción de la asignación contra la que se evalúan
 // `BD-02` y `BD-03`. Lo único propio es el motivo, y por eso viaja en la misma petición.
-ConAsignacion("reasignar", (e, quien, a, m, p, cuando, recursos, reservas, peticion, _) =>
+ConAsignacion("reasignar", (e, quien, a, m, p, cuando, recursos, reservas, peticion, _, __) =>
     e.Reasignar(quien, a, peticion.Motivo, peticion.Comentario, m, p, cuando, recursos, reservas));
 
 // M-16 — Donde aterriza lo que el dispositivo capturó sin red.
@@ -548,7 +549,7 @@ return;
 
 void ConAsignacion(
     string ruta,
-    Action<OrdenDeMision, IdPersona, AsignacionDeMision, MatrizDeLicencias, PoliticaDeDocumentacion, DateTimeOffset, RecursosTomados?, IReadOnlyList<ReservaDeRecurso>?, AsignarYTransicionar, IReadOnlyList<CustodiaDelVehiculo>> aplicar) =>
+    Action<OrdenDeMision, IdPersona, AsignacionDeMision, MatrizDeLicencias, PoliticaDeDocumentacion, DateTimeOffset, RecursosTomados?, IReadOnlyList<ReservaDeRecurso>?, AsignarYTransicionar, IReadOnlyList<CustodiaDelVehiculo>, CirculacionEnDiaInhabil> aplicar) =>
     misiones.MapPost($"/{{id}}/{ruta}", async (
         string id,
         AsignarYTransicionar peticion,
@@ -557,6 +558,7 @@ void ConAsignacion(
         ConsultaDeFlota flota,
         ConsultaDeOcupacion ocupacion,
         ConsultaDeCustodias custodias,
+        ConsultaDePermisos permisos,
         IParametrosDeLaInstitucion parametros) =>
     {
         // El cliente manda IDENTIFICADORES, no la ficha técnica. Si mandara la ficha,
@@ -591,6 +593,11 @@ void ConAsignacion(
         // condicional aqui obligaria a saber, en el enrutador, cual transicion la necesita.
         var historialDeCustodia = await custodias.DeVehiculoAsync(idVehiculo);
 
+        // Los permisos de circulacion del expediente. Se traen TODOS: distinguir «no hay
+        // ninguno» de «hay pero ninguno ampara» es lo que hace accionable el bloqueo, y ese
+        // juicio es de la regla.
+        var permisosDelExpediente = await permisos.DeExpedienteAsync(ulid);
+
         var estado = await servicio.TransicionarAsync(
             ulid,
             expediente =>
@@ -601,7 +608,14 @@ void ConAsignacion(
                 aplicar(expediente, new IdPersona(peticion.Ejecuta), asignacion,
                         parametros.MatrizVigenteAl(salida), parametros.PoliticaVigenteAl(salida),
                         peticion.Momento, new RecursosTomados(idVehiculo, idConductor), reservas,
-                        peticion, historialDeCustodia);
+                        peticion, historialDeCustodia,
+                        new CirculacionEnDiaInhabil(
+                            // El calendario se resuelve a la fecha del HECHO, como todo
+                            // parametro normativo (P-4).
+                            parametros.CalendarioVigenteAl(salida),
+                            idVehiculo, idConductor,
+                            vehiculo.Excepcion(),
+                            permisosDelExpediente));
             },
             peticion.Momento);
 

@@ -64,8 +64,8 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
             Dependencia = "Delegación de Choluteca",
             ObjetoDelTraslado = "Traslado de personal y equipo",
             Destino = "Choluteca",
-            Salida = new DateOnly(2026, 3, 20),
-            Retorno = new DateOnly(2026, 3, 22),
+            Salida = new DateOnly(2026, 3, 16),
+            Retorno = new DateOnly(2026, 3, 18),
             HolguraDias = 1,
             Momento,
         });
@@ -227,8 +227,8 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
             Dependencia = "Delegación de Choluteca",
             ObjetoDelTraslado = "Traslado de personal y equipo",
             Destino = "Choluteca",
-            Salida = new DateOnly(2026, 3, 20),
-            Retorno = new DateOnly(2026, 3, 22),
+            Salida = new DateOnly(2026, 3, 16),
+            Retorno = new DateOnly(2026, 3, 18),
             HolguraDias = 1,
             Momento,
         });

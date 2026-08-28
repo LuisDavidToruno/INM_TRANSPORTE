@@ -133,8 +133,8 @@ public class SincronizacionPruebas(BaseDePruebas baseDePruebas)
             Dependencia = "Delegación de Tocoa",
             ObjetoDelTraslado = "Traslado de equipo",
             Destino = "Tocoa",
-            Salida = new DateOnly(2026, 3, 20),
-            Retorno = new DateOnly(2026, 3, 22),
+            Salida = new DateOnly(2026, 3, 16),
+            Retorno = new DateOnly(2026, 3, 18),
             HolguraDias = 1,
             Momento,
         });

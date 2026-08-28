@@ -32,9 +32,16 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
     private static readonly DateTimeOffset Momento =
         new(2026, 3, 12, 9, 0, 0, TimeSpan.FromHours(-6));
 
-    /// <summary>La ventana de la misión: del 20 al 22, con un día de holgura.</summary>
-    private const string Desde = "2026-03-18";
-    private const string Hasta = "2026-03-24";
+    /// <summary>
+    /// La ventana: del <b>lunes 16</b> al <b>miércoles 18</b> de marzo, con un día de holgura.
+    ///
+    /// ⚠️ <b>Entre semana a propósito.</b> Desde `BD-04`, una ventana que cruza el fin de semana
+    /// exige permiso de la máxima autoridad — y estas pruebas no van de eso. Se cambia la
+    /// ventana en vez de sembrar un permiso falso: un permiso inventado las haría pasar por
+    /// `BD-04` sin que nadie las hubiera escrito para eso.
+    /// </summary>
+    private const string Desde = "2026-03-14";
+    private const string Hasta = "2026-03-20";
 
     private WebApplicationFactory<Program> Aplicacion() =>
         new WebApplicationFactory<Program>().WithWebHostBuilder(constructor =>
@@ -68,9 +75,9 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         var barras = await BarrasDe(cliente, r.Vehiculo);
         var barra = Assert.Single(barras);
 
-        Assert.Equal("2026-03-20", barra.GetProperty("desde").GetString());
+        Assert.Equal("2026-03-16", barra.GetProperty("desde").GetString());
         // El retorno, **inclusivo**: es un día en que el vehículo sigue tomado.
-        Assert.Equal("2026-03-22", barra.GetProperty("hasta").GetString());
+        Assert.Equal("2026-03-18", barra.GetProperty("hasta").GetString());
         Assert.Equal("Programada", barra.GetProperty("estado").GetString());
     }
 
@@ -502,6 +509,93 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
     }
 
     [Fact]
+    public async Task BD_04_impide_salir_en_fin_de_semana_sin_permiso_y_el_permiso_lo_destraba()
+    {
+        // Contra la API real y el <b>calendario provisional</b> —lunes a viernes hábiles—,
+        // que es el que va a usar la institución hasta que cargue el suyo.
+        //
+        // La ventana va del <b>viernes 20</b> al <b>domingo 22</b> de marzo: cruza sábado y
+        // domingo. Es la única prueba de punta a punta que sale en fin de semana, y por eso
+        // es la única que necesita permiso.
+        var r = await Sembrar("BD04-0001");
+        var id = Ulid.NewUlid().ToString();
+
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        await CrearYAprobarEnFinDeSemana(cliente, id);
+        await Programar(cliente, id, r);
+
+        // Programar SÍ se puede: `BD-04` es de `T-12`. Se reserva el vehículo y se pide el
+        // permiso mientras tanto — que es el orden real de las cosas.
+        var sinPermiso = await cliente.PostAsJsonAsync($"/misiones/{id}/despachar", new
+        {
+            Ejecuta = "P-ENCARGADO",
+            Momento,
+            IdVehiculo = r.Vehiculo,
+            IdConductor = r.Conductor,
+        });
+
+        Assert.Equal(System.Net.HttpStatusCode.Conflict, sinPermiso.StatusCode);
+        var cuerpo = await sinPermiso.Content.ReadAsStringAsync();
+        Assert.Contains("BD-04", cuerpo);
+        Assert.Contains("2026-03-21", cuerpo);
+        Assert.Contains("No hay ningún permiso registrado", cuerpo);
+
+        // La máxima autoridad firma el salvoconducto.
+        await using (var contexto = baseDePruebas.Contexto())
+        {
+            contexto.Permisos.Add(new FilaDePermisoDeCirculacion
+            {
+                Id = Ulid.NewUlid(),
+                ExpedienteId = Ulid.Parse(id),
+                Folio = "SC-000042",
+                EmitidoPor = "P-MAXIMA-AUTORIDAD",
+                Vehiculo = Ulid.Parse(r.Vehiculo),
+                Motorista = Ulid.Parse(r.Conductor),
+                Destino = "Choluteca",
+                Desde = new DateOnly(2026, 3, 20),
+                Hasta = new DateOnly(2026, 3, 23),
+            });
+            await contexto.SaveChangesAsync();
+        }
+
+        await Despachar(cliente, id, r);
+
+        var estado = await cliente.GetFromJsonAsync<JsonElement>($"/misiones/{id}");
+        Assert.Equal("Despachada", estado.GetProperty("estado").GetString());
+
+        // El diario cita el permiso y el calendario contra el que se juzgó: sin las dos
+        // cosas, reconstruir la decisión dentro de dos años es imposible.
+        var despacho = estado.GetProperty("diario").EnumerateArray()
+            .Single(t => t.GetProperty("id").GetString() == "T-12");
+        var motivo = despacho.GetProperty("motivo").GetString()!;
+        Assert.Contains("SC-000042", motivo);
+        Assert.Contains("PROVISIONAL-SIN-FERIADOS", motivo);
+    }
+
+    /// <summary>Del viernes 20 al domingo 22 de marzo de 2026 — cruza el fin de semana.</summary>
+    private static async Task CrearYAprobarEnFinDeSemana(HttpClient cliente, string id)
+    {
+        await cliente.PostAsJsonAsync("/misiones", new
+        {
+            Id = id,
+            CapturadaPor = "P-ASISTENTE",
+            SolicitanteDeDerecho = "P-ASISTENTE",
+            Dependencia = "Delegacion de Choluteca",
+            ObjetoDelTraslado = "Traslado de personal",
+            Destino = "Choluteca",
+            Salida = new DateOnly(2026, 3, 20),
+            Retorno = new DateOnly(2026, 3, 22),
+            HolguraDias = 1,
+            Momento,
+        });
+
+        await cliente.PostAsJsonAsync($"/misiones/{id}/enviar", new { Ejecuta = "P-ASISTENTE", Momento });
+        await cliente.PostAsJsonAsync($"/misiones/{id}/aprobar", new { Ejecuta = "P-JEFATURA", Momento });
+    }
+
+    [Fact]
     public async Task Una_mision_fuera_de_la_ventana_no_aparece()
     {
         // Sin esto, la pantalla de una semana mostraría la ocupación de todo el año y el
@@ -616,8 +710,8 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
             Dependencia = "Delegacion de Choluteca",
             ObjetoDelTraslado = "Traslado de personal",
             Destino = "Choluteca",
-            Salida = new DateOnly(2026, 3, 20),
-            Retorno = new DateOnly(2026, 3, 22),
+            Salida = new DateOnly(2026, 3, 16),
+            Retorno = new DateOnly(2026, 3, 18),
             HolguraDias = 1,
             Momento,
         });
