@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Sigti.Datos.M07_ProgramacionYDespacho;
+using Sigti.Datos.M09_Combustible;
 using Sigti.Dominio.Bitacora;
 using Sigti.Dominio.M02_Parametros;
 using Sigti.Dominio.Organizacion;
@@ -23,6 +24,8 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     public DbSet<FilaDeCustodia> Custodias => Set<FilaDeCustodia>();
     public DbSet<FilaDePermisoDeCirculacion> Permisos => Set<FilaDePermisoDeCirculacion>();
     public DbSet<FilaDeCambioDeEstado> CambiosDeEstado => Set<FilaDeCambioDeEstado>();
+    public DbSet<FilaDeFondo> Fondos => Set<FilaDeFondo>();
+    public DbSet<FilaDeAsignacion> AsignacionesDeCombustible => Set<FilaDeAsignacion>();
 
     /// <summary>
     /// ULID en binary(16) y no en texto: 16 bytes contra 26, y conserva la monotonía que
@@ -244,6 +247,114 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             // pueden compartir marca de tiempo cuando uno lo fija el sistema por una
             // transicion y otro una persona en el mismo instante.
             cambio.HasIndex(c => new { c.VehiculoId, c.Orden }).IsUnique();
+        });
+
+        modelo.Entity<FilaDeFondo>(fondo =>
+        {
+            fondo.ToTable("Fondo", schema: "combustible");
+
+            fondo.HasKey(f => f.Id);
+            fondo.Property(f => f.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            fondo.Property(f => f.Ambito).HasConversion<string>().HasMaxLength(16).IsRequired();
+            fondo.Property(f => f.AmbitoDeclarado).HasMaxLength(120).IsRequired();
+            fondo.Property(f => f.Solicita).HasMaxLength(64).IsRequired();
+            fondo.Property(f => f.Aprueba).HasMaxLength(64);
+            fondo.Property(f => f.PartidaPresupuestaria).HasMaxLength(64);
+
+            fondo.HasMany(f => f.Movimientos)
+                .WithOne()
+                .HasForeignKey(m => m.FondoId)
+                // Nada se borra fisicamente. Es la misma restriccion del expediente, y aca
+                // pesa mas: lo que colgaria de un fondo borrado es el rastro del dinero.
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // El saldo se pregunta por ambito y periodo: cual es el fondo vigente de esta
+            // delegacion hoy. Sin indice, esa pregunta recorre todos los fondos de la
+            // institucion en el camino critico de emitir un vale.
+            fondo.HasIndex(f => new { f.AmbitoDeclarado, f.Desde, f.Hasta });
+        });
+
+        modelo.Entity<FilaDeMovimientoDelFondo>(movimiento =>
+        {
+            movimiento.ToTable("MovimientoDelFondo", schema: "combustible");
+
+            movimiento.HasKey(m => m.Id);
+            movimiento.Property(m => m.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            movimiento.Property(m => m.FondoId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            movimiento.Property(m => m.Movimiento).HasMaxLength(8).IsRequired();
+            movimiento.Property(m => m.Destino).HasConversion<string>().HasMaxLength(32).IsRequired();
+            movimiento.Property(m => m.Ejecuta).HasMaxLength(64).IsRequired();
+            movimiento.Property(m => m.Motivo).HasMaxLength(1000);
+
+            // `decimal(18,2)` explicito: el defecto de EF Core en SQL Server trunca a
+            // decimal(18,2) igual, pero declararlo es lo que impide que una migracion
+            // futura lo cambie sin que nadie lo note. Es dinero publico.
+            movimiento.Property(m => m.Monto).HasColumnType("decimal(18,2)");
+
+            movimiento.HasIndex(m => new { m.FondoId, m.Orden }).IsUnique();
+        });
+
+        modelo.Entity<FilaDeAsignacion>(asignacion =>
+        {
+            asignacion.ToTable("Asignacion", schema: "combustible");
+
+            asignacion.HasKey(a => a.Id);
+            asignacion.Property(a => a.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            asignacion.Property(a => a.FondoId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            asignacion.Property(a => a.MisionId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            asignacion.Property(a => a.VehiculoId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            asignacion.Property(a => a.Folio).HasMaxLength(32).IsRequired();
+            asignacion.Property(a => a.Receptor).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            asignacion.Property(a => a.Instrumento).HasMaxLength(32).IsRequired();
+            asignacion.Property(a => a.TipoDeCombustible).HasMaxLength(32).IsRequired();
+            asignacion.Property(a => a.Monto).HasColumnType("decimal(18,2)");
+            asignacion.Property(a => a.Galones).HasColumnType("decimal(18,3)");
+
+            // **`RN-27` requisito 1, impuesto por la base.** El folio es unico en la
+            // institucion y no se recicla. Dejarlo a una comprobacion en codigo significa
+            // que el proximo endpoint que emita vales puede olvidarla -- y dos vales con el
+            // mismo folio destruyen la unica pregunta que el folio contesta.
+            asignacion.HasIndex(a => a.Folio).IsUnique();
+
+            // El recuento que `T-15`, `T-19` y `T-21` piden es siempre por mision.
+            asignacion.HasIndex(a => a.MisionId);
+
+            // Y el saldo del fondo se calcula sumando las asignaciones de ese fondo.
+            asignacion.HasIndex(a => a.FondoId);
+
+            asignacion.HasMany(a => a.Transiciones)
+                .WithOne()
+                .HasForeignKey(t => t.AsignacionId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelo.Entity<FilaDeTransicionDeAsignacion>(transicion =>
+        {
+            transicion.ToTable("TransicionDeAsignacion", schema: "combustible");
+
+            transicion.HasKey(t => t.Id);
+            transicion.Property(t => t.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            transicion.Property(t => t.AsignacionId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            transicion.Property(t => t.Transicion).HasMaxLength(8).IsRequired();
+            transicion.Property(t => t.Destino).HasConversion<string>().HasMaxLength(32).IsRequired();
+            transicion.Property(t => t.Ejecuta).HasMaxLength(64).IsRequired();
+            transicion.Property(t => t.Motivo).HasMaxLength(1000);
+            transicion.Property(t => t.IdDeCaptura).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+
+            transicion.Property(t => t.ConsumoGalones).HasColumnType("decimal(18,3)");
+            transicion.Property(t => t.ConsumoMonto).HasColumnType("decimal(18,2)");
+            transicion.Property(t => t.ConsumoEstacion).HasMaxLength(120);
+            transicion.Property(t => t.ConsumoComprobante).HasMaxLength(64);
+            transicion.Property(t => t.Devuelto).HasColumnType("decimal(18,2)");
+
+            transicion.HasIndex(t => new { t.AsignacionId, t.Orden }).IsUnique();
+
+            // **La idempotencia de `V-04`, garantizada por la base.** El dispositivo que no
+            // supo si el servidor recibio va a reintentar, y un consumo duplicado inventa
+            // una desviacion de conciliacion que nadie va a poder explicar.
+            transicion.HasIndex(t => t.IdDeCaptura)
+                .IsUnique()
+                .HasFilter("[IdDeCaptura] IS NOT NULL");
         });
 
         modelo.Entity<FilaDePermisoDeCirculacion>(permiso =>

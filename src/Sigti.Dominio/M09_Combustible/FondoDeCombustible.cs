@@ -82,6 +82,36 @@ public sealed class FondoDeCombustible
     public decimal SaldoDisponible(decimal asignado, decimal devolucionesConstatadas) =>
         Aprobado - asignado + devolucionesConstatadas;
 
+    /// <summary>
+    /// Rehidrata el fondo <b>desde su diario</b>. No hay estado ni saldo que leer de una
+    /// columna: los dos son proyecciones (P-1).
+    /// </summary>
+    public static FondoDeCombustible Reconstruir(
+        Ulid id,
+        AmbitoDelFondo ambito,
+        string ambitoDeclarado,
+        DateOnly desde,
+        DateOnly hasta,
+        IdPersona solicita,
+        IdPersona? aprueba,
+        string? partida,
+        IEnumerable<MovimientoDelFondo> diario)
+    {
+        var fondo = new FondoDeCombustible(id, ambito, ambitoDeclarado, desde, hasta, solicita)
+        {
+            Aprueba = aprueba,
+            PartidaPresupuestaria = partida,
+        };
+
+        fondo._diario.AddRange(diario);
+
+        if (fondo._diario.Count == 0)
+            throw new ArgumentException(
+                "Un fondo sin diario no tiene estado que proyectar.", nameof(diario));
+
+        return fondo;
+    }
+
     /// <summary>`F-01` — ACT-04 solicita el fondo del período.</summary>
     public static FondoDeCombustible Solicitar(
         Ulid id,

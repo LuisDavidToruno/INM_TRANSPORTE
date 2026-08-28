@@ -346,6 +346,76 @@ en pantalla — un vehículo en taller y uno prestado se pintan apagados en el c
 abril?»* — y cada asiento dice si lo declaró una persona o lo fijó el sistema. Sin esa marca,
 la afirmación de §10.2 sobre quién fija qué **no se puede auditar, sólo creer**.
 
+### `M-09` — el circuito del combustible, de punta a punta
+
+**RESUELTA.** El fondo del período, el vale con folio y la máquina §10.1 completa, `V-01` a
+`V-10`. Con esto **`T-15` y `T-16` dejan de estar bloqueadas** — eran las dos transiciones que
+no existían porque no había combustible que devolver.
+
+| Capa | Qué |
+|---|---|
+Dominio | `FondoDeCombustible` (`F-01`…`F-06`), `AsignacionDeCombustible` (`V-01`…`V-10`), `ReglasDelFondo`, `ReglasDeEmisionDeCombustible` |
+Datos | Esquema `combustible`, cuatro tablas, folio único por índice y `IdDeCaptura` único filtrado |
+Aplicación | `ServicioDeCombustible` — vale y asiento de bitácora en la misma transacción |
+API | `/fondos` y `/combustible`, doce endpoints |
+
+**El saldo no es una columna.** Es `aprobado − asignado + devoluciones constatadas`, y las tres
+cifras salen de asientos. Una columna de saldo es un número que alguien pudo haber editado, y
+toda la razón de ser de `RN-26` es que ese número se pueda auditar.
+
+**La segregación del fondo vive en `RN-26` y no en `RN-01`.** Es la corrección del hallazgo
+`HN1-15`: `RN-01` se aplica *«sobre una misma Orden de Misión»* y el fondo es un objeto de
+**período**. Leída como está escrita, `RN-01` no lo alcanza — y la incompatibilidad más
+sensible del circuito de dinero quedaba enunciada sin regla que la sostuviera.
+
+**El consumo va como asiento y no como total**, porque el motorista carga varias veces, cada
+una con su odómetro. Un campo `galones_consumidos` contesta *cuánto* y pierde *dónde*, que es
+justo lo que `RN-30` necesita.
+
+Verificado punta a punta contra la base: el recorrido completo del dinero con cinco actos y
+cinco personas distintas, el saldo bajando al emitir y volviendo al devolver, el vale anulado
+devolviendo todo su valor, y el consumo reenviado por el dispositivo **que no se cuenta dos
+veces** — la unicidad la impone la base, no una comprobación que se olvida.
+
+**Dos defectos encontrados al escribir, no al revisar:**
+
+1. **`Rechazada` y `Anulada` están declaradas después de `Cerrada` en el enum de estados**, así
+   que comparar por orden dejaba emitir un vale contra una misión anulada — un desembolso sin
+   expediente al cual imputarlo. Las ramas van antes que el orden. Verificado por mutación.
+2. **El servicio pasaba el motorista de la orden a los dos lados de `RN-32`**, así que la regla
+   comparaba algo consigo mismo y el bloqueo no podía disparar nunca. En el dominio la regla
+   siempre estuvo bien: sólo se ve cruzando el servicio, y por eso la prueba que lo atrapa es
+   punta a punta. Verificado por mutación.
+
+**Y un hueco de `INV-17` que `T-15` destapó.** `T-15` ocurre **antes** de `T-14`, así que no
+había odómetro contra el cual probar que el vehículo nunca salió. `INV-17` exige el del acta de
+entrega y `T-12` no lo capturaba; ahora sí, y es contra ése que comparan `T-15` y `T-16`.
+
+**⚠️ Lo que M-09 todavía NO hace, y no se finge:**
+
+- **La conciliación no decide.** `V-09` contra `V-10` lo resuelve quien llama, porque los
+  umbrales de desviación por tipo de vehículo son `[C]` (insumos #1 y #19) y el rendimiento
+  esperado no está cargado. Calcularlo contra un umbral inexistente devolvería siempre
+  «conforme», y **una conciliación que siempre concilia es peor que ninguna**.
+- **La cuota trimestral de compromiso (`RN-54`) no se verifica.** Necesita el espejo
+  presupuestario de ARGOS, que no existe. El asiento de aprobación lo dice con todas sus
+  letras, para que dentro de dos años nadie confunda «se verificó y pasó» con «no se verificó».
+- **El tipo de combustible del vehículo no se comprueba.** La ficha de `M-03` no lo declara —
+  no hay columna—, así que `RN-32` recibe nulo y **dice que no evaluó**, en vez de suponer que
+  coincide. Un vale de diésel para un vehículo de gasolina hoy pasa.
+- **`RN-83` abastecimientos, `RN-30` conciliación galonaje–kilometraje, `RN-84`/`RN-85`
+  comprobantes y `RN-86` reintegro**: no están. `RN-83` es el que hace que el combustible del
+  tanque institucional deje de ser invisible, y sin él `RN-30` señalaría un fraude donde hay un
+  procedimiento no modelado.
+- **No hay pantalla.** Todo el circuito se opera por API.
+
+**⚠️ Hallazgo que `RN-26` hereda y sigue abierto:** el par *solicita fondo × aprueba fondo* no
+existe en la tabla `I-01`…`I-17` de `actores-y-roles.md`, que es la autoridad en
+incompatibilidades y también razona por misión. Se ejecuta igual, porque no ejecutarlo mientras
+se decide dejaría el hueco abierto en el dinero.
+
+---
+
 ### `PT-072` — el padrón de flota, y con él `M-03` deja de existir sólo en la API
 
 **RESUELTA.** `/flota` en la oficina. La tabla contesta las dos preguntas que se hacen al abrir un

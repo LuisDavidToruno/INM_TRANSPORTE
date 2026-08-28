@@ -75,9 +75,14 @@ public sealed class ServicioDeMisiones(SigtiDbContext contexto, EstadoDeLaFlota 
     /// consecuencia de transiciones de la Orden de Misión, y permitir fijarlos a mano abre la
     /// puerta a un vehículo "en misión" sin misión»</i>.
     ///
-    /// ⚠️ <b>`T-16` y `T-15` no están acá porque no existen.</b> Cuando existan, las dos
-    /// devuelven el vehículo a `DISPONIBLE` —o al estado que corresponda si la causa fue una
-    /// falla— y este mapa es donde se agregan.
+    /// ── `T-15` y `T-16` devuelven el vehículo, y no es lo mismo que liberarlo ──
+    /// En las dos el vehículo <b>nunca salió</b>: está en el predio con las llaves puestas.
+    /// La autoridad dice <i>«vuelve a `DISPONIBLE` o al estado que corresponda si la causa
+    /// fue una falla»</i>, y esa segunda mitad NO se resuelve acá: quien declara el taller es
+    /// `ACT-11` por el padrón (§10.2). Devolverlo a `DISPONIBLE` cuando la causa fue una
+    /// avería lo dejaría figurando listo para la próxima misión — así que el estado se
+    /// devuelve y <b>quien anuló debe declarar el taller si corresponde</b>. Inferirlo del
+    /// motivo sería adivinar sobre un bien.
     /// </summary>
     private async Task MoverElEstadoDelVehiculoAsync(
         OrdenDeMision expediente, CancellationToken cancelacion)
@@ -92,9 +97,10 @@ public sealed class ServicioDeMisiones(SigtiDbContext contexto, EstadoDeLaFlota 
             // Fuera.
             "T-14" => EstadoOperativo.EnMision,
 
-            // Vuelve a la flota. `T-11` desprograma, `T-13` anula la programada y `T-18`
-            // registra el retorno: en los tres el vehículo deja de estar comprometido.
-            "T-11" or "T-13" or "T-18" => EstadoOperativo.Disponible,
+            // Vuelve a la flota. `T-11` desprograma, `T-13` anula la programada, `T-18`
+            // registra el retorno, y `T-15`/`T-16` devuelven un vehículo que nunca salió:
+            // en los cinco el vehículo deja de estar comprometido.
+            "T-11" or "T-13" or "T-15" or "T-16" or "T-18" => EstadoOperativo.Disponible,
 
             _ => (EstadoOperativo?)null,
         };

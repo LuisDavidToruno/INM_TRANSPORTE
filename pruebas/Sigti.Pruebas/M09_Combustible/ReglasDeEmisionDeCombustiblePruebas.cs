@@ -11,7 +11,10 @@ public class ReglasDeEmisionDeCombustiblePruebas
 {
     private static readonly Ulid Vehiculo = Ulid.NewUlid();
     private static readonly Ulid Otro = Ulid.NewUlid();
-    private static readonly IdPersona Motorista = new("P-MOTORISTA");
+    /// <summary>El ULID del motorista en el padrón. `RN-32` compara registros, no personas.</summary>
+    private static readonly Ulid Motorista = Ulid.NewUlid();
+
+    private static readonly Ulid OtroMotorista = Ulid.NewUlid();
 
     [Theory]
     [InlineData(EstadoDeMision.Borrador)]
@@ -90,11 +93,11 @@ public class ReglasDeEmisionDeCombustiblePruebas
     {
         var fallo = Assert.Throws<BloqueoDuro>(
             () => ReglasDeEmisionDeCombustible.ExigirReceptorDeLaOrden(
-                Vehiculo, Vehiculo, Motorista, new IdPersona("P-OTRO")));
+                Vehiculo, Vehiculo, Motorista, OtroMotorista));
 
-        // Quien está en la ventanilla necesita saber quién SÍ puede recibir. «No coincide» lo
-        // manda a adivinar.
-        Assert.Contains("P-MOTORISTA", fallo.Message);
+        // Quien está en la ventanilla necesita saber quién SÍ puede recibir, y por dónde se
+        // cambia. «No coincide» lo manda a adivinar las dos cosas.
+        Assert.Contains(Motorista.ToString(), fallo.Message);
         Assert.Contains("RN-14", fallo.Message);
     }
 

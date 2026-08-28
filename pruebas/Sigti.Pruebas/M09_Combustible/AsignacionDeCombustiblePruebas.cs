@@ -20,7 +20,11 @@ public class AsignacionDeCombustiblePruebas
 
     private static readonly IdPersona Jefe = new("P-TRANSPORTE");
     private static readonly IdPersona Encargado = new("P-COMBUSTIBLE");
+    /// <summary>Quien conduce, como persona — para la segregación de `BD-06`.</summary>
     private static readonly IdPersona Motorista = new("P-MOTORISTA");
+
+    /// <summary>Y su registro en el padrón, que es lo que `RN-32` compara.</summary>
+    private static readonly Ulid Conductor = Ulid.NewUlid();
     private static readonly IdPersona Contador = new("P-CONTABILIDAD");
     private static readonly IdPersona Auditor = new("P-AUDITORIA");
 
@@ -33,7 +37,7 @@ public class AsignacionDeCombustiblePruebas
         EstadoDeMision estado = EstadoDeMision.Programada) =>
         AsignacionDeCombustible.Emitir(
             Ulid.NewUlid(), "VAL-CHO-2026-000418", Fondo, Mision, estado,
-            EstadoDeMision.Programada, Vehiculo, Motorista, Vehiculo, Motorista,
+            EstadoDeMision.Programada, Vehiculo, Conductor, Vehiculo, Conductor,
             combustibleDelVehiculo: "Diesel", tipoDeCombustible: "Diesel",
             monto: monto, galones: 50m, instrumento: "vale",
             emite: Jefe, saldoDisponible: saldo, toleranciaSobregiro: 0m, momento: Momento);
@@ -67,7 +71,7 @@ public class AsignacionDeCombustiblePruebas
     {
         var fallo = Assert.Throws<BloqueoDuro>(() => AsignacionDeCombustible.Emitir(
             Ulid.NewUlid(), "  ", Fondo, Mision, EstadoDeMision.Programada,
-            EstadoDeMision.Programada, Vehiculo, Motorista, Vehiculo, Motorista,
+            EstadoDeMision.Programada, Vehiculo, Conductor, Vehiculo, Conductor,
             "Diesel", "Diesel", 2_500m, 50m, "vale", Jefe, 40_000m, 0m, Momento));
 
         Assert.Equal("RN-27", fallo.Precondicion);
@@ -134,7 +138,7 @@ public class AsignacionDeCombustiblePruebas
         // donde el dinero sale de la caja.
         var a = Entregada();
 
-        Assert.Contains(Motorista.Valor, a.Diario[^1].Motivo);
+        Assert.Contains(Conductor.ToString(), a.Diario[^1].Motivo);
     }
 
     // ── V-03 anular ─────────────────────────────────────────────────────────

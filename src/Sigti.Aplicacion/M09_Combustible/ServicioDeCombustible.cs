@@ -1,0 +1,331 @@
+using Sigti.Datos;
+using Sigti.Datos.Bitacora;
+using Sigti.Datos.M07_ProgramacionYDespacho;
+using Sigti.Datos.M09_Combustible;
+using Sigti.Aplicacion.M07_ProgramacionYDespacho;
+using Microsoft.EntityFrameworkCore;
+using Sigti.Dominio.M07_ProgramacionYDespacho;
+using Sigti.Dominio.M09_Combustible;
+using Sigti.Dominio.Organizacion;
+
+namespace Sigti.Aplicacion.M09_Combustible;
+
+/// <summary>
+/// El circuito del combustible — `RN-26`, `RN-27`, `RN-32` y la máquina §10.1.
+///
+/// ── Por qué la emisión vive acá y no en el agregado ─────────────────────────
+/// Porque emitir un vale <b>lee tres agregados</b>: el fondo (para el saldo), la Orden de
+/// Misión (para el estado, el vehículo y el motorista) y el vehículo (para el tipo de
+/// combustible). Que <see cref="AsignacionDeCombustible"/> los fuera a buscar la volvería
+/// dependiente del repositorio, y las reglas dejarían de poder probarse solas (`ADR-009`).
+///
+/// Lo que este servicio <b>no</b> hace es decidir: las comprobaciones están en el dominio, y
+/// acá sólo se traen los datos que necesitan.
+/// </summary>
+public sealed class ServicioDeCombustible(SigtiDbContext contexto)
+{
+    private readonly CombustibleDeLaInstitucion _combustible = new(contexto);
+    private readonly ExpedientesDeMision _expedientes = new(contexto);
+    private readonly EscritorDeBitacora _bitacora = new(contexto);
+
+    // ── El fondo ────────────────────────────────────────────────────────────
+
+    public async Task<Ulid> SolicitarFondoAsync(
+        Ulid id,
+        AmbitoDelFondo ambito,
+        string ambitoDeclarado,
+        DateOnly desde,
+        DateOnly hasta,
+        IdPersona solicita,
+        decimal monto,
+        string justificacion,
+        DateTimeOffset momento,
+        CancellationToken cancelacion = default)
+    {
+        var fondo = FondoDeCombustible.Solicitar(
+            id, ambito, ambitoDeclarado, desde, hasta, solicita, monto, justificacion, momento);
+
+        await ConfirmarFondoAsync(fondo, momento, cancelacion);
+        return fondo.Id;
+    }
+
+    /// <summary>Aplica un movimiento sobre un fondo existente.</summary>
+    public async Task<EstadoDelFondo> MoverFondoAsync(
+        Ulid id,
+        Action<FondoDeCombustible> movimiento,
+        DateTimeOffset momento,
+        CancellationToken cancelacion = default)
+    {
+        var fondo = await _combustible.BuscarFondoAsync(id, cancelacion)
+            ?? throw new FondoNoEncontrado(id);
+
+        movimiento(fondo);
+
+        await ConfirmarFondoAsync(fondo, momento, cancelacion);
+        return fondo.Estado;
+    }
+
+    /// <summary>
+    /// `F-06` — cerrar el período. El recuento de asignaciones sin liquidar lo trae el
+    /// servicio, porque el fondo no puede contar lo que no conoce.
+    /// </summary>
+    public async Task<EstadoDelFondo> CerrarFondoAsync(
+        Ulid id,
+        IdPersona liquida,
+        string? partida,
+        DateTimeOffset momento,
+        CancellationToken cancelacion = default)
+    {
+        var asignaciones = await _combustible.AsignacionesDelFondoAsync(id, cancelacion);
+        var vivas = asignaciones.Count(a => !a.EstaResuelta);
+
+        return await MoverFondoAsync(
+            id, fondo => fondo.Cerrar(liquida, vivas, partida, momento), momento, cancelacion);
+    }
+
+    public Task<decimal> SaldoAsync(Ulid fondoId, CancellationToken cancelacion = default) =>
+        _combustible.SaldoAsync(fondoId, cancelacion);
+
+    public Task<IReadOnlyList<FondoDeCombustible>> FondosAsync(
+        CancellationToken cancelacion = default) =>
+        _combustible.TodosLosFondosAsync(cancelacion);
+
+    // ── El vale ─────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// `V-01` — emitir contra una misión.
+    ///
+    /// ── Lo que se trae, y de dónde ──────────────────────────────────────────
+    /// El estado, el vehículo y el motorista salen <b>de la orden</b>, no de la petición:
+    /// `RN-32` manda que el sistema los <i>precargue</i> y no los capture libremente. Recibirlos
+    /// del cliente sería dejar que quien emite declare contra qué se está validando.
+    /// </summary>
+    public async Task<Ulid> EmitirAsync(
+        Ulid id,
+        string folio,
+        Ulid fondoId,
+        Ulid misionId,
+        IdPersona emite,
+        // **Quién está en la ventanilla**, por el ULID de su registro en el padrón. Se recibe
+        // porque `RN-32` requisito 3 lo compara contra el motorista de la orden: pasarle el de
+        // la orden a los dos lados dejaría el bloqueo comparando algo consigo mismo.
+        Ulid motoristaReceptor,
+        decimal monto,
+        decimal? galones,
+        string instrumento,
+        string tipoDeCombustible,
+        string? combustibleDelVehiculo,
+        EstadoDeMision estadoMinimoConfigurado,
+        decimal toleranciaSobregiro,
+        DateTimeOffset momento,
+        CancellationToken cancelacion = default)
+    {
+        var expediente = await _expedientes.BuscarAsync(misionId, cancelacion)
+            ?? throw new ExpedienteNoEncontrado(misionId);
+
+        var fondo = await _combustible.BuscarFondoAsync(fondoId, cancelacion)
+            ?? throw new FondoNoEncontrado(fondoId);
+
+        // `RN-26`: el fondo tiene que estar **vigente a la fecha del hecho** (P-4). Se juzga
+        // contra el momento del acto y no contra el día de captura, que puede ser otro.
+        if (!fondo.VigenteAl(DateOnly.FromDateTime(momento.Date)))
+            throw new BloqueoDuro("RN-26",
+                $"El fondo cubre del {fondo.Desde:dd/MM/yyyy} al {fondo.Hasta:dd/MM/yyyy}, y este " +
+                $"vale se emite el {momento:dd/MM/yyyy}. No hay fondo vigente para esa fecha.");
+
+        if (fondo.Estado is EstadoDelFondo.Solicitado)
+            throw new BloqueoDuro("RN-26",
+                "El fondo todavía no está aprobado. `RN-26` exige fondo aprobado vigente con " +
+                "saldo: asignar contra una solicitud es comprometer dinero que nadie autorizó.");
+
+        if (fondo.Estado is EstadoDelFondo.Cerrado)
+            throw new BloqueoDuro("RN-26",
+                "El fondo está cerrado. Imputarle un vale ahora reabriría un período ya " +
+                "descargado, y el cuadre que se presentó dejaría de cuadrar.");
+
+        ReglasDelFondo.ExigirMismoAmbito(
+            fondo.Ambito, fondo.AmbitoDeclarado, expediente.Solicitud.Dependencia);
+
+        // La reserva vigente dice qué vehículo y qué motorista tomó la misión. Es la misma
+        // proyección del diario que usa la ocupación de flota — no una segunda tabla.
+        var recursos = expediente.Diario
+            .LastOrDefault(t => t.Recursos is not null)?.Recursos
+            ?? throw new BloqueoDuro("RN-32",
+                "La misión no tiene vehículo ni motorista reservados, así que no hay contra qué " +
+                "validar el receptor. `INV-11`: aprobar no es programar.");
+
+        var saldo = await _combustible.SaldoAsync(fondoId, cancelacion);
+
+        var asignacion = AsignacionDeCombustible.Emitir(
+            id, folio, fondoId, misionId,
+            expediente.Estado, estadoMinimoConfigurado,
+            vehiculoDeLaOrden: recursos.Vehiculo,
+            motoristaDeLaOrden: recursos.Conductor,
+
+            // **El vehículo SÍ se precarga y el receptor NO.** `RN-32`: el sistema precarga
+            // vehículo y motorista «y no los captura libremente» — pero su requisito 3 compara
+            // contra «el receptor presente». Nadie teclea un vehículo en la ventanilla; a quien
+            // tiene enfrente sí lo identifica quien entrega, y ésa es la comparación.
+            vehiculoReceptor: recursos.Vehiculo,
+            motoristaReceptor: motoristaReceptor,
+            combustibleDelVehiculo, tipoDeCombustible,
+            monto, galones, instrumento, emite, saldo, toleranciaSobregiro, momento);
+
+        await ConfirmarAsignacionAsync(asignacion, momento, cancelacion);
+        return asignacion.Id;
+    }
+
+    /// <summary>Aplica una transición sobre un vale existente.</summary>
+    public async Task<EstadoDeAsignacion> TransicionarAsync(
+        Ulid id,
+        Action<AsignacionDeCombustible> transicion,
+        DateTimeOffset momento,
+        CancellationToken cancelacion = default)
+    {
+        var asignacion = await _combustible.BuscarAsignacionAsync(id, cancelacion)
+            ?? throw new AsignacionNoEncontrada(id);
+
+        transicion(asignacion);
+
+        await ConfirmarAsignacionAsync(asignacion, momento, cancelacion);
+        return asignacion.Estado;
+    }
+
+    /// <summary>
+    /// `V-02` — entregar. <b>Verifica que la misión esté despachada</b>, que es la regla de
+    /// acoplamiento que §10.1 y `EF-04` imponen y que el agregado solo no puede comprobar.
+    ///
+    /// `PROGRAMADA` lista expresamente <i>«Entregar fondo de combustible»</i> entre lo que no
+    /// se puede: el combustible entregado a una misión que todavía puede no salir es dinero
+    /// fuera de la caja sin acto que lo respalde.
+    /// </summary>
+    public async Task<EstadoDeAsignacion> EntregarAsync(
+        Ulid id,
+        IdPersona entrega,
+        string constancia,
+        DateTimeOffset momento,
+        CancellationToken cancelacion = default)
+    {
+        var asignacion = await _combustible.BuscarAsignacionAsync(id, cancelacion)
+            ?? throw new AsignacionNoEncontrada(id);
+
+        var expediente = await _expedientes.BuscarAsync(asignacion.Mision, cancelacion)
+            ?? throw new ExpedienteNoEncontrado(asignacion.Mision);
+
+        if (expediente.Estado is not (EstadoDeMision.Despachada or EstadoDeMision.EnRuta))
+            throw new BloqueoDuro("EF-04",
+                $"La misión está {expediente.Estado} y el fondo se entrega dentro del despacho. " +
+                "No se entrega fondo a una misión no despachada: mientras no se despacha, el " +
+                "vale existe emitido y no sale de la custodia de quien lo guarda.");
+
+        asignacion.Entregar(entrega, constancia, momento);
+
+        await ConfirmarAsignacionAsync(asignacion, momento, cancelacion);
+        return asignacion.Estado;
+    }
+
+    /// <summary>
+    /// `V-04` — registrar consumo. <b>Sólo mientras la misión está `EN_RUTA`</b>, que es la
+    /// otra regla de acoplamiento de §10.1.
+    /// </summary>
+    public async Task<EstadoDeAsignacion> RegistrarConsumoAsync(
+        Ulid id,
+        IdPersona consume,
+        ConsumoRegistrado consumo,
+        DateTimeOffset momento,
+        Ulid? idDeCaptura = null,
+        CancellationToken cancelacion = default)
+    {
+        var asignacion = await _combustible.BuscarAsignacionAsync(id, cancelacion)
+            ?? throw new AsignacionNoEncontrada(id);
+
+        var expediente = await _expedientes.BuscarAsync(asignacion.Mision, cancelacion)
+            ?? throw new ExpedienteNoEncontrado(asignacion.Mision);
+
+        // `RETORNADA` se admite: el consumo se captura **sin conectividad** y llega días
+        // después, cuando el vehículo ya volvió. Rechazarlo por llegar tarde perdería el
+        // hecho — y `P-2` dice que los hechos consumados se registran, no se bloquean.
+        if (expediente.Estado is not (EstadoDeMision.EnRuta or EstadoDeMision.Retornada))
+            throw new BloqueoDuro("V-04",
+                $"La misión está {expediente.Estado}. Un consumo sólo ocurre en ruta: registrar " +
+                "uno antes de salir sería declarar un gasto que todavía no pudo pasar.");
+
+        asignacion.RegistrarConsumo(consume, consumo, momento, idDeCaptura);
+
+        await ConfirmarAsignacionAsync(asignacion, momento, cancelacion);
+        return asignacion.Estado;
+    }
+
+    public Task<IReadOnlyList<AsignacionDeCombustible>> DeLaMisionAsync(
+        Ulid misionId, CancellationToken cancelacion = default) =>
+        _combustible.DeLaMisionAsync(misionId, cancelacion);
+
+    public Task<RecuentoDeAsignaciones> RecuentoDeLaMisionAsync(
+        Ulid misionId, CancellationToken cancelacion = default) =>
+        _combustible.RecuentoDeLaMisionAsync(misionId, cancelacion);
+
+    // ── Confirmación ────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// El vale y su asiento de bitácora, <b>en la misma transacción</b>. Misma razón que en la
+    /// misión: un movimiento de dinero sin rastro en bitácora es invisible para la auditoría, y
+    /// un asiento de algo que no se guardó es peor todavía.
+    /// </summary>
+    private async Task ConfirmarAsignacionAsync(
+        AsignacionDeCombustible asignacion, DateTimeOffset momento, CancellationToken cancelacion)
+    {
+        var estrategia = contexto.Database.CreateExecutionStrategy();
+
+        await estrategia.ExecuteAsync(async () =>
+        {
+            await using var transaccion = await contexto.Database.BeginTransactionAsync(cancelacion);
+
+            await _combustible.GuardarAsignacionAsync(asignacion, cancelacion);
+
+            var ultima = asignacion.Diario[^1];
+            await _bitacora.EscribirAsync(
+                $"combustible:{asignacion.Id}",
+                $"{ultima.Id} → {ultima.Destino} por {ultima.Ejecuta} · folio {asignacion.Folio}" +
+                    (ultima.Motivo is null ? "" : $" · {ultima.Motivo}"),
+                momento,
+                cancelacion);
+
+            await transaccion.CommitAsync(cancelacion);
+        });
+    }
+
+    private async Task ConfirmarFondoAsync(
+        FondoDeCombustible fondo, DateTimeOffset momento, CancellationToken cancelacion)
+    {
+        var estrategia = contexto.Database.CreateExecutionStrategy();
+
+        await estrategia.ExecuteAsync(async () =>
+        {
+            await using var transaccion = await contexto.Database.BeginTransactionAsync(cancelacion);
+
+            await _combustible.GuardarFondoAsync(fondo, cancelacion);
+
+            var ultimo = fondo.Diario[^1];
+            await _bitacora.EscribirAsync(
+                $"fondo:{fondo.Id}",
+                $"{ultimo.Id} → {ultimo.Destino} por {ultimo.Ejecuta}" +
+                    (ultimo.Motivo is null ? "" : $" · {ultimo.Motivo}"),
+                momento,
+                cancelacion);
+
+            await transaccion.CommitAsync(cancelacion);
+        });
+    }
+}
+
+public sealed class FondoNoEncontrado(Ulid id)
+    : Exception($"No existe el fondo de combustible {id}.")
+{
+    public Ulid Id { get; } = id;
+}
+
+public sealed class AsignacionNoEncontrada(Ulid id)
+    : Exception($"No existe la asignación de combustible {id}.")
+{
+    public Ulid Id { get; } = id;
+}

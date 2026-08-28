@@ -28,7 +28,7 @@ public sealed class AsignacionDeCombustible
 
     private AsignacionDeCombustible(
         Ulid id, string folio, Ulid fondo, Ulid mision, Ulid vehiculo,
-        IdPersona receptor, decimal monto, decimal? galones, string instrumento, string tipoDeCombustible)
+        Ulid receptor, decimal monto, decimal? galones, string instrumento, string tipoDeCombustible)
     {
         Id = id;
         Folio = folio;
@@ -57,8 +57,16 @@ public sealed class AsignacionDeCombustible
     /// <summary>El vehículo de la orden. Se congela acá: es contra esto que `RN-32` compara.</summary>
     public Ulid Vehiculo { get; }
 
-    /// <summary>Quién recibe — el motorista de la orden.</summary>
-    public IdPersona Receptor { get; }
+    /// <summary>
+    /// Quién recibe — el <b>motorista</b> de la orden, por el ULID de su registro en el padrón.
+    ///
+    /// No es un <c>IdPersona</c>, y la distinción no es cosmética: `IdPersona` es la identidad
+    /// con que se juzga la <b>segregación de funciones</b>, y `RN-57` admite que conduzca quien
+    /// no está en el padrón. Mezclarlos obligaría a convertir un ULID en identidad de persona,
+    /// y esa conversión no coincide con ninguna persona real — dejando a `RN-32` comparando dos
+    /// cosas que no se pueden comparar.
+    /// </summary>
+    public Ulid Receptor { get; }
 
     public decimal Monto { get; }
 
@@ -131,6 +139,33 @@ public sealed class AsignacionDeCombustible
         return actos;
     }
 
+    /// <summary>Rehidrata el vale desde su diario. El estado es la proyección (P-1).</summary>
+    public static AsignacionDeCombustible Reconstruir(
+        Ulid id,
+        string folio,
+        Ulid fondo,
+        Ulid mision,
+        Ulid vehiculo,
+        Ulid receptor,
+        decimal monto,
+        decimal? galones,
+        string instrumento,
+        string tipoDeCombustible,
+        IEnumerable<TransicionDeAsignacion> diario)
+    {
+        var asignacion = new AsignacionDeCombustible(
+            id, folio, fondo, mision, vehiculo, receptor, monto, galones, instrumento,
+            tipoDeCombustible);
+
+        asignacion._diario.AddRange(diario);
+
+        if (asignacion._diario.Count == 0)
+            throw new ArgumentException(
+                "Una asignación sin diario no tiene estado que proyectar.", nameof(diario));
+
+        return asignacion;
+    }
+
     /// <summary>
     /// `V-01` — emitir con folio.
     ///
@@ -146,9 +181,12 @@ public sealed class AsignacionDeCombustible
         EstadoDeMision estadoDeLaMision,
         EstadoDeMision estadoMinimoConfigurado,
         Ulid vehiculoDeLaOrden,
-        IdPersona motoristaDeLaOrden,
+        Ulid motoristaDeLaOrden,
         Ulid vehiculoReceptor,
-        IdPersona motoristaReceptor,
+        // **Quién está de verdad en la ventanilla.** Se recibe y no se asume: si quien llama
+        // pasara el mismo valor a los dos lados, `RN-32` compararía algo consigo mismo y el
+        // bloqueo no podría disparar nunca.
+        Ulid motoristaReceptor,
         string? combustibleDelVehiculo,
         string tipoDeCombustible,
         decimal monto,

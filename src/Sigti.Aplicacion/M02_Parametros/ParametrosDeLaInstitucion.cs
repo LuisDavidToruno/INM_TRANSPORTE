@@ -1,6 +1,7 @@
 using Sigti.Dominio.M02_Parametros;
 using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M05_Motoristas;
+using Sigti.Dominio.M07_ProgramacionYDespacho;
 
 namespace Sigti.Aplicacion.M02_Parametros;
 
@@ -13,6 +14,24 @@ public interface IParametrosDeLaInstitucion
     MatrizDeLicencias MatrizVigenteAl(DateOnly fecha);
     PoliticaDeDocumentacion PoliticaVigenteAl(DateOnly fecha);
     CalendarioDeDiasHabiles CalendarioVigenteAl(DateOnly fecha);
+
+    /// <summary>
+    /// `RN-32` — <c>estado_minimo_orden_para_emitir_combustible</c>.
+    ///
+    /// Configurable por institución, con <b>piso en `PROGRAMADA`</b> que la regla impone y el
+    /// parámetro no puede bajar: antes de programar no hay vehículo ni motorista contra los
+    /// que evaluar al receptor.
+    /// </summary>
+    EstadoDeMision EstadoMinimoParaEmitirCombustible { get; }
+
+    /// <summary>
+    /// `RN-26` — <c>tolerancia_sobregiro</c>, con <b>valor inicial cero</b>.
+    ///
+    /// La regla es explícita: <i>«Con `tolerancia_sobregiro` en cero —su valor inicial— no hay
+    /// excepción»</i>. Que sea configurable no la vuelve opcional: cero significa que el fondo
+    /// no se puede exceder en un centavo, y la salida es la ampliación.
+    /// </summary>
+    decimal ToleranciaDeSobregiro { get; }
 }
 
 /// <summary>
@@ -119,6 +138,19 @@ public sealed class ParametrosProvisionales : IParametrosDeLaInstitucion
 
     /// <summary>Póliza y revisión apagadas: no son obligatorias por ley vigente (`DP-001, D-13`).</summary>
     public PoliticaDeDocumentacion PoliticaVigenteAl(DateOnly fecha) => PoliticaDeDocumentacion.PorDefecto;
+
+    /// <summary>
+    /// El valor inicial que `RN-32` fija tras la corrección `HB1-06`, y que además es su piso:
+    /// no se puede configurar más abajo.
+    /// </summary>
+    public EstadoDeMision EstadoMinimoParaEmitirCombustible => EstadoDeMision.Programada;
+
+    /// <summary>
+    /// <b>Cero, que es el valor inicial de `RN-26`</b> — y a diferencia del horario hábil o de
+    /// los feriados, éste <b>no</b> es un `[C]` sin resolver: la regla lo declara. Un centavo
+    /// sobre el saldo bloquea, y la salida es la ampliación del fondo por el mismo circuito.
+    /// </summary>
+    public decimal ToleranciaDeSobregiro => 0m;
 
     /// <summary>
     /// Omitir <c>kg</c> o <c>pasajeros</c> significa <b>que el Acuerdo no fija ese

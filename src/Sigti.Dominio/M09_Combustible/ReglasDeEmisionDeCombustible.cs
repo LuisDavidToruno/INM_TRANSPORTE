@@ -81,7 +81,7 @@ public static class ReglasDeEmisionDeCombustible
     /// </summary>
     public static void ExigirReceptorDeLaOrden(
         Ulid vehiculoDeLaOrden, Ulid vehiculoReceptor,
-        IdPersona motoristaDeLaOrden, IdPersona motoristaReceptor)
+        Ulid motoristaDeLaOrden, Ulid motoristaReceptor)
     {
         if (vehiculoDeLaOrden != vehiculoReceptor)
             throw new BloqueoDuro("RN-32",

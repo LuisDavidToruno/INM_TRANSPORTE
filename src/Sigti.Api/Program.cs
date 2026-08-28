@@ -9,6 +9,8 @@ using Sigti.Aplicacion.M06_Solicitudes;
 using Sigti.Aplicacion.M08_Bitacora;
 using Sigti.Dominio.M08_Bitacora;
 using Sigti.Aplicacion.M07_ProgramacionYDespacho;
+using Sigti.Aplicacion.M09_Combustible;
+using Sigti.Dominio.M09_Combustible;
 using Sigti.Datos;
 using Sigti.Dominio.M02_Parametros;
 using Sigti.Dominio.M03_Flota;
@@ -46,6 +48,7 @@ constructor.Services.AddScoped<ConsultaDePermisos>();
 constructor.Services.AddScoped<ConsultaDelDiaDeDespacho>();
 constructor.Services.AddScoped<ConsultaDeOdometro>();
 constructor.Services.AddScoped<EstadoDeLaFlota>();
+constructor.Services.AddScoped<ServicioDeCombustible>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -87,6 +90,17 @@ app.UseExceptionHandler(rama => rama.Run(async contexto =>
             new { motivo = c.Motivo.ToString(), mensaje = c.Message }),
         ExpedienteNoEncontrado n => (StatusCodes.Status404NotFound,
             new { mensaje = n.Message }),
+        FondoNoEncontrado f => (StatusCodes.Status404NotFound,
+            new { mensaje = f.Message }),
+        AsignacionNoEncontrada an => (StatusCodes.Status404NotFound,
+            new { mensaje = an.Message }),
+        // El vale y el fondo tienen su propia excepción de transición, y no reutilizan la
+        // de la misión: sus estados son otros, y devolver «exige Programada» sobre un vale
+        // mandaría a buscar el problema en el expediente equivocado.
+        TransicionInvalidaDeAsignacion ta => (StatusCodes.Status409Conflict,
+            new { transicion = ta.Transicion, estadoActual = ta.EstadoActual.ToString(), mensaje = ta.Message }),
+        TransicionInvalidaDelFondo tf => (StatusCodes.Status409Conflict,
+            new { movimiento = tf.Movimiento, estadoActual = tf.EstadoActual.ToString(), mensaje = tf.Message }),
         VersionNoEncontrada v => (StatusCodes.Status404NotFound,
             new { mensaje = v.Message }),
         // La caducidad no es un BD-xx: su salida no es cambiar de vehículo sino anular
@@ -285,7 +299,26 @@ ConOdometro("iniciar-ruta", (e, quien, cuando, o, captura, _, __) =>
 ConOdometro("retornar", (e, quien, cuando, o, captura, subtipo, justificacion) =>
     e.Retornar(quien, cuando,
                new OdometroAlRetornar(o.Lectura, subtipo, justificacion), captura));
-Transicion("liquidar", (e, quien, cuando) => e.Liquidar(quien, cuando));
+// `T-19` ya no usa el helper genérico: **`INV-34` exige que todas las asignaciones de
+// combustible estén liquidadas**, y ese recuento no está en el expediente. Dejarlo en el
+// helper significaba pasar nulo, y nulo es «no evaluada»: la regla quedaría escrita y sin
+// ejecutar, que es exactamente lo que se está cerrando.
+misiones.MapPost("/{id}/liquidar", async (
+    string id, EjecutarTransicion peticion,
+    ServicioDeMisiones servicio, ServicioDeCombustible combustible) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    var recuento = await combustible.RecuentoDeLaMisionAsync(ulid);
+
+    var estado = await servicio.TransicionarAsync(
+        ulid,
+        expediente => expediente.Liquidar(
+            new IdPersona(peticion.Ejecuta), peticion.Momento, recuento),
+        peticion.Momento);
+
+    return Results.Ok(new { id, estado = estado.ToString() });
+});
 
 // La flota sale de la BASE (`M-03`). El padrón de conductores sigue provisional: es
 // `M-05` y no está construido. Los dos van por el servidor y no por el cliente para que
@@ -451,6 +484,242 @@ app.MapGet("/flota/{id}/estado", async (string id, EstadoDeLaFlota flota) =>
 //
 // La fecha se RECIBE y no se lee del reloj (`ADR-007`). Sin ella, hoy en UTC: el
 // despachador abre la pantalla y ve su día, y quien reconstruye un día pasado lo pide.
+// ── M-09 Combustible ────────────────────────────────────────────────────────
+//
+// `RN-26` el fondo del período, `RN-27` el vale con folio, `RN-32` contra qué se emite, y
+// la máquina §10.1. Todas las comprobaciones viven en el dominio: acá sólo se traduce.
+
+var fondos = app.MapGroup("/fondos");
+
+fondos.MapPost("/", async (SolicitarFondo peticion, ServicioDeCombustible servicio) =>
+{
+    var id = await servicio.SolicitarFondoAsync(
+        Ulid.Parse(peticion.Id), peticion.Ambito, peticion.AmbitoDeclarado,
+        peticion.Desde, peticion.Hasta, new IdPersona(peticion.Solicita),
+        peticion.Monto, peticion.Justificacion, peticion.Momento);
+
+    return Results.Created($"/fondos/{id}", new { id = id.ToString() });
+});
+
+fondos.MapGet("/", async (ServicioDeCombustible servicio) =>
+{
+    var lista = await servicio.FondosAsync();
+    var salida = new List<object>();
+
+    foreach (var f in lista)
+    {
+        // El saldo se calcula por fondo y no en la proyección: es la resta sobre asientos
+        // de `RN-26`, y hacerla en una consulta agregada la volvería un número que ya no
+        // se puede rastrear hasta los movimientos que lo forman.
+        var saldo = f.Estado is EstadoDelFondo.Solicitado ? 0m : await servicio.SaldoAsync(f.Id);
+
+        salida.Add(new
+        {
+            id = f.Id.ToString(),
+            ambito = f.Ambito.ToString(),
+            ambitoDeclarado = f.AmbitoDeclarado,
+            desde = f.Desde,
+            hasta = f.Hasta,
+            estado = f.Estado.ToString(),
+            solicita = f.Solicita.Valor,
+            aprueba = f.Aprueba?.Valor,
+
+            // Nula es PENDIENTE, y el cliente necesita distinguirla de «no aplica»: es lo
+            // que bloquea el cierre del período.
+            partida = f.PartidaPresupuestaria,
+
+            aprobado = f.Aprobado,
+            saldo,
+            diario = f.Diario.Select(m => new
+            {
+                movimiento = m.Id,
+                destino = m.Destino.ToString(),
+                ejecuta = m.Ejecuta.Valor,
+                momento = m.Momento,
+                motivo = m.Motivo,
+                monto = m.Monto,
+            }),
+        });
+    }
+
+    return Results.Ok(salida);
+});
+
+fondos.MapPost("/{id}/aprobar", async (
+    string id, AprobarFondo peticion, ServicioDeCombustible servicio) =>
+{
+    var estado = await servicio.MoverFondoAsync(
+        Ulid.Parse(id),
+        fondo => fondo.Aprobar(new IdPersona(peticion.Ejecuta), peticion.Monto,
+                               peticion.Partida, peticion.Momento),
+        peticion.Momento);
+
+    return Results.Ok(new { estado = estado.ToString() });
+});
+
+fondos.MapPost("/{id}/ampliar", async (
+    string id, AmpliarFondo peticion, ServicioDeCombustible servicio) =>
+{
+    var estado = await servicio.MoverFondoAsync(
+        Ulid.Parse(id),
+        fondo => fondo.Ampliar(new IdPersona(peticion.Ejecuta), peticion.Monto,
+                               peticion.Motivo, peticion.Momento),
+        peticion.Momento);
+
+    return Results.Ok(new { estado = estado.ToString() });
+});
+
+fondos.MapPost("/{id}/cerrar", async (
+    string id, CerrarFondo peticion, ServicioDeCombustible servicio) =>
+{
+    var estado = await servicio.CerrarFondoAsync(
+        Ulid.Parse(id), new IdPersona(peticion.Ejecuta), peticion.Partida, peticion.Momento);
+
+    return Results.Ok(new { estado = estado.ToString() });
+});
+
+var vales = app.MapGroup("/combustible");
+
+vales.MapPost("/", async (
+    EmitirVale peticion, ServicioDeCombustible servicio,
+    ConsultaDeFlota flota, IParametrosDeLaInstitucion parametros) =>
+{
+    // El tipo de combustible del vehículo sale de su ficha, no de la petición: es contra
+    // eso que `RN-32` comprueba que un vale de diésel no vaya a un vehículo de gasolina.
+    var vehiculos = await flota.TodosAsync();
+    var vehiculo = vehiculos.SingleOrDefault(v => v.Id == Ulid.Parse(peticion.IdVehiculo));
+
+    var id = await servicio.EmitirAsync(
+        Ulid.Parse(peticion.Id), peticion.Folio, Ulid.Parse(peticion.IdFondo),
+        Ulid.Parse(peticion.IdMision), new IdPersona(peticion.Ejecuta),
+        Ulid.Parse(peticion.IdMotoristaReceptor),
+        peticion.Monto, peticion.Galones, peticion.Instrumento, peticion.TipoDeCombustible,
+
+        // ⚠️ **La ficha del vehículo no declara el combustible que usa.** No hay columna
+        // para eso en `M-03`, así que `RN-32` no puede comprobar la compatibilidad y lo dice
+        // pasando nulo, en vez de suponer que coincide.
+        combustibleDelVehiculo: null,
+
+        parametros.EstadoMinimoParaEmitirCombustible,
+        parametros.ToleranciaDeSobregiro,
+        peticion.Momento);
+
+    return Results.Created($"/combustible/{id}", new { id = id.ToString(), vehiculo = vehiculo?.Siglas });
+});
+
+vales.MapGet("/mision/{id}", async (string id, ServicioDeCombustible servicio) =>
+    Results.Ok((await servicio.DeLaMisionAsync(Ulid.Parse(id))).Select(a => new
+    {
+        id = a.Id.ToString(),
+        folio = a.Folio,
+        estado = a.Estado.ToString(),
+        instrumento = a.Instrumento,
+        tipoDeCombustible = a.TipoDeCombustible,
+        monto = a.Monto,
+        galones = a.Galones,
+        consumido = a.Consumido,
+        galonesConsumidos = a.GalonesConsumidos,
+        devuelto = a.Devuelto,
+        tuvoConsumo = a.TuvoConsumo,
+        resuelta = a.EstaResuelta,
+        diario = a.Diario.Select(t => new
+        {
+            transicion = t.Id,
+            destino = t.Destino.ToString(),
+            ejecuta = t.Ejecuta.Valor,
+            momento = t.Momento,
+            motivo = t.Motivo,
+            consumo = t.Consumo is null ? null : new
+            {
+                galones = t.Consumo.Galones,
+                monto = t.Consumo.Monto,
+                estacion = t.Consumo.Estacion,
+                odometro = t.Consumo.Odometro,
+                comprobante = t.Consumo.Comprobante,
+            },
+            devuelto = t.Devuelto,
+        }),
+    })));
+
+vales.MapPost("/{id}/entregar", async (
+    string id, EntregarVale peticion, ServicioDeCombustible servicio) =>
+{
+    var estado = await servicio.EntregarAsync(
+        Ulid.Parse(id), new IdPersona(peticion.Ejecuta), peticion.Constancia, peticion.Momento);
+
+    return Results.Ok(new { estado = estado.ToString() });
+});
+
+vales.MapPost("/{id}/anular", async (
+    string id, MotivarVale peticion, ServicioDeCombustible servicio) =>
+{
+    var estado = await servicio.TransicionarAsync(
+        Ulid.Parse(id),
+        vale => vale.Anular(new IdPersona(peticion.Ejecuta), peticion.Motivo, peticion.Momento),
+        peticion.Momento);
+
+    return Results.Ok(new { estado = estado.ToString() });
+});
+
+vales.MapPost("/{id}/consumo", async (
+    string id, RegistrarConsumo peticion, ServicioDeCombustible servicio) =>
+{
+    var estado = await servicio.RegistrarConsumoAsync(
+        Ulid.Parse(id), new IdPersona(peticion.Ejecuta),
+        new ConsumoRegistrado(peticion.Galones, peticion.Monto, peticion.Estacion,
+                              peticion.Odometro, peticion.Comprobante),
+        peticion.Momento,
+        peticion.IdDeCaptura is null ? null : Ulid.Parse(peticion.IdDeCaptura));
+
+    return Results.Ok(new { estado = estado.ToString() });
+});
+
+vales.MapPost("/{id}/devolver", async (
+    string id, MotivarVale peticion, ServicioDeCombustible servicio) =>
+{
+    var estado = await servicio.TransicionarAsync(
+        Ulid.Parse(id),
+        vale => vale.DevolverIntegra(new IdPersona(peticion.Ejecuta), peticion.Motivo, peticion.Momento),
+        peticion.Momento);
+
+    return Results.Ok(new { estado = estado.ToString() });
+});
+
+vales.MapPost("/{id}/extravio", async (
+    string id, MotivarVale peticion, ServicioDeCombustible servicio) =>
+{
+    var estado = await servicio.TransicionarAsync(
+        Ulid.Parse(id),
+        vale => vale.DeclararExtravio(new IdPersona(peticion.Ejecuta), peticion.Motivo, peticion.Momento),
+        peticion.Momento);
+
+    return Results.Ok(new { estado = estado.ToString() });
+});
+
+vales.MapPost("/{id}/liquidar", async (
+    string id, LiquidarVale peticion, ServicioDeCombustible servicio) =>
+{
+    var estado = await servicio.TransicionarAsync(
+        Ulid.Parse(id),
+        vale => vale.Liquidar(new IdPersona(peticion.Ejecuta), peticion.SaldoDevuelto,
+                              peticion.Observacion, peticion.Momento),
+        peticion.Momento);
+
+    return Results.Ok(new { estado = estado.ToString() });
+});
+
+vales.MapPost("/{id}/conciliar", async (
+    string id, ConciliarVale peticion, ServicioDeCombustible servicio) =>
+{
+    var estado = await servicio.TransicionarAsync(
+        Ulid.Parse(id),
+        vale => vale.Conciliar(new IdPersona(peticion.Ejecuta), peticion.DentroDeUmbral,
+                               peticion.Dictamen, peticion.Momento),
+        peticion.Momento);
+
+    return Results.Ok(new { estado = estado.ToString() });
+});
+
 app.MapGet("/despacho/dia", async (string? fecha, ConsultaDelDiaDeDespacho tablero) =>
 {
     // Una fecha mal formada NO es «hoy». Caer al día actual en silencio haría que un
@@ -796,7 +1065,8 @@ misiones.MapPost("/{id}/devolver-liquidacion", async (
 // detectados; el destino lo decide el dominio. Si fueran dos rutas, quien cierra elegiría
 // —y §7.2 dice exactamente lo contrario: «el criterio decide y él lo confirma».
 misiones.MapPost("/{id}/cerrar", async (
-    string id, CerrarMision peticion, ServicioDeMisiones servicio) =>
+    string id, CerrarMision peticion,
+    ServicioDeMisiones servicio, ServicioDeCombustible combustible) =>
 {
     var criterios = (peticion.Criterios ?? [])
         .Select(c => new HallazgoDetectado(c.Criterio, c.Detalle))
@@ -804,9 +1074,15 @@ misiones.MapPost("/{id}/cerrar", async (
 
     if (!Identificador.Valido(id, out var ulid, out var error)) return error;
 
+    // §10.1: `T-21` y `T-22` exigen que todas las asignaciones estén conciliadas, en
+    // cualquiera de las dos formas. Una desviación explicada no impide cerrar; un vale que
+    // nadie contrastó contra el kilometraje, sí.
+    var recuento = await combustible.RecuentoDeLaMisionAsync(ulid);
+
     var estado = await servicio.TransicionarAsync(
         ulid,
-        e => e.Cerrar(new IdPersona(peticion.Ejecuta), peticion.Momento, criterios, peticion.Justificacion),
+        e => e.Cerrar(new IdPersona(peticion.Ejecuta), peticion.Momento, criterios,
+                      peticion.Justificacion, recuento),
         peticion.Momento);
 
     return Results.Ok(new { id, estado = estado.ToString() });
@@ -998,6 +1274,91 @@ internal sealed record CrearMision(
 /// dispositivo que capturó el hecho hace cuatro días sin señal (`ADR-007`).
 /// </summary>
 internal sealed record EjecutarTransicion(string Ejecuta, DateTimeOffset Momento, string? Motivo = null);
+
+// ── M-09 Combustible ────────────────────────────────────────────────────────
+
+internal sealed record SolicitarFondo(
+    string Id,
+    AmbitoDelFondo Ambito,
+    string AmbitoDeclarado,
+    DateOnly Desde,
+    DateOnly Hasta,
+    string Solicita,
+    decimal Monto,
+    string Justificacion,
+    DateTimeOffset Momento);
+
+/// <param name="Partida">
+/// Nula es **pendiente**: `RN-26` manda registrar el fondo igual cuando el espejo de ARGOS no
+/// la tiene, y bloquear su cierre. No es un campo que se pueda omitir por comodidad.
+/// </param>
+internal sealed record AprobarFondo(
+    string Ejecuta, decimal Monto, string? Partida, DateTimeOffset Momento);
+
+internal sealed record AmpliarFondo(
+    string Ejecuta, decimal Monto, string Motivo, DateTimeOffset Momento);
+
+internal sealed record CerrarFondo(string Ejecuta, string? Partida, DateTimeOffset Momento);
+
+/// <param name="IdMotoristaReceptor">
+/// **Quién está en la ventanilla**, por el ULID de su registro en el padrón. `RN-32` lo compara
+/// contra el motorista de la orden: el servidor NO lo deduce de la reserva, porque entonces
+/// compararía la orden consigo misma y el bloqueo no dispararía nunca.
+/// </param>
+/// <param name="IdVehiculo">
+/// Sólo para nombrar el vehículo en la respuesta. **No se usa para validar**: el vehículo
+/// contra el que se comprueba sale de la reserva de la orden, que es lo que `RN-32` manda
+/// precargar.
+/// </param>
+internal sealed record EmitirVale(
+    string Id,
+    string Folio,
+    string IdFondo,
+    string IdMision,
+    string IdVehiculo,
+    string IdMotoristaReceptor,
+    string Ejecuta,
+    decimal Monto,
+    decimal? Galones,
+    string Instrumento,
+    string TipoDeCombustible,
+    DateTimeOffset Momento);
+
+internal sealed record EntregarVale(string Ejecuta, string Constancia, DateTimeOffset Momento);
+
+/// <summary>Anular, devolver y declarar extravío: los tres exigen acta, y el acta va acá.</summary>
+internal sealed record MotivarVale(string Ejecuta, string Motivo, DateTimeOffset Momento);
+
+/// <param name="Comprobante">
+/// Nulo es un caso previsto y no un descuido: `RN-85` tipifica la ausencia de comprobante, y el
+/// registro del abastecimiento **no se omite nunca por falta de papel**.
+/// </param>
+/// <param name="IdDeCaptura">
+/// El identificador del dispositivo. Es lo que hace inofensivo el reintento de un consumo
+/// capturado sin conectividad — un galón contado dos veces inventa una desviación que nadie
+/// va a poder explicar.
+/// </param>
+internal sealed record RegistrarConsumo(
+    string Ejecuta,
+    decimal Galones,
+    decimal Monto,
+    string Estacion,
+    int Odometro,
+    string? Comprobante,
+    DateTimeOffset Momento,
+    string? IdDeCaptura = null);
+
+internal sealed record LiquidarVale(
+    string Ejecuta, decimal SaldoDevuelto, string? Observacion, DateTimeOffset Momento);
+
+/// <param name="DentroDeUmbral">
+/// ⚠️ **Lo decide quien llama, no el sistema.** Los umbrales de desviación por tipo de vehículo
+/// son parámetro `[C]` (insumos #1 y #19) y el rendimiento esperado no está cargado. Calcularlo
+/// contra un umbral inexistente devolvería siempre «conforme», y una conciliación que siempre
+/// concilia es peor que ninguna.
+/// </param>
+internal sealed record ConciliarVale(
+    string Ejecuta, bool DentroDeUmbral, string Dictamen, DateTimeOffset Momento);
 
 /// <summary>Lo que `T-14` y `T-18` reciben — `BD-05`.</summary>
 /// <param name="Odometro">
