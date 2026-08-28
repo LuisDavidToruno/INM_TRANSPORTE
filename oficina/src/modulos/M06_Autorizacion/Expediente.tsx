@@ -416,7 +416,6 @@ function PronunciamientoNegativo({
               rows={3}
               value={comentario}
               onChange={(e) => setComentario(e.target.value)}
-              className="loki-input"
             />
           )}
         </Campo>
@@ -471,7 +470,6 @@ function Decision({
                     rows={4}
                     value={motivo}
                     onChange={(e) => onMotivo(e.target.value)}
-                    className="loki-input"
                   />
                 )}
               </Campo>

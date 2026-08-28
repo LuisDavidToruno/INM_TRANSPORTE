@@ -249,3 +249,68 @@ export interface DiaDeDespacho {
 
 export const diaDeDespacho = (fecha: string): Promise<DiaDeDespacho> =>
   pedir<DiaDeDespacho>(`/despacho/dia?fecha=${fecha}`);
+
+/** Un vehículo del padrón — `PT-072`, con lo que se pregunta al abrirlo. */
+export interface VehiculoDelPadron {
+  id: string;
+  siglas: string;
+  placa: string | null;
+  ficha: FichaTecnica;
+  venceMatricula: string;
+  vencePoliza: string | null;
+  venceRevisionMecanica: string | null;
+  /** §10.2. <b>Nulo</b> es «nunca se declaró», no «disponible». */
+  estado: string | null;
+  /** <b>Nulo</b> es sin custodio, y `BD-13` lo bloquea al despachar. */
+  custodio: string | null;
+  excepcion: { tipo: string; desde: string; hasta: string | null } | null;
+}
+
+export const padronDeFlota = (): Promise<VehiculoDelPadron[]> =>
+  pedir<VehiculoDelPadron[]>('/flota');
+
+/** Un cambio de estado operativo, con quién y por qué. */
+export interface CambioDeEstado {
+  estado: string;
+  momento: string;
+  ejecuta: string;
+  motivo: string | null;
+  /** Si lo fijó el sistema por una transición de la misión, o lo declaró una persona. */
+  automatico: boolean;
+}
+
+export interface EstadoDelVehiculo {
+  actual: string | null;
+  historial: CambioDeEstado[];
+}
+
+export const estadoDelVehiculo = (id: string): Promise<EstadoDelVehiculo> =>
+  pedir<EstadoDelVehiculo>(`/flota/${id}/estado`);
+
+/**
+ * Los estados que una persona <b>puede</b> declarar — §10.2.
+ *
+ * <b>`ASIGNADO` y `EN_MISION` no están, y no es una omisión</b>: los fija el sistema como
+ * consecuencia de una transición de la Orden de Misión. Ofrecerlos abriría la puerta a un
+ * vehículo «en misión» sin misión que lo respalde, y el servidor los rechaza igual.
+ */
+export const ESTADOS_DECLARABLES: { valor: string; texto: string; terminal: boolean }[] = [
+  { valor: 'Disponible', texto: 'Disponible', terminal: false },
+  { valor: 'EnTaller', texto: 'En taller', terminal: false },
+  { valor: 'NoDisponible', texto: 'No disponible', terminal: false },
+  { valor: 'Prestado', texto: 'Prestado a otra dependencia', terminal: false },
+  { valor: 'DadoDeBaja', texto: 'Dado de baja — descargo de un bien propio', terminal: true },
+  { valor: 'RetiradoDeFlota', texto: 'Retirado de flota — fin de tenencia de un bien ajeno', terminal: true },
+];
+
+export const declararEstado = async (
+  id: string,
+  ejecuta: string,
+  estado: string,
+  motivo: string,
+): Promise<void> => {
+  await pedir(`/flota/${id}/estado`, {
+    method: 'POST',
+    body: JSON.stringify({ ejecuta, estado, motivo, momento: new Date().toISOString() }),
+  });
+};

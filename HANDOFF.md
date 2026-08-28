@@ -346,8 +346,38 @@ en pantalla — un vehículo en taller y uno prestado se pintan apagados en el c
 abril?»* — y cada asiento dice si lo declaró una persona o lo fijó el sistema. Sin esa marca,
 la afirmación de §10.2 sobre quién fija qué **no se puede auditar, sólo creer**.
 
-**⚠️ Sigue sin haber pantalla de flota.** El estado se declara por API; la oficina lo *muestra*
-en los dos cronogramas, pero no hay dónde cambiarlo. `M-03` no tiene ninguna pantalla todavía.
+### `PT-072` — el padrón de flota, y con él `M-03` deja de existir sólo en la API
+
+**RESUELTA.** `/flota` en la oficina. La tabla contesta las dos preguntas que se hacen al abrir un
+padrón —*con cuáles puedo contar* y *quién responde por cada uno*— y desde ahí se declara el
+estado operativo.
+
+**Es una de las 23 pantallas donde la tabla es la forma correcta**: compara elementos homogéneos
+por atributos homogéneos. La disponibilidad en el tiempo no se duplica acá — vive en los
+cronogramas de `PT-026` y `PT-038`.
+
+**Los dos terminales van en su propio recuadro**, separados de «en taller» y «prestado», porque
+de ellos no se vuelve. Y no son lo mismo: el descargo extingue un bien propio, el retiro devuelve
+uno que nunca lo fue. Declarar descargado un vehículo en comodato es un asiento falso sobre un
+bien ajeno.
+
+Verificado en pantalla: dar de baja `INS-P-014` devuelve *«tiene 4 misión(es) sin cerrar»* y el
+expediente queda intacto; cerrar el taller de `INS-M-007` lo devuelve a `Disponible` y la tabla se
+refresca sola.
+
+**Se sembraron las custodias de desarrollo.** No había ninguna: `BD-13` bloqueaba el despacho de
+los cuatro vehículos y eso no era una decisión, era un hueco de la semilla. `INS-C-002` queda
+deliberadamente sin custodio para que el bloqueo y su pastilla roja sigan siendo alcanzables.
+
+**⚠️ Y esto no es la ficha del vehículo.** El expediente completo —documentación con
+vencimientos, mantenimiento, incidentes, custodios históricos, alta de vehículos— necesita `M-04`,
+`M-11` y `M-12`, y ninguno existe. Hoy la flota se da de alta por la semilla de desarrollo.
+
+**⚠️ Hallazgo: un vehículo sin estado declarado no lo frena nada.** `BD-07` deja constancia de
+que no pudo evaluarse y la programación sigue. §10.2 cuenta el «alta reciente sin habilitar» entre
+las causas de `NO_DISPONIBLE`, así que **o el nulo debe bloquear, o §10.2 sobra en ese punto**. Se
+dejó como está porque hay expedientes anteriores al estado operativo, y cambiarlo en silencio
+convertiría una decisión de producto en un efecto secundario.
 
 ### `BD-05` — el odómetro, y con él `T-14` y `T-18` dejan de ser un `Registrar` pelado
 

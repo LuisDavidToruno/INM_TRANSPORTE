@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarClock, ClipboardCheck, FileCheck2, Palette, LayoutDashboard } from 'lucide-react';
+import { CalendarClock, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck } from 'lucide-react';
 
 import { Avisos, Nota, Shell, avisar } from '../ui';
 import type { GrupoNav, Miga } from '../ui';
@@ -17,6 +17,7 @@ import Expediente from '../modulos/M06_Autorizacion/Expediente';
 import Asignacion from '../modulos/M07_Programacion/Asignacion';
 import Cola from '../modulos/M07_Programacion/Cola';
 import Tablero from '../modulos/M07_Programacion/Tablero';
+import Padron from '../modulos/M03_Flota/Padron';
 import ColaDeCierre from '../modulos/M13_Cierre/Cola';
 import Cierre from '../modulos/M13_Cierre/Cierre';
 import { bandejaDeAutorizacion, origenDeDatos } from '../api/misiones';
@@ -80,6 +81,14 @@ function Interior(): ReactElement {
       ],
     },
     {
+      // `M-03` va antes que `M-07`: la flota es el sujeto del sistema --«SIGTI cuida de
+      // todo lo referente a los vehiculos»-- y las misiones son lo que se hace con ella.
+      titulo: 'M-03 Flota vehicular',
+      items: [
+        { texto: 'Padrón de flota', icono: <Truck />, href: '/flota' },
+      ],
+    },
+    {
       titulo: 'M-07 Programación y despacho',
       items: [
         // El tablero va PRIMERO: es la raíz de `ACT-05` en el mapa de navegación, y la
@@ -123,6 +132,7 @@ function Interior(): ReactElement {
         <Route path="/" element={<Navigate to="/autorizacion" replace />} />
         <Route path="/autorizacion" element={<Bandeja />} />
         <Route path="/autorizacion/:id" element={<Expediente />} />
+        <Route path="/flota" element={<Padron />} />
         <Route path="/despacho" element={<Tablero />} />
         <Route path="/programacion" element={<Cola />} />
         
@@ -151,6 +161,7 @@ function migasDe(ruta: string): Miga[] {
   if (ruta.startsWith('/programacion/')) return [{ texto: 'Programación', href: '/programacion' }, 'Asignación'];
   if (ruta === '/programacion') return ['Programación'];
   if (ruta === '/despacho') return ['Despacho'];
+  if (ruta === '/flota') return ['Flota'];
   if (ruta.startsWith('/cierre/')) return [{ texto: 'Cierre', href: '/cierre' }, 'Expediente'];
   if (ruta === '/cierre') return ['Cierre'];
   if (ruta === '/sistema-diseno') return ["Sistema de diseño"];

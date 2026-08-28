@@ -176,7 +176,6 @@ export default function Cierre(): ReactElement {
                     rows={3}
                     value={justificacion}
                     onChange={(e) => setJustificacion(e.target.value)}
-                    className="loki-input"
                   />
                 )}
               </Campo>
@@ -218,7 +217,6 @@ export default function Cierre(): ReactElement {
                 rows={3}
                 value={motivoDevolucion}
                 onChange={(e) => setMotivoDevolucion(e.target.value)}
-                className="loki-input"
               />
             )}
           </Campo>

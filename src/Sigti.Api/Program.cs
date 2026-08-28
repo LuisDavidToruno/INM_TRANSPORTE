@@ -133,6 +133,28 @@ if (app.Environment.IsDevelopment())
         contextoDeSiembra.SaveChanges();
     }
 
+    // Las custodias de la flota de desarrollo. Sin ellas `BD-13` bloquea el despacho de los
+    // cuatro vehículos y ninguna pantalla se puede recorrer — la ausencia de custodia no era
+    // una decisión, era un hueco de la semilla.
+    //
+    // **`INS-C-002` queda deliberadamente sin custodio.** Es lo que mantiene alcanzable en
+    // desarrollo el bloqueo de `BD-13` y la pastilla roja del padrón: una regla cuya condición
+    // no se puede producir es una regla que nadie ve funcionar.
+    if (!contextoDeSiembra.Custodias.Any())
+    {
+        contextoDeSiembra.Custodias.AddRange(
+            CustodiaDeDesarrollo("01JQ8Z000000000000000CSTD1", "01JQ8Z000000000000000VEH01",
+                "Rolando Discua", new DateOnly(2025, 2, 3), "Acta de entrega-recepción 2025-014"),
+
+            CustodiaDeDesarrollo("01JQ8Z000000000000000CSTD2", "01JQ8Z000000000000000VEH03",
+                "Wilmer Alvarado", new DateOnly(2025, 7, 18), "Acta de entrega-recepción 2025-061"),
+
+            CustodiaDeDesarrollo("01JQ8Z000000000000000CSTD3", "01JQ8Z000000000000000VEH04",
+                "Dilcia Fúnez", new DateOnly(2026, 1, 12), "Acta de entrega-recepción 2026-003"));
+
+        contextoDeSiembra.SaveChanges();
+    }
+
     if (!contextoDeSiembra.Conductores.Any())
     {
         contextoDeSiembra.Conductores.AddRange(
@@ -154,6 +176,20 @@ if (app.Environment.IsDevelopment())
         contextoDeSiembra.SaveChanges();
     }
 }
+
+static FilaDeCustodia CustodiaDeDesarrollo(
+    string id, string vehiculo, string custodio, DateOnly desde, string acta) => new()
+{
+    Id = Ulid.Parse(id),
+    VehiculoId = Ulid.Parse(vehiculo),
+    Custodio = custodio,
+    Desde = desde,
+
+    // Nulo es **vigente**, no eterno. Poner una fecha de cese acá inventaría un final que
+    // nadie decidió.
+    Hasta = null,
+    Acta = acta,
+};
 
 static FilaDeConductor ConductorDeDesarrollo(
     string id, string nombre, bool delPadron,
@@ -254,22 +290,58 @@ Transicion("liquidar", (e, quien, cuando) => e.Liquidar(quien, cuando));
 // La flota sale de la BASE (`M-03`). El padrón de conductores sigue provisional: es
 // `M-05` y no está construido. Los dos van por el servidor y no por el cliente para que
 // la evaluación de `BD-02` tenga UNA sola implementación.
-app.MapGet("/flota", async (ConsultaDeFlota flota) => Results.Ok(
-    (await flota.TodosAsync()).Select(v => new
+// El padrón de flota — `PT-072`. Lleva el estado operativo y la custodia porque son las
+// dos preguntas que se hacen al abrirlo: con cuáles se puede contar, y quién responde por
+// cada uno. Sin ellas la lista es un catálogo, no un padrón.
+app.MapGet("/flota", async (
+    ConsultaDeFlota flota, EstadoDeLaFlota estados, ConsultaDeCustodias custodias) =>
+{
+    var vehiculos = await flota.TodosAsync();
+    var salida = new List<object>();
+
+    foreach (var v in vehiculos)
     {
-        id = v.Id.ToString(),
-        siglas = v.Siglas,
-        placa = v.Placa,
-        ficha = new
+        var estado = await estados.ActualAsync(v.Id);
+        var historial = await custodias.DeVehiculoAsync(v.Id);
+
+        // El custodio VIGENTE a hoy. La fecha se lee del reloj acá y no antes porque esto
+        // es una lista para mirar, no una precondición: nada se juzga contra ella.
+        var custodio = historial.FirstOrDefault(
+            c => c.VigenteAl(DateOnly.FromDateTime(DateTime.UtcNow.Date)));
+
+        salida.Add(new
         {
-            tipoDeVehiculo = v.TipoDeVehiculo,
-            clase = v.Clase.ToString(),
-            pesoBrutoKg = v.PesoBrutoKg,
-            capacidadPasajeros = v.CapacidadPasajeros,
-            llevaRemolque = v.LlevaRemolque,
-        },
-        venceMatricula = v.VenceMatricula,
-    })));
+            id = v.Id.ToString(),
+            siglas = v.Siglas,
+            placa = v.Placa,
+            ficha = new
+            {
+                tipoDeVehiculo = v.TipoDeVehiculo,
+                clase = v.Clase.ToString(),
+                pesoBrutoKg = v.PesoBrutoKg,
+                capacidadPasajeros = v.CapacidadPasajeros,
+                llevaRemolque = v.LlevaRemolque,
+            },
+            venceMatricula = v.VenceMatricula,
+            vencePoliza = v.VencePoliza,
+            venceRevisionMecanica = v.VenceRevisionMecanica,
+
+            // Nulo es «nunca se declaró», no «disponible» — §10.2 lista «alta reciente sin
+            // habilitar» entre las causas de NO_DISPONIBLE.
+            estado = estado?.ToString(),
+
+            // Nulo es «sin custodio», y `BD-13` lo bloquea al despachar. Va en la lista
+            // para que se vea ANTES de que alguien intente sacar el vehículo.
+            custodio = custodio?.Custodio.Valor,
+
+            excepcion = v.Excepcion() is { } e
+                ? new { tipo = e.Tipo, desde = e.Desde, hasta = e.Hasta }
+                : null,
+        });
+    }
+
+    return Results.Ok(salida);
+});
 app.MapGet("/conductores", async (ConsultaDeConductores padron) => Results.Ok(
     (await padron.TodosAsync()).Select(c => new
     {

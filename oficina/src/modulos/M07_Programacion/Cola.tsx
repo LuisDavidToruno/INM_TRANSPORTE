@@ -481,7 +481,6 @@ function DialogoDeAnulacion({
               rows={3}
               value={comentario}
               onChange={(e) => setComentario(e.target.value)}
-              className="loki-input"
             />
           )}
         </Campo>
