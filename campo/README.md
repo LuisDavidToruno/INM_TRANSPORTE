@@ -26,6 +26,7 @@ cd campo && npm run verificar
 | [`Conciliacion`](nucleo/Conciliacion.ts) | [`RN-45`](../docs/01-negocio/reglas/RN-45-cero-sobrescritura-silenciosa.md) — **cero sobrescritura silenciosa**. Dos versiones distintas del mismo hecho conservan las dos y van a cola humana |
 | [`SubrangoDeFolios`](nucleo/Folios.ts) | [`RN-44`](../docs/01-negocio/reglas/RN-44-identificadores-y-folios-en-el-cliente.md) y `RNF-21` — el folio se toma **sin consultar al servidor**, y el subrango es **del dispositivo, no de la delegación** |
 | [`AlmacenSqlite`](nucleo/AlmacenSqlite.ts) | [`ADR-003`](../docs/03-arquitectura/adr/ADR-003-cliente-de-campo-instalado.md) — **fuente de verdad local, no caché**. Lo capturado sobrevive a que Android mate el proceso, que en gama baja ocurre sin avisar |
+| [`ConsumoEnRuta`](nucleo/ConsumoEnRuta.ts) | §10.1 — **`V-04` se ejecuta sin conectividad**. La estación camino a La Mosquitia no tiene señal, y un consumo capturado de memoria tres días después llega sin odómetro, que es el dato con el que `RN-30` sabe *dónde* se fue la diferencia |
 | [`ColaDeAdjuntos`](nucleo/ColaDeAdjuntos.ts) | [`RN-43`](../docs/01-negocio/reglas/RN-43-captura-de-campo-sin-conectividad.md) y [`ADR-004`](../docs/03-arquitectura/adr/ADR-004-adjuntos-fuera-de-la-base.md) — los adjuntos van en **su propia cola** y no retienen al hecho que respaldan |
 
 ### El corte del cifrado, dicho sin adornos
@@ -48,6 +49,25 @@ El caso concreto que esto atrapa: el motorista registra el retorno con 84.320 km
 
 `POST /sincronizacion` existe y es **idempotente**: el dispositivo que no supo si el servidor recibió reenvía, y el servidor lo reconoce en vez de duplicar. La unicidad la impone **la base** con un índice único sobre `IdDeCaptura` — no una comprobación previa, que sería una condición de carrera con dos lotes del mismo dispositivo en vuelo.
 
+**Y desde ahora también `V-04`**, el consumo de combustible. No es una transición más: es de
+**otro agregado** —el vale, no la misión—, así que viaja con `idAsignacion` y su carga. Mandar
+sólo el expediente obligaría al servidor a adivinar a cuál de los vales de la misión cargarle
+el galón, y adivinar sobre dinero es lo que el folio existe para impedir.
+
+> ⚠️ **La idempotencia estaba rota, y `V-04` lo destapó.** La comprobación de «esto ya llegó»
+> usaba un `Contains` sobre `IdDeCaptura`, que lleva convertidor de valor a `binary(16)`. Con
+> `UseCompatibilityLevel(120)` esa traducción **devuelve vacío en vez de fallar**: la consulta
+> corría, no encontraba nada, y cada reenvío pasaba por nuevo.
+>
+> En las transiciones de misión no se notaba porque **la máquina de estados frenaba el
+> duplicado** —`T-14` sobre una misión ya en ruta es inválida— y el hecho terminaba en
+> `rechazadas`. La prueba que existía contaba transiciones y daba 1, así que pasaba por el
+> motivo equivocado. Pero **un hecho rechazado nunca se acusa**, y el dispositivo lo
+> reintentaría para siempre: justo lo que `RNF-03` existe para impedir.
+>
+> Con `V-04` se vio de golpe, porque un vale admite varias cargas y ahí no hay máquina de
+> estados que lo frene: el duplicado llegaba hasta el índice único y devolvía un 500.
+
 **El lote no es atómico, a propósito.** Que una transición no entre no puede impedir que las otras seis sí: el dispositivo lleva siete días de trabajo encima, y perderlo todo por un expediente inexistente sería el fallo que este endpoint existe para evitar. La respuesta separa `aplicadas`, `yaConocidas` y `rechazadas`, y las dos primeras son lo que el dispositivo puede sacar de su cola.
 
 `POST /adjuntos` recibe el binario **como formulario, no como JSON**: en base64 crecería un 33 %, y sobre la red de un retén ese tercio se paga en tiempo y en batería. El archivo va al sistema de archivos por año y mes —**fecha del hecho, no de subida**, porque `P-4` manda y siete días sin red no cambian a qué mes pertenece una foto—, y a la base va solo su rastro.
@@ -63,7 +83,8 @@ El caso concreto que esto atrapa: el motorista registra el retorno con 84.320 km
 | **La asignación de subrangos** — quién los reparte, cuándo se recargan, y el aviso antes de que un dispositivo salga con el saldo bajo | El consumo ya está; **repartirlos es de `M-01`**, que no existe |
 | **La compresión automática** que `RNF-03` exige para llegar a ≥ 200 fotografías | Es de la cámara, en el módulo nativo |
 | **El respaldo de dos piezas** — base y almacén de archivos, **consistentes entre sí** | `ADR-004` lo exige *«desde el principio, no adaptado después»*, y `RNF-09` da 2 h a personal no especialista. No está escrito |
-| **La cola de resolución de conflictos** | El núcleo los **detecta** (`Conciliacion`) y el servidor todavía no los recibe: hoy solo sincronizan `T-14` y `T-18`, que un dispositivo no captura dos veces. La cola es de `M-16` |
+| **La cola de resolución de conflictos** | El núcleo los **detecta** (`Conciliacion`) y el servidor todavía no los recibe. La cola es de `M-16` |
+| **El catálogo de causas sin comprobante** | `RN-85` lo exige y la institución no lo ha entregado. Hoy la causa es **texto libre**: se registra y se conserva, pero no se puede consultar por tipo |
 | **`RNF-12`** — ≤ 25 % de batería en 8 h, gama baja | **No se ha medido nada.** Es el requisito más ajustado del sistema |
 
 ## Por qué Node corre esto sin compilar

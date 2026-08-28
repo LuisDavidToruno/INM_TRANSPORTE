@@ -109,7 +109,19 @@ app.UseExceptionHandler(rama => rama.Run(async contexto =>
             (object)new { hashDeclarado = a.HashDeclarado, hashRecibido = a.HashRecibido, mensaje = a.Message }),
         AprobacionCaducada c2 => (StatusCodes.Status409Conflict,
             new { caducada = true, inicioDeLaVentana = c2.InicioDeLaVentana, mensaje = c2.Message }),
-        _ => (StatusCodes.Status500InternalServerError, new { mensaje = "Error no controlado." })
+        // En desarrollo el tipo y el mensaje interno van en la respuesta: un «Error no
+        // controlado» a secas obliga a reproducir el fallo para saber qué pasó, y así es como
+        // un `Contains` que no traducía sobrevivió sin que nadie lo notara. **En la
+        // institución no sale**: el detalle de una excepción puede llevar datos de la fila.
+        _ => (StatusCodes.Status500InternalServerError, app.Environment.IsDevelopment()
+            ? (object)new
+            {
+                mensaje = "Error no controlado.",
+                tipo = excepcion?.GetType().Name,
+                detalle = excepcion?.Message,
+                interno = excepcion?.InnerException?.Message,
+            }
+            : new { mensaje = "Error no controlado." })
     };
 
     contexto.Response.StatusCode = codigo;
@@ -1019,9 +1031,25 @@ app.MapPost("/sincronizacion", async (
         if (!Identificador.Valido(h.IdExpediente, out var idExpediente, out var errorExpediente))
             return errorExpediente;
 
+        Ulid? idAsignacion = null;
+
+        if (h.IdAsignacion is { } declarada)
+        {
+            if (!Identificador.Valido(declarada, out var idVale, out var errorVale))
+                return errorVale;
+
+            idAsignacion = idVale;
+        }
+
         hechos.Add(new HechoCapturado(
             idDeCaptura, idExpediente, h.Transicion, h.Ejecuta, h.OcurridoEn,
-            h.Odometro, h.Subtipo, h.Justificacion));
+            h.Odometro, h.Subtipo, h.Justificacion,
+            idAsignacion,
+            h.Carga is null
+                ? null
+                : new CargaSincronizada(
+                    h.Carga.Galones, h.Carga.Monto, h.Carga.Estacion, h.Carga.Odometro,
+                    h.Carga.Comprobante, h.Carga.CausaSinComprobante)));
     }
 
     var resultado = await servicio.RecibirAsync(hechos);
@@ -1491,6 +1519,15 @@ internal sealed record LoteDeSincronizacion(
     string IdDispositivo,
     IReadOnlyList<HechoDelDispositivo>? Transiciones);
 
+/// <summary>La carga que el motorista capturó en la estación — los cinco datos de §10.1.</summary>
+internal sealed record CargaDelDispositivo(
+    decimal Galones,
+    decimal Monto,
+    string Estacion,
+    int Odometro,
+    string? Comprobante = null,
+    string? CausaSinComprobante = null);
+
 /// <param name="IdDeCaptura">Lo generó el dispositivo (`ADR-005`). Identidad del hecho.</param>
 internal sealed record HechoDelDispositivo(
     string IdDeCaptura,
@@ -1505,4 +1542,10 @@ internal sealed record HechoDelDispositivo(
     /// </summary>
     int? Odometro = null,
     SubtipoDeRetorno Subtipo = SubtipoDeRetorno.Ordinario,
-    string? Justificacion = null);
+    string? Justificacion = null,
+    /// <summary>
+    /// El vale contra el que se consume. <b>Sólo `V-04`</b>: una misión lleva varios vales,
+    /// y sin esto el servidor tendría que adivinar a cuál cargarle el galón.
+    /// </summary>
+    string? IdAsignacion = null,
+    CargaDelDispositivo? Carga = null);

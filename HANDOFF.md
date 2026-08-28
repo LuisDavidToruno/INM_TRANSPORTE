@@ -346,6 +346,64 @@ en pantalla — un vehículo en taller y uno prestado se pintan apagados en el c
 abril?»* — y cada asiento dice si lo declaró una persona o lo fijó el sistema. Sin esa marca,
 la afirmación de §10.2 sobre quién fija qué **no se puede auditar, sólo creer**.
 
+### El consumo desde el cliente de campo — `V-04` sin red
+
+**RESUELTA.** `campo/nucleo/ConsumoEnRuta.ts` prepara la carga en la estación, y
+`POST /sincronizacion` la recibe. §10.1 dice que `V-04` **se ejecuta sin conectividad**, y eso
+no es comodidad: la estación camino a La Mosquitia no tiene señal, y un consumo capturado de
+memoria tres días después llega sin odómetro — el dato con el que `RN-30` sabe *dónde* se fue
+la diferencia.
+
+**La línea que traza el módulo de campo:** comprueba **sólo lo que la persona con el surtidor
+delante puede corregir** —galones, estación, un odómetro que retrocede contra su última
+lectura—. El saldo del fondo, `RN-32` y `BD-06` **no**: el dispositivo no tiene esos datos y no
+los va a tener sin red. Fingir que los valida daría por conforme lo que nadie comprobó.
+
+**`V-04` es de otro agregado**, y por eso viaja con `idAsignacion`. Una misión lleva varios
+vales; mandar sólo el expediente obligaría al servidor a adivinar a cuál cargarle el galón.
+
+---
+
+## ⚠️ La idempotencia de la sincronización estaba rota, y `V-04` lo destapó
+
+La comprobación de «esto ya llegó» usaba un `Contains` sobre `IdDeCaptura`, que lleva
+convertidor de valor a `binary(16)`. Con `UseCompatibilityLevel(120)` esa traducción **devuelve
+vacío en vez de fallar**: la consulta corría, no encontraba nada, y **cada reenvío pasaba por
+nuevo**.
+
+En las transiciones de misión no se notaba porque la **máquina de estados frenaba el duplicado**
+—`T-14` sobre una misión ya en ruta es inválida— y el hecho terminaba en `rechazadas`. La prueba
+que existía contaba transiciones y daba 1: **pasaba por el motivo equivocado**.
+
+Y la diferencia importa: **un hecho rechazado nunca se acusa**, así que el dispositivo lo
+reintentaría para siempre — justo lo que `RNF-03` existe para impedir. Con `V-04` se vio de
+golpe, porque un vale admite varias cargas y ahí no hay máquina de estados que lo frene: el
+duplicado llegaba hasta el índice único y devolvía un 500.
+
+**Corregido con una búsqueda por punto** —una por hecho, sobre índice único— en los dos
+diarios. Un lote de siete días son decenas de hechos; traer la tabla entera para filtrar en
+memoria sí sería caro, porque el diario de vales crece con cada carga de la institución.
+
+Las dos pruebas de reenvío verificadas por mutación. La de misión ahora exige `yaConocidas` y
+`rechazadas` vacío, no sólo que el conteo dé 1.
+
+**Y el 500 deja de ser mudo**: en desarrollo la respuesta lleva tipo y mensaje interno. Así es
+como este defecto sobrevivió sin que nadie lo notara. En la institución no sale.
+
+**Se auditó el resto del código:** los otros siete `Contains` corren **en memoria**, sobre listas
+ya materializadas —conjuntos de estados terminales, días hábiles, feriados—, así que no pasan por
+la traducción y no tienen este defecto. El de la sincronización era el único que iba a SQL sobre
+una propiedad convertida.
+
+---
+
+**`RN-85` ahora se modela de verdad:** un consumo sin comprobante exige **causa declarada**, y
+la causa viaja desde el dispositivo hasta el asiento. Sin ella el registro decía que faltaba el
+papel pero no si eso se podía defender. `[C]` el catálogo de causas tipificadas no existe — hoy
+es texto libre.
+
+---
+
 ### `M-09` en pantalla — el fondo, el vale y sus bloqueos
 
 **RESUELTA.** `/combustible` para el fondo del período, y un `PanelDeVales` montado en la

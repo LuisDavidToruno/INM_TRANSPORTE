@@ -215,12 +215,33 @@ public class AsignacionDeCombustiblePruebas
         var a = Entregada();
         a.RegistrarConsumo(
             Motorista,
-            new ConsumoRegistrado(30m, 1_500m, "Estación sin factura", 84_120, Comprobante: null),
+            new ConsumoRegistrado(30m, 1_500m, "Estación sin factura", 84_120,
+                                  Comprobante: null,
+                                  CausaSinComprobante: "La estación no emitió factura: sistema caído."),
             Momento);
 
         Assert.Equal(EstadoDeAsignacion.Consumida, a.Estado);
         Assert.Contains("SIN COMPROBANTE", a.Diario[^1].Motivo);
         Assert.Contains("RN-85", a.Diario[^1].Motivo);
+        // Y la causa va en el asiento: sin ella el registro dice que falta el papel pero no
+        // si eso se puede defender.
+        Assert.Contains("sistema caído", a.Diario[^1].Motivo);
+    }
+
+    [Fact]
+    public void Un_consumo_sin_comprobante_y_SIN_causa_NO_se_registra()
+    {
+        // La causa es lo único que distingue «la estación no dio factura» de un campo que
+        // nadie llenó, y esa diferencia decide si el descargo alternativo procede.
+        var a = Entregada();
+
+        var fallo = Assert.Throws<BloqueoDuro>(() => a.RegistrarConsumo(
+            Motorista,
+            new ConsumoRegistrado(30m, 1_500m, "Sin factura", 84_120, Comprobante: null),
+            Momento));
+
+        Assert.Equal("RN-85", fallo.Precondicion);
+        Assert.Contains("tampoco se disimula", fallo.Message);
     }
 
     [Fact]

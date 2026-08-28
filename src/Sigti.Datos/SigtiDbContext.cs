@@ -345,6 +345,7 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             transicion.Property(t => t.ConsumoMonto).HasColumnType("decimal(18,2)");
             transicion.Property(t => t.ConsumoEstacion).HasMaxLength(120);
             transicion.Property(t => t.ConsumoComprobante).HasMaxLength(64);
+            transicion.Property(t => t.ConsumoCausaSinComprobante).HasMaxLength(300);
             transicion.Property(t => t.Devuelto).HasColumnType("decimal(18,2)");
 
             transicion.HasIndex(t => new { t.AsignacionId, t.Orden }).IsUnique();

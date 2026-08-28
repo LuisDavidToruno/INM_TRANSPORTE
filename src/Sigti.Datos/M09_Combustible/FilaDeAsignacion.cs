@@ -85,6 +85,13 @@ public sealed class FilaDeTransicionDeAsignacion
     /// </summary>
     public string? ConsumoComprobante { get; init; }
 
+    /// <summary>
+    /// Por qué no hubo comprobante. Va en su propia columna y no dentro del motivo porque
+    /// <b>alguien la va a consultar en bloque</b>: «cuántos abastecimientos del trimestre no
+    /// tienen factura, y por qué» es una pregunta de auditoría, no una lectura caso por caso.
+    /// </summary>
+    public string? ConsumoCausaSinComprobante { get; init; }
+
     /// <summary>Lo que este asiento devolvió al fondo — `V-03`, `V-05` y `V-07`.</summary>
     public decimal? Devuelto { get; init; }
 }

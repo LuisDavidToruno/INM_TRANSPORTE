@@ -5,6 +5,8 @@ using Sigti.Dominio.M07_ProgramacionYDespacho;
 using Sigti.Aplicacion.M08_Bitacora;
 using Sigti.Dominio.M08_Bitacora;
 using Sigti.Dominio.Organizacion;
+using Sigti.Datos.M09_Combustible;
+using Sigti.Dominio.M09_Combustible;
 
 namespace Sigti.Aplicacion.M16_Sincronizacion;
 
@@ -34,7 +36,42 @@ public sealed record HechoCapturado(
     /// salida bloquea o se registra con la inconsistencia marcada (`RN-79`, `HB3-04`).
     /// </summary>
     SubtipoDeRetorno Subtipo = SubtipoDeRetorno.Ordinario,
-    string? Justificacion = null);
+    string? Justificacion = null,
+    /// <summary>
+    /// El vale contra el que se consume — <b>obligatorio para `V-04`</b>, nulo para todo lo
+    /// demás.
+    ///
+    /// Va aparte del expediente porque <b>una misión lleva varios vales</b>: mandar sólo la
+    /// misión obligaría al servidor a adivinar a cuál imputar el galón, y adivinar sobre
+    /// dinero es exactamente lo que el folio existe para impedir.
+    /// </summary>
+    Ulid? IdAsignacion = null,
+    /// <summary>
+    /// La carga. Nula salvo en `V-04`, y anulable por la misma razón que el odómetro: el
+    /// tipo tiene que poder representar un hecho mal armado para <b>rechazarlo con motivo
+    /// legible</b>.
+    /// </summary>
+    CargaSincronizada? Carga = null);
+
+/// <summary>
+/// Lo que el motorista tecleó en la estación — los cinco datos de §10.1.
+/// </summary>
+/// <param name="Comprobante">
+/// Nulo es un caso previsto: `RN-85` tipifica la ausencia. <b>El registro del abastecimiento
+/// no se omite nunca por falta de papel.</b>
+/// </param>
+/// <param name="CausaSinComprobante">
+/// Por qué no lo hay. El dispositivo la exige antes de dejar capturar; acá se conserva
+/// porque es lo que sostiene el descargo alternativo, y perderla en el camino dejaría la
+/// ausencia sin explicación en el único lugar donde alguien la va a leer.
+/// </param>
+public sealed record CargaSincronizada(
+    decimal Galones,
+    decimal Monto,
+    string Estacion,
+    int Odometro,
+    string? Comprobante = null,
+    string? CausaSinComprobante = null);
 
 /// <summary>Qué pasó con cada hecho. El dispositivo lo necesita para depurar su cola.</summary>
 public sealed record ResultadoDeSincronizacion(
@@ -73,6 +110,7 @@ public sealed record HechoRechazado(Ulid IdDeCaptura, string Motivo);
 public sealed class ServicioDeSincronizacion(SigtiDbContext contexto, ConsultaDeOdometro odometros)
 {
     private readonly ExpedientesDeMision _expedientes = new(contexto);
+    private readonly CombustibleDeLaInstitucion _combustible = new(contexto);
 
     public async Task<ResultadoDeSincronizacion> RecibirAsync(
         IReadOnlyList<HechoCapturado> hechos,
@@ -82,13 +120,7 @@ public sealed class ServicioDeSincronizacion(SigtiDbContext contexto, ConsultaDe
         var yaConocidas = new List<Ulid>();
         var rechazadas = new List<HechoRechazado>();
 
-        // Lo que ya llegó antes. Se consulta en bloque y no uno por uno: un dispositivo
-        // que estuvo siete días sin red trae el lote entero cada vez que reintenta.
-        var idsDelLote = hechos.Select(h => h.IdDeCaptura).ToList();
-        var conocidas = await contexto.Set<FilaDeTransicion>()
-            .Where(t => t.IdDeCaptura != null && idsDelLote.Contains(t.IdDeCaptura.Value))
-            .Select(t => t.IdDeCaptura!.Value)
-            .ToListAsync(cancelacion);
+        var conocidas = await YaRecibidasAsync(hechos, cancelacion);
 
         foreach (var hecho in hechos)
         {
@@ -97,6 +129,18 @@ public sealed class ServicioDeSincronizacion(SigtiDbContext contexto, ConsultaDe
                 // No es un error: es el reintento normal. Se acusa igual, para que el
                 // dispositivo pueda por fin sacarlo de su cola de pendientes.
                 yaConocidas.Add(hecho.IdDeCaptura);
+                continue;
+            }
+
+            // `V-04` es de otro agregado: el vale. Va por su propio camino, y el expediente
+            // sólo se consulta para comprobar que la misión está donde el consumo cabe.
+            if (hecho.Transicion == "V-04")
+            {
+                var resultado = await AplicarConsumoAsync(hecho, cancelacion);
+
+                if (resultado is null) aplicadas.Add(hecho.IdDeCaptura);
+                else rechazadas.Add(new HechoRechazado(hecho.IdDeCaptura, resultado));
+
                 continue;
             }
 
@@ -136,6 +180,111 @@ public sealed class ServicioDeSincronizacion(SigtiDbContext contexto, ConsultaDe
         }
 
         return new ResultadoDeSincronizacion(aplicadas, yaConocidas, rechazadas);
+    }
+
+    /// <summary>
+    /// Cuáles de estos hechos <b>ya están</b> en el servidor, en cualquiera de los dos diarios.
+    ///
+    /// ── Por qué es un punto por hecho y no un `IN (...)` ────────────────────
+    /// Porque <b>el `Contains` no traduce</b>. `IdDeCaptura` lleva convertidor de valor —ULID a
+    /// `binary(16)`— y con `UseCompatibilityLevel(120)` la traducción de una colección
+    /// parametrizada sobre una propiedad convertida <b>devuelve vacío en vez de fallar</b>.
+    ///
+    /// Eso es peor que un error: la consulta corría, no encontraba nada, y <b>cada reenvío
+    /// pasaba por nuevo</b>. En las transiciones de misión no se notaba porque la máquina de
+    /// estados frenaba el duplicado —`T-14` sobre una misión ya en ruta es inválida— y el
+    /// hecho terminaba en `rechazadas`. Pero un hecho rechazado <b>nunca se acusa</b>, así que
+    /// el dispositivo lo reintentaría para siempre: exactamente el fallo que `RNF-03` existe
+    /// para impedir. Con `V-04` se vio de golpe, porque un vale admite varias cargas y ahí no
+    /// hay máquina de estados que lo frene: el duplicado llegaba hasta el índice único.
+    ///
+    /// ── El costo, medido contra lo que hay que soportar ─────────────────────
+    /// Un lote de siete días son decenas de hechos, y cada comprobación es una búsqueda por
+    /// índice único. Traer la tabla entera para filtrar en memoria sí sería caro: el diario de
+    /// vales crece con cada carga de la institución.
+    /// </summary>
+    private async Task<List<Ulid>> YaRecibidasAsync(
+        IReadOnlyList<HechoCapturado> hechos, CancellationToken cancelacion)
+    {
+        var conocidas = new List<Ulid>();
+
+        foreach (var id in hechos.Select(h => h.IdDeCaptura).Distinct())
+        {
+            var enMisiones = await contexto.Set<FilaDeTransicion>()
+                .AnyAsync(t => t.IdDeCaptura == id, cancelacion);
+
+            var enVales = enMisiones || await contexto.Set<FilaDeTransicionDeAsignacion>()
+                .AnyAsync(t => t.IdDeCaptura == id, cancelacion);
+
+            if (enMisiones || enVales) conocidas.Add(id);
+        }
+
+        return conocidas;
+    }
+
+    /// <summary>
+    /// `V-04` — la carga que el motorista capturó en la estación, sin red.
+    ///
+    /// ── Qué revalida el servidor, y por qué no es duplicar el dispositivo ───
+    /// El dispositivo comprueba lo que la persona con el surtidor delante puede corregir:
+    /// galones, estación, un odómetro que retrocede contra <b>su</b> última lectura. Acá se
+    /// comprueba lo que sólo el servidor sabe — que el vale existe, que está entregado, que
+    /// quien consume no es quien lo emitió ni quien lo entregó (`BD-06`), y que la misión
+    /// está donde el consumo cabe.
+    ///
+    /// ── Y lo que NO se hace es rechazar por llegar tarde ────────────────────
+    /// `RETORNADA` se admite: el consumo se capturó sin conectividad y el vehículo ya volvió
+    /// cuando el lote llega. Negarlo perdería el hecho, y `P-2` dice que los hechos
+    /// consumados se registran.
+    /// </summary>
+    /// <returns>Nulo si entró; el motivo del rechazo si no.</returns>
+    private async Task<string?> AplicarConsumoAsync(
+        HechoCapturado hecho, CancellationToken cancelacion)
+    {
+        if (hecho.IdAsignacion is not { } idAsignacion)
+            return "Un consumo sin vale no se puede imputar a nada. Una misión lleva varios " +
+                   "vales, y adivinar a cuál cargarle el galón es lo que el folio impide.";
+
+        if (hecho.Carga is not { } carga)
+            return "Un consumo sin galones, estación y odómetro no es un abastecimiento.";
+
+        var vale = await _combustible.BuscarAsignacionAsync(idAsignacion, cancelacion);
+
+        if (vale is null)
+            return $"El vale {idAsignacion} no existe en el servidor. Si se emitió en la " +
+                   "oficina, el dispositivo lo tiene que haber recibido antes de consumirlo.";
+
+        var expediente = await _expedientes.BuscarAsync(vale.Mision, cancelacion);
+
+        if (expediente is null)
+            return $"El vale {idAsignacion} apunta a una misión que no existe.";
+
+        if (expediente.Estado is not (EstadoDeMision.EnRuta or EstadoDeMision.Retornada))
+            return $"La misión está {expediente.Estado}. Un consumo sólo ocurre en ruta: " +
+                   "registrar uno antes de salir sería declarar un gasto que todavía no pudo pasar.";
+
+        try
+        {
+            vale.RegistrarConsumo(
+                new IdPersona(hecho.Ejecuta),
+                new ConsumoRegistrado(
+                    carga.Galones, carga.Monto, carga.Estacion, carga.Odometro,
+                    carga.Comprobante,
+                    // Viaja hasta el asiento: es lo que sostiene el descargo alternativo de
+                    // `RN-85`, y perderla en el camino dejaría la ausencia sin explicación
+                    // en el único lugar donde alguien la va a leer.
+                    carga.CausaSinComprobante),
+                hecho.OcurridoEn,
+                hecho.IdDeCaptura);
+
+            await _combustible.GuardarAsignacionAsync(vale, cancelacion);
+            return null;
+        }
+        catch (Exception error)
+            when (error is BloqueoDuro or TransicionInvalidaDeAsignacion)
+        {
+            return error.Message;
+        }
     }
 
     /// <summary>
@@ -188,8 +337,8 @@ public sealed class ServicioDeSincronizacion(SigtiDbContext contexto, ConsultaDe
                 throw new BloqueoDuro(
                     hecho.Transicion,
                     $"El cliente de campo todavía no sincroniza «{hecho.Transicion}». " +
-                    "Hoy solo entran T-14 salida y T-18 retorno: la bitácora de paradas y " +
-                    "eventos necesita M-08, que no está construido.");
+                    "Hoy entran T-14 salida, T-18 retorno y V-04 consumo de combustible: " +
+                    "la bitácora de paradas y eventos necesita M-08, que no está construido.");
         }
     }
 }

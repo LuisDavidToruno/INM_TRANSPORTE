@@ -292,12 +292,21 @@ public sealed class AsignacionDeCombustible
                 "El consumo exige el odómetro del momento. Sin él el galón no queda anclado a " +
                 "ningún tramo, y la conciliación sólo puede comparar un total contra otro total.");
 
+        // `RN-85`: la ausencia de comprobante se registra **con causa**. Es lo único que
+        // distingue «la estación no dio factura» de un campo que nadie llenó, y esa
+        // diferencia decide si el descargo alternativo procede.
+        if (consumo.Comprobante is null &&
+            string.IsNullOrWhiteSpace(consumo.CausaSinComprobante))
+            throw new BloqueoDuro("RN-85",
+                "Un consumo sin comprobante exige causa tipificada. El registro del " +
+                "abastecimiento no se omite nunca por falta de papel, pero tampoco se disimula.");
+
         _diario.Add(new TransicionDeAsignacion(
             "V-04", EstadoDeAsignacion.Consumida, consume, momento,
             $"{consumo.Galones:N2} galones por {consumo.Monto:N2} en {consumo.Estacion}, " +
             $"odómetro {consumo.Odometro:N0}" +
             (consumo.Comprobante is null
-                ? ". SIN COMPROBANTE: exige causa tipificada y descargo alternativo (`RN-85`)."
+                ? $". SIN COMPROBANTE (`RN-85`), causa declarada: {consumo.CausaSinComprobante}"
                 : $", comprobante {consumo.Comprobante}."),
             IdDeCaptura: idDeCaptura,
             Consumo: consumo));

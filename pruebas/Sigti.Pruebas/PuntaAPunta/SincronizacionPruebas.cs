@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -78,6 +79,17 @@ public class SincronizacionPruebas(BaseDePruebas baseDePruebas)
         // El dispositivo no recibió el acuse y reenvía. Es el caso NORMAL, no el raro.
         var segunda = await cliente.PostAsJsonAsync("/sincronizacion", lote);
         Assert.Equal(HttpStatusCode.OK, segunda.StatusCode);
+
+        // **Y se RECONOCE, no se rechaza.** Contar transiciones no basta: la máquina de
+        // estados también frena el duplicado —`T-14` sobre una misión ya en ruta es
+        // inválida—, y con eso el conteo daba 1 estando la idempotencia rota. La diferencia
+        // importa: un hecho rechazado **nunca se acusa**, así que el dispositivo lo
+        // reintentaría para siempre, que es justo lo que `RNF-03` existe para impedir.
+        var cuerpo = await segunda.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Single(cuerpo.GetProperty("yaConocidas").EnumerateArray());
+        Assert.Empty(cuerpo.GetProperty("rechazadas").EnumerateArray());
+        Assert.Single(cuerpo.GetProperty("acusadas").EnumerateArray());
 
         await using var contexto = baseDePruebas.Contexto();
 

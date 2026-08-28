@@ -94,9 +94,18 @@ public sealed record TransicionDeAsignacion(
 /// `RN-85` tipifica la ausencia de comprobante con causa y descargo alternativo, y el
 /// principio es que <i>el registro del abastecimiento no se omite nunca por falta de papel</i>.
 /// </param>
+/// <param name="CausaSinComprobante">
+/// Por qué no hay comprobante. <b>`RN-85` no admite la ausencia a secas</b>: exige causa
+/// tipificada y descargo alternativo, y sin la causa el registro dice que falta el papel
+/// pero no si eso se puede defender.
+///
+/// `[C]` <b>El catálogo de causas no existe</b> — la institución no lo ha entregado. Hoy es
+/// texto libre; cuando exista, esto pasa a ser una clave y el texto queda como detalle.
+/// </param>
 public sealed record ConsumoRegistrado(
     decimal Galones,
     decimal Monto,
     string Estacion,
     int Odometro,
-    string? Comprobante = null);
+    string? Comprobante = null,
+    string? CausaSinComprobante = null);

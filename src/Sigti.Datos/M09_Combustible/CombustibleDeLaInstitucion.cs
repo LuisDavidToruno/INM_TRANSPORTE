@@ -231,6 +231,7 @@ public sealed class CombustibleDeLaInstitucion(SigtiDbContext contexto)
                 ConsumoEstacion = t.Consumo?.Estacion,
                 ConsumoOdometro = t.Consumo?.Odometro,
                 ConsumoComprobante = t.Consumo?.Comprobante,
+                ConsumoCausaSinComprobante = t.Consumo?.CausaSinComprobante,
                 Devuelto = t.Devuelto,
             });
         }
@@ -268,7 +269,8 @@ public sealed class CombustibleDeLaInstitucion(SigtiDbContext contexto)
                     // nunca se pudo escribir.
                     t.ConsumoGalones is { } galones && t.ConsumoMonto is { } monto
                         && t.ConsumoEstacion is { } estacion && t.ConsumoOdometro is { } odometro
-                        ? new ConsumoRegistrado(galones, monto, estacion, odometro, t.ConsumoComprobante)
+                        ? new ConsumoRegistrado(galones, monto, estacion, odometro,
+                                                t.ConsumoComprobante, t.ConsumoCausaSinComprobante)
                         : null,
                     t.Devuelto)));
 
