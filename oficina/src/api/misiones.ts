@@ -275,3 +275,54 @@ export async function antiguedadDelEspejo(): Promise<AntiguedadDelEspejo | null>
   if (!BASE) return conRetardo(null);
   return pedir<AntiguedadDelEspejo>('/organigrama/antiguedad');
 }
+
+/**
+ * Los motivos con que se puede rechazar — `T-06`.
+ *
+ * <b>Se piden al servidor, no se cablean.</b> `HU-014` declara el catálogo configurable por
+ * la institución (insumo #1, `[C]`), y una lista duplicada en el cliente es una lista que
+ * se separa de la que el servidor valida — con lo cual el rechazo fallaría al guardar y no
+ * al elegir, que es el peor momento para enterarse.
+ */
+export async function catalogoDeMotivosDeRechazo(): Promise<string[]> {
+  if (!BASE) return conRetardo([]);
+  return pedir<string[]>('/motivos-de-rechazo');
+}
+
+/**
+ * `T-06` — rechazar. <b>Terminal</b>: de `RECHAZADA` no sale ninguna transición.
+ *
+ * El motivo es del catálogo y el comentario es obligatorio: el primero dice qué se cuenta,
+ * el segundo dice a la dependencia qué pasó.
+ */
+export async function rechazar(
+  id: string,
+  ejecuta: string,
+  motivo: string,
+  comentario: string,
+): Promise<void> {
+  if (!BASE) return conRetardo(undefined);
+  await pedir(`/misiones/${id}/rechazar`, {
+    method: 'POST',
+    body: JSON.stringify({ ejecuta, motivo, comentario, momento: new Date().toISOString() }),
+  });
+}
+
+/**
+ * `T-04` — devolver para corrección. <b>No es rechazar</b>: el expediente vuelve a quien lo
+ * capturó, se corrige y se reenvía. Sigue siendo el mismo expediente.
+ *
+ * El motivo es libre y no del catálogo: acá no se mide por qué se dijo que no —no se dijo—,
+ * se dice qué falta, y un catálogo no puede enumerar lo que falta en un expediente concreto.
+ */
+export async function devolverParaCorreccion(
+  id: string,
+  ejecuta: string,
+  motivo: string,
+): Promise<void> {
+  if (!BASE) return conRetardo(undefined);
+  await pedir(`/misiones/${id}/devolver`, {
+    method: 'POST',
+    body: JSON.stringify({ ejecuta, motivo, momento: new Date().toISOString() }),
+  });
+}

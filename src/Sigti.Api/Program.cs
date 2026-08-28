@@ -5,6 +5,7 @@ using Sigti.Aplicacion.M02_Parametros;
 using Sigti.Aplicacion.M03_Flota;
 using Sigti.Aplicacion.M05_Motoristas;
 using Sigti.Aplicacion.M16_Sincronizacion;
+using Sigti.Aplicacion.M06_Solicitudes;
 using Sigti.Aplicacion.M07_ProgramacionYDespacho;
 using Sigti.Datos;
 using Sigti.Dominio.M02_Parametros;
@@ -40,6 +41,7 @@ constructor.Services.AddScoped<ConsultaDelOrganigrama>();
 constructor.Services.AddScoped<ConsultaDeOcupacion>();
 constructor.Services.AddScoped<ConsultaDeCustodias>();
 constructor.Services.AddScoped<ConsultaDePermisos>();
+constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
 constructor.Services.AddSingleton(new AlmacenDeArchivos(
@@ -353,6 +355,80 @@ parametros.MapPost("/{id}/aprobar", async (
         ulid, new IdPersona(peticion.Ejecuta), peticion.Momento);
 
     return Results.Ok(new { id, concedida = intento.Concedida, motivo = intento.MotivoDelRechazo });
+});
+
+// Las salidas de SOLICITADA que no son aprobar. Hasta que existieron, la jefatura podía
+// aprobar y nada más: la bandeja ofrecía media función de autoridad.
+//
+// `T-06` RECHAZAR es terminal y dice «no». `T-04` DEVOLVER dice «así no» y el expediente
+// vuelve a quien lo capturó. Confundirlas hace que una solicitud arreglable muera, o que
+// una improcedente dé vueltas para siempre — por eso son dos rutas y no una con bandera.
+misiones.MapPost("/{id}/rechazar", async (
+    string id, RechazarMision peticion,
+    ServicioDeMisiones servicio, CatalogoProvisionalDeMotivosDeRechazo catalogo) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    var estado = await servicio.TransicionarAsync(
+        ulid,
+        e => e.Rechazar(new IdPersona(peticion.Ejecuta), peticion.Motivo,
+                        peticion.Comentario, catalogo.Vigente, peticion.Momento),
+        peticion.Momento);
+
+    return Results.Ok(new { id, estado = estado.ToString() });
+});
+
+// Qué motivos hay. La pantalla no los puede cablear: el catálogo es configurable por la
+// institución (`HU-014`, insumo #1), y una lista duplicada en el cliente sería una lista
+// que se separa de la que el servidor valida.
+app.MapGet("/motivos-de-rechazo", (CatalogoProvisionalDeMotivosDeRechazo catalogo) =>
+    Results.Ok(catalogo.Vigente.Codigos));
+
+// `T-04` — devolver para corrección. Motivo LIBRE, a diferencia del rechazo: acá no se
+// mide por qué se dijo que no, se dice qué falta, y un catálogo no puede enumerar lo que
+// falta en un expediente concreto.
+misiones.MapPost("/{id}/devolver", async (
+    string id, EjecutarTransicion peticion, ServicioDeMisiones servicio) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    var estado = await servicio.TransicionarAsync(
+        ulid,
+        e => e.DevolverParaCorreccion(new IdPersona(peticion.Ejecuta),
+                                      peticion.Motivo ?? "", peticion.Momento),
+        peticion.Momento);
+
+    return Results.Ok(new { id, estado = estado.ToString() });
+});
+
+// `T-07` — desistir. NO exige segregación: no es un pronunciamiento sobre la solicitud,
+// es que quien la pidió ya no la quiere.
+misiones.MapPost("/{id}/desistir", async (
+    string id, EjecutarTransicion peticion, ServicioDeMisiones servicio) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    var estado = await servicio.TransicionarAsync(
+        ulid,
+        e => e.Desistir(new IdPersona(peticion.Ejecuta), peticion.Motivo ?? "", peticion.Momento),
+        peticion.Momento);
+
+    return Results.Ok(new { id, estado = estado.ToString() });
+});
+
+// `T-03` — descartar un borrador que nunca se envió.
+misiones.MapPost("/{id}/descartar", async (
+    string id, EjecutarTransicion peticion, ServicioDeMisiones servicio) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    var estado = await servicio.TransicionarAsync(
+        ulid,
+        e => e.DescartarBorrador(new IdPersona(peticion.Ejecuta),
+                                 peticion.Motivo ?? "", peticion.Momento),
+        peticion.Momento);
+
+    return Results.Ok(new { id, estado = estado.ToString() });
 });
 
 // T-09: la anulación exige motivo TIPIFICADO. El comentario es complemento, no
@@ -675,6 +751,14 @@ internal sealed record EvaluarAsignacion(
 /// <summary>El motivo sale del catálogo cerrado; el comentario lo acompaña.</summary>
 internal sealed record AnularMision(
     string Ejecuta, MotivoDeAnulacion Motivo, string? Comentario, DateTimeOffset Momento);
+
+/// <summary>
+/// Un rechazo — `T-06`. <b>El comentario NO es opcional</b>, a diferencia del de la
+/// anulación: el motivo tipificado dice qué se cuenta y el comentario dice a la
+/// dependencia qué pasó. La exigencia vive en el dominio; acá el tipo sólo lo refleja.
+/// </summary>
+internal sealed record RechazarMision(
+    string Ejecuta, string Motivo, string Comentario, DateTimeOffset Momento);
 
 /// <summary>
 /// Programar y despachar. La <b>placa es opcional</b>: sin placa metálica es un estado

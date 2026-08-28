@@ -246,6 +246,64 @@ para revelar el solape lo estaba escondiendo. Ahora se apilan en subfilas, y dos
 que **se tocan** cuentan como solape: el vehículo no puede estar volviendo de Danlí y
 saliendo a Juticalpa el mismo día.
 
+### La jefatura ya puede decir que no
+
+**Podía aprobar y nada más.** Una solicitud improcedente no se rechazaba, una incompleta no
+se devolvía, y quien la pidió no podía retirarla: el único camino era hacia adelante. La
+bandeja de `PT-013` ofrecía **media función de autoridad** — y el botón «Rechazar con
+motivo» estaba ahí desde el principio, **sin `onClick`**: un control muerto que parecía
+operable.
+
+| Transición | Qué | Motivo |
+|---|---|---|
+| `T-06` rechazar | **Terminal.** De `RECHAZADA` no sale nada | Catálogo **y** texto libre |
+| `T-04` devolver | Vuelve a `BORRADOR` y se reenvía por `T-02` | Libre |
+| `T-07` desistir | Quien pidió retira. **Sin segregación** | Libre |
+| `T-03` descartar | Un borrador que nunca se envió | Libre |
+
+**Rechazar y devolver no son lo mismo, y confundirlas cuesta.** `T-06` dice «no» y no se
+deshace —*«la negativa queda documentada y no se borra reabriendo el expediente»*—; `T-04`
+dice «así no». Con una sola de las dos, o una solicitud arreglable muere, o una improcedente
+da vueltas para siempre. Por eso son dos botones con pesos visuales distintos y no uno con
+bandera.
+
+**`T-07` no exige segregación, y es deliberado.** `BD-01` existe para que nadie autorice lo
+que él mismo pidió; retirar lo propio es lo contrario. Exigir un tercero obligaría a molestar
+a la jefatura para deshacer algo que no llegó a nada.
+
+**El catálogo de motivos de rechazo NO es un `enum`.** `HU-014` lo declara configurable por
+la institución y sus valores de ejemplo — insumo #1, `[C]`. El dominio **recibe** el catálogo
+y sólo impone que el motivo esté en él; la pantalla lo **pide al servidor** en vez de
+cablearlo, porque una lista duplicada en el cliente se separa de la que el servidor valida y
+el rechazo fallaría al guardar, no al elegir.
+
+Es la diferencia con `MotivoDeAnulacion`, que sí es cerrado: aquella tipificación **es** el
+indicador de déficit de flota y un catálogo que crece deja de ser comparable entre períodos.
+
+⚠️ **Se cargan cuatro valores de ejemplo y no una lista vacía.** Un catálogo vacío haría
+**imposible rechazar**: entre una lista provisional marcada como tal y una función de
+autoridad que no se puede ejercer, la primera es el error menor — y es reversible con una
+carga de datos, no con código.
+
+⚠️ **Cuatro efectos de la autoridad no ocurren, y ninguno se finge.** Liberar el número de
+expediente sin reciclarlo (`M-01`); la acción *«crear nueva solicitud a partir de esta»* que
+preserva el vínculo (`M-06`); el **versionado** del expediente al devolver —el diario guarda
+el rastro de la devolución, pero no una versión 1 del contenido frente a una 2—; y la
+precondición de `T-04` sobre autorizaciones de nivel ya registradas, que hoy es **vacua**
+porque el escalamiento de `RN-02` no existe y sólo hay un `T-05`.
+
+### 🔎 El dominio acepta una solicitud sin dependencia
+
+`DatosDeLaSolicitud` recibe `Dependencia`, `ObjetoDelTraslado` y `Destino` como `string` y
+**no rechaza la cadena vacía**. Hay un expediente sembrado con `dependencia: ""` que lo
+prueba. Una solicitud sin dependencia **no se puede encaminar a ninguna jefatura** —no hay
+competencia contra la cual verificar— ni aparece en ningún reporte por dependencia.
+
+Se detectó porque el diálogo de rechazo decía literalmente **«vuelve a , se corrige»**. Lo que
+se corrigió es la pantalla: nueve mensajes de la oficina interpolaban ese campo y ahora pasan
+por `laDependencia()`, que sustituye el hueco por algo que **encaja gramaticalmente y dice la
+verdad**. El hueco del dominio **no se tocó**: es otra decisión y es tuya.
+
 ### El despacho ya tiene sus dos controles que faltaban: `BD-13` y `BD-04`
 
 **`BD-13` — sin custodio vigente no se despacha.** No es una formalidad: la operación que

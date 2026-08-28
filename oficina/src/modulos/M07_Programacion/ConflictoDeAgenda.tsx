@@ -1,9 +1,9 @@
 import type { ReactElement } from 'react';
 import { CalendarX } from 'lucide-react';
 
-import { Nota, Panel, Pastilla } from '../../ui';
+import { Enlace, Nota, Panel, Pastilla } from '../../ui';
 import type { ConflictoDeReserva, VehiculoDeFlota } from '../../api/flota';
-import { soloFecha } from '../M06_Autorizacion/formato';
+import { laDependencia, soloFecha } from '../M06_Autorizacion/formato';
 
 /**
  * `BD-11` — el recurso ya está tomado en esa franja.
@@ -21,10 +21,14 @@ import { soloFecha } from '../M06_Autorizacion/formato';
  * convierte un bloqueo accionable en un callejón.
  *
  * ── Lo que esta pantalla NO finge ────────────────────────────────────────────
- * De las cuatro salidas de `EF-01`, **hoy sólo una existe**: asignar otro recurso.
- * Consolidar necesita el expediente rector, reprogramar necesita acuerdo registrado, y
- * escalar necesita `T-11`, que no está construida. Ofrecer botones que no hacen nada sería
- * peor que decirlo: quien programa perdería el viaje descubriendo que no funcionan.
+ * De las cuatro salidas de `EF-01`, **hoy sólo una se ejerce desde acá**: asignar otro
+ * recurso. Consolidar necesita el expediente rector y reprogramar necesita acuerdo
+ * registrado; ninguno existe. **Escalar la prioridad sí es ejecutable** desde que `T-11`
+ * existe —desplazar pasa por devolver la otra misión a la cola—, pero se hace sobre la
+ * misión ajena, en la cola de programación, y no desde esta pantalla.
+ *
+ * Ofrecer botones que no hacen nada sería peor que decirlo: quien programa perdería el
+ * viaje descubriendo que no funcionan.
  */
 export default function ConflictoDeAgenda({
   conflicto,
@@ -56,7 +60,7 @@ export default function ConflictoDeAgenda({
             <span>
               <b>{recurso}</b> por la misión{' '}
               <span className="tw:font-mono tw:tabular-nums">{conflicto.folio}</span>, de{' '}
-              <b>{conflicto.dependencia}</b>, del {soloFecha(conflicto.desde)} al{' '}
+              <b>{laDependencia(conflicto.dependencia)}</b>, del {soloFecha(conflicto.desde)} al{' '}
               {soloFecha(conflicto.hasta)}.
             </span>
             <span className="tw:text-xs">
@@ -100,15 +104,23 @@ export default function ConflictoDeAgenda({
         <section className="tw:flex tw:flex-col tw:gap-1.5">
           <h3 className="tw:text-sm tw:font-medium">Las otras salidas todavía no existen</h3>
           <p className="tw:text-sm tw:text-tinta-mid">
-            <code className="tw:font-mono tw:text-xs">EF-01</code> prevé tres caminos más, y
-            ninguno está construido. Hoy se resuelven fuera del sistema, hablando con{' '}
-            {conflicto.dependencia}:
+            <code className="tw:font-mono tw:text-xs">EF-01</code> prevé tres caminos más. Dos no
+            están construidos y se resuelven fuera del sistema, hablando con{' '}
+            {laDependencia(conflicto.dependencia)}:
           </p>
           <ul className="tw:flex tw:flex-wrap tw:gap-1.5">
             <Pendiente>Consolidar las dos misiones</Pendiente>
             <Pendiente>Reprogramar una de las dos</Pendiente>
-            <Pendiente>Escalar la prioridad</Pendiente>
           </ul>
+          {/* Escalar SÍ se puede desde que existe `T-11`: desplazar una programación pasa
+              por devolverla explícitamente a la cola. Se hace sobre la misión ajena, y por
+              eso el enlace va a la cola de programación y no a un botón de acá. */}
+          <p className="tw:text-sm tw:text-tinta-mid">
+            <b>Escalar la prioridad sí se puede</b>: solo Gerencia Administrativa puede desplazar
+            una programación existente, y se hace devolviendo la misión ajena a la cola desde{' '}
+            <Enlace href="/programacion">la cola de programación</Enlace>. Nunca se le quita el
+            vehículo a una misión sin devolverla explícitamente.
+          </p>
         </section>
       </div>
     </Panel>

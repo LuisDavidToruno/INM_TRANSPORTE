@@ -26,7 +26,7 @@ import {
   desprogramar,
 } from '../../api/misiones';
 import type { Expediente, MotivoDeAnulacion } from '../../dominio/mision';
-import { diaYHora, faltanDias, soloFecha } from '../M06_Autorizacion/formato';
+import { diaYHora, faltanDias, laDependencia, soloFecha } from '../M06_Autorizacion/formato';
 
 /**
  * `PT-025` — Cola de programación con caducidad de la aprobación.
@@ -324,7 +324,7 @@ function DialogoDeDesprogramacion({
     <Modal
       abierto
       titulo={`Devolver ${expediente.folio} a la cola`}
-      descripcion={`El vehículo y el motorista quedan libres, y la misión conserva su aprobación: no hace falta que la jefatura vuelva a firmar. Se notifica a ${expediente.dependencia}.`}
+      descripcion={`El vehículo y el motorista quedan libres, y la misión conserva su aprobación: no hace falta que la jefatura vuelva a firmar. Se notifica a ${laDependencia(expediente.dependencia)}.`}
       onCerrar={onCerrar}
       // Sin botón de salida propio: `Modal` ya rinde el suyo con `etiquetaCerrar`.
       // Agregar otro deja dos que hacen lo mismo, y el usuario tiene que decidir cuál
@@ -434,8 +434,8 @@ function DialogoDeAnulacion({
       titulo={`Anular ${expediente.folio}`}
       descripcion={
         programada
-          ? `La anulación no se deshace, y esta misión tiene vehículo y motorista tomados: quedarán libres. Si sólo quiere liberarlos, use «Devolver a la cola» — la misión sobrevive y no hay que pedirla de nuevo. Se notifica a ${expediente.dependencia}.`
-          : `La anulación no se deshace. El expediente sigue consultable con el filtro de caducadas, y se notifica a ${expediente.dependencia}.`
+          ? `La anulación no se deshace, y esta misión tiene vehículo y motorista tomados: quedarán libres. Si sólo quiere liberarlos, use «Devolver a la cola» — la misión sobrevive y no hay que pedirla de nuevo. Se notifica a ${laDependencia(expediente.dependencia)}.`
+          : `La anulación no se deshace. El expediente sigue consultable con el filtro de caducadas, y se notifica a ${laDependencia(expediente.dependencia)}.`
       }
       destructivo
       onCerrar={onCerrar}

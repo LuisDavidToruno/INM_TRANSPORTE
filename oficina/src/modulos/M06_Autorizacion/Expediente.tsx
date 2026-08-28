@@ -4,9 +4,24 @@ import { useNavigate, useParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CircleAlert, CircleCheck, ShieldBan, TriangleAlert } from 'lucide-react';
 
-import { Boton, Campo, Nota, Panel, Pastilla, RastreadorEtapas, avisar } from '../../ui';
-import { autorizar, expediente as traerExpediente } from '../../api/misiones';
-import { BloqueoDuro } from '../../api/misiones';
+import {
+  Boton,
+  Campo,
+  Modal,
+  Nota,
+  Panel,
+  Pastilla,
+  RastreadorEtapas,
+  avisar,
+} from '../../ui';
+import {
+  BloqueoDuro,
+  autorizar,
+  catalogoDeMotivosDeRechazo,
+  devolverParaCorreccion,
+  expediente as traerExpediente,
+  rechazar,
+} from '../../api/misiones';
 import {
   ETAPAS_DE_MISION,
   ROTULO_ESTADO,
@@ -15,7 +30,7 @@ import {
   indiceDeEtapa,
 } from '../../dominio/mision';
 import type { Expediente as ExpedienteDto, Validacion } from '../../dominio/mision';
-import { momentoCompleto } from './formato';
+import { laDependencia, momentoCompleto } from './formato';
 
 /**
  * `PT-014` — El expediente en decisión, en una sola pantalla.
@@ -33,6 +48,7 @@ export default function Expediente(): ReactElement {
   const cliente = useQueryClient();
   const [motivo, setMotivo] = useState('');
   const [acusadas, setAcusadas] = useState<Set<string>>(new Set());
+  const [negativo, setNegativo] = useState<'rechazar' | 'devolver' | null>(null);
 
   const { data, isPending, isError } = useQuery({
     queryKey: ['expediente', id],
@@ -53,6 +69,15 @@ export default function Expediente(): ReactElement {
       }
       avisar.error('No se pudo autorizar. El expediente quedó como estaba.');
     },
+  });
+
+  // Los motivos de rechazo se PIDEN, no se cablean: el catálogo es configurable por la
+  // institución (`HU-014`, insumo #1), y una lista duplicada acá sería una lista que se
+  // separa de la que el servidor valida — y el rechazo fallaría al guardar, no al elegir.
+  const motivosDeRechazo = useQuery({
+    queryKey: ['motivos-de-rechazo'],
+    queryFn: catalogoDeMotivosDeRechazo,
+    enabled: negativo === 'rechazar',
   });
 
   if (isPending) return <Cargando />;
@@ -110,12 +135,24 @@ export default function Expediente(): ReactElement {
           bloqueado={bloqueado}
           faltanAcuses={faltanAcuses.length}
           exigeMotivo={exigeMotivo}
+          onRechazar={() => setNegativo('rechazar')}
+          onDevolver={() => setNegativo('devolver')}
           motivo={motivo}
           onMotivo={setMotivo}
           enviando={autorizacion.isPending}
           onAutorizar={() => autorizacion.mutate()}
         />
       </div>
+
+      {negativo && (
+        <PronunciamientoNegativo
+          clase={negativo}
+          expediente={data}
+          motivos={motivosDeRechazo.data ?? []}
+          cargandoMotivos={motivosDeRechazo.isPending}
+          onCerrar={() => setNegativo(null)}
+        />
+      )}
     </div>
   );
 }
@@ -247,6 +284,147 @@ function Diario({ transiciones }: { transiciones: ExpedienteDto['diario'] }): Re
  * El bloqueo duro sí lo deshabilita: ahí la acción de verdad no existe, y el
  * servidor la rechazaría igual.
  */
+/**
+ * El pronunciamiento negativo — `T-06` rechazar y `T-04` devolver.
+ *
+ * ── Un diálogo para las dos, y no dos pantallas ─────────────────────────────
+ * Porque la decisión es la misma —decirle que no a esta solicitud— y lo que cambia es
+ * cuánto. Separarlas obligaría a elegir la pantalla antes de saber cuál corresponde, que
+ * es exactamente al revés de como se piensa: primero se ve qué falta, después se decide
+ * si eso se arregla o no.
+ *
+ * ── Y por qué el motivo se comporta distinto en cada una ────────────────────
+ * Rechazar exige **catálogo + texto**: el catálogo dice qué se cuenta y el texto dice a la
+ * dependencia qué pasó. Devolver exige **sólo texto**: no se está midiendo por qué se dijo
+ * que no —no se dijo—, se está diciendo qué falta, y un catálogo no puede enumerar lo que
+ * falta en un expediente concreto.
+ */
+function PronunciamientoNegativo({
+  clase,
+  expediente,
+  motivos,
+  cargandoMotivos,
+  onCerrar,
+}: {
+  clase: 'rechazar' | 'devolver';
+  expediente: ExpedienteDto;
+  motivos: string[];
+  cargandoMotivos: boolean;
+  onCerrar(): void;
+}): ReactElement {
+  const navegar = useNavigate();
+  const cliente = useQueryClient();
+  const [motivo, setMotivo] = useState('');
+  const [comentario, setComentario] = useState('');
+
+  const esRechazo = clase === 'rechazar';
+
+  const operacion = useMutation({
+    mutationFn: () =>
+      esRechazo
+        ? rechazar(expediente.id, 'Rolando Discua', motivo, comentario)
+        : devolverParaCorreccion(expediente.id, 'Rolando Discua', comentario),
+    onSuccess: async () => {
+      avisar.exito(
+        esRechazo
+          ? `${expediente.folio} rechazada. La negativa queda en el diario y no se reabre.`
+          : `${expediente.folio} volvió a ${laDependencia(expediente.dependencia)} para corrección.`,
+      );
+      await cliente.invalidateQueries({ queryKey: ['bandeja-autorizacion'] });
+      navegar('/autorizacion');
+    },
+    onError: (e) => {
+      if (e instanceof BloqueoDuro) {
+        avisar.error(`${e.precondicion} — ${e.message}`);
+        return;
+      }
+      avisar.error('No se pudo. El expediente quedó como estaba.');
+    },
+  });
+
+  // Rechazar necesita las dos cosas; devolver, sólo el texto.
+  const listo = comentario.trim().length >= 8 && (!esRechazo || motivo !== '');
+
+  return (
+    <Modal
+      abierto
+      titulo={esRechazo ? `Rechazar ${expediente.folio}` : `Devolver ${expediente.folio} para corrección`}
+      descripcion={
+        esRechazo
+          ? `El rechazo NO se deshace: de rechazada no sale ninguna transición. Si la solicitud es arreglable, use «Devolver para corrección» — vuelve a ${laDependencia(expediente.dependencia)}, se corrige y se reenvía sin perder el expediente.`
+          : `El expediente vuelve a ${laDependencia(expediente.dependencia)} como borrador. Conserva su identidad: al reenviarlo es el mismo expediente corregido, no uno nuevo.`
+      }
+      destructivo={esRechazo}
+      onCerrar={onCerrar}
+      acciones={
+        <Boton
+          variante={esRechazo ? 'peligro' : 'primario'}
+          disabled={!listo || operacion.isPending}
+          cargando={operacion.isPending}
+          onClick={() => operacion.mutate()}
+        >
+          {esRechazo ? 'Rechazar expediente' : 'Devolver para corrección'}
+        </Boton>
+      }
+    >
+      <div className="tw:flex tw:flex-col tw:gap-4">
+        {esRechazo && (
+          <fieldset className="tw:flex tw:flex-col tw:gap-2">
+            <legend className="tw:mb-1 tw:text-sm tw:font-medium">Motivo del catálogo</legend>
+
+            {cargandoMotivos ? (
+              <p className="tw:text-sm tw:text-tinta-mid">Cargando los motivos…</p>
+            ) : motivos.length === 0 ? (
+              // Un catálogo vacío hace IMPOSIBLE rechazar, y hay que decirlo: sin esto,
+              // el botón queda inerte y nadie sabe por qué.
+              <Nota tono="aviso">
+                No hay motivos de rechazo configurados. Sin catálogo no se puede rechazar —
+                el texto libre complementa el motivo tipificado, no lo sustituye.
+              </Nota>
+            ) : (
+              motivos.map((m) => (
+                <label
+                  key={m}
+                  className="tw:flex tw:cursor-pointer tw:items-start tw:gap-2 tw:text-sm"
+                >
+                  <input
+                    type="radio"
+                    name="motivo-rechazo"
+                    checked={motivo === m}
+                    onChange={() => setMotivo(m)}
+                    className="tw:mt-0.5 tw:size-4 tw:shrink-0 tw:accent-acento"
+                  />
+                  <span>{m}</span>
+                </label>
+              ))
+            )}
+          </fieldset>
+        )}
+
+        <Campo
+          etiqueta={esRechazo ? 'Qué decirle a la dependencia' : 'Qué hay que corregir'}
+          obligatorio
+          ayuda={
+            esRechazo
+              ? 'Lo lee quien pidió el viaje. El motivo del catálogo dice qué se cuenta; esto le dice si vale la pena replantearlo.'
+              : 'Lo lee quien capturó la solicitud, y es lo único que tiene para saber qué arreglar antes de reenviarla.'
+          }
+        >
+          {(props) => (
+            <textarea
+              {...props}
+              rows={3}
+              value={comentario}
+              onChange={(e) => setComentario(e.target.value)}
+              className="loki-input"
+            />
+          )}
+        </Campo>
+      </div>
+    </Modal>
+  );
+}
+
 function Decision({
   bloqueado,
   faltanAcuses,
@@ -255,6 +433,8 @@ function Decision({
   onMotivo,
   enviando,
   onAutorizar,
+  onRechazar,
+  onDevolver,
 }: {
   bloqueado: boolean;
   faltanAcuses: number;
@@ -263,6 +443,8 @@ function Decision({
   onMotivo(v: string): void;
   enviando: boolean;
   onAutorizar(): void;
+  onRechazar(): void;
+  onDevolver(): void;
 }): ReactElement {
   const faltaMotivo = exigeMotivo && motivo.trim().length < 8;
   const impedido = bloqueado || faltanAcuses > 0 || faltaMotivo;
@@ -315,7 +497,19 @@ function Decision({
             </p>
           )}
 
-          <Boton variante="fantasma" disabled={enviando}>
+          {/* Las dos salidas negativas, y en este orden. Devolver es reversible —la
+              solicitud vuelve a quien la capturó y puede reenviarse—; rechazar es
+              terminal. Con el mismo peso visual, se usa la irreversible cuando bastaba
+              la otra, y la dependencia tiene que volver a pedir el viaje desde cero.
+
+              Ninguna de las dos se deshabilita por bloqueo: `BD-01` impide AUTORIZAR y
+              rechazar, pero si el bloqueo es de competencia, devolver tampoco procede y
+              el servidor lo dirá. Se ofrecen y se explica, en vez de esconderlas. */}
+          <Boton variante="secundario" disabled={enviando} onClick={onDevolver}>
+            Devolver para corrección
+          </Boton>
+
+          <Boton variante="fantasma" disabled={enviando} onClick={onRechazar}>
             Rechazar con motivo
           </Boton>
         </div>

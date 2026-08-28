@@ -1,4 +1,5 @@
 using Sigti.Dominio.M02_Parametros;
+using Sigti.Dominio.M06_Solicitudes;
 using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M05_Motoristas;
 using Sigti.Dominio.Organizacion;
@@ -216,6 +217,127 @@ public sealed class OrdenDeMision
         return $" · BD-11 verificada contra {reservas.Count} reserva(s) del recurso";
     }
 
+    /// <summary>
+    /// `T-06` — SOLICITADA → RECHAZADA. <b>La otra mitad del pronunciamiento.</b>
+    ///
+    /// ── Por qué el motivo es del catálogo Y ADEMÁS texto libre ───────────────
+    /// `HU-014`: <i>«seleccione un motivo del catálogo. El texto libre complementa el motivo
+    /// tipificado, no lo sustituye»</i>. Sin tipificación no hay forma de contar cuántas
+    /// solicitudes se rechazan por gasto no justificado; sin texto libre, la jefatura no
+    /// puede decirle a la dependencia qué pasó. Hacen falta las dos.
+    ///
+    /// ── Es terminal, y eso es lo que le da valor ─────────────────────────────
+    /// De `RECHAZADA` no sale ninguna transición. <i>«La negativa queda documentada y no se
+    /// borra reabriendo el expediente»</i>: quien quiera insistir presenta una solicitud
+    /// nueva. Un rechazo que se puede deshacer no es un pronunciamiento, es un borrador.
+    ///
+    /// ⚠️ <b>Dos efectos no ocurren.</b> Liberar el número de expediente sin reciclarlo es de
+    /// `M-01` —los rangos de folio por delegación—, y la acción <i>«crear nueva solicitud a
+    /// partir de esta»</i>, que preserva el vínculo, es de `M-06`. Ninguno se finge.
+    /// </summary>
+    /// <param name="motivo">Un código del catálogo. <b>Obligatorio.</b></param>
+    /// <param name="comentario">
+    /// El texto libre. <b>También obligatorio</b>: el motivo tipificado dice qué se cuenta, el
+    /// comentario dice a la dependencia qué pasó. Un rechazo sin explicación la deja sin
+    /// saber si vale la pena replantearlo.
+    /// </param>
+    public void Rechazar(
+        IdPersona ejecuta,
+        string motivo,
+        string comentario,
+        CatalogoDeMotivosDeRechazo catalogo,
+        DateTimeOffset momento)
+    {
+        ExigirEstado(EstadoDeMision.Solicitada, "T-06");
+        ExigirSegregacionDeAutorizacion(ejecuta, "rechazarla");
+
+        if (!catalogo.Contiene(motivo))
+            throw new BloqueoDuro("T-06",
+                $"«{motivo}» no está en el catálogo de motivos de rechazo. El texto libre " +
+                "complementa el motivo tipificado, no lo sustituye. Motivos disponibles: " +
+                string.Join(", ", catalogo.Codigos) + ".");
+
+        if (string.IsNullOrWhiteSpace(comentario))
+            throw new BloqueoDuro("T-06",
+                "Un rechazo exige explicación además del motivo: el tipificado dice qué se " +
+                "cuenta, el texto dice a la dependencia qué pasó y si vale la pena replantearlo.");
+
+        Registrar("T-06", EstadoDeMision.Rechazada, ejecuta, momento,
+            $"{motivo} · {comentario.Trim()}");
+    }
+
+    /// <summary>
+    /// `T-04` — SOLICITADA → BORRADOR. <b>Devolver para corrección</b>, que no es rechazar.
+    ///
+    /// ── La diferencia, que es toda ──────────────────────────────────────────
+    /// `T-06` dice <i>«no»</i> y es terminal. Ésta dice <i>«así no»</i>: el expediente vuelve a
+    /// manos de quien lo capturó, se corrige y se reenvía por `T-02`. Confundirlas hace que
+    /// una solicitud arreglable muera, o que una improcedente dé vueltas para siempre.
+    ///
+    /// ── Motivo obligatorio, libre y visible para el solicitante ─────────────
+    /// Libre y no tipificado, a diferencia del rechazo: acá no se mide por qué se dijo que
+    /// no —no se dijo—, se dice <b>qué falta</b>. Un catálogo no puede enumerar lo que falta
+    /// en un expediente concreto.
+    ///
+    /// ⚠️ <b>Tres efectos no ocurren, y ninguno se finge.</b> El <b>versionado</b> del
+    /// expediente —<i>«se incrementa la versión; la anterior se conserva íntegra»</i>— no
+    /// existe: el diario conserva el rastro de la devolución, pero no una versión 1 del
+    /// contenido frente a una versión 2. La <b>liberación del número</b> es de `M-01`. Y la
+    /// precondición de que <i>«ninguna autorización de nivel se haya registrado»</i> es hoy
+    /// vacua: el escalamiento de `RN-02` no está construido y sólo hay un `T-05`.
+    /// </summary>
+    public void DevolverParaCorreccion(IdPersona ejecuta, string motivo, DateTimeOffset momento)
+    {
+        ExigirEstado(EstadoDeMision.Solicitada, "T-04");
+        ExigirSegregacionDeAutorizacion(ejecuta, "devolverla");
+
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new BloqueoDuro("T-04",
+                "Devolver exige decir qué corregir: el expediente vuelve a quien lo capturó, " +
+                "y sin el motivo no sabe qué arreglar antes de reenviarlo.");
+
+        Registrar("T-04", EstadoDeMision.Borrador, ejecuta, momento, motivo.Trim());
+    }
+
+    /// <summary>
+    /// `T-03` — BORRADOR → ANULADA. <b>Descartar un borrador que nunca se envió.</b>
+    ///
+    /// <i>«No hay asiento reverso porque no hubo transacción.»</i> El expediente no entró al
+    /// circuito de control, así que descartarlo no revierte nada — pero <b>se registra</b>,
+    /// porque un borrador que desaparece sin rastro es indistinguible de uno que nunca
+    /// existió, y el diario es de sólo agregar.
+    /// </summary>
+    public void DescartarBorrador(IdPersona ejecuta, string motivo, DateTimeOffset momento)
+    {
+        ExigirEstado(EstadoDeMision.Borrador, "T-03");
+
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new BloqueoDuro("T-03", "Descartar un borrador exige motivo.");
+
+        Registrar("T-03", EstadoDeMision.Anulada, ejecuta, momento, motivo.Trim());
+    }
+
+    /// <summary>
+    /// `T-07` — SOLICITADA → ANULADA. <b>Desistimiento</b> del solicitante (`ACT-02`) o
+    /// <b>anulación administrativa</b> (`ACT-08`).
+    ///
+    /// ── Por qué NO lleva segregación ────────────────────────────────────────
+    /// Porque no es un pronunciamiento sobre la solicitud: es que <b>quien la pidió ya no la
+    /// quiere</b>. `BD-01` existe para que nadie autorice lo que él mismo pidió; desistir de
+    /// lo propio es lo contrario, y exigir un tercero para retirar una solicitud obligaría a
+    /// molestar a la jefatura para deshacer algo que no llegó a nada.
+    /// </summary>
+    public void Desistir(IdPersona ejecuta, string motivo, DateTimeOffset momento)
+    {
+        ExigirEstado(EstadoDeMision.Solicitada, "T-07");
+
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new BloqueoDuro("T-07",
+                "Retirar una solicitud exige motivo: se retira de las bandejas de quienes " +
+                "iban a pronunciarse, y tienen derecho a saber por qué dejó de estar.");
+
+        Registrar("T-07", EstadoDeMision.Anulada, ejecuta, momento, motivo.Trim());
+    }
     /// <summary>
     /// `T-10` — PROGRAMADA → PROGRAMADA. <b>Cambiar el vehículo o quien conduce</b>, sin
     /// soltar la misión.
@@ -667,22 +789,28 @@ public sealed class OrdenDeMision
     /// Quien autoriza no puede ser ninguna de las tres, si fueran distintas entre sí:
     /// quien creó la solicitud, quien la envió, o el solicitante de derecho.
     /// </summary>
-    private void ExigirSegregacionDeAutorizacion(IdPersona ejecuta)
+    /// <param name="acto">
+    /// Qué se intentó hacer — «autorizarla», «rechazarla», «devolverla». Va en el mensaje
+    /// porque decir <i>«no puede autorizarla»</i> a quien intentó rechazar manda a buscar el
+    /// problema donde no está.
+    /// </param>
+    private void ExigirSegregacionDeAutorizacion(IdPersona ejecuta, string acto = "autorizarla")
     {
         if (ejecuta == CapturadaPor)
-            throw new BloqueoDuro("BD-01", "Quien capturó la solicitud no puede autorizarla.");
+            throw new BloqueoDuro("BD-01", $"Quien capturó la solicitud no puede {acto}.");
 
         // Se deriva del diario, no de un campo: P-1 vale también para los datos que las
         // precondiciones necesitan, o el estado y el diario se desincronizan.
         var enviadaPor = _diario.FirstOrDefault(t => t.Id == "T-02")?.Ejecuta;
 
         if (enviadaPor is { } remitente && ejecuta == remitente)
-            throw new BloqueoDuro("BD-01", "Quien envió la solicitud no puede autorizarla.");
+            throw new BloqueoDuro("BD-01", $"Quien envió la solicitud no puede {acto}.");
 
         if (ejecuta == SolicitanteDeDerecho)
             throw new BloqueoDuro("BD-01",
-                "El solicitante de derecho no puede autorizar su propia solicitud, " +
-                "aunque no la haya capturado ni enviado.");
+                "Usted figura como solicitante de derecho. El pronunciamiento sobre el " +
+                "expediente es un acto de autoridad y no lo ejerce quien solicita: no puede " +
+                $"{acto}, aunque no la haya capturado ni enviado.");
     }
 
     private void ExigirEstado(EstadoDeMision esperado, string transicion)

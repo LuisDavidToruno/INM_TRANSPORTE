@@ -84,3 +84,21 @@ export function faltanDias(iso: string, ahora: Date = new Date()): string {
   if (dias === 1) return 'es mañana';
   return `faltan ${dias} días`;
 }
+
+/**
+ * El nombre de la dependencia dentro de una frase, o algo que se pueda leer.
+ *
+ * ── Por qué hace falta ──────────────────────────────────────────────────────
+ * Porque el expediente puede traerla <b>vacía</b> —el dominio no la exige— y nueve mensajes
+ * de la oficina la interpolan. Sin esto, un diálogo que debía decir *«vuelve a Delegación de
+ * Choluteca»* dice literalmente <b>«vuelve a , se corrige»</b>, que es lo que se veía en la
+ * pantalla de autorización antes de esto.
+ *
+ * ── Y por qué no devuelve cadena vacía ──────────────────────────────────────
+ * Porque la frase la necesita. Devolver `''` sólo mueve el problema: la coma sigue ahí. Lo
+ * que se devuelve es un sustituto que <b>encaja gramaticalmente</b> y que además dice la
+ * verdad — el expediente no declara dependencia, y quien lea el mensaje tiene derecho a
+ * saber que ése es el estado del dato y no un fallo de la pantalla.
+ */
+export const laDependencia = (nombre: string): string =>
+  nombre.trim() === '' ? 'la dependencia solicitante, que el expediente no declara' : nombre;
