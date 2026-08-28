@@ -65,6 +65,9 @@ public class SincronizacionPruebas(BaseDePruebas baseDePruebas)
                     Transicion = "T-14",
                     Ejecuta = "P-MOTORISTA",
                     OcurridoEn = Momento,
+                    // `BD-05`: el dispositivo captura la lectura del odómetro sin red, y el
+                    // servidor la revalida al recibir contra la última conocida del vehículo.
+                    Odometro = 10_000,
                 },
             },
         };
@@ -113,6 +116,9 @@ public class SincronizacionPruebas(BaseDePruebas baseDePruebas)
                     Transicion = "T-14",
                     Ejecuta = "P-MOTORISTA",
                     OcurridoEn = Momento,
+                    // `BD-05`: el dispositivo captura la lectura del odómetro sin red, y el
+                    // servidor la revalida al recibir contra la última conocida del vehículo.
+                    Odometro = 10_000,
                 },
             },
         });

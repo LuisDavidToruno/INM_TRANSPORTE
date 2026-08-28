@@ -247,8 +247,8 @@ public class OrdenDeMisionPruebas
                              PoliticaDeDocumentacion.PorDefecto, Momento);
         expediente.Despachar(Encargado, Asignacion.Valida(), Asignacion.Matriz,
                              PoliticaDeDocumentacion.PorDefecto, Momento, Asignacion.Custodiado, Asignacion.SinDiasInhabiles());
-        expediente.IniciarRuta(Motorista, Momento);
-        expediente.Retornar(Motorista, Momento);
+        expediente.IniciarRuta(Motorista, Momento, Asignacion.Sale);
+        expediente.Retornar(Motorista, Momento, Asignacion.Vuelve);
         expediente.Liquidar(Transporte, Momento);
         return expediente;
     }

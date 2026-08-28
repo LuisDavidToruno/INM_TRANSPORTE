@@ -83,4 +83,10 @@ public sealed class FilaDeTransicion
 
     /// <summary>Quien conduce. Va en pareja con <see cref="VehiculoTomado"/>.</summary>
     public Ulid? ConductorTomado { get; init; }
+
+    /// <summary>
+    /// La lectura del odómetro. <b>Sólo la llevan `T-14` y `T-18`</b>, y es lo que `BD-05`
+    /// vuelve a leer para comparar el retorno contra la salida.
+    /// </summary>
+    public int? Odometro { get; init; }
 }

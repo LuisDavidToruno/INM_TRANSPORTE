@@ -97,8 +97,10 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
 
         await Asignar(cliente, id, "programar", "P-TRANSPORTE", idVehiculo: recursos.Vehiculo, idConductor: recursos.Conductor);
         await Asignar(cliente, id, "despachar", "P-ENCARGADO", idVehiculo: recursos.Vehiculo, idConductor: recursos.Conductor);
-        await Transicionar(cliente, id, "iniciar-ruta", "P-MOTORISTA");
-        await Transicionar(cliente, id, "retornar", "P-MOTORISTA");
+        // `T-14` y `T-18` exigen odómetro: es el único ancla que el sistema tiene para la
+        // conciliación galonaje–kilometraje.
+        await ConOdometro(cliente, id, "iniciar-ruta", 10_000);
+        await ConOdometro(cliente, id, "retornar", 10_450);
         var liquidada = await Transicionar(cliente, id, "liquidar", "P-TRANSPORTE");
         Assert.Contains("Liquidada", await liquidada.Content.ReadAsStringAsync());
 
@@ -197,6 +199,14 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
     /// Programar y despachar llevan <b>identificadores del catálogo</b>, no la ficha ni
     /// la ventana: la ficha la resuelve el servidor y la ventana sale de la solicitud.
     /// </summary>
+    private static async Task ConOdometro(HttpClient cliente, string id, string ruta, int km)
+    {
+        var r = await cliente.PostAsJsonAsync($"/misiones/{id}/{ruta}",
+            new { Ejecuta = "P-MOTORISTA", Momento, Odometro = km });
+
+        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+    }
+
     private static async Task<HttpResponseMessage> Asignar(
         HttpClient cliente,
         string id,

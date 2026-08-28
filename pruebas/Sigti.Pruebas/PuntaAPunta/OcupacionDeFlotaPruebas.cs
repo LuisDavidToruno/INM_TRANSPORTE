@@ -105,11 +105,15 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         await Despachar(cliente, idMision, r);
         Assert.Equal("Despachada", (await BarrasDe(cliente, r.Vehiculo))[0].GetProperty("estado").GetString());
 
-        await cliente.PostAsJsonAsync($"/misiones/{idMision}/iniciar-ruta", new { Ejecuta = "P-MOTORISTA", Momento });
+        // Con odómetro: `T-14` y `T-18` lo exigen. Estas pruebas no van de `BD-05`, pero un
+        // recorrido tiene que ser coherente para que el control no bloquee por otra cosa.
+        await cliente.PostAsJsonAsync($"/misiones/{idMision}/iniciar-ruta",
+            new { Ejecuta = "P-MOTORISTA", Momento, Odometro = 10_000 });
         Assert.Equal("EnRuta", (await BarrasDe(cliente, r.Vehiculo))[0].GetProperty("estado").GetString());
 
         var retorno = await cliente.PostAsJsonAsync(
-            $"/misiones/{idMision}/retornar", new { Ejecuta = "P-MOTORISTA", Momento });
+            $"/misiones/{idMision}/retornar",
+            new { Ejecuta = "P-MOTORISTA", Momento, Odometro = 10_450 });
         retorno.EnsureSuccessStatusCode();
 
         // Retornada NO ocupa: el vehículo volvió, aunque falte liquidar.

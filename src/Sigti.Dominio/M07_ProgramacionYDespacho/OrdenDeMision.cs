@@ -1,5 +1,6 @@
 using Sigti.Dominio.M02_Parametros;
 using Sigti.Dominio.M06_Solicitudes;
+using Sigti.Dominio.M08_Bitacora;
 using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M05_Motoristas;
 using Sigti.Dominio.Organizacion;
@@ -773,20 +774,137 @@ public sealed class OrdenDeMision
     }
 
     /// <summary>`T-14` — DESPACHADA → EN_RUTA. La ejecuta el motorista, y opera desconectado.</summary>
-    public void IniciarRuta(IdPersona ejecuta, DateTimeOffset momento, Ulid? idDeCaptura = null)
+    /// <param name="odometro">
+    /// La lectura al salir y la última conocida del vehículo — `BD-05`. <b>Sin valor por
+    /// omisión</b>: el compilador obliga a que todo llamador conteste, porque «este vehículo
+    /// no tiene lectura previa» y «nadie consultó» no pueden verse igual en un bloqueo duro.
+    /// </param>
+    public void IniciarRuta(
+        IdPersona ejecuta,
+        DateTimeOffset momento,
+        OdometroAlSalir odometro,
+        Ulid? idDeCaptura = null)
     {
         ExigirEstado(EstadoDeMision.Despachada, "T-14");
-        Registrar("T-14", EstadoDeMision.EnRuta, ejecuta, momento, motivo: null, idDeCaptura);
+
+        // `BD-05`: la lectura de salida no puede ser menor que la última conocida. O es
+        // error de digitación, o es retroceso de odómetro -- y las dos se corrigen en el
+        // momento, con el tablero delante.
+        if (odometro.UltimaConocida is { } ultima && odometro.Lectura < ultima)
+            throw new BloqueoDuro("BD-05",
+                $"El odómetro de salida ({odometro.Lectura:N0} km) es menor que la última " +
+                $"lectura conocida del vehículo ({ultima:N0} km). Es error de digitación o " +
+                "retroceso de odómetro: verifique el tablero antes de continuar.");
+
+        var constancia = odometro.UltimaConocida is { } previa
+            ? $"odómetro de salida {odometro.Lectura:N0} km · última conocida {previa:N0} km"
+            // Primera misión del vehículo. Se dice, porque «sin lectura previa» y «no se
+            // verificó» son cosas distintas y el diario tiene que distinguirlas.
+            : $"odómetro de salida {odometro.Lectura:N0} km · sin lectura previa registrada";
+
+        Registrar("T-14", EstadoDeMision.EnRuta, ejecuta, momento, constancia, idDeCaptura,
+                  odometro: odometro.Lectura);
     }
 
     /// <summary>
     /// `T-18` — EN_RUTA → RETORNADA. Registra un hecho consumado: por `P-2` no se bloquea,
     /// se validan coherencias que pueden derivar en cierre con hallazgo.
+    ///
+    /// ── La excepción a `P-2`, y por qué la autoridad la puso ─────────────────
+    /// `BD-05` <b>sí</b> bloquea en el `T-18` <b>ordinario</b>: una lectura de retorno menor
+    /// que la de salida es <b>físicamente imposible</b>, así que no es un hecho consumado que
+    /// registrar — es un número mal tecleado, y hay alguien con el tablero delante que puede
+    /// corregirlo.
+    ///
+    /// En el subtipo <b>constatado</b> no bloquea, y eso corrigió el hallazgo `HB3-04`: ahí el
+    /// vehículo ya está en el predio y negarse a registrarlo <b>lo deja secuestrado por un
+    /// trámite</b> mientras la delegación se queda sin unidad. Se registra tal cual y se marca.
     /// </summary>
-    public void Retornar(IdPersona ejecuta, DateTimeOffset momento, Ulid? idDeCaptura = null)
+    public void Retornar(
+        IdPersona ejecuta,
+        DateTimeOffset momento,
+        OdometroAlRetornar odometro,
+        Ulid? idDeCaptura = null)
     {
         ExigirEstado(EstadoDeMision.EnRuta, "T-18");
-        Registrar("T-18", EstadoDeMision.Retornada, ejecuta, momento, motivo: null, idDeCaptura);
+
+        var salida = OdometroDeSalida();
+        var constancia = ExigirCoherenciaDelOdometro(odometro, salida);
+
+        Registrar("T-18", EstadoDeMision.Retornada, ejecuta, momento, constancia, idDeCaptura,
+                  odometro: odometro.Lectura);
+    }
+
+    /// <summary>
+    /// La lectura con que salió, sacada del diario y no de un campo.
+    ///
+    /// P-1 vale también para los datos que las precondiciones necesitan: guardar el odómetro
+    /// de salida en una propiedad sería una copia que se puede desincronizar del asiento que
+    /// lo registró.
+    /// </summary>
+    private int? OdometroDeSalida() =>
+        _diario.LastOrDefault(t => t.Id == "T-14")?.Odometro;
+
+    /// <summary>
+    /// `BD-05` al retornar. Devuelve la constancia para el diario.
+    ///
+    /// ── Lo que este control NO evalúa, y no se finge ─────────────────────────
+    /// Los kilómetros recorridos contra la <b>distancia estimada</b> por un factor
+    /// configurable — en las dos direcciones, porque `NRM-01` vigila el exceso y el defecto.
+    /// No hay distancia estimada en el sistema: sale del mapa de ARGOS o de una tabla de
+    /// rutas, y ninguno existe. Tampoco el <b>salto imposible respecto al tiempo</b>, que
+    /// necesita un umbral de velocidad que nadie declaró — `[C]`.
+    ///
+    /// Los dos son marcas para revisión, no bloqueos, así que su ausencia no deja pasar nada
+    /// que debiera detenerse. Lo que sí deja es <b>sin detectar</b> el hallazgo `H-02`.
+    /// </summary>
+    private static string ExigirCoherenciaDelOdometro(OdometroAlRetornar odometro, int? salida)
+    {
+        if (salida is not { } desde)
+            // Sin `T-14` en el diario no hay contra qué comparar. Puede pasar en un
+            // expediente anterior a que el odómetro existiera; se dice y se sigue.
+            return $"odómetro de retorno {odometro.Lectura:N0} km · sin lectura de salida registrada";
+
+        // El acta de sustitución cambia la aritmética: el odómetro instalado arranca donde
+        // arranque, y comparar contra la lectura del retirado no significa nada. Es un hecho
+        // mecánico que hay que poder registrar, no un permiso para saltarse el control.
+        if (odometro.Acta is { } acta)
+            return $"odómetro de retorno {odometro.Lectura:N0} km · BD-05 no comparable: " +
+                   $"acta de sustitución {acta.Folio} del {acta.Fecha:yyyy-MM-dd} " +
+                   $"(retirado {acta.LecturaDelRetirado:N0} km, instalado {acta.LecturaDelInstalado:N0} km)";
+
+        if (odometro.Lectura < desde)
+        {
+            if (odometro.Subtipo == SubtipoDeRetorno.Ordinario)
+                throw new BloqueoDuro("BD-05",
+                    $"El odómetro de retorno ({odometro.Lectura:N0} km) es menor que el de " +
+                    $"salida ({desde:N0} km). Es físicamente imposible: corrija la lectura. " +
+                    "Si el odómetro se sustituyó o se reinició, registre el acta de `M-11` " +
+                    "antes de cerrar la bitácora.");
+
+            // `RN-79`: se registra tal cual, se marca la inconsistencia, y el vehículo se
+            // libera igual.
+            return $"odómetro de retorno {odometro.Lectura:N0} km · ⚠ INCONSISTENTE: menor que " +
+                   $"el de salida ({desde:N0} km) · retorno constatado por un tercero, el " +
+                   "vehículo se libera igual (RN-79)";
+        }
+
+        if (odometro.Lectura == desde)
+        {
+            // No bloquea, pero no pasa en silencio: es el patrón de la misión que nunca se
+            // hizo, y ése es justamente el que busca el Tribunal Superior de Cuentas.
+            if (string.IsNullOrWhiteSpace(odometro.Justificacion))
+                throw new BloqueoDuro("BD-05",
+                    $"El odómetro de retorno iguala al de salida ({desde:N0} km): la misión no " +
+                    "recorrió un solo kilómetro. Puede registrarse, pero exige justificación — " +
+                    "es el patrón de la misión que nunca se hizo.");
+
+            return $"odómetro de retorno {odometro.Lectura:N0} km · sin recorrido · " +
+                   $"justificación: {odometro.Justificacion!.Trim()}";
+        }
+
+        return $"odómetro de retorno {odometro.Lectura:N0} km · recorrido " +
+               $"{odometro.Lectura - desde:N0} km";
     }
 
     /// <summary>`T-19` — RETORNADA → LIQUIDADA.</summary>
@@ -886,6 +1004,6 @@ public sealed class OrdenDeMision
 
     private void Registrar(
         string id, EstadoDeMision destino, IdPersona ejecuta, DateTimeOffset momento, string? motivo,
-        Ulid? idDeCaptura = null, RecursosTomados? recursos = null) =>
-        _diario.Add(new Transicion(id, destino, ejecuta, momento, motivo, idDeCaptura, recursos));
+        Ulid? idDeCaptura = null, RecursosTomados? recursos = null, int? odometro = null) =>
+        _diario.Add(new Transicion(id, destino, ejecuta, momento, motivo, idDeCaptura, recursos, odometro));
 }

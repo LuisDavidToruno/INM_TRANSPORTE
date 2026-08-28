@@ -1,5 +1,6 @@
 using Sigti.Dominio.M01_Organizacion;
 using Sigti.Dominio.M02_Parametros;
+using Sigti.Dominio.M08_Bitacora;
 using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.Organizacion;
 using Sigti.Dominio.M05_Motoristas;
@@ -71,6 +72,18 @@ internal static class Asignacion
             motorista ?? Ulid.NewUlid(),
             Excepcion: null,
             Permisos: []);
+
+    /// <summary>
+    /// Un recorrido coherente para las pruebas que <b>no</b> ejercen `BD-05`: sale en 10.000 y
+    /// vuelve en 10.450.
+    ///
+    /// Desde que `T-14` y `T-18` exigen odómetro, toda prueba que recorra el hilo tiene que
+    /// declararlo. Las que sí prueban el control arman sus propias lecturas.
+    /// </summary>
+    public static readonly OdometroAlSalir Sale = new(10_000, UltimaConocida: null);
+
+    public static readonly OdometroAlRetornar Vuelve =
+        new(10_450, SubtipoDeRetorno.Ordinario);
 
     public static AsignacionDeMision Valida() => ConLicenciaHasta(new DateOnly(2027, 1, 1));
 

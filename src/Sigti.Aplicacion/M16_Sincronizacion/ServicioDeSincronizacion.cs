@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Sigti.Datos;
 using Sigti.Datos.M07_ProgramacionYDespacho;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
+using Sigti.Aplicacion.M08_Bitacora;
+using Sigti.Dominio.M08_Bitacora;
 using Sigti.Dominio.Organizacion;
 
 namespace Sigti.Aplicacion.M16_Sincronizacion;
@@ -20,7 +22,19 @@ public sealed record HechoCapturado(
     Ulid IdExpediente,
     string Transicion,
     string Ejecuta,
-    DateTimeOffset OcurridoEn);
+    DateTimeOffset OcurridoEn,
+    /// <summary>
+    /// La lectura del odómetro. <b>Obligatoria para `T-14` y `T-18`</b>, y anulable acá
+    /// porque el tipo tiene que poder representar un hecho mal armado para <b>rechazarlo con
+    /// un motivo legible</b> — el dispositivo no lo puede resolver reintentando.
+    /// </summary>
+    int? Odometro = null,
+    /// <summary>
+    /// Ordinario o constatado — `T-18`. La diferencia decide si una lectura menor que la de
+    /// salida bloquea o se registra con la inconsistencia marcada (`RN-79`, `HB3-04`).
+    /// </summary>
+    SubtipoDeRetorno Subtipo = SubtipoDeRetorno.Ordinario,
+    string? Justificacion = null);
 
 /// <summary>Qué pasó con cada hecho. El dispositivo lo necesita para depurar su cola.</summary>
 public sealed record ResultadoDeSincronizacion(
@@ -56,7 +70,7 @@ public sealed record HechoRechazado(Ulid IdDeCaptura, string Motivo);
 /// (`campo/nucleo/Conciliacion.ts`); la cola de resolución es de `M-16` y no está
 /// construida.
 /// </summary>
-public sealed class ServicioDeSincronizacion(SigtiDbContext contexto)
+public sealed class ServicioDeSincronizacion(SigtiDbContext contexto, ConsultaDeOdometro odometros)
 {
     private readonly ExpedientesDeMision _expedientes = new(contexto);
 
@@ -99,7 +113,16 @@ public sealed class ServicioDeSincronizacion(SigtiDbContext contexto)
 
             try
             {
-                Aplicar(expediente, hecho);
+                // La lectura de referencia se busca por VEHICULO y cruza misiones: el
+                // dispositivo solo conoce la suya, y un odometro que retrocede entre dos
+                // misiones distintas es justo lo que `BD-05` existe para detectar.
+                var ultima = expediente.Diario
+                    .Where(t => t.Recursos is not null)
+                    .LastOrDefault()?.Recursos is { } recursos
+                    ? await odometros.UltimaLecturaAsync(recursos.Vehiculo, cancelacion)
+                    : null;
+
+                Aplicar(expediente, hecho, ultima);
                 await _expedientes.GuardarAsync(expediente, cancelacion);
                 aplicadas.Add(hecho.IdDeCaptura);
             }
@@ -122,18 +145,43 @@ public sealed class ServicioDeSincronizacion(SigtiDbContext contexto)
     /// el retorno. La bitácora de paradas y eventos —`T-15`, `T-16`— necesita `M-08`, que
     /// no está construido, y aceptarla acá antes de tiempo sería fingir que existe.
     /// </summary>
-    private static void Aplicar(OrdenDeMision expediente, HechoCapturado hecho)
+    /// <param name="ultimaLecturaConocida">
+    /// La del <b>vehículo</b>, no la de esta misión — `BD-05` compara contra la última venga de
+    /// donde venga, porque un odómetro que retrocede entre dos misiones distintas es
+    /// exactamente el fraude que el control existe para detectar.
+    ///
+    /// Nula sólo si el vehículo no tiene ninguna lectura.
+    /// </param>
+    private static void Aplicar(
+        OrdenDeMision expediente,
+        HechoCapturado hecho,
+        int? ultimaLecturaConocida)
     {
         var quien = new IdPersona(hecho.Ejecuta);
+
+        // `BD-05` se evalúa «en el dispositivo, sin red» — pero el servidor lo revalida al
+        // recibir, porque la lectura de referencia cruza misiones y el dispositivo sólo
+        // conoce la suya. Sin odómetro no hay nada que verificar y el hecho se rechaza:
+        // aceptarlo dejaría un `T-14` sin el único ancla que el sistema tiene.
+        if (hecho.Transicion is "T-14" or "T-18" && hecho.Odometro is null)
+            throw new BloqueoDuro("BD-05",
+                $"«{hecho.Transicion}» sin lectura de odómetro. Es el único ancla que el " +
+                "sistema tiene para detectar consumo de combustible sin relación con el uso.");
 
         switch (hecho.Transicion)
         {
             case "T-14":
-                expediente.IniciarRuta(quien, hecho.OcurridoEn, hecho.IdDeCaptura);
+                expediente.IniciarRuta(
+                    quien, hecho.OcurridoEn,
+                    new OdometroAlSalir(hecho.Odometro!.Value, ultimaLecturaConocida),
+                    hecho.IdDeCaptura);
                 break;
 
             case "T-18":
-                expediente.Retornar(quien, hecho.OcurridoEn, hecho.IdDeCaptura);
+                expediente.Retornar(
+                    quien, hecho.OcurridoEn,
+                    new OdometroAlRetornar(hecho.Odometro!.Value, hecho.Subtipo, hecho.Justificacion),
+                    hecho.IdDeCaptura);
                 break;
 
             default:

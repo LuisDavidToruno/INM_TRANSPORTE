@@ -280,6 +280,55 @@ dentro. Un eje de horas dibujado sobre medianoches sería un gráfico que miente
 precisión. Lo que sí se dibuja es el **cronograma de la semana**, que contesta la otra mitad
 —qué se traslapa con qué— y para el que el dato existe.
 
+### `BD-05` — el odómetro, y con él `T-14` y `T-18` dejan de ser un `Registrar` pelado
+
+*«El hallazgo típico del TSC en flota es el incremento de consumo de combustible sin relación
+con el uso habitual, y el odómetro es **el único ancla** que tiene el sistema para
+detectarlo.»* No había ninguno.
+
+| Regla | Tratamiento |
+|---|---|
+| Salida < última lectura conocida del **vehículo** | **Bloqueo.** Error de digitación o retroceso |
+| Retorno < salida, `T-18` **ordinario** | **Bloqueo.** Físicamente imposible |
+| Retorno < salida, `T-18` **constatado** | **No bloquea.** Se marca y el vehículo se libera |
+| Retorno = salida | **Exige justificación.** Es el patrón de la misión que nunca se hizo |
+| Con acta de sustitución de odómetro | **No comparable.** Las dos lecturas van al asiento |
+
+**La referencia cruza misiones.** No es la lectura de este expediente: es la última del
+**vehículo**, venga de donde venga. Un odómetro que retrocede entre dos misiones distintas es
+exactamente el fraude que el control existe para detectar. Y se toma la **más alta**, no la
+más reciente: con marcas de tiempo que vienen de dispositivos que estuvieron días sin red,
+«la última en el tiempo» puede llegar después de una lectura mayor.
+
+**Bloquear en `T-18` es una excepción a `P-2`, y la puso la autoridad.** Una lectura de
+retorno menor que la de salida no es un hecho consumado que registrar: es **un número mal
+tecleado**, y hay alguien con el tablero delante que puede corregirlo. En el **constatado**
+no bloquea —hallazgo `HB3-04`—: ahí el vehículo ya está en el predio y negarse a registrarlo
+**lo deja secuestrado por un trámite** mientras la delegación se queda sin unidad.
+
+**El odómetro va como DATO en la transición**, no dentro del texto del motivo — `BD-05` lo
+vuelve a leer para comparar el retorno contra la salida, y sacarlo de una cadena sería el
+mismo error que tenía la reserva de `T-08` antes de `RecursosTomados`.
+
+**Se revalida en el servidor aunque se evalúe en el dispositivo.** `BD-05` corre «sin red»,
+pero el dispositivo sólo conoce su propia lectura: la referencia que cruza misiones sólo la
+tiene el servidor. El lote de sincronización lleva el odómetro, y un `T-14` sin él **se
+rechaza** en vez de entrar sin ancla.
+
+**⚠️ Tres reglas de `BD-05` no se evalúan, y ninguna es un bloqueo.** Kilómetros contra la
+**distancia estimada** por un factor configurable —en las dos direcciones, porque `NRM-01`
+vigila el exceso y el defecto— y el **salto imposible respecto al tiempo**. No hay distancia
+estimada en el sistema (sale del mapa de ARGOS o de una tabla de rutas) ni umbral de
+velocidad (`[C]`). Su ausencia no deja pasar nada que debiera detenerse; lo que deja es **sin
+detectar el hallazgo `H-02`**.
+
+**⚠️ El acta de sustitución se modela pero no se produce.** El circuito que la levanta es de
+`M-11`, que no existe. Se modeló igual porque sin ella `BD-05` sería **un bloqueo sin salida**
+— que es el hallazgo `HB3-02`, ya corregido una vez en este mismo documento.
+
+Verificado por mutación: al anular la comparación de retroceso caen las dos caras del caso —
+la que bloquea en el ordinario y la que **no** bloquea en el constatado.
+
 ### La ventana de la misión ya lleva hora
 
 Era el campo que **dos necesidades independientes** pedían: `BD-04` no podía juzgar la *hora*
@@ -556,7 +605,7 @@ filtra por las dos, porque una salida que vuelve a bloquear no es salida. Y los 
 tenían **dos botones de salida**: `Modal` ya rinde el suyo, y encima el llamador agregaba
 otro. El de anulación venía así desde antes.
 
-### `BD-07` sigue sin evaluarse, y `BD-05` a `BD-10` tampoco
+### `BD-07` sigue sin evaluarse, y `BD-08` a `BD-10` tampoco
 
 `BD-02` y `BD-03` ya están implementadas y probadas — **`BD-04`, `BD-11`, `BD-12` y `BD-13` también, ver arriba.** **`BD-07` no** — estado y compatibilidad del vehículo. Necesita dos cosas que todavía no existen:
 

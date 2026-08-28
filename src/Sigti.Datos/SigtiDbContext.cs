@@ -123,6 +123,10 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
 
             transicion.Property(t => t.IdDeCaptura).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
 
+            // El odometro de `T-14` y `T-18`, como DATO: `BD-05` lo vuelve a leer, y sacarlo
+            // de una cadena seria el mismo error que tenia la reserva antes de existir.
+            transicion.Property(t => t.Odometro);
+
             // La reserva de `T-08`, como DATO y no como prosa dentro del motivo.
             transicion.Property(t => t.VehiculoTomado).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
             transicion.Property(t => t.ConductorTomado).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");

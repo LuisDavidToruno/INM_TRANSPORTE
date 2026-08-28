@@ -35,4 +35,12 @@ public sealed record Transicion(
     DateTimeOffset Momento,
     string? Motivo,
     Ulid? IdDeCaptura = null,
-    RecursosTomados? Recursos = null);
+    RecursosTomados? Recursos = null,
+    /// <summary>
+    /// La lectura del odómetro que este asiento registró. <b>Sólo la llevan `T-14` y `T-18`</b>.
+    ///
+    /// Va como DATO y no sólo dentro del texto del motivo porque `BD-05` la vuelve a leer:
+    /// el odómetro de retorno se compara contra el de salida, y sacarlo de una cadena sería
+    /// el mismo error que tenía la reserva de `T-08` antes de `RecursosTomados`.
+    /// </summary>
+    int? Odometro = null);

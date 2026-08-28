@@ -47,7 +47,8 @@ public sealed class ExpedientesDeMision(SigtiDbContext contexto)
                     // pondria a ocupar un vehiculo sin decir quien lo lleva.
                     t.VehiculoTomado is { } vehiculo && t.ConductorTomado is { } conductor
                         ? new RecursosTomados(vehiculo, conductor)
-                        : null)));
+                        : null,
+                    t.Odometro)));
     }
 
     /// <summary>
@@ -98,7 +99,8 @@ public sealed class ExpedientesDeMision(SigtiDbContext contexto)
                 DesfaseMinutos = (int)transicion.Momento.Offset.TotalMinutes,
                 Motivo = transicion.Motivo,
                 VehiculoTomado = transicion.Recursos?.Vehiculo,
-                ConductorTomado = transicion.Recursos?.Conductor
+                ConductorTomado = transicion.Recursos?.Conductor,
+                Odometro = transicion.Odometro
             });
         }
 

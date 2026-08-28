@@ -6,6 +6,8 @@ using Sigti.Aplicacion.M03_Flota;
 using Sigti.Aplicacion.M05_Motoristas;
 using Sigti.Aplicacion.M16_Sincronizacion;
 using Sigti.Aplicacion.M06_Solicitudes;
+using Sigti.Aplicacion.M08_Bitacora;
+using Sigti.Dominio.M08_Bitacora;
 using Sigti.Aplicacion.M07_ProgramacionYDespacho;
 using Sigti.Datos;
 using Sigti.Dominio.M02_Parametros;
@@ -42,6 +44,7 @@ constructor.Services.AddScoped<ConsultaDeOcupacion>();
 constructor.Services.AddScoped<ConsultaDeCustodias>();
 constructor.Services.AddScoped<ConsultaDePermisos>();
 constructor.Services.AddScoped<ConsultaDelDiaDeDespacho>();
+constructor.Services.AddScoped<ConsultaDeOdometro>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -233,8 +236,18 @@ misiones.MapGet("/{id}", async (string id, ConsultaDeMisiones consulta) =>
 
 Transicion("enviar", (e, quien, cuando) => e.Enviar(quien, cuando));
 TransicionConMotivo("aprobar", (e, quien, cuando, motivo) => e.Aprobar(quien, cuando, motivo));
-Transicion("iniciar-ruta", (e, quien, cuando) => e.IniciarRuta(quien, cuando));
-Transicion("retornar", (e, quien, cuando) => e.Retornar(quien, cuando));
+// `T-14` y `T-18` llevan ODOMETRO, y por eso no usan el helper genérico: es el único ancla
+// que el sistema tiene para detectar consumo de combustible sin relación con el uso, y el
+// hallazgo típico del Tribunal Superior de Cuentas en flota es exactamente ése.
+//
+// La lectura de referencia se busca por VEHÍCULO y cruza misiones: un odómetro que
+// retrocede entre dos misiones distintas es lo que `BD-05` existe para detectar.
+ConOdometro("iniciar-ruta", (e, quien, cuando, o, captura, _, __) =>
+    e.IniciarRuta(quien, cuando, new OdometroAlSalir(o.Lectura, o.UltimaConocida), captura));
+
+ConOdometro("retornar", (e, quien, cuando, o, captura, subtipo, justificacion) =>
+    e.Retornar(quien, cuando,
+               new OdometroAlRetornar(o.Lectura, subtipo, justificacion), captura));
 Transicion("liquidar", (e, quien, cuando) => e.Liquidar(quien, cuando));
 
 // La flota sale de la BASE (`M-03`). El padrón de conductores sigue provisional: es
@@ -603,7 +616,8 @@ app.MapPost("/sincronizacion", async (
             return errorExpediente;
 
         hechos.Add(new HechoCapturado(
-            idDeCaptura, idExpediente, h.Transicion, h.Ejecuta, h.OcurridoEn));
+            idDeCaptura, idExpediente, h.Transicion, h.Ejecuta, h.OcurridoEn,
+            h.Odometro, h.Subtipo, h.Justificacion));
     }
 
     var resultado = await servicio.RecibirAsync(hechos);
@@ -761,6 +775,47 @@ void TransicionConMotivo(
         return Results.Ok(new { id, estado = estado.ToString() });
     });
 
+/// <summary>
+/// `T-14` y `T-18`: las dos transiciones que registran odómetro.
+///
+/// Resuelven la <b>última lectura conocida del vehículo</b> antes de aplicar. Se busca por el
+/// recurso que la misión tiene reservado —la última transición que reservó— porque la
+/// referencia de `BD-05` cruza misiones y no es la de este expediente.
+/// </summary>
+void ConOdometro(
+    string ruta,
+    Action<OrdenDeMision, IdPersona, DateTimeOffset, LecturaResuelta, Ulid?, SubtipoDeRetorno, string?> aplicar) =>
+    misiones.MapPost($"/{{id}}/{ruta}", async (
+        string id,
+        RegistrarOdometro peticion,
+        ServicioDeMisiones servicio,
+        ConsultaDeOdometro odometros) =>
+    {
+        if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+        if (peticion.Odometro is not { } lectura)
+            return Results.BadRequest(new
+            {
+                mensaje = "Declare la lectura del odómetro. Es el único ancla que el sistema " +
+                          "tiene para detectar consumo sin relación con el uso.",
+            });
+
+        // La referencia se resuelve ANTES de abrir la transacción: es una lectura, no
+        // participa del cambio de estado, y meterla adentro alargaría el bloqueo por una
+        // consulta que no lo necesita.
+        var ultima = await odometros.UltimaLecturaDeLaMisionAsync(ulid);
+
+        var estado = await servicio.TransicionarAsync(
+            ulid,
+            expediente => aplicar(
+                expediente, new IdPersona(peticion.Ejecuta), peticion.Momento,
+                new LecturaResuelta(lectura, ultima), peticion.IdDeCaptura,
+                peticion.Subtipo, peticion.Justificacion),
+            peticion.Momento);
+
+        return Results.Ok(new { id, estado = estado.ToString() });
+    });
+
 void Transicion(string ruta, Action<OrdenDeMision, IdPersona, DateTimeOffset> aplicar) =>
     misiones.MapPost($"/{{id}}/{ruta}", async (string id, EjecutarTransicion peticion, ServicioDeMisiones servicio) =>
     {
@@ -801,6 +856,28 @@ internal sealed record CrearMision(
 /// dispositivo que capturó el hecho hace cuatro días sin señal (`ADR-007`).
 /// </summary>
 internal sealed record EjecutarTransicion(string Ejecuta, DateTimeOffset Momento, string? Motivo = null);
+
+/// <summary>Lo que `T-14` y `T-18` reciben — `BD-05`.</summary>
+/// <param name="Odometro">
+/// Anulable en el tipo y exigido en el endpoint, para poder <b>rechazarlo con un mensaje</b>
+/// en vez de con un error genérico de enlace de modelo.
+/// </param>
+/// <param name="Subtipo">
+/// Sólo lo usa `T-18`. <b>Ordinario</b> bloquea una lectura menor que la de salida —es error
+/// de digitación, con el tablero delante—; <b>constatado</b> la registra y marca la
+/// inconsistencia, porque el vehículo ya está en el predio y negarse a registrarlo lo deja
+/// secuestrado por un trámite (`RN-79`, `HB3-04`).
+/// </param>
+internal sealed record RegistrarOdometro(
+    string Ejecuta,
+    DateTimeOffset Momento,
+    int? Odometro = null,
+    SubtipoDeRetorno Subtipo = SubtipoDeRetorno.Ordinario,
+    string? Justificacion = null,
+    Ulid? IdDeCaptura = null);
+
+/// <summary>La lectura del hecho junto con la referencia contra la que se juzga.</summary>
+internal sealed record LecturaResuelta(int Lectura, int? UltimaConocida);
 
 /// <summary>Qué se quiere asignar. La ventana NO viaja: sale de la solicitud.</summary>
 internal sealed record EvaluarAsignacion(
@@ -912,4 +989,12 @@ internal sealed record HechoDelDispositivo(
     string IdExpediente,
     string Transicion,
     string Ejecuta,
-    DateTimeOffset OcurridoEn);
+    DateTimeOffset OcurridoEn,
+    /// <summary>
+    /// La lectura del odómetro que el motorista capturó <b>sin red</b>. `BD-05` se evalúa en
+    /// el dispositivo y <b>se revalida acá</b>: la referencia cruza misiones y el dispositivo
+    /// sólo conoce la suya.
+    /// </summary>
+    int? Odometro = null,
+    SubtipoDeRetorno Subtipo = SubtipoDeRetorno.Ordinario,
+    string? Justificacion = null);
