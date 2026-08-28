@@ -200,19 +200,69 @@ export const liquidarVale = (
     body: JSON.stringify(cuerpo),
   });
 
+/**
+ * El dictamen de `RN-30`, calculado por el servidor.
+ *
+ * ── El cliente NO lo decide, y antes sí ─────────────────────────────────────
+ * La petición llevaba `dentroDeUmbral`, y eso dejaba a quien concilia eligiendo si su
+ * propio caso era hallazgo. Es el mismo invariante que §7.2 impone al cierre: el criterio
+ * decide y la persona lo confirma con su causa.
+ */
+export interface DictamenDeConciliacion {
+  dictamen:
+    | 'NoEvaluable'
+    | 'NoConcluyente'
+    | 'DentroDeUmbral'
+    | 'ConsumoExcesivo'
+    | 'RendimientoImposible';
+  esHallazgo: boolean;
+  kilometros: number;
+  galones: number;
+  /** Nulo cuando no se pudo calcular. **No es cero**: es que no hubo con qué dividir. */
+  observado: number | null;
+  esperado: {
+    kmPorGalon: number;
+    /**
+     * De dónde salió. Un dictamen contra la media del propio vehículo y otro contra el
+     * valor de la institución **no valen lo mismo**, y sólo el segundo sostiene un
+     * hallazgo firme.
+     */
+    origen: 'Institucional' | 'Fabricante' | 'PropuestoDelHistorico';
+    version: string;
+  } | null;
+  /** Fracción sobre el esperado. Negativa es consumo de más; positiva, rendimiento de más. */
+  desviacion: number | null;
+  evidencia: string;
+}
+
+export const dictamenDeConciliacion = (id: string): Promise<DictamenDeConciliacion> =>
+  pedir<DictamenDeConciliacion>(`/combustible/${id}/conciliacion`);
+
 export const conciliarVale = (
   id: string,
   cuerpo: {
     ejecuta: string;
-    dentroDeUmbral: boolean;
-    dictamen: string;
     momento: string;
+    /** Sólo hace falta si el dictamen dio hallazgo. */
+    causa?: string;
+    odometroAveriado?: boolean;
+    nivelDeTanqueDispar?: boolean;
+    esperaProlongadaRegistrada?: boolean;
   },
 ): Promise<{ estado: string }> =>
   pedir<{ estado: string }>(`/combustible/${id}/conciliar`, {
     method: 'POST',
     body: JSON.stringify(cuerpo),
   });
+
+/** El texto del dictamen. El identificador no se le muestra a nadie. */
+export const TEXTO_DE_DICTAMEN: Record<string, string> = {
+  NoEvaluable: 'No se pudo evaluar',
+  NoConcluyente: 'No concluyente',
+  DentroDeUmbral: 'Dentro de umbral',
+  ConsumoExcesivo: 'Consumo excesivo',
+  RendimientoImposible: 'Rendimiento imposible',
+};
 
 // ── Presentación compartida ─────────────────────────────────────────────────
 

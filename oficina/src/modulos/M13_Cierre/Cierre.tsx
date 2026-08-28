@@ -8,8 +8,10 @@ import { Boton, Campo, Enlace, Nota, Panel, Pastilla, avisar } from '../../ui';
 import { BloqueoDuro, cerrar, devolverLiquidacion, expediente } from '../../api/misiones';
 import type { CriterioDetectado } from '../../api/misiones';
 import { ROTULO_ESTADO } from '../../dominio/mision';
-import type { Expediente } from '../../dominio/mision';
+
 import PanelDeVales from '../M09_Combustible/PanelDeVales';
+import { valesDeLaMision } from '../../api/combustible';
+import type { Vale } from '../../api/combustible';
 import { soloFecha } from '../M06_Autorizacion/formato';
 
 /**
@@ -35,6 +37,14 @@ export default function Cierre(): ReactElement {
   const [justificacion, setJustificacion] = useState('');
   const [motivoDevolucion, setMotivoDevolucion] = useState('');
 
+  // Los vales, para saber si alguno cerró con desviación. **Es el primer criterio de
+  // `H-01` que el sistema puede detectar de verdad**, y hasta hoy la pantalla afirmaba
+  // que no había ninguno sin haber mirado.
+  const vales = useQuery({
+    queryKey: ['vales', id],
+    queryFn: () => valesDeLaMision(id),
+  });
+
   const { data, isPending, isError, error } = useQuery({
     queryKey: ['expediente', id],
     queryFn: () => expediente(id),
@@ -42,7 +52,7 @@ export default function Cierre(): ReactElement {
 
   const cierre = useMutation({
     mutationFn: () =>
-      cerrar(id, 'P-GERENCIA', criteriosDetectados(data), justificacion.trim() || null),
+      cerrar(id, 'P-GERENCIA', criteriosDetectados(vales.data), justificacion.trim() || null),
     onSuccess: () => {
       avisar.exito('Expediente cerrado.');
       void clienteDeConsultas.invalidateQueries({ queryKey: ['cola-cierre'] });
@@ -116,7 +126,7 @@ export default function Cierre(): ReactElement {
     );
   }
 
-  const criterios = criteriosDetectados(data);
+  const criterios = criteriosDetectados(vales.data);
   const hayHallazgo = criterios.length > 0;
   // `T-22` exige justificación; `T-21` no la pide, y pedirla sería ruido.
   const puedeCerrar = !hayHallazgo || justificacion.trim().length > 0;
@@ -187,8 +197,21 @@ export default function Cierre(): ReactElement {
             </>
           ) : (
             <Nota tono="ok" icono={<CircleCheck />}>
-              No se cumplió ningún criterio de cierre con hallazgo: consumo dentro de umbral,
-              ruta coherente, fondo comprobado y cadena de trazabilidad completa.
+              <div className="tw:flex tw:flex-col tw:gap-2">
+                <p>
+                  Ningún vale de esta misión cerró con desviación de rendimiento{' '}
+                  (<code className="tw:font-mono tw:text-xs">H-01</code>).
+                </p>
+                {/* Lo que NO se comprobó se dice. Antes esta nota afirmaba cuatro
+                    verificaciones —umbral, ruta, fondo y trazabilidad— y ninguna existía:
+                    un expediente cerrado sobre esa frase parecería revisado y no lo estaba. */}
+                <p className="tw:text-xs">
+                  <b>Todavía no se evalúan</b> la coherencia de la ruta contra los peajes
+                  (<code className="tw:font-mono">M-18</code>) ni la cadena de trazabilidad
+                  completa (<code className="tw:font-mono">M-14</code>). Cerrar limpio
+                  significa que no se detectó ningún criterio <i>de los que hoy se detectan</i>.
+                </p>
+              </div>
             </Nota>
           )}
 
@@ -241,15 +264,34 @@ export default function Cierre(): ReactElement {
 }
 
 /**
- * Los criterios que el servidor detectó.
+ * Los criterios de cierre con hallazgo que <b>hoy</b> se pueden detectar.
  *
- * ⚠️ **Provisional.** `M-09`, `M-13` y `M-18` no están construidos: no hay conciliación de
- * combustible, ni de peajes, ni cadena de trazabilidad que evaluar. Hasta que existan,
- * **no hay criterios detectables** y todo expediente cierra limpio.
+ * ── El único que existe, y por qué ahora sí ─────────────────────────────────
+ * `H-01` — desviación de consumo fuera de umbral, <b>en cualquier dirección</b>. Sale de
+ * `RN-30`, que ya calcula el dictamen: un vale en `ConciliadaConDesviacion` es una desviación
+ * que alguien contrastó y tipificó, no una sospecha.
  *
- * Eso queda dicho en pantalla en lugar de fingir una evaluación que no ocurrió: el aviso de
- * la cola advierte que esto no es un veredicto todavía.
+ * ⚠️ <b>Los demás siguen sin existir.</b> La coherencia de la secuencia de casetas es de
+ * `M-18` y la cadena de trazabilidad de `M-14`. Que esta función devuelva vacío <b>no</b>
+ * significa que el expediente esté limpio en esos dos frentes: significa que nadie miró.
+ * Por eso la pantalla lo dice en vez de afirmar cuatro verificaciones que no ocurrieron.
  */
-function criteriosDetectados(_expediente: Expediente | undefined): CriterioDetectado[] {
-  return [];
+function criteriosDetectados(vales: Vale[] | undefined): CriterioDetectado[] {
+  // Indefinido es «todavía no cargaron», y eso NO es «no hay». Devolver vacío acá haría
+  // que la pantalla ofreciera cerrar limpio antes de saberlo.
+  if (vales === undefined) return [];
+
+  const conDesviacion = vales.filter((v) => v.estado === 'ConciliadaConDesviacion');
+
+  if (conDesviacion.length === 0) return [];
+
+  return [
+    {
+      criterio: 'H-01',
+      detalle:
+        conDesviacion.length === 1
+          ? `El vale ${conDesviacion[0]?.folio} concilió con desviación de rendimiento`
+          : `${conDesviacion.length} vales conciliaron con desviación de rendimiento`,
+    },
+  ];
 }

@@ -49,6 +49,18 @@ public class AsignacionDeCombustiblePruebas
         return a;
     }
 
+    /// <summary>Lo que `RN-30` devuelve cuando el rendimiento cuadra.</summary>
+    private static readonly Conciliacion Conforme = new(
+        DictamenDeConciliacion.DentroDeUmbral, 1_000, 105m, 9.52m,
+        new RendimientoEsperado(10m, OrigenDelRendimiento.Institucional, "RENDIMIENTO-2026-Q1"),
+        -0.048m, "1,000 km / 105.00 gal = 9.52 km/gal contra 10.00 esperado");
+
+    /// <summary>Y cuando no. Es el dictamen, no una opinión de quien concilia.</summary>
+    private static readonly Conciliacion ConDesviacion = new(
+        DictamenDeConciliacion.RendimientoImposible, 1_000, 80m, 12.5m,
+        new RendimientoEsperado(10m, OrigenDelRendimiento.Institucional, "RENDIMIENTO-2026-Q1"),
+        0.25m, "RENDIMIENTO IMPOSIBLE: menos galones de los que el recorrido exige");
+
     private static ConsumoRegistrado Carga(decimal galones = 30m, decimal monto = 1_500m) =>
         new(galones, monto, "Estación Uno, Choluteca", Odometro: 84_120, Comprobante: "F-0011-9932");
 
@@ -381,10 +393,14 @@ public class AsignacionDeCombustiblePruebas
     public void La_conciliacion_dentro_de_umbral_cierra_el_vale()
     {
         var a = Liquidada();
-        a.Conciliar(Auditor, dentroDeUmbral: true, "18.5 km/galón contra 17 esperado.", Momento);
+        a.Conciliar(Auditor, Conforme, causa: null, Momento);
 
         Assert.Equal(EstadoDeAsignacion.Conciliada, a.Estado);
         Assert.True(a.EstaResuelta);
+
+        // Y la evidencia entera va al asiento: el dictamen sin sus cuentas es una opinión, y
+        // una conciliación que no dice contra qué se juzgó no se puede rehacer.
+        Assert.Contains("contra 10.00 esperado", a.Diario[^1].Motivo);
     }
 
     [Fact]
@@ -395,7 +411,7 @@ public class AsignacionDeCombustiblePruebas
         var a = Liquidada();
 
         var fallo = Assert.Throws<BloqueoDuro>(
-            () => a.Conciliar(Auditor, dentroDeUmbral: false, "   ", Momento));
+            () => a.Conciliar(Auditor, ConDesviacion, causa: "   ", Momento));
 
         Assert.Contains("INV-35", fallo.Message);
     }
@@ -404,7 +420,7 @@ public class AsignacionDeCombustiblePruebas
     public void Fuera_de_umbral_CON_causa_concilia_con_desviacion()
     {
         var a = Liquidada();
-        a.Conciliar(Auditor, false, "Ruta de montaña, 9 km/galón contra 17. Causa: terreno.", Momento);
+        a.Conciliar(Auditor, ConDesviacion, "Ruta de montaña. Causa: terreno.", Momento);
 
         Assert.Equal(EstadoDeAsignacion.ConciliadaConDesviacion, a.Estado);
         // Sigue siendo resuelta: `T-21`/`T-22` exigen conciliada «en cualquiera de las dos
@@ -418,7 +434,7 @@ public class AsignacionDeCombustiblePruebas
     public void El_recorrido_entero_queda_en_el_diario_con_su_actor()
     {
         var a = Liquidada();
-        a.Conciliar(Auditor, true, "Dentro de umbral.", Momento);
+        a.Conciliar(Auditor, Conforme, causa: null, Momento);
 
         Assert.Equal(["V-01", "V-02", "V-04", "V-07", "V-09"], a.Diario.Select(t => t.Id));
 

@@ -346,6 +346,78 @@ en pantalla — un vehículo en taller y uno prestado se pintan apagados en el c
 abril?»* — y cada asiento dice si lo declaró una persona o lo fijó el sistema. Sin esa marca,
 la afirmación de §10.2 sobre quién fija qué **no se puede auditar, sólo creer**.
 
+### `RN-30` — la conciliación galonaje–kilometraje
+
+**RESUELTA.** `ReglasDeConciliacion` calcula el dictamen y `V-09`/`V-10` lo aplican. Con esto la
+conciliación deja de ser un booleano que mandaba el cliente.
+
+**Lo que el auditor pregunta**, según `NRM-01` citado por la regla: *«el auditor no busca
+comprobantes, busca correlación entre consumo, kilometraje y misión autorizada. Un sistema que
+solo archiva facturas no responde a lo que se le va a preguntar»*. Este cálculo es esa
+correlación.
+
+**Las dos direcciones, y la segunda es la que importa.** Un control ingenuo busca consumo de
+más. `RN-30` exige también lo contrario: **un rendimiento imposiblemente bueno casi siempre
+significa un despacho que no se registró** — los galones anotados no explican los kilómetros
+porque el vehículo cargó de una fuente que nadie apuntó.
+
+**Los dos umbrales son independientes**, que es literal en la regla: *«un exceso de consumo del
+20% y un ahorro del 20% no significan lo mismo»*. Verificado por mutación: igualarlos rompe la
+prueba.
+
+| Dictamen | Qué significa |
+|---|---|
+| `NoEvaluable` | **No se pudo comparar.** No es «conforme» — un control que tranquiliza sin haber comparado es peor que ninguno |
+| `NoConcluyente` | Se calculó y el resultado no significa nada: odómetro averiado, nivel de tanque dispar, espera con motor encendido. **Se conserva** para el agregado, que `RN-30` declara válido |
+| `DentroDeUmbral` | · |
+| `ConsumoExcesivo` | Más galones de los que el recorrido justifica |
+| `RendimientoImposible` | Menos galones de los que el recorrido exige |
+
+**Quien concilia ya no elige.** Antes la petición llevaba `dentroDeUmbral`, y eso dejaba a quien
+revisa decidiendo si su propio caso era hallazgo: en seis meses no habría una sola desviación.
+Es el mismo invariante de §7.2 sobre el cierre — el criterio decide, la persona lo confirma con
+su causa. Y la causa se exige **sólo si hubo hallazgo**: pedirla siempre enseña a rellenar el
+campo con cualquier cosa.
+
+**El `rendimiento_esperado` sigue siendo `[C]`** y se devuelve nulo — un pick-up y un bus no se
+parecen en nada, y `RN-30` advierte lo que pasa al inventarlo: *«el sistema producirá hallazgos
+falsos y en tres meses nadie los mirará»*. Lo que sí hay es la **propuesta del histórico del
+propio vehículo**, que la regla autoriza expresamente, marcada como propuesta y con su origen
+viajando hasta el asiento. Sin ella la conciliación no correría nunca y el control existiría sin
+funcionar.
+
+⚠️ **La propuesta compara el vehículo consigo mismo.** Si el desvío es constante desde siempre,
+la media ya lo incorporó y todo se ve conforme. Eso no se arregla con más datos del mismo
+vehículo: se arregla con el valor institucional y con el agregado por dependencia.
+
+**Los umbrales sí se declaran, y no contradice lo anterior:** el esperado es un hecho sobre un
+vehículo concreto que sólo la institución conoce; los umbrales son cuánta desviación se tolera
+antes de mirar, y ahí la regla fija la forma. Los números siguen siendo `[C]` y la versión lo
+dice.
+
+**Y el cierre dejó de mentir.** La pantalla afirmaba *«consumo dentro de umbral, ruta coherente,
+fondo comprobado y cadena de trazabilidad completa»* — cuatro verificaciones, ninguna existía, y
+un expediente cerrado sobre esa frase parecía revisado. Ahora `H-01` **se detecta de verdad**
+desde los vales conciliados con desviación, y lo que no se evalúa —peajes de `M-18`,
+trazabilidad de `M-14`— se dice.
+
+⚠️ **Lo que la conciliación todavía no ve:**
+
+- **Sólo entran los galones del fondo.** `RN-83` manda contar *todo* abastecimiento, venga de
+  donde venga. Un despacho desde el tanque institucional no pasa por ningún folio y **no existe
+  para el cálculo** — y es exactamente lo que produce un rendimiento imposiblemente bueno. Sin
+  `RN-83`, la regla señala un síntoma cuya causa el sistema no puede registrar.
+- **Los tres reparos se declaran a mano.** El nivel de tanque es de `RN-83` y la espera con
+  motor encendido de `M-19`; ninguno existe, así que quien concilia los marca.
+- **Sustitución de vehículo a mitad de misión.** `RN-30` exige conciliar cada vehículo por
+  separado con sus propios cortes de odómetro. `T-10` reasigna **sin registrar corte**, así que
+  el corte no existe y no se puede partir. Queda dicho en vez de partir por un punto inventado.
+- **El reporte de conciliación periódica** de `NRM-01` y la **alerta agregada** por vehículo,
+  motorista o dependencia son de `M-14`. `RN-30` dice que el patrón se ve ahí, «no en una misión
+  aislada».
+
+---
+
 ### El consumo desde el cliente de campo — `V-04` sin red
 
 **RESUELTA.** `campo/nucleo/ConsumoEnRuta.ts` prepara la carga en la estación, y

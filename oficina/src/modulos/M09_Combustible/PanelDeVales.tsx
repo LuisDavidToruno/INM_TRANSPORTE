@@ -8,8 +8,10 @@ import type { Tono } from '../../ui';
 import { BloqueoDuro } from '../../api/misiones';
 import { conductores } from '../../api/flota';
 import {
+  TEXTO_DE_DICTAMEN,
   TEXTO_DE_VALE,
   conciliarVale,
+  dictamenDeConciliacion,
   emitirVale,
   entregarVale,
   fondos as pedirFondos,
@@ -20,7 +22,7 @@ import {
   registrarConsumo,
   valesDeLaMision,
 } from '../../api/combustible';
-import type { Vale } from '../../api/combustible';
+import type { DictamenDeConciliacion, Vale } from '../../api/combustible';
 import { momentoCompleto } from '../M06_Autorizacion/formato';
 import CampoDeActor from './CampoDeActor';
 
@@ -663,7 +665,20 @@ function DialogoDeVale({
   const [odometro, setOdometro] = useState('');
   const [comprobante, setComprobante] = useState('');
   const [devuelto, setDevuelto] = useState('');
-  const [dentroDeUmbral, setDentroDeUmbral] = useState(true);
+  // Los tres reparos de `RN-30` que invalidan el cálculo sin invalidar el registro. Se
+  // DECLARAN porque hoy el sistema no los sabe: el nivel de tanque es de `RN-83` y la espera
+  // con motor encendido de `M-19`, y ninguno de los dos existe.
+  const [odometroAveriado, setOdometroAveriado] = useState(false);
+  const [nivelDispar, setNivelDispar] = useState(false);
+  const [esperaProlongada, setEsperaProlongada] = useState(false);
+
+  // **El dictamen se pide ANTES de aplicar.** Una causa escrita sin saber el resultado es
+  // una causa escrita a ciegas, y `RN-30` la quiere tipificada contra lo que se desvió.
+  const dictamen = useQuery({
+    queryKey: ['dictamen', vale.id, odometroAveriado, nivelDispar, esperaProlongada],
+    queryFn: () => dictamenDeConciliacion(vale.id),
+    enabled: tipo === 'conciliar',
+  });
 
   const operacion = useMutation({
     mutationFn: () => {
@@ -710,9 +725,11 @@ function DialogoDeVale({
         case 'conciliar':
           return conciliarVale(vale.id, {
             ejecuta: ejecuta.trim(),
-            dentroDeUmbral,
-            dictamen: texto.trim(),
             momento,
+            causa: texto.trim() === '' ? undefined : texto.trim(),
+            odometroAveriado,
+            nivelDeTanqueDispar: nivelDispar,
+            esperaProlongadaRegistrada: esperaProlongada,
           });
       }
     },
@@ -756,9 +773,11 @@ function DialogoDeVale({
       case 'liquidar':
         return Number(devuelto || 0) >= 0;
       case 'conciliar':
-        // Fuera de umbral exige causa tipificada — `INV-35`. Dentro de umbral no la exige,
-        // pero el dictamen es lo que hace auditable la conciliación, así que se pide igual.
-        return texto.trim().length >= 10;
+        // La causa se exige **sólo si el cálculo dio hallazgo** (`INV-35`). Pedirla siempre
+        // obligaría a redactar la explicación de una desviación que no hubo, y eso enseña a
+        // escribir cualquier cosa.
+        if (dictamen.data?.esHallazgo === true) return texto.trim().length >= 10;
+        return dictamen.isSuccess;
     }
   })();
 
@@ -883,34 +902,47 @@ function DialogoDeVale({
         )}
 
         {tipo === 'conciliar' && (
-          <fieldset className="tw:flex tw:flex-col tw:gap-2">
-            <legend className="tw:mb-1 tw:text-sm tw:font-medium">Resultado</legend>
+          <>
+            <DictamenVista consulta={dictamen} />
 
-            <Opcion
-              elegido={dentroDeUmbral}
-              valor
-              onElegir={setDentroDeUmbral}
-              texto="Dentro de umbral"
-            />
-            <Opcion
-              elegido={dentroDeUmbral}
-              valor={false}
-              onElegir={setDentroDeUmbral}
-              texto="Fuera de umbral — dispara hallazgo H-01 en la misión"
-            />
+            <fieldset className="tw:flex tw:flex-col tw:gap-2">
+              <legend className="tw:mb-1 tw:text-sm tw:font-medium">
+                Qué invalida el cálculo
+              </legend>
+              <p className="tw:text-xs tw:text-tinta-mid">
+                Estos tres no los sabe el sistema todavía, y cambian el dictamen. Marcarlos no
+                borra las cuentas: el cálculo se conserva para el análisis agregado.
+              </p>
 
-            <Nota tono="aviso">
-              <b>El umbral lo decide usted, no el sistema.</b> Los umbrales de desviación por
-              tipo de vehículo son parámetro pendiente de la institución y el rendimiento
-              esperado no está cargado. Calcularlo contra un umbral inexistente daría siempre
-              «conforme», y una conciliación que siempre concilia es peor que ninguna.
-            </Nota>
-          </fieldset>
+              <Casilla
+                marcada={odometroAveriado}
+                onCambiar={setOdometroAveriado}
+                texto="El odómetro estaba averiado o intervenido"
+              />
+              <Casilla
+                marcada={nivelDispar}
+                onCambiar={setNivelDispar}
+                texto="Salió y volvió con niveles de tanque muy distintos"
+              />
+              <Casilla
+                marcada={esperaProlongada}
+                onCambiar={setEsperaProlongada}
+                texto="Hubo espera prolongada con motor encendido"
+              />
+            </fieldset>
+          </>
         )}
 
+        {/* La causa se marca obligatoria **sólo cuando el cálculo dio hallazgo**. Un
+            asterisco sobre una desviación que no hubo enseña a rellenar el campo con
+            cualquier cosa, y entonces la causa deja de significar algo. */}
         <Campo
           etiqueta={ETIQUETA_DE_TEXTO[tipo]}
-          obligatorio={tipo !== 'liquidar'}
+          obligatorio={
+            tipo === 'conciliar'
+              ? dictamen.data?.esHallazgo === true
+              : tipo !== 'liquidar'
+          }
           ayuda={AYUDA_DE_TEXTO[tipo]}
         >
           {(props) =>
@@ -991,30 +1023,110 @@ function Linea({
   );
 }
 
-function Opcion({
-  elegido,
-  valor,
-  onElegir,
+function Casilla({
+  marcada,
+  onCambiar,
   texto,
 }: {
-  elegido: boolean;
-  valor: boolean;
-  onElegir(v: boolean): void;
+  marcada: boolean;
+  onCambiar(v: boolean): void;
   texto: string;
 }): ReactElement {
   return (
     <label className="tw:flex tw:cursor-pointer tw:items-start tw:gap-2 tw:text-sm">
       <input
-        type="radio"
-        name="umbral"
-        checked={elegido === valor}
-        onChange={() => onElegir(valor)}
+        type="checkbox"
+        checked={marcada}
+        onChange={(e) => onCambiar(e.target.checked)}
         className="tw:mt-0.5 tw:size-4 tw:shrink-0 tw:accent-acento"
       />
       <span>{texto}</span>
     </label>
   );
 }
+
+/**
+ * El dictamen de `RN-30`, con sus cuentas.
+ *
+ * ── Por qué se muestra el desglose y no sólo el veredicto ───────────────────
+ * Porque quien concilia tiene que poder <b>discutirlo</b>: «rendimiento imposible» sin los
+ * kilómetros, los galones y contra qué se comparó es una acusación sin expediente. Y porque
+ * `RN-30` manda mostrar la desviación <i>«junto con el desglose que la sustenta»</i>.
+ */
+function DictamenVista({
+  consulta,
+}: {
+  consulta: { data?: DictamenDeConciliacion; isPending: boolean; isError: boolean };
+}): ReactElement {
+  if (consulta.isPending)
+    return <p className="tw:text-sm tw:text-tinta-mid">Calculando el rendimiento…</p>;
+
+  if (consulta.isError || consulta.data === undefined)
+    return (
+      <Nota tono="riesgo" icono={<CircleAlert />}>
+        No se pudo calcular la conciliación. Sin ella no se puede afirmar que este vale cuadre.
+      </Nota>
+    );
+
+  const d = consulta.data;
+
+  return (
+    <div className="tw:flex tw:flex-col tw:gap-2 tw:rounded-control tw:bg-inset tw:p-3">
+      <div className="tw:flex tw:items-center tw:gap-2">
+        <Pastilla tono={TONO_DE_DICTAMEN[d.dictamen] ?? 'neutro'}>
+          {TEXTO_DE_DICTAMEN[d.dictamen] ?? d.dictamen}
+        </Pastilla>
+        {d.observado !== null && (
+          <span className="tw:font-mono tw:text-sm tw:tabular-nums">
+            {d.observado.toFixed(2)} km/gal
+          </span>
+        )}
+      </div>
+
+      <div className="tw:flex tw:flex-wrap tw:gap-x-5 tw:gap-y-1 tw:text-xs tw:text-tinta-mid">
+        <span>{d.kilometros.toLocaleString('es-HN')} km recorridos</span>
+        <span>{enGalones(d.galones)} consumidos</span>
+        {d.esperado && (
+          <span>
+            esperado {d.esperado.kmPorGalon.toFixed(2)} km/gal
+          </span>
+        )}
+        {d.desviacion !== null && (
+          <span>desviación {(d.desviacion * 100).toFixed(1)}%</span>
+        )}
+      </div>
+
+      {/* De dónde salió el esperado. Un dictamen contra la media del propio vehículo no
+          sostiene un hallazgo igual que el valor de la institución, y esconderlo dejaría
+          los dos con la misma pinta de autoridad. */}
+      {d.esperado?.origen === 'PropuestoDelHistorico' && (
+        <Nota tono="aviso">
+          El rendimiento esperado es una <b>propuesta del propio histórico</b> de este
+          vehículo, no el valor de la institución — que todavía no está cargado. Compara el
+          vehículo consigo mismo: si el desvío es constante desde siempre, la media ya lo
+          incorporó.
+        </Nota>
+      )}
+
+      {d.dictamen === 'NoEvaluable' && (
+        <Nota tono="aviso">
+          <b>No se pudo comparar contra nada</b>, y eso no es «conforme». La conciliación se
+          va a registrar diciendo exactamente qué faltó.
+        </Nota>
+      )}
+
+      <p className="tw:text-xs tw:text-tinta-mid">{d.evidencia}</p>
+    </div>
+  );
+}
+
+const TONO_DE_DICTAMEN: Record<string, Tono> = {
+  NoEvaluable: 'neutro',
+  NoConcluyente: 'aviso',
+  DentroDeUmbral: 'ok',
+  ConsumoExcesivo: 'riesgo',
+  RendimientoImposible: 'riesgo',
+};
 
 const ACTOR_DEL_VALE: Record<Accion, string> = {
   entregar: 'Quién entrega',
@@ -1044,7 +1156,7 @@ const ETIQUETA_DE_TEXTO: Record<Accion, string> = {
   devolver: 'Acta de devolución',
   extravio: 'Acta de extravío',
   liquidar: 'Observación',
-  conciliar: 'Dictamen',
+  conciliar: 'Causa de la desviación',
 };
 
 const AYUDA_DE_TEXTO: Record<Accion, string> = {
@@ -1057,5 +1169,5 @@ const AYUDA_DE_TEXTO: Record<Accion, string> = {
     'Con motivo y responsable. Un extravío no declarado deja un vale que sigue figurando entregado y que puede aparecer canjeado en la factura del proveedor.',
   liquidar: 'Opcional. Si hay diferencia, acá se explica.',
   conciliar:
-    'Rendimiento real contra esperado, y la causa si se sale del umbral. Sin causa tipificada la misión no se puede cerrar.',
+    'El sistema dice QUÉ se desvió; por qué se desvió lo declara usted. Sólo hace falta si el cálculo dio hallazgo, y sin ella la misión no se puede cerrar.',
 };

@@ -2,6 +2,7 @@ using Sigti.Dominio.M02_Parametros;
 using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M05_Motoristas;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
+using Sigti.Dominio.M09_Combustible;
 
 namespace Sigti.Aplicacion.M02_Parametros;
 
@@ -32,6 +33,23 @@ public interface IParametrosDeLaInstitucion
     /// no se puede exceder en un centavo, y la salida es la ampliación.
     /// </summary>
     decimal ToleranciaDeSobregiro { get; }
+
+    /// <summary>
+    /// `RN-30` — <c>rendimiento_esperado</c> del vehículo, vigente a la fecha del hecho.
+    ///
+    /// <b>Nulo cuando la institución no lo fijó.</b> No hay valor por omisión razonable: un
+    /// pick-up y un bus no se parecen en nada, y suponer uno produciría hallazgos falsos que
+    /// en tres meses nadie miraría — que es como muere un control.
+    /// </summary>
+    RendimientoEsperado? RendimientoEsperadoDe(Ulid vehiculo, DateOnly fecha);
+
+    /// <summary>
+    /// `RN-30` — <c>umbral_desviacion_rendimiento</c>, superior e inferior, <b>independientes</b>.
+    ///
+    /// Nulos por la misma razón que el esperado: sin ellos cualquier diferencia sería hallazgo
+    /// o ninguna lo sería, y las dos cosas son falsas.
+    /// </summary>
+    UmbralesDeDesviacion? UmbralesVigentesAl(DateOnly fecha);
 }
 
 /// <summary>
@@ -151,6 +169,38 @@ public sealed class ParametrosProvisionales : IParametrosDeLaInstitucion
     /// sobre el saldo bloquea, y la salida es la ampliación del fondo por el mismo circuito.
     /// </summary>
     public decimal ToleranciaDeSobregiro => 0m;
+
+    /// <summary>
+    /// ⚠️ <b>NULO, y esa es la respuesta honesta.</b> `RN-30` punto 1 lo declara `[C]`: <i>«la
+    /// institución debe fijarlo»</i>, ajustable por tipo de terreno o de ruta.
+    ///
+    /// ── Por qué no se pone un valor «razonable» ─────────────────────────────
+    /// Porque un pick-up y un bus no se parecen en nada, y porque la propia regla advierte lo
+    /// que pasa al inventarlo: <i>«el sistema producirá hallazgos falsos y en tres meses nadie
+    /// los mirará»</i>. Un control que la gente aprendió a ignorar es peor que uno apagado.
+    ///
+    /// ── Lo que SÍ hay mientras tanto ────────────────────────────────────────
+    /// La <b>propuesta del histórico</b> del propio vehículo, que `RN-30` autoriza
+    /// expresamente y que el servicio calcula. Va marcada como propuesta y su origen viaja
+    /// hasta el asiento: nadie puede confundirla con el número de la institución.
+    /// </summary>
+    public RendimientoEsperado? RendimientoEsperadoDe(Ulid vehiculo, DateOnly fecha) => null;
+
+    /// <summary>
+    /// Los umbrales asimétricos <b>sí</b> se declaran, y no contradice lo anterior.
+    ///
+    /// La diferencia es qué tipo de dato es cada uno. El <b>esperado</b> es un hecho sobre un
+    /// vehículo concreto que sólo la institución conoce; los <b>umbrales</b> son cuánta
+    /// desviación se tolera antes de mirar, y ahí `RN-30` sí fija la forma: <i>«un exceso de
+    /// consumo del 20% y un ahorro del 20% no significan lo mismo»</i>.
+    ///
+    /// ⚠️ <b>Los números siguen siendo `[C]`</b> —insumos #1 y #19—, y por eso la versión lo
+    /// dice: un asiento que cite `PROVISIONAL` se puede auditar; uno que diga «umbral vigente»
+    /// a secas, no. Se aprieta más arriba que abajo porque un exceso puede ser montaña y un
+    /// ahorro imposible casi siempre es un despacho que nadie registró.
+    /// </summary>
+    public UmbralesDeDesviacion? UmbralesVigentesAl(DateOnly fecha) =>
+        new(ToleranciaInferior: 0.25m, ToleranciaSuperior: 0.15m);
 
     /// <summary>
     /// Omitir <c>kg</c> o <c>pasajeros</c> significa <b>que el Acuerdo no fija ese

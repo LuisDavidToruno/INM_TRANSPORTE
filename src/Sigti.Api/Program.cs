@@ -49,6 +49,7 @@ constructor.Services.AddScoped<ConsultaDelDiaDeDespacho>();
 constructor.Services.AddScoped<ConsultaDeOdometro>();
 constructor.Services.AddScoped<EstadoDeLaFlota>();
 constructor.Services.AddScoped<ServicioDeCombustible>();
+constructor.Services.AddScoped<ServicioDeConciliacion>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -719,16 +720,53 @@ vales.MapPost("/{id}/liquidar", async (
     return Results.Ok(new { estado = estado.ToString() });
 });
 
+// `RN-30` — la conciliación galonaje–kilometraje.
+//
+// **El dictamen lo calcula el sistema.** Antes venía en la petición, y eso dejaba a quien
+// concilia eligiendo si su propio caso era hallazgo: en seis meses no habría una sola
+// desviación. Es el mismo invariante de §7.2 sobre el cierre — el criterio decide, la
+// persona lo confirma con su causa.
 vales.MapPost("/{id}/conciliar", async (
-    string id, ConciliarVale peticion, ServicioDeCombustible servicio) =>
+    string id, ConciliarVale peticion, ServicioDeConciliacion conciliacion) =>
 {
-    var estado = await servicio.TransicionarAsync(
-        Ulid.Parse(id),
-        vale => vale.Conciliar(new IdPersona(peticion.Ejecuta), peticion.DentroDeUmbral,
-                               peticion.Dictamen, peticion.Momento),
-        peticion.Momento);
+    var estado = await conciliacion.ConciliarAsync(
+        Ulid.Parse(id), new IdPersona(peticion.Ejecuta), peticion.Causa, peticion.Momento,
+        // Los tres reparos que invalidan el cálculo sin invalidar el registro. Los declara
+        // quien concilia porque hoy **el sistema no los sabe**: el nivel de tanque es de
+        // `RN-83` y la espera con motor encendido de `M-19`, y ninguno existe.
+        new ReparosDelCalculo(
+            peticion.OdometroAveriado, peticion.NivelDeTanqueDispar,
+            peticion.EsperaProlongadaRegistrada));
 
     return Results.Ok(new { estado = estado.ToString() });
+});
+
+// El dictamen ANTES de aplicarlo: quien concilia necesita ver contra qué se le va a juzgar,
+// y una causa que se escribe sin saber el resultado es una causa escrita a ciegas.
+vales.MapGet("/{id}/conciliacion", async (
+    string id, ServicioDeConciliacion conciliacion) =>
+{
+    var r = await conciliacion.EvaluarAsync(Ulid.Parse(id));
+
+    return Results.Ok(new
+    {
+        dictamen = r.Dictamen.ToString(),
+        esHallazgo = r.EsHallazgo,
+        kilometros = r.KilometrosRecorridos,
+        galones = r.GalonesConsumidos,
+        observado = r.RendimientoObservado,
+        esperado = r.Esperado is null ? null : new
+        {
+            kmPorGalon = r.Esperado.KmPorGalon,
+            // El origen viaja: un dictamen contra una propuesta del propio histórico y otro
+            // contra el valor institucional no valen lo mismo, y sólo el segundo sostiene un
+            // hallazgo firme.
+            origen = r.Esperado.Origen.ToString(),
+            version = r.Esperado.Version,
+        },
+        desviacion = r.Desviacion,
+        evidencia = r.Evidencia,
+    });
 });
 
 app.MapGet("/despacho/dia", async (string? fecha, ConsultaDelDiaDeDespacho tablero) =>
@@ -1372,14 +1410,30 @@ internal sealed record RegistrarConsumo(
 internal sealed record LiquidarVale(
     string Ejecuta, decimal SaldoDevuelto, string? Observacion, DateTimeOffset Momento);
 
-/// <param name="DentroDeUmbral">
-/// ⚠️ **Lo decide quien llama, no el sistema.** Los umbrales de desviación por tipo de vehículo
-/// son parámetro `[C]` (insumos #1 y #19) y el rendimiento esperado no está cargado. Calcularlo
-/// contra un umbral inexistente devolvería siempre «conforme», y una conciliación que siempre
-/// concilia es peor que ninguna.
+/// <param name="Causa">
+/// Por qué se desvió. **Obligatoria sólo si el cálculo dio hallazgo** — no se le puede pedir a
+/// nadie que explique una desviación que no hubo. El sistema dice *qué* se desvió; el *por qué*
+/// lo declara quien concilia, y `INV-35` lo exige para poder cerrar.
+/// </param>
+/// <param name="OdometroAveriado">
+/// `RN-90` — el instrumento intervenido no mide, y su lectura no divide nada.
+/// </param>
+/// <param name="NivelDeTanqueDispar">
+/// Salió con un nivel y volvió con otro muy distinto: los galones consumidos no son los
+/// cargados. ⚠️ Se **declara** porque el sistema no lo sabe — el nivel de tanque es dato
+/// obligatorio de bitácora en `RN-83`, que no está construido.
+/// </param>
+/// <param name="EsperaProlongadaRegistrada">
+/// Motor encendido esperando: consume sin recorrer. ⚠️ También se declara, porque la medición
+/// es de `M-19` y no existe. `RN-30` advierte que sin ella el hallazgo sería infundado.
 /// </param>
 internal sealed record ConciliarVale(
-    string Ejecuta, bool DentroDeUmbral, string Dictamen, DateTimeOffset Momento);
+    string Ejecuta,
+    DateTimeOffset Momento,
+    string? Causa = null,
+    bool OdometroAveriado = false,
+    bool NivelDeTanqueDispar = false,
+    bool EsperaProlongadaRegistrada = false);
 
 /// <summary>Lo que `T-14` y `T-18` reciben — `BD-05`.</summary>
 /// <param name="Odometro">

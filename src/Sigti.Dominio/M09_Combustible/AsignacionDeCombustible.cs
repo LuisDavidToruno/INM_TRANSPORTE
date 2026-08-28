@@ -400,33 +400,48 @@ public sealed class AsignacionDeCombustible
     }
 
     /// <summary>
-    /// `V-09` y `V-10` — conciliar contra kilometraje.
+    /// `V-09` y `V-10` — conciliar contra kilometraje, con el dictamen que calculó `RN-30`.
     ///
-    /// ⚠️ <b>El umbral no lo decide este objeto, y hoy no existe.</b> Los umbrales de
-    /// desviación por tipo de vehículo son parámetro `[C]` —insumos #1 y #19— y el rendimiento
-    /// esperado tampoco está cargado. Quien llama pasa el veredicto ya tomado; acá sólo se
-    /// asienta.
+    /// ── Quien concilia NO elige el resultado ────────────────────────────────
+    /// Es el mismo invariante que §7.2 impone al cierre: <i>«quien cierra no elige entre
+    /// cerrar limpio o con hallazgo, el criterio decide y él lo confirma»</i>. Si quien
+    /// concilia pudiera declarar «dentro de umbral» sobre un rendimiento imposible, en seis
+    /// meses no habría una sola desviación y el estado dejaría de significar algo.
     ///
-    /// Que la firma reciba <c>dentroDeUmbral</c> en vez de calcularlo es deliberado: un cálculo
-    /// contra un umbral inexistente devolvería siempre «conforme», y una conciliación que
-    /// siempre concilia es peor que ninguna.
+    /// Por eso la firma recibe la <see cref="Conciliacion"/> ya calculada y no un booleano:
+    /// el booleano era una decisión de quien llamaba.
+    ///
+    /// ── Y la causa sigue siendo del analista ────────────────────────────────
+    /// El sistema dice <b>qué</b> se desvió; por qué se desvió lo declara quien concilia, y
+    /// `INV-35` lo exige para poder cerrar.
     /// </summary>
+    /// <param name="causa">
+    /// Obligatoria cuando hay hallazgo. En los demás dictámenes es opcional: no se le puede
+    /// pedir a nadie que explique una desviación que no hubo.
+    /// </param>
     public void Conciliar(
-        IdPersona concilia, bool dentroDeUmbral, string dictamen, DateTimeOffset momento)
+        IdPersona concilia, Conciliacion resultado, string? causa, DateTimeOffset momento)
     {
-        ExigirEstado(dentroDeUmbral ? "V-09" : "V-10", EstadoDeAsignacion.Liquidada);
+        var transicion = resultado.EsHallazgo ? "V-10" : "V-09";
+
+        ExigirEstado(transicion, EstadoDeAsignacion.Liquidada);
         ReglasDeEmisionDeCombustible.ExigirActorDistinto("conciliarla", concilia, ActosPrevios());
 
-        if (!dentroDeUmbral && string.IsNullOrWhiteSpace(dictamen))
+        if (resultado.EsHallazgo && string.IsNullOrWhiteSpace(causa))
             throw new BloqueoDuro("RN-30",
                 "Una desviación fuera de umbral exige causa tipificada. Sin ella no se puede " +
                 "cerrar la misión (`INV-35`).");
 
         _diario.Add(new TransicionDeAsignacion(
-            dentroDeUmbral ? "V-09" : "V-10",
-            dentroDeUmbral ? EstadoDeAsignacion.Conciliada : EstadoDeAsignacion.ConciliadaConDesviacion,
+            transicion,
+            resultado.EsHallazgo
+                ? EstadoDeAsignacion.ConciliadaConDesviacion
+                : EstadoDeAsignacion.Conciliada,
             concilia, momento,
-            $"{GalonesConsumidos:N2} galones contra kilometraje. {dictamen}"));
+            // La evidencia entera va al asiento: una conciliación que no dice contra qué se
+            // juzgó no se puede rehacer, y el dictamen sin sus cuentas es una opinión.
+            $"{resultado.Dictamen}: {resultado.Evidencia}" +
+            (causa is null ? "" : $" · causa declarada: {causa.Trim()}")));
     }
 
     private Dictionary<string, IdPersona> SoloDe(params string[] verbos)
