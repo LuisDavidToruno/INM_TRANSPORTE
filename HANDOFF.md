@@ -291,10 +291,19 @@ Interna.
 extingue al retorno. Es un registro distinto de la permanente, y mezclarlos haría imposible
 contestar quién respondía por el bien en ruta: la respuesta correcta son las dos personas.
 
-**🔎 Hallazgo en la autoridad, sin corregir.** La sección de `BD-13` cita `EF-05` para el
-traslado de custodia, y `EF-05` es *«Conciliación disparada al retornar»*. El traslado de
-custodia **no tiene `EF-nn` propio** — la lista va de `EF-01` a `EF-07` y ninguno lo cubre.
-No se corrige en silencio.
+**🔎 Hallazgo en la autoridad, corregido el 2026-08-28 con autorización del PO.** La sección
+de `BD-13` citaba `EF-05` para el traslado de custodia, y `EF-05` es *«Conciliación disparada
+al retornar»*. Se verificó que era **la única cita equivocada**: las otras cuatro del documento
+y las quince de casos de uso y casos especiales apuntan todas a la conciliación.
+
+La referencia pasa a la lista de efectos de `T-12`, que es donde el traslado **sí está
+descrito**. **No se creó `EF-08`**: los identificadores no se insertan a conveniencia, y un
+identificador nuevo no implementa nada. Queda como **decisión abierta del PO** si lo merece —
+el argumento a favor es que el traslado hace convivir dos registros, el permanente y el
+temporal de la misión, y el temporal no está construido.
+
+Las dos anclas internas del documento se verificaron contra los 96 encabezados: **ninguna
+rota**.
 
 ### `PROGRAMADA` tiene sus cuatro salidas
 

@@ -905,9 +905,15 @@ El motorista no tiene, solapada con la ventana: vacaciones, permiso, incapacidad
 
 Un vehículo **sin custodio vigente no se despacha**. Gobierna [`RN-22`](../../01-negocio/reglas/RN-22-custodia-del-vehiculo.md): bloqueo duro, no configurable.
 
-El despacho **traslada** la custodia al motorista para la duración de la misión ([`EF-05`](#5-efectos-colaterales-que-exigen-diseño-explícito)); la custodia permanente de `ACT-13`, si existe, se conserva y se registra aparte. **Trasladar una custodia que no existe no es posible**: si nadie responde hoy por el bien, tampoco hay de quién recibirlo ni a quién devolverlo, y el acta de entrega queda sin una de sus dos firmas.
+El despacho **traslada** la custodia al motorista para la duración de la misión — es uno de los efectos de [`T-12`](#t-12--despachar--programada--despachada--act-05-encargado-de-despacho), y **no tiene `EF-nn` propio**; la custodia permanente de `ACT-13`, si existe, se conserva y se registra aparte. **Trasladar una custodia que no existe no es posible**: si nadie responde hoy por el bien, tampoco hay de quién recibirlo ni a quién devolverlo, y el acta de entrega queda sin una de sus dos firmas.
 
 > **Corrección — hallazgo `HB1-23`.** [`RN-22`](../../01-negocio/reglas/RN-22-custodia-del-vehiculo.md) declaraba esto **bloqueo duro no configurable** y `T-12` no lo tenía entre sus precondiciones. Aparecía solo de forma indirecta, en la definición de `DISPONIBLE` de §10.2 —*«con custodio asignado»*—, que **ya no es el estado del vehículo al despachar** desde la corrección de `HB1-07`. Una regla de bloqueo duro sin `BD-nn` es una regla que nadie implementa.
+
+> **Corrección — referencia rota, detectada al implementar `BD-13` el 2026-08-28.** El párrafo anterior citaba **`EF-05`** para el traslado de custodia, y `EF-05` es *«Conciliación disparada al retornar»* — otra cosa, en otro momento del ciclo. Las otras cuatro citas de `EF-05` del documento sí apuntan a la conciliación; ésta era la única equivocada.
+>
+> **El traslado de custodia no tiene `EF-nn` propio**, y la corrección **no le crea uno**: la sección 5 va de `EF-01` a `EF-07` y los identificadores no se reciclan ni se insertan a conveniencia. El efecto **sí está descrito** —en la lista de efectos de `T-12`—, así que la referencia se corrige apuntando ahí.
+>
+> Queda como **decisión abierta del PO** si merece `EF-08`. El argumento a favor: los otros seis efectos con identificador son los que exigen diseño explícito, y trasladar la custodia lo exige —hay dos registros que conviven, el permanente y el temporal de la misión, y el temporal **todavía no está construido**. El argumento en contra: el efecto ya está donde se ejecuta, y un identificador nuevo no lo implementa.
 
 ---
 ## 5. Efectos colaterales que exigen diseño explícito
