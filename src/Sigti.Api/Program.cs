@@ -625,7 +625,7 @@ return;
 
 void ConAsignacion(
     string ruta,
-    Action<OrdenDeMision, IdPersona, AsignacionDeMision, MatrizDeLicencias, PoliticaDeDocumentacion, DateTimeOffset, RecursosTomados?, IReadOnlyList<ReservaDeRecurso>?, AsignarYTransicionar, IReadOnlyList<CustodiaDelVehiculo>, CirculacionEnDiaInhabil> aplicar) =>
+    Action<OrdenDeMision, IdPersona, AsignacionDeMision, MatrizDeLicencias, PoliticaDeDocumentacion, DateTimeOffset, RecursosTomados?, IReadOnlyList<ReservaDeRecurso>?, AsignarYTransicionar, CustodiaAlDespachar, CirculacionEnDiaInhabil> aplicar) =>
     misiones.MapPost($"/{{id}}/{ruta}", async (
         string id,
         AsignarYTransicionar peticion,
@@ -634,6 +634,7 @@ void ConAsignacion(
         ConsultaDeFlota flota,
         ConsultaDeOcupacion ocupacion,
         ConsultaDeCustodias custodias,
+        ConsultaDelOrganigrama organigrama,
         ConsultaDePermisos permisos,
         IParametrosDeLaInstitucion parametros) =>
     {
@@ -669,6 +670,11 @@ void ConAsignacion(
         // condicional aqui obligaria a saber, en el enrutador, cual transicion la necesita.
         var historialDeCustodia = await custodias.DeVehiculoAsync(idVehiculo);
 
+        // El espejo del organigrama, para la CUSTODIA VACANTE de `RN-22`: tener tarjeta de
+        // responsabilidad abierta y tener custodio no son lo mismo cuando la persona ceso y
+        // no quedo nadie para firmar el traspaso.
+        var espejoDePuestos = await organigrama.VigenteAsync();
+
         // Los permisos de circulacion del expediente. Se traen TODOS: distinguir «no hay
         // ninguno» de «hay pero ninguno ampara» es lo que hace accionable el bloqueo, y ese
         // juicio es de la regla.
@@ -684,7 +690,7 @@ void ConAsignacion(
                 aplicar(expediente, new IdPersona(peticion.Ejecuta), asignacion,
                         parametros.MatrizVigenteAl(salida), parametros.PoliticaVigenteAl(salida),
                         peticion.Momento, new RecursosTomados(idVehiculo, idConductor), reservas,
-                        peticion, historialDeCustodia,
+                        peticion, new CustodiaAlDespachar(historialDeCustodia, espejoDePuestos),
                         new CirculacionEnDiaInhabil(
                             // El calendario se resuelve a la fecha del HECHO, como todo
                             // parametro normativo (P-4).

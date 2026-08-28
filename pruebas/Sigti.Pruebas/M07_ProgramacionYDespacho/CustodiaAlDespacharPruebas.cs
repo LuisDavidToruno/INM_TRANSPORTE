@@ -1,3 +1,4 @@
+using Sigti.Dominio.M01_Organizacion;
 using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
 using Sigti.Dominio.Organizacion;
@@ -137,9 +138,15 @@ public class CustodiaAlDespacharPruebas
         Assert.DoesNotContain("P-ANTERIOR", expediente.Diario[^1].Motivo);
     }
 
+    /// <summary>
+    /// Con organigrama VACIO: estas pruebas van de `BD-13`, no de la custodia vacante. Un
+    /// espejo que no conoce a nadie no puede afirmar que alguien ceso.
+    /// </summary>
     private static void Despachar(OrdenDeMision expediente, IReadOnlyList<CustodiaDelVehiculo> custodias) =>
         expediente.Despachar(Encargado, Asignacion.Valida(), Asignacion.Matriz,
-                             PoliticaDeDocumentacion.PorDefecto, Momento, custodias, Asignacion.SinDiasInhabiles());
+                             PoliticaDeDocumentacion.PorDefecto, Momento,
+                             new CustodiaAlDespachar(custodias, new Organigrama([])),
+                             Asignacion.SinDiasInhabiles());
 
     private static OrdenDeMision Programada()
     {

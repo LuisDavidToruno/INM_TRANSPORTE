@@ -547,12 +547,13 @@ public sealed class OrdenDeMision
         MatrizDeLicencias matriz,
         PoliticaDeDocumentacion politica,
         DateTimeOffset momento,
-        IReadOnlyList<CustodiaDelVehiculo> custodias,
+        CustodiaAlDespachar custodias,
         CirculacionEnDiaInhabil circulacion)
     {
         ExigirEstado(EstadoDeMision.Programada, "T-12");
         var evidencia = ExigirHabilitacionYDocumentacion(asignacion, matriz, politica, momento);
-        var custodia = ExigirCustodiaVigente(custodias, momento);
+        var custodia = ExigirCustodiaVigente(custodias.Historial, momento)
+                       + AdvertirSiLaCustodiaEstaVacante(custodias, momento);
         var inhabil = ExigirPermisoSiCirculaEnDiaInhabil(circulacion);
 
         Registrar("T-12", EstadoDeMision.Despachada, ejecuta, momento,
@@ -705,6 +706,48 @@ public sealed class OrdenDeMision
 
         return $" · BD-04 verificada · permiso {permiso.Folio} de {permiso.EmitidoPor.Valor} · " +
                $"días inhábiles: {dias} · calendario {circulacion.Calendario.Version}";
+    }
+
+    /// <summary>
+    /// La <b>custodia vacante</b> de `RN-22`: <i>«custodio que cesa en el cargo dejando el
+    /// vehículo asignado»</i>.
+    ///
+    /// ── El hueco que `BD-13` sola no cubre ──────────────────────────────────
+    /// `BD-13` mira la tarjeta de responsabilidad y la encuentra <b>abierta</b> — nadie la
+    /// cerró, porque la persona ya no está para firmarla. Y despacha. El vehículo sale a
+    /// nombre de alguien que ya no trabaja en la institución, que es el mismo daño que
+    /// `BD-13` existe para evitar por otro camino: cuando aparezca el golpe o la multa,
+    /// <b>no hay a quién imputarla</b>.
+    ///
+    /// ── Advierte, no bloquea, y eso está decidido afuera ────────────────────
+    /// `RN-22`: <i>«el sistema marca el vehículo como custodia vacante, con alerta al Jefe
+    /// de Transporte y bloqueo de despacho <b>tras un plazo configurable</b>»</i> — y el plazo
+    /// es `[C]`. Mientras no se decida, hay alerta y no hay bloqueo. Inventar el plazo
+    /// dejaría vehículos varados contra un número que nadie acordó.
+    ///
+    /// ── Ausencia de dato no es dato de ausencia ─────────────────────────────
+    /// Sólo se advierte cuando el espejo <b>conoce</b> a la persona y ninguno de sus puestos
+    /// está vigente. Si el espejo no sabe nada de ella —la integración no corrió, o esa
+    /// dependencia no se ha sincronizado—, no se dice nada: lo contrario declararía cesada
+    /// a toda la institución cada vez que el espejo esté vacío, que es hoy.
+    /// </summary>
+    private static string AdvertirSiLaCustodiaEstaVacante(
+        CustodiaAlDespachar custodias,
+        DateTimeOffset momento)
+    {
+        var fecha = DateOnly.FromDateTime(momento.Date);
+        var vigente = custodias.Historial.FirstOrDefault(c => c.VigenteAl(fecha));
+
+        // Si no hay custodia vigente, `BD-13` ya bloqueó y no se llega acá.
+        if (vigente is null) return "";
+
+        if (!custodias.Organigrama.Conoce(vigente.Custodio)) return "";
+
+        if (custodias.Organigrama.PuestosDe(vigente.Custodio, fecha).Count > 0) return "";
+
+        return $" · ⚠ CUSTODIA VACANTE: {vigente.Custodio.Valor} no ocupa ningún puesto " +
+               $"al {fecha:yyyy-MM-dd} y el vehículo sigue a su nombre. Levante el acta de " +
+               "entrega-recepción, o la unilateral con hallazgo abierto si ya no está (`RN-101`).";
     }
 
     /// <summary>`T-14` — DESPACHADA → EN_RUTA. La ejecuta el motorista, y opera desconectado.</summary>

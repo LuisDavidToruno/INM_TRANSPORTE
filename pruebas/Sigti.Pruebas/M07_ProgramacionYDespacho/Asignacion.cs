@@ -1,3 +1,4 @@
+using Sigti.Dominio.M01_Organizacion;
 using Sigti.Dominio.M02_Parametros;
 using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.Organizacion;
@@ -40,8 +41,12 @@ internal static class Asignacion
     /// que olvidarse de contestar pasara desapercibido, que es justo lo que el bloqueo
     /// existe para impedir.
     /// </summary>
-    public static readonly IReadOnlyList<CustodiaDelVehiculo> Custodiado =
-        [new CustodiaDelVehiculo(new IdPersona("P-CUSTODIO"), new DateOnly(2025, 1, 1), null)];
+    public static readonly CustodiaAlDespachar Custodiado = new(
+        [new CustodiaDelVehiculo(new IdPersona("P-CUSTODIO"), new DateOnly(2025, 1, 1), null)],
+        // Organigrama VACIO a proposito: el espejo no conoce a P-CUSTODIO, asi que no se
+        // puede afirmar que ceso. Es el estado real del sistema hoy, y estas pruebas no van
+        // de la custodia vacante -- las que si, arman el suyo.
+        new Organigrama([]));
 
     /// <summary>
     /// Circulación <b>sin ningún día inhábil</b>, para las pruebas que no ejercen `BD-04`.

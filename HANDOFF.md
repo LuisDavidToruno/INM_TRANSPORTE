@@ -246,6 +246,31 @@ para revelar el solape lo estaba escondiendo. Ahora se apilan en subfilas, y dos
 que **se tocan** cuentan como solape: el vehículo no puede estar volviendo de Danlí y
 saliendo a Juticalpa el mismo día.
 
+### La custodia vacante: tener tarjeta abierta no es tener custodio
+
+`BD-13` miraba la tarjeta de responsabilidad y la encontraba **abierta** — nadie la cerró,
+porque la persona ya no está para firmarla. Y despachaba. El vehículo salía a nombre de
+alguien que ya no trabaja en la institución: **el mismo daño que `BD-13` existe para evitar,
+por otro camino**. Cuando aparece el golpe o la multa, no hay a quién imputarla.
+
+Es el caso límite que `RN-22` nombra —*«custodio que cesa en el cargo dejando el vehículo
+asignado»*— y que `RN-101` explica: *«la institución pierde la deducción de responsabilidad
+por un trámite que no se hizo»*. **Se destrabó hoy**: hacían falta el registro de custodias y
+el espejo del organigrama, y los dos existen desde esta semana.
+
+**Advierte y no bloquea, y eso está decidido afuera.** `RN-22` pone el bloqueo *«tras un
+plazo configurable»*, y el plazo es `[C]`. Mientras no se decida, hay alerta. Inventarlo
+dejaría vehículos varados contra un número que nadie acordó.
+
+**⚠️ La distinción que decide si esto sirve o es ruido:** sólo se advierte cuando el espejo
+**conoce** a la persona y ninguno de sus puestos está vigente. Si no sabe nada de ella —la
+integración no corrió, o esa dependencia no se sincronizó— no se dice nada. **Hoy el espejo
+está prácticamente vacío**: sin esa guarda, la advertencia saldría en cada despacho de la
+institución y en una semana nadie la leería. Es la misma razón por la que la antigüedad del
+espejo devuelve nulo en vez de cero — ausencia de dato no es dato de ausencia.
+
+Verificado por mutación: al quitar la guarda, las dos pruebas de la distinción fallan.
+
 ### La jefatura ya puede decir que no
 
 **Podía aprobar y nada más.** Una solicitud improcedente no se rechazaba, una incompleta no

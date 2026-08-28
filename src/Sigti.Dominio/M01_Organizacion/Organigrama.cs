@@ -87,6 +87,20 @@ public sealed class Organigrama(IReadOnlyList<AsignacionDePuesto> asignaciones)
             .ToList();
 
     /// <summary>
+    /// ¿El espejo sabe algo de esta persona, en cualquier fecha?
+    ///
+    /// ── Por qué hace falta, y no basta con <c>PuestosDe</c> ──────────────────
+    /// Porque «no ocupa ningún puesto hoy» tiene <b>dos causas opuestas</b>: que la persona
+    /// cesó, o que el espejo no sabe de ella —la integración no corrió, o esa dependencia
+    /// todavía no se sincronizó—. Tratarlas igual haría que un espejo vacío declarara
+    /// cesada a toda la institución.
+    ///
+    /// Es la misma distinción que <c>ConsultaDelOrganigrama.AntiguedadDelEspejoAsync</c>
+    /// hace con el nulo: ausencia de dato no es dato de ausencia.
+    /// </summary>
+    public bool Conoce(IdPersona persona) => asignaciones.Any(a => a.Persona == persona);
+
+    /// <summary>
     /// Quiénes ocupaban un puesto en esa fecha.
     ///
     /// Puede haber <b>dos durante un traspaso</b>: la coocupación es acotada y se registra,
