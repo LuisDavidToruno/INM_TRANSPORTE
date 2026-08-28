@@ -47,6 +47,7 @@ public sealed class ServicioDeAbastecimientos(SigtiDbContext contexto)
         string? estacion = null,
         string? comprobante = null,
         string? causaSinComprobante = null,
+        Ulid? idDeCaptura = null,
         CancellationToken cancelacion = default)
     {
         if (fuente is FuenteDeAbastecimiento.FondoDeLaMision)
@@ -81,7 +82,7 @@ public sealed class ServicioDeAbastecimientos(SigtiDbContext contexto)
             await using var transaccion =
                 await contexto.Database.BeginTransactionAsync(cancelacion);
 
-            await _abastecimientos.GuardarAsync(abastecimiento, null, cancelacion);
+            await _abastecimientos.GuardarAsync(abastecimiento, null, idDeCaptura, cancelacion);
 
             // La bitácora cuelga del VEHÍCULO, no de la misión: `RN-83` aplica en misión o fuera
             // de ella, y un reabastecimiento de rutina no tiene expediente al que anotarse.

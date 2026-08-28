@@ -375,6 +375,7 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             abastecimiento.Property(a => a.MisionId).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
             abastecimiento.Property(a => a.AsignacionId).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
             abastecimiento.Property(a => a.TransicionDelValeId).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+            abastecimiento.Property(a => a.IdDeCaptura).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
             abastecimiento.Property(a => a.Fuente).HasConversion<string>().HasMaxLength(32).IsRequired();
             abastecimiento.Property(a => a.Registra).HasMaxLength(64).IsRequired();
             abastecimiento.Property(a => a.Galones).HasColumnType("decimal(18,3)");
@@ -397,6 +398,13 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
 
             // Y por mision, para el desglose que `RN-30` manda mostrar junto a la desviacion.
             abastecimiento.HasIndex(a => a.MisionId).HasFilter("[MisionId] IS NOT NULL");
+
+            // La idempotencia del cliente de campo, garantizada por la BASE. Un `SELECT`
+            // previo parece mas limpio y es una condicion de carrera: dos lotes del mismo
+            // dispositivo en vuelo pasarian los dos la comprobacion.
+            abastecimiento.HasIndex(a => a.IdDeCaptura)
+                .IsUnique()
+                .HasFilter("[IdDeCaptura] IS NOT NULL");
         });
 
         modelo.Entity<FilaDePermisoDeCirculacion>(permiso =>

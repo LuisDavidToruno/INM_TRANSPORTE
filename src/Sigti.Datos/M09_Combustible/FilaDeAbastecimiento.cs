@@ -57,4 +57,17 @@ public sealed class FilaDeAbastecimiento
     public string? CausaSinComprobante { get; init; }
 
     public required bool Excedido { get; init; }
+
+    /// <summary>
+    /// El identificador que puso el dispositivo de campo (`ADR-005`).
+    ///
+    /// <b>Es lo que hace inofensivo el reenvío.</b> El dispositivo que no supo si el servidor
+    /// recibió va a reintentar, y un galón contado dos veces infla el denominador de `RN-30`:
+    /// produce una desviación inventada por el propio sistema, que es peor que no detectar
+    /// ninguna.
+    ///
+    /// <b>Nulo cuando el hecho nació en la oficina</b>, contra la API y con red: ahí no hubo
+    /// captura diferida que reconciliar.
+    /// </summary>
+    public Ulid? IdDeCaptura { get; init; }
 }

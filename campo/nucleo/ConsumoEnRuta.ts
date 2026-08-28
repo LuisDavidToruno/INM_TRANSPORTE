@@ -1,6 +1,13 @@
 import type { TransicionCapturada } from './DiarioLocal.ts';
 import type { AdjuntoPendiente } from './ColaDeAdjuntos.ts';
 import { ClasificacionDeContenido } from './ColaDeAdjuntos.ts';
+import { CapturaInvalida, exigirDatosDeLaCarga, exigirRespaldo } from './CargaDeCombustible.ts';
+import type { ContextoDelDispositivo, FotoDeLaCarga } from './CargaDeCombustible.ts';
+
+// Reexportados: eran de este archivo antes de que la carga de otras fuentes existiera, y
+// romper los llamadores por mover una definición no le sirve a nadie.
+export { CapturaInvalida } from './CargaDeCombustible.ts';
+export type { ContextoDelDispositivo, FotoDeLaCarga } from './CargaDeCombustible.ts';
 
 /**
  * La carga de combustible, tal como la teclea el motorista en la estación — `V-04`.
@@ -45,40 +52,6 @@ export interface CargaCapturada {
   readonly foto?: FotoDeLaCarga;
 }
 
-export interface FotoDeLaCarga {
-  readonly idAdjunto: string;
-  readonly ruta: string;
-  readonly hash: string;
-  readonly tipo: string;
-  readonly bytes: number;
-}
-
-/** Lo que el dispositivo sabe del vehículo antes de esta carga. */
-export interface ContextoDelDispositivo {
-  /**
-   * La última lectura que <b>este dispositivo</b> conoce. Nula si no capturó ninguna.
-   *
-   * ⚠️ <b>No es la última del vehículo.</b> El dispositivo sólo conoce su propia misión;
-   * la que cruza misiones la tiene el servidor, y por eso revalida al recibir. Lo que se
-   * comprueba acá es lo que el motorista <b>puede corregir con el tablero delante</b>.
-   */
-  readonly ultimoOdometroConocido: number | null;
-}
-
-export class CapturaInvalida extends Error {
-  /**
-   * Qué campo hay que corregir. Va aparte del mensaje porque la pantalla del dispositivo
-   * tiene que poder <b>enfocar ese campo</b>: en un teléfono, decir «revise el odómetro» sin
-   * llevar el cursor ahí obliga a buscarlo con el surtidor esperando.
-   */
-  readonly campo: string;
-
-  constructor(campo: string, mensaje: string) {
-    super(mensaje);
-    this.name = 'CapturaInvalida';
-    this.campo = campo;
-  }
-}
 
 export interface ConsumoListoParaSincronizar {
   readonly transicion: TransicionCapturada;
@@ -108,51 +81,14 @@ export function prepararConsumo(
   carga: CargaCapturada,
   contexto: ContextoDelDispositivo = { ultimoOdometroConocido: null },
 ): ConsumoListoParaSincronizar {
-  if (!(carga.galones > 0))
-    throw new CapturaInvalida(
-      'galones',
-      'Un consumo de cero galones no es un abastecimiento. Si no cargó, no registre la carga.',
-    );
+  exigirDatosDeLaCarga(carga, contexto);
 
   if (!(carga.monto > 0))
     throw new CapturaInvalida('monto', 'Declare cuánto costó la carga.');
 
-  if (carga.estacion.trim() === '')
-    throw new CapturaInvalida(
-      'estacion',
-      'Declare dónde cargó. Es lo que permite cruzar el consumo contra la ruta declarada.',
-    );
-
-  if (!Number.isInteger(carga.odometro) || carga.odometro <= 0)
-    throw new CapturaInvalida(
-      'odometro',
-      'Declare el odómetro del momento de la carga. Sin él el galón no queda anclado a ' +
-        'ningún tramo, y la conciliación no puede decir dónde se fue la diferencia.',
-    );
-
-  // `BD-05` en el dispositivo. Es un número que retrocede: físicamente imposible, y quien
-  // lo tecleó tiene el tablero delante. Dejarlo pasar lo convertiría en un conflicto que
-  // alguien resuelve dentro de una semana, adivinando.
-  if (
-    contexto.ultimoOdometroConocido !== null &&
-    carga.odometro < contexto.ultimoOdometroConocido
-  )
-    throw new CapturaInvalida(
-      'odometro',
-      `El odómetro (${carga.odometro.toLocaleString('es-HN')} km) es menor que la última ` +
-        `lectura de este dispositivo (${contexto.ultimoOdometroConocido.toLocaleString('es-HN')} km). ` +
-        'Verifique el tablero: un odómetro que retrocede es lo que el control busca.',
-    );
-
-  // `RN-85`: la ausencia de comprobante se registra, **con causa**. Es lo único que
-  // distingue «la estación no dio factura» de un campo que nadie llenó — y esa diferencia
-  // es la que decide si el descargo alternativo procede.
-  if (carga.comprobante === null && (carga.causaSinComprobante ?? '').trim() === '')
-    throw new CapturaInvalida(
-      'causaSinComprobante',
-      'Sin comprobante hay que declarar por qué. El registro del abastecimiento no se omite ' +
-        'nunca por falta de papel, pero tampoco se disimula.',
-    );
+  // Lo del fondo SIEMPRE debería traer factura: se compró en una estación con dinero
+  // público. Por eso pasa `true` y no consulta la fuente — no hay otra que valga acá.
+  exigirRespaldo(true, carga.comprobante, carga.causaSinComprobante);
 
   const transicion: TransicionCapturada = {
     idTransicion: carga.idConsumo,

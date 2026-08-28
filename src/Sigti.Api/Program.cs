@@ -1131,8 +1131,22 @@ app.MapPost("/sincronizacion", async (
     foreach (var h in peticion.Transiciones ?? [])
     {
         if (!Identificador.Valido(h.IdDeCaptura, out var idDeCaptura, out var error)) return error;
-        if (!Identificador.Valido(h.IdExpediente, out var idExpediente, out var errorExpediente))
-            return errorExpediente;
+
+        // **El expediente es opcional en `A-01`**: `RN-83` aplica en misión o fuera de ella, y el
+        // reabastecimiento de rutina en el predio no tiene expediente al que colgarse. Exigirlo
+        // obligaría al dispositivo a inventar uno.
+        var idExpediente = default(Ulid);
+
+        if (h.IdExpediente is { Length: > 0 })
+        {
+            if (!Identificador.Valido(h.IdExpediente, out idExpediente, out var errorExpediente))
+                return errorExpediente;
+        }
+        else if (h.Transicion != "A-01")
+            return Results.BadRequest(new
+            {
+                mensaje = $"«{h.Transicion}» necesita el expediente al que pertenece.",
+            });
 
         Ulid? idAsignacion = null;
 
@@ -1152,7 +1166,14 @@ app.MapPost("/sincronizacion", async (
                 ? null
                 : new CargaSincronizada(
                     h.Carga.Galones, h.Carga.Monto, h.Carga.Estacion, h.Carga.Odometro,
-                    h.Carga.Comprobante, h.Carga.CausaSinComprobante)));
+                    h.Carga.Comprobante, h.Carga.CausaSinComprobante),
+            h.Abastecimiento is null
+                ? null
+                : new AbastecimientoSincronizado(
+                    Ulid.Parse(h.Abastecimiento.IdVehiculo), h.Abastecimiento.Fuente,
+                    h.Abastecimiento.Galones, h.Abastecimiento.Odometro,
+                    h.Abastecimiento.Estacion, h.Abastecimiento.Monto,
+                    h.Abastecimiento.Comprobante, h.Abastecimiento.CausaSinComprobante)));
     }
 
     var resultado = await servicio.RecibirAsync(hechos);
@@ -1712,4 +1733,26 @@ internal sealed record HechoDelDispositivo(
     /// y sin esto el servidor tendría que adivinar a cuál cargarle el galón.
     /// </summary>
     string? IdAsignacion = null,
-    CargaDelDispositivo? Carga = null);
+    CargaDelDispositivo? Carga = null,
+    /// <summary>
+    /// El combustible que entró al tanque y **no salió del vale** — `A-01`, `RN-83`.
+    ///
+    /// El motorista que llena de una donación camino a La Mosquitia, o que pone de su bolsillo
+    /// porque el vale no alcanzó, no tenía dónde anotarlo: ese galón no llegaba al denominador y
+    /// su ausencia se leía como rendimiento imposible.
+    /// </summary>
+    AbastecimientoDelDispositivo? Abastecimiento = null);
+
+/// <param name="IdVehiculo">
+/// A qué tanque entró. **Es lo único que no puede faltar**: el abastecimiento cuelga del
+/// vehículo, no de la misión — `RN-83` aplica «en misión o fuera de ella».
+/// </param>
+internal sealed record AbastecimientoDelDispositivo(
+    string IdVehiculo,
+    FuenteDeAbastecimiento Fuente,
+    decimal Galones,
+    int Odometro,
+    string Estacion,
+    decimal? Monto = null,
+    string? Comprobante = null,
+    string? CausaSinComprobante = null);

@@ -57,6 +57,7 @@ public sealed class AbastecimientosDeLaFlota(SigtiDbContext contexto)
     public async Task GuardarAsync(
         Abastecimiento abastecimiento,
         Ulid? transicionDelVale = null,
+        Ulid? idDeCaptura = null,
         CancellationToken cancelacion = default)
     {
         contexto.Abastecimientos.Add(new FilaDeAbastecimiento
@@ -72,6 +73,7 @@ public sealed class AbastecimientosDeLaFlota(SigtiDbContext contexto)
             MisionId = abastecimiento.Mision,
             AsignacionId = abastecimiento.Asignacion,
             TransicionDelValeId = transicionDelVale,
+            IdDeCaptura = idDeCaptura,
             Monto = abastecimiento.Monto,
             Estacion = abastecimiento.Estacion,
             Comprobante = abastecimiento.Comprobante,

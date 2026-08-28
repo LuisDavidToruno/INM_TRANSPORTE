@@ -7,6 +7,8 @@ using Sigti.Dominio.M08_Bitacora;
 using Sigti.Dominio.Organizacion;
 using Sigti.Datos.M09_Combustible;
 using Sigti.Dominio.M09_Combustible;
+using Sigti.Aplicacion.M09_Combustible;
+using Sigti.Aplicacion.M07_ProgramacionYDespacho;
 
 namespace Sigti.Aplicacion.M16_Sincronizacion;
 
@@ -51,7 +53,30 @@ public sealed record HechoCapturado(
     /// tipo tiene que poder representar un hecho mal armado para <b>rechazarlo con motivo
     /// legible</b>.
     /// </summary>
-    CargaSincronizada? Carga = null);
+    CargaSincronizada? Carga = null,
+    /// <summary>
+    /// El ingreso de combustible que <b>no salió del vale</b> — `A-01`, `RN-83`.
+    ///
+    /// Viaja por el mismo canal que las transiciones porque eso es lo que da <b>una sola cola,
+    /// una sola idempotencia y un solo acuse</b>. Abrirle un endpoint propio duplicaría los
+    /// tres, y son justo los tres que `RNF-03` obliga a que funcionen sin fallo.
+    /// </summary>
+    AbastecimientoSincronizado? Abastecimiento = null);
+
+/// <summary>Un ingreso de combustible de fuente distinta del fondo — `RN-83`.</summary>
+/// <param name="IdVehiculo">
+/// A qué tanque entró. <b>Es lo único que no puede faltar</b>: el abastecimiento cuelga del
+/// vehículo, no de la misión, porque la regla aplica «en misión o fuera de ella».
+/// </param>
+public sealed record AbastecimientoSincronizado(
+    Ulid IdVehiculo,
+    FuenteDeAbastecimiento Fuente,
+    decimal Galones,
+    int Odometro,
+    string Estacion,
+    decimal? Monto = null,
+    string? Comprobante = null,
+    string? CausaSinComprobante = null);
 
 /// <summary>
 /// Lo que el motorista tecleó en la estación — los cinco datos de §10.1.
@@ -111,6 +136,7 @@ public sealed class ServicioDeSincronizacion(SigtiDbContext contexto, ConsultaDe
 {
     private readonly ExpedientesDeMision _expedientes = new(contexto);
     private readonly CombustibleDeLaInstitucion _combustible = new(contexto);
+    private readonly ServicioDeAbastecimientos _abastecimientosDelServicio = new(contexto);
 
     public async Task<ResultadoDeSincronizacion> RecibirAsync(
         IReadOnlyList<HechoCapturado> hechos,
@@ -129,6 +155,19 @@ public sealed class ServicioDeSincronizacion(SigtiDbContext contexto, ConsultaDe
                 // No es un error: es el reintento normal. Se acusa igual, para que el
                 // dispositivo pueda por fin sacarlo de su cola de pendientes.
                 yaConocidas.Add(hecho.IdDeCaptura);
+                continue;
+            }
+
+            // `A-01` no es una transición de nada: es un registro que cuelga del vehículo.
+            // Puede llegar **sin misión** —el reabastecimiento de rutina en el predio—, así
+            // que ni siquiera se busca el expediente.
+            if (hecho.Transicion == "A-01")
+            {
+                var motivo = await AplicarAbastecimientoAsync(hecho, cancelacion);
+
+                if (motivo is null) aplicadas.Add(hecho.IdDeCaptura);
+                else rechazadas.Add(new HechoRechazado(hecho.IdDeCaptura, motivo));
+
                 continue;
             }
 
@@ -216,7 +255,13 @@ public sealed class ServicioDeSincronizacion(SigtiDbContext contexto, ConsultaDe
             var enVales = enMisiones || await contexto.Set<FilaDeTransicionDeAsignacion>()
                 .AnyAsync(t => t.IdDeCaptura == id, cancelacion);
 
-            if (enMisiones || enVales) conocidas.Add(id);
+            // Y el tercer diario: los abastecimientos de `RN-83`, que no viven en ninguno de
+            // los otros dos. Sin esto, cada reenvío de una carga del tanque de la sede
+            // pasaría por nueva y el galón se contaría de nuevo en el denominador.
+            var enAbastecimientos = enVales || await contexto.Abastecimientos
+                .AnyAsync(a => a.IdDeCaptura == id, cancelacion);
+
+            if (enMisiones || enVales || enAbastecimientos) conocidas.Add(id);
         }
 
         return conocidas;
@@ -288,6 +333,49 @@ public sealed class ServicioDeSincronizacion(SigtiDbContext contexto, ConsultaDe
     }
 
     /// <summary>
+    /// `A-01` — el combustible que entró al tanque y <b>no salió del vale</b> (`RN-83`).
+    ///
+    /// ── Lo que el servidor comprueba, y lo que no ───────────────────────────
+    /// El dominio ya exige galones, odómetro y el respaldo que la fuente deba traer. Acá se
+    /// añade lo único que el dispositivo no puede saber: que el vehículo <b>existe</b>, y que
+    /// si declara misión, esa misión lleva ese vehículo — los galones de un tanque no explican
+    /// los kilómetros de otro.
+    ///
+    /// <b>No se rechaza por llegar tarde.</b> El combustible ya entró al tanque: `P-2` manda
+    /// registrar el hecho consumado, y negarlo sólo lo vuelve invisible.
+    /// </summary>
+    /// <returns>Nulo si entró; el motivo del rechazo si no.</returns>
+    private async Task<string?> AplicarAbastecimientoAsync(
+        HechoCapturado hecho, CancellationToken cancelacion)
+    {
+        if (hecho.Abastecimiento is not { } carga)
+            return "Un abastecimiento sin galones, odómetro y fuente no es un abastecimiento.";
+
+        // La misión es opcional: `RN-83` aplica en misión o fuera de ella. Cuando viene, se
+        // comprueba; cuando no, el galón se imputa al vehículo y ya.
+        Ulid? mision = hecho.IdExpediente == default ? null : hecho.IdExpediente;
+
+        try
+        {
+            await _abastecimientosDelServicio.RegistrarAsync(
+                Ulid.NewUlid(), carga.IdVehiculo, hecho.OcurridoEn, carga.Galones,
+                carga.Odometro, carga.Fuente, new IdPersona(hecho.Ejecuta),
+                mision, carga.Monto, carga.Estacion, carga.Comprobante,
+                carga.CausaSinComprobante,
+                // **El identificador del dispositivo**, que es lo que hace inofensivo el
+                // reenvío. Sin él, cada reintento sumaría el mismo galón otra vez.
+                hecho.IdDeCaptura,
+                cancelacion);
+
+            return null;
+        }
+        catch (Exception error) when (error is BloqueoDuro or ExpedienteNoEncontrado)
+        {
+            return error.Message;
+        }
+    }
+
+    /// <summary>
     /// Las transiciones que <b>hoy</b> puede producir un dispositivo de campo.
     ///
     /// Es una lista corta a propósito: lo que el motorista captura sin red es la salida y
@@ -337,8 +425,9 @@ public sealed class ServicioDeSincronizacion(SigtiDbContext contexto, ConsultaDe
                 throw new BloqueoDuro(
                     hecho.Transicion,
                     $"El cliente de campo todavía no sincroniza «{hecho.Transicion}». " +
-                    "Hoy entran T-14 salida, T-18 retorno y V-04 consumo de combustible: " +
-                    "la bitácora de paradas y eventos necesita M-08, que no está construido.");
+                    "Hoy entran T-14 salida, T-18 retorno, V-04 consumo del vale y A-01 " +
+                    "abastecimiento de otra fuente: la bitácora de paradas y eventos necesita " +
+                    "M-08, que no está construido.");
         }
     }
 }

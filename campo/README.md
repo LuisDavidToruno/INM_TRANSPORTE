@@ -26,6 +26,7 @@ cd campo && npm run verificar
 | [`Conciliacion`](nucleo/Conciliacion.ts) | [`RN-45`](../docs/01-negocio/reglas/RN-45-cero-sobrescritura-silenciosa.md) — **cero sobrescritura silenciosa**. Dos versiones distintas del mismo hecho conservan las dos y van a cola humana |
 | [`SubrangoDeFolios`](nucleo/Folios.ts) | [`RN-44`](../docs/01-negocio/reglas/RN-44-identificadores-y-folios-en-el-cliente.md) y `RNF-21` — el folio se toma **sin consultar al servidor**, y el subrango es **del dispositivo, no de la delegación** |
 | [`AlmacenSqlite`](nucleo/AlmacenSqlite.ts) | [`ADR-003`](../docs/03-arquitectura/adr/ADR-003-cliente-de-campo-instalado.md) — **fuente de verdad local, no caché**. Lo capturado sobrevive a que Android mate el proceso, que en gama baja ocurre sin avisar |
+| [`AbastecimientoEnRuta`](nucleo/AbastecimientoEnRuta.ts) | [`RN-83`](../docs/01-negocio/reglas/RN-83-todo-ingreso-de-combustible-es-un-abastecimiento.md) — el galón que **no salió del vale**. El motorista que llena de una donación camino a La Mosquitia, o que pone de su bolsillo porque el vale no alcanzó, no tenía dónde anotarlo: ese galón no llegaba al denominador de `RN-30`, y su ausencia se lee como rendimiento imposiblemente bueno |
 | [`ConsumoEnRuta`](nucleo/ConsumoEnRuta.ts) | §10.1 — **`V-04` se ejecuta sin conectividad**. La estación camino a La Mosquitia no tiene señal, y un consumo capturado de memoria tres días después llega sin odómetro, que es el dato con el que `RN-30` sabe *dónde* se fue la diferencia |
 | [`ColaDeAdjuntos`](nucleo/ColaDeAdjuntos.ts) | [`RN-43`](../docs/01-negocio/reglas/RN-43-captura-de-campo-sin-conectividad.md) y [`ADR-004`](../docs/03-arquitectura/adr/ADR-004-adjuntos-fuera-de-la-base.md) — los adjuntos van en **su propia cola** y no retienen al hecho que respaldan |
 
@@ -49,7 +50,17 @@ El caso concreto que esto atrapa: el motorista registra el retorno con 84.320 km
 
 `POST /sincronizacion` existe y es **idempotente**: el dispositivo que no supo si el servidor recibió reenvía, y el servidor lo reconoce en vez de duplicar. La unicidad la impone **la base** con un índice único sobre `IdDeCaptura` — no una comprobación previa, que sería una condición de carrera con dos lotes del mismo dispositivo en vuelo.
 
-**Y desde ahora también `V-04`**, el consumo de combustible. No es una transición más: es de
+**Y desde ahora también `V-04` y `A-01`.** El primero es el consumo del vale; el segundo, el
+combustible de cualquier **otra** fuente.
+
+> ⚠️ **`A-01` no es una transición de ninguna máquina de estados.** Un abastecimiento no mueve
+> un expediente ni un vale: es un registro que cuelga del vehículo, y puede llegar **sin
+> misión** —el reabastecimiento de rutina en el predio—. Viaja por el mismo canal porque eso
+> es lo que da **una sola cola, una sola idempotencia y un solo acuse**; abrirle un endpoint
+> propio duplicaría los tres, y son justo los tres que `RNF-03` obliga a que funcionen sin
+> fallo.
+
+**Sobre `V-04`:** el consumo del vale. No es una transición más: es de
 **otro agregado** —el vale, no la misión—, así que viaja con `idAsignacion` y su carga. Mandar
 sólo el expediente obligaría al servidor a adivinar a cuál de los vales de la misión cargarle
 el galón, y adivinar sobre dinero es lo que el folio existe para impedir.

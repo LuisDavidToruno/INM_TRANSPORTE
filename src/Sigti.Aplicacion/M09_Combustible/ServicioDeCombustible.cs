@@ -330,7 +330,8 @@ public sealed class ServicioDeCombustible(SigtiDbContext contexto)
                 var idDelAsiento = await _combustible.IdDeLaTransicionAsync(
                     asignacion.Id, orden!.Value, cancelacion);
 
-                await _abastecimientos.GuardarAsync(abastecimiento, idDelAsiento, cancelacion);
+                await _abastecimientos.GuardarAsync(
+                    abastecimiento, idDelAsiento, cancelacion: cancelacion);
             }
 
             var ultima = asignacion.Diario[^1];

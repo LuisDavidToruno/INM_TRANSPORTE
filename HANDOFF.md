@@ -405,6 +405,40 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+### La captura de abastecimientos en el cliente de campo
+
+**RESUELTA.** `campo/nucleo/AbastecimientoEnRuta.ts`, y `A-01` entra por `POST /sincronizacion`.
+
+**El galón que desaparecía.** El motorista que llena de una donación camino a La Mosquitia, o
+que pone de su bolsillo porque el vale no alcanzó, **no tenía dónde anotarlo**. Ese galón no
+llegaba al denominador de `RN-30`, y su ausencia se lee como rendimiento imposiblemente bueno
+— es decir, como si alguien hubiera despachado combustible sin registrarlo. **Que es verdad:**
+lo que faltaba era poder registrarlo donde ocurre, que es sin red.
+
+**`A-01` no es una transición**, y el código lo dice: un abastecimiento no mueve un expediente
+ni un vale, es un registro que cuelga del vehículo y puede llegar **sin misión**. Viaja por el
+mismo canal porque eso da una sola cola, una sola idempotencia y un solo acuse — los tres que
+`RNF-03` obliga a que funcionen sin fallo.
+
+**Tercer diario, misma regla de idempotencia.** El abastecimiento gana su `IdDeCaptura` con
+índice único, y la comprobación de «esto ya llegó» ahora mira los tres. Verificado por
+mutación: quitar el tercero rompe la prueba del reenvío.
+
+**Y las comprobaciones se comparten.** `CargaDeCombustible.ts` guarda lo que toda carga exige
+—galones, estación, odómetro que no retrocede— porque el motorista hace **el mismo acto** en
+los dos casos: mete combustible al tanque y anota el tablero. Duplicarlas las dejaría
+divergir, y la primera vez que alguien corrija una y no la otra el mismo dato quedaría
+aceptado por una puerta y rechazado por la otra.
+
+**A quien no genera factura no se le pide causa**, igual que en el servidor: el tanque de la
+sede y una donación no emiten papel. La regla está escrita **una vez de cada lado** porque el
+dispositivo tiene que poder decidirlo sin red.
+
+⚠️ **El expediente es opcional sólo para `A-01`.** Las demás transiciones lo siguen exigiendo,
+y el endpoint lo rechaza con motivo si falta.
+
+---
+
 ### La pantalla de abastecimientos
 
 `PanelDeAbastecimientos`, montado en el **cierre** —donde se concilia y el numerador tiene que

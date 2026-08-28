@@ -297,6 +297,149 @@ public class ConsumoDesdeCampoPruebas(BaseDePruebas baseDePruebas)
         Assert.Contains("V-04", rechazo.GetProperty("motivo").GetString());
     }
 
+    [Fact]
+    public async Task El_galon_de_OTRA_FUENTE_capturado_sin_red_entra_al_denominador()
+    {
+        // **El galón que hoy desaparece.** El motorista llena de una donación camino a La
+        // Mosquitia y no tiene dónde anotarlo: ese galón no llega al denominador de `RN-30`, y
+        // su ausencia se lee como rendimiento imposiblemente bueno.
+        var r = await Sembrar("CF-0001");
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        var (mision, vale) = await MisionEnRutaConVale(cliente, r);
+
+        var lote = await Sincronizar(cliente, new
+        {
+            IdDispositivo = "DISP-CHO-01",
+            Transiciones = new[]
+            {
+                new
+                {
+                    IdDeCaptura = Ulid.NewUlid().ToString(),
+                    IdExpediente = mision,
+                    Transicion = "A-01",
+                    Ejecuta = "P-MOTORISTA",
+                    OcurridoEn = EnLaEstacion,
+                    Abastecimiento = new
+                    {
+                        IdVehiculo = r.Vehiculo,
+                        Fuente = "Donacion",
+                        Galones = 25m,
+                        Odometro = 84_300,
+                        Estacion = "Puesto de la comunidad",
+                    },
+                },
+            },
+        });
+
+        Assert.Single(lote.GetProperty("aplicadas").EnumerateArray());
+
+        var lista = await cliente.GetFromJsonAsync<JsonElement>(
+            $"/abastecimientos/mision/{mision}");
+
+        var uno = lista.EnumerateArray().Single();
+
+        Assert.Equal("Donacion", uno.GetProperty("fuente").GetString());
+        Assert.Equal(25m, uno.GetProperty("galones").GetDecimal());
+        // Sin monto y sin comprobante: una donación no trae ni lo uno ni lo otro, y el galón
+        // cuenta igual.
+        Assert.Equal(JsonValueKind.Null, uno.GetProperty("monto").ValueKind);
+        Assert.False(uno.GetProperty("entraAlCuadreDelFondo").GetBoolean());
+
+        // Y lo que importa: está en el denominador.
+        var c = await cliente.GetFromJsonAsync<JsonElement>(
+            $"/combustible/{vale}/conciliacion");
+
+        Assert.Equal(25m, c.GetProperty("galones").GetDecimal());
+    }
+
+    [Fact]
+    public async Task Reenviar_el_mismo_abastecimiento_NO_lo_cuenta_dos_veces()
+    {
+        // Tercer diario, misma regla: un galón contado dos veces infla el denominador y produce
+        // una desviación inventada por el propio sistema.
+        var r = await Sembrar("CF-0002");
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        var (mision, _) = await MisionEnRutaConVale(cliente, r);
+        var captura = Ulid.NewUlid().ToString();
+
+        object lote = new
+        {
+            IdDispositivo = "DISP-CHO-01",
+            Transiciones = new[]
+            {
+                new
+                {
+                    IdDeCaptura = captura,
+                    IdExpediente = mision,
+                    Transicion = "A-01",
+                    Ejecuta = "P-MOTORISTA",
+                    OcurridoEn = EnLaEstacion,
+                    Abastecimiento = new
+                    {
+                        IdVehiculo = r.Vehiculo,
+                        Fuente = "TanqueInstitucional",
+                        Galones = 40m,
+                        Odometro = 84_050,
+                        Estacion = "Predio de la sede",
+                    },
+                },
+            },
+        };
+
+        await Sincronizar(cliente, lote);
+        var segundo = await Sincronizar(cliente, lote);
+
+        Assert.Empty(segundo.GetProperty("aplicadas").EnumerateArray());
+        Assert.Single(segundo.GetProperty("yaConocidas").EnumerateArray());
+
+        var lista = await cliente.GetFromJsonAsync<JsonElement>(
+            $"/abastecimientos/mision/{mision}");
+
+        Assert.Single(lista.EnumerateArray());
+    }
+
+    [Fact]
+    public async Task Un_abastecimiento_de_rutina_entra_SIN_mision()
+    {
+        // `RN-83` aplica «a todo vehículo de la flota, **en misión o fuera de ella**». El
+        // reabastecimiento en el predio no tiene expediente, y exigirle uno obligaría al
+        // dispositivo a inventarlo.
+        var r = await Sembrar("CF-0003");
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        var lote = await Sincronizar(cliente, new
+        {
+            IdDispositivo = "DISP-CHO-01",
+            Transiciones = new[]
+            {
+                new
+                {
+                    IdDeCaptura = Ulid.NewUlid().ToString(),
+                    IdExpediente = "",
+                    Transicion = "A-01",
+                    Ejecuta = "P-ALMACEN",
+                    OcurridoEn = EnLaEstacion,
+                    Abastecimiento = new
+                    {
+                        IdVehiculo = r.Vehiculo,
+                        Fuente = "TanqueInstitucional",
+                        Galones = 15m,
+                        Odometro = 500,
+                        Estacion = "Predio de la sede",
+                    },
+                },
+            },
+        });
+
+        Assert.Single(lote.GetProperty("aplicadas").EnumerateArray());
+        Assert.Empty(lote.GetProperty("rechazadas").EnumerateArray());
+    }
+
     // ── Andamio ─────────────────────────────────────────────────────────────
 
     private static object Hecho(string mision, string vale, string captura) => new
