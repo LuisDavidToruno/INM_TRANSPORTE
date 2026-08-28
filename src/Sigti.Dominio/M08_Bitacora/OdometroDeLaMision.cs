@@ -75,8 +75,15 @@ public sealed record ActaDeSustitucionDeOdometro(
 /// un campo que no se llenó se declara como no consignado y <b>no se estima</b>. Un cero
 /// diría que el vehículo salió con el tanque vacío.
 /// </param>
+/// <param name="RazonSinNivel">
+/// Por qué no se leyó el tanque. <b>Va con la lectura porque <i>es</i> la lectura</b>, en su
+/// forma ausente: `RN-80` manda declarar el campo no consignado, y declararlo sin decir por
+/// qué deja la ausencia sin nada que reclamar — no se sabe si faltó porque el indicador
+/// estaba averiado o porque nadie se acordó.
+/// </param>
 public sealed record OdometroAlSalir(
-    int Lectura, int? UltimaConocida, NivelDeTanque? Nivel = null);
+    int Lectura, int? UltimaConocida, NivelDeTanque? Nivel = null,
+    string? RazonSinNivel = null);
 
 /// <summary>
 /// Lo que hace falta para juzgar `BD-05` al <b>retornar</b> — `T-18`.
@@ -97,4 +104,5 @@ public sealed record OdometroAlRetornar(
     SubtipoDeRetorno Subtipo,
     string? Justificacion = null,
     ActaDeSustitucionDeOdometro? Acta = null,
-    NivelDeTanque? Nivel = null);
+    NivelDeTanque? Nivel = null,
+    string? RazonSinNivel = null);

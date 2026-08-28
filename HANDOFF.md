@@ -405,6 +405,43 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+### El nivel de tanque desde el campo
+
+**RESUELTA.** `campo/nucleo/SalidaYRetorno.ts` prepara `T-14` y `T-18` con odómetro **y nivel**,
+y la sincronización lo lleva hasta el asiento.
+
+**⚠️ El nivel llegaba y se descartaba en silencio.** La API lo aceptaba desde que `RN-83` se
+construyó, pero la ruta de sincronización —**la única que el cliente de campo usa**— armaba el
+odómetro sin él. El dato se tecleaba en el predio, se sincronizaba, y no aparecía en ninguna
+parte.
+
+Es el peor de los tres modos de fallar: no hay error, no hay hueco visible, y el reparo
+`NivelDeTanqueDispar` de `RN-30` **nunca se activaba porque el nivel nunca estaba**. Verificado
+por mutación.
+
+**«No lo leí» y «marcaba cero» son cosas opuestas**, y un campo numérico vacío no las
+distingue. El módulo de campo obliga a elegir entre las dos: un nivel con su escala, o una
+ausencia **con su razón**. `RN-80` manda declarar el campo no consignado y no estimarlo, y
+declararlo sin decir por qué deja la ausencia sin nada que reclamar — no se sabe si faltó
+porque el indicador estaba averiado o porque nadie se acordó, y sólo la primera se corrige.
+
+La razón viaja **con la lectura**, porque *es* la lectura en su forma ausente, y llega hasta el
+diario: *«nivel de tanque NO CONSIGNADO (`RN-83`): el indicador está averiado — orden de trabajo
+2026-0071»*.
+
+**Lo demás que el módulo defiende**, y que hasta hoy nadie ejercía desde el campo:
+
+- **En fracción del indicador el nivel va de 0 a 1.** Quince en fracción es un error de escala
+  —quien lo tecleó quiso decir galones—, y aceptarlo daría un remanente de mil quinientos por
+  ciento que nadie podría interpretar.
+- **El odómetro de retorno menor que el de salida se detiene en el predio**, donde quien lo
+  tecleó tiene el tablero delante. **Salvo en el retorno constatado**, donde el vehículo ya
+  está en el predio y negarse lo dejaría secuestrado por un trámite (`RN-79`, `HB3-04`).
+- **Volver con el mismo odómetro exige justificación.** No bloquea el hecho, pero no pasa en
+  silencio: es el patrón de la misión que nunca se hizo.
+
+---
+
 ### La captura de abastecimientos en el cliente de campo
 
 **RESUELTA.** `campo/nucleo/AbastecimientoEnRuta.ts`, y `A-01` entra por `POST /sincronizacion`.

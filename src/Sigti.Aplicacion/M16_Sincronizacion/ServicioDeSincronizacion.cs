@@ -61,7 +61,24 @@ public sealed record HechoCapturado(
     /// una sola idempotencia y un solo acuse</b>. Abrirle un endpoint propio duplicaría los
     /// tres, y son justo los tres que `RNF-03` obliga a que funcionen sin fallo.
     /// </summary>
-    AbastecimientoSincronizado? Abastecimiento = null);
+    AbastecimientoSincronizado? Abastecimiento = null,
+    /// <summary>
+    /// El nivel del tanque que el motorista leyó en el predio — <b>obligatorio de bitácora</b>
+    /// por `RN-83`, y lo que separa el remanente del consumo.
+    ///
+    /// ⚠️ <b>Nulo es «no consignado», no cero.</b> `RN-80`: el campo que no se llenó se declara
+    /// y <b>no se estima</b> — un cero diría que el vehículo salió con el tanque vacío. Cuando
+    /// el dispositivo no lo leyó manda la razón en <c>TanqueNoConsignado</c>.
+    /// </summary>
+    NivelDeTanqueSincronizado? Nivel = null,
+    /// <summary>
+    /// Por qué no se leyó el tanque. Va al diario: reclamarlo después exige saber si faltó
+    /// porque el indicador estaba averiado o porque nadie se acordó.
+    /// </summary>
+    string? TanqueNoConsignado = null);
+
+/// <summary>El nivel y <b>su escala</b> — un octavo no es lo mismo en un pickup que en un bus.</summary>
+public sealed record NivelDeTanqueSincronizado(EscalaDeNivel Escala, decimal Valor);
 
 /// <summary>Un ingreso de combustible de fuente distinta del fondo — `RN-83`.</summary>
 /// <param name="IdVehiculo">
@@ -333,6 +350,21 @@ public sealed class ServicioDeSincronizacion(SigtiDbContext contexto, ConsultaDe
     }
 
     /// <summary>
+    /// El nivel que trae el dispositivo, si lo leyó.
+    ///
+    /// ── El defecto que esto corrige ─────────────────────────────────────────
+    /// El nivel <b>llegaba y se descartaba en silencio</b>: la API lo aceptaba en `T-14` y
+    /// `T-18`, pero esta ruta —la que usa el cliente de campo, que es la única que lo captura
+    /// en el predio— construía el odómetro sin él. El dato se tecleaba, se sincronizaba, y no
+    /// aparecía en ninguna parte.
+    ///
+    /// Es el peor modo de fallar de los tres: no hay error, no hay hueco visible, y el
+    /// reparo de `RN-30` que depende del nivel nunca se activaba porque el nivel nunca estaba.
+    /// </summary>
+    private static NivelDeTanque? NivelDe(HechoCapturado hecho) =>
+        hecho.Nivel is { } nivel ? new NivelDeTanque(nivel.Escala, nivel.Valor) : null;
+
+    /// <summary>
     /// `A-01` — el combustible que entró al tanque y <b>no salió del vale</b> (`RN-83`).
     ///
     /// ── Lo que el servidor comprueba, y lo que no ───────────────────────────
@@ -410,14 +442,19 @@ public sealed class ServicioDeSincronizacion(SigtiDbContext contexto, ConsultaDe
             case "T-14":
                 expediente.IniciarRuta(
                     quien, hecho.OcurridoEn,
-                    new OdometroAlSalir(hecho.Odometro!.Value, ultimaLecturaConocida),
+                    new OdometroAlSalir(
+                        hecho.Odometro!.Value, ultimaLecturaConocida, NivelDe(hecho),
+                        hecho.TanqueNoConsignado),
                     hecho.IdDeCaptura);
                 break;
 
             case "T-18":
                 expediente.Retornar(
                     quien, hecho.OcurridoEn,
-                    new OdometroAlRetornar(hecho.Odometro!.Value, hecho.Subtipo, hecho.Justificacion),
+                    new OdometroAlRetornar(
+                        hecho.Odometro!.Value, hecho.Subtipo, hecho.Justificacion,
+                        Acta: null, Nivel: NivelDe(hecho),
+                        RazonSinNivel: hecho.TanqueNoConsignado),
                     hecho.IdDeCaptura);
                 break;
 

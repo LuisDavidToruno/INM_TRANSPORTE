@@ -26,6 +26,7 @@ cd campo && npm run verificar
 | [`Conciliacion`](nucleo/Conciliacion.ts) | [`RN-45`](../docs/01-negocio/reglas/RN-45-cero-sobrescritura-silenciosa.md) — **cero sobrescritura silenciosa**. Dos versiones distintas del mismo hecho conservan las dos y van a cola humana |
 | [`SubrangoDeFolios`](nucleo/Folios.ts) | [`RN-44`](../docs/01-negocio/reglas/RN-44-identificadores-y-folios-en-el-cliente.md) y `RNF-21` — el folio se toma **sin consultar al servidor**, y el subrango es **del dispositivo, no de la delegación** |
 | [`AlmacenSqlite`](nucleo/AlmacenSqlite.ts) | [`ADR-003`](../docs/03-arquitectura/adr/ADR-003-cliente-de-campo-instalado.md) — **fuente de verdad local, no caché**. Lo capturado sobrevive a que Android mate el proceso, que en gama baja ocurre sin avisar |
+| [`SalidaYRetorno`](nucleo/SalidaYRetorno.ts) | `T-14` y `T-18` con **nivel de tanque** ([`RN-83`](../docs/01-negocio/reglas/RN-83-todo-ingreso-de-combustible-es-un-abastecimiento.md)). *«No lo leí»* y *«marcaba cero»* son cosas opuestas, y un campo numérico vacío no las distingue: `RN-80` manda declarar el campo no consignado y **no estimarlo** |
 | [`AbastecimientoEnRuta`](nucleo/AbastecimientoEnRuta.ts) | [`RN-83`](../docs/01-negocio/reglas/RN-83-todo-ingreso-de-combustible-es-un-abastecimiento.md) — el galón que **no salió del vale**. El motorista que llena de una donación camino a La Mosquitia, o que pone de su bolsillo porque el vale no alcanzó, no tenía dónde anotarlo: ese galón no llegaba al denominador de `RN-30`, y su ausencia se lee como rendimiento imposiblemente bueno |
 | [`ConsumoEnRuta`](nucleo/ConsumoEnRuta.ts) | §10.1 — **`V-04` se ejecuta sin conectividad**. La estación camino a La Mosquitia no tiene señal, y un consumo capturado de memoria tres días después llega sin odómetro, que es el dato con el que `RN-30` sabe *dónde* se fue la diferencia |
 | [`ColaDeAdjuntos`](nucleo/ColaDeAdjuntos.ts) | [`RN-43`](../docs/01-negocio/reglas/RN-43-captura-de-campo-sin-conectividad.md) y [`ADR-004`](../docs/03-arquitectura/adr/ADR-004-adjuntos-fuera-de-la-base.md) — los adjuntos van en **su propia cola** y no retienen al hecho que respaldan |
@@ -49,6 +50,14 @@ El caso concreto que esto atrapa: el motorista registra el retorno con 84.320 km
 ## El servidor ya recibe
 
 `POST /sincronizacion` existe y es **idempotente**: el dispositivo que no supo si el servidor recibió reenvía, y el servidor lo reconoce en vez de duplicar. La unicidad la impone **la base** con un índice único sobre `IdDeCaptura` — no una comprobación previa, que sería una condición de carrera con dos lotes del mismo dispositivo en vuelo.
+
+**El nivel de tanque viaja con `T-14` y `T-18`**, y hasta hoy no llegaba: la API lo aceptaba,
+pero la ruta de sincronización —la única que este cliente usa— construía el odómetro sin él. El
+dato se tecleaba en el predio, se sincronizaba, y **no aparecía en ninguna parte**.
+
+> Es el peor de los tres modos de fallar: no hay error, no hay hueco visible, y el reparo de
+> [`RN-30`](../docs/01-negocio/reglas/RN-30-conciliacion-galonaje-kilometraje.md) que depende
+> del nivel nunca se activaba porque el nivel nunca estaba.
 
 **Y desde ahora también `V-04` y `A-01`.** El primero es el consumo del vale; el segundo, el
 combustible de cualquier **otra** fuente.

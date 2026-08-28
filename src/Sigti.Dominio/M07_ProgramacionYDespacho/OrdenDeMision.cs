@@ -1022,8 +1022,8 @@ public sealed class OrdenDeMision
             : $"odómetro de salida {odometro.Lectura:N0} km · sin lectura previa registrada";
 
         Registrar("T-14", EstadoDeMision.EnRuta, ejecuta, momento,
-                  constancia + TextoDelNivel(odometro.Nivel), idDeCaptura,
-                  odometro: odometro.Lectura, nivel: odometro.Nivel);
+                  constancia + TextoDelNivel(odometro.Nivel, odometro.RazonSinNivel),
+                  idDeCaptura, odometro: odometro.Lectura, nivel: odometro.Nivel);
     }
 
     /// <summary>
@@ -1052,8 +1052,8 @@ public sealed class OrdenDeMision
         var constancia = ExigirCoherenciaDelOdometro(odometro, salida);
 
         Registrar("T-18", EstadoDeMision.Retornada, ejecuta, momento,
-                  constancia + TextoDelNivel(odometro.Nivel), idDeCaptura,
-                  odometro: odometro.Lectura, nivel: odometro.Nivel);
+                  constancia + TextoDelNivel(odometro.Nivel, odometro.RazonSinNivel),
+                  idDeCaptura, odometro: odometro.Lectura, nivel: odometro.Nivel);
     }
 
     /// <summary>
@@ -1061,12 +1061,20 @@ public sealed class OrdenDeMision
     /// se declara y <b>no se estima</b>, porque estimarlo produciría un remanente inventado
     /// que después nadie podría distinguir de uno medido.
     /// </summary>
-    private static string TextoDelNivel(NivelDeTanque? nivel) =>
-        nivel is null
-            ? " · nivel de tanque NO CONSIGNADO (`RN-83`)"
-            : nivel.Escala is EscalaDeNivel.FraccionDelIndicador
+    private static string TextoDelNivel(NivelDeTanque? nivel, string? razon = null)
+    {
+        if (nivel is not null)
+            return nivel.Escala is EscalaDeNivel.FraccionDelIndicador
                 ? $" · tanque a {nivel.Valor:P0} del indicador"
                 : $" · tanque con {nivel.Valor:N2} galones";
+
+        // La razón va cuando la hay. Sin ella la ausencia queda declarada pero sin nada que
+        // reclamar: no se sabe si faltó porque el indicador estaba averiado o porque nadie
+        // se acordó, y sólo la primera se puede corregir.
+        return string.IsNullOrWhiteSpace(razon)
+            ? " · nivel de tanque NO CONSIGNADO (`RN-83`)"
+            : $" · nivel de tanque NO CONSIGNADO (`RN-83`): {razon.Trim()}";
+    }
 
     /// <summary>
     /// El nivel al salir y al retornar, cuando los dos se anotaron.

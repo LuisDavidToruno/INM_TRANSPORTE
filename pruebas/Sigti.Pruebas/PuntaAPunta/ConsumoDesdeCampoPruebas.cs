@@ -440,6 +440,89 @@ public class ConsumoDesdeCampoPruebas(BaseDePruebas baseDePruebas)
         Assert.Empty(lote.GetProperty("rechazadas").EnumerateArray());
     }
 
+    [Fact]
+    public async Task El_nivel_de_tanque_capturado_en_el_predio_LLEGA_al_asiento()
+    {
+        // **El defecto que esta prueba atrapa.** El nivel llegaba y se descartaba en silencio: la
+        // API lo aceptaba en `T-14`, pero la ruta de sincronización —la única que el cliente de
+        // campo usa— construía el odómetro sin él. Se tecleaba, se sincronizaba, y no aparecía en
+        // ninguna parte.
+        //
+        // Es el peor de los tres modos de fallar: no hay error, no hay hueco visible, y el reparo
+        // de `RN-30` que depende del nivel nunca se activaba porque el nivel nunca estaba.
+        var r = await Sembrar("NT-0001");
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        var mision = await MisionDespachada(cliente, r);
+
+        await Sincronizar(cliente, new
+        {
+            IdDispositivo = "DISP-CHO-01",
+            Transiciones = new[]
+            {
+                new
+                {
+                    IdDeCaptura = Ulid.NewUlid().ToString(),
+                    IdExpediente = mision,
+                    Transicion = "T-14",
+                    Ejecuta = "P-MOTORISTA",
+                    OcurridoEn = Momento,
+                    Odometro = 84_000,
+                    NivelDeTanque = 1m,
+                    EscalaDelNivel = "FraccionDelIndicador",
+                },
+            },
+        });
+
+        var expediente = await cliente.GetFromJsonAsync<JsonElement>($"/misiones/{mision}");
+
+        var salida = expediente.GetProperty("diario").EnumerateArray()
+            .Single(t => t.GetProperty("id").GetString() == "T-14");
+
+        Assert.Contains("tanque a 100", salida.GetProperty("motivo").GetString());
+    }
+
+    [Fact]
+    public async Task El_tanque_NO_leido_llega_con_su_razon_y_no_se_estima()
+    {
+        // `RN-80`: el campo no consignado se declara y **no se estima**. Y declararlo sin decir
+        // por qué deja la ausencia sin nada que reclamar — no se sabe si faltó porque el
+        // indicador estaba averiado o porque nadie se acordó, y sólo la primera se corrige.
+        var r = await Sembrar("NT-0002");
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        var mision = await MisionDespachada(cliente, r);
+
+        await Sincronizar(cliente, new
+        {
+            IdDispositivo = "DISP-CHO-01",
+            Transiciones = new[]
+            {
+                new
+                {
+                    IdDeCaptura = Ulid.NewUlid().ToString(),
+                    IdExpediente = mision,
+                    Transicion = "T-14",
+                    Ejecuta = "P-MOTORISTA",
+                    OcurridoEn = Momento,
+                    Odometro = 84_000,
+                    TanqueNoConsignado = "El indicador está averiado — orden de trabajo 2026-0071.",
+                },
+            },
+        });
+
+        var expediente = await cliente.GetFromJsonAsync<JsonElement>($"/misiones/{mision}");
+
+        var motivo = expediente.GetProperty("diario").EnumerateArray()
+            .Single(t => t.GetProperty("id").GetString() == "T-14")
+            .GetProperty("motivo").GetString();
+
+        Assert.Contains("NO CONSIGNADO", motivo);
+        Assert.Contains("indicador está averiado", motivo);
+    }
+
     // ── Andamio ─────────────────────────────────────────────────────────────
 
     private static object Hecho(string mision, string vale, string captura) => new
@@ -485,9 +568,18 @@ public class ConsumoDesdeCampoPruebas(BaseDePruebas baseDePruebas)
         return await FlotaSembrada.ParaProgramarAsync(contexto, prefijo);
     }
 
+    /// <summary>Una misión despachada, lista para que el dispositivo registre la salida.</summary>
+    private static async Task<string> MisionDespachada(
+        HttpClient cliente, FlotaSembrada.ParaProgramar r)
+    {
+        var (mision, _) = await MisionEnRutaConVale(cliente, r, iniciarRuta: false);
+        return mision;
+    }
+
     /// <summary>Una misión en ruta con un vale entregado — el estado en que `V-04` cabe.</summary>
     private static async Task<(string Mision, string Vale)> MisionEnRutaConVale(
-        HttpClient cliente, FlotaSembrada.ParaProgramar r, bool entregar = true)
+        HttpClient cliente, FlotaSembrada.ParaProgramar r, bool entregar = true,
+        bool iniciarRuta = true)
     {
         var fondo = Ulid.NewUlid().ToString();
 
@@ -562,10 +654,11 @@ public class ConsumoDesdeCampoPruebas(BaseDePruebas baseDePruebas)
                 Ejecuta = "P-COMBUSTIBLE", Constancia = "Firma de recepción", Momento,
             });
 
-        await Post(cliente, $"/misiones/{mision}/iniciar-ruta", new
-        {
-            Ejecuta = "P-MOTORISTA", Momento, Odometro = 84_000,
-        });
+        if (iniciarRuta)
+            await Post(cliente, $"/misiones/{mision}/iniciar-ruta", new
+            {
+                Ejecuta = "P-MOTORISTA", Momento, Odometro = 84_000,
+            });
 
         return (mision, vale);
     }

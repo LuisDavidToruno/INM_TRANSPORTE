@@ -307,13 +307,14 @@ TransicionConMotivo("aprobar", (e, quien, cuando, motivo) => e.Aprobar(quien, cu
 //
 // La lectura de referencia se busca por VEHÍCULO y cruza misiones: un odómetro que
 // retrocede entre dos misiones distintas es lo que `BD-05` existe para detectar.
-ConOdometro("iniciar-ruta", (e, quien, cuando, o, captura, _, __, nivel) =>
+ConOdometro("iniciar-ruta", (e, quien, cuando, o, captura, _, __, nivel, razon) =>
     e.IniciarRuta(quien, cuando,
-                  new OdometroAlSalir(o.Lectura, o.UltimaConocida, nivel), captura));
+                  new OdometroAlSalir(o.Lectura, o.UltimaConocida, nivel, razon), captura));
 
-ConOdometro("retornar", (e, quien, cuando, o, captura, subtipo, justificacion, nivel) =>
+ConOdometro("retornar", (e, quien, cuando, o, captura, subtipo, justificacion, nivel, razon) =>
     e.Retornar(quien, cuando,
-               new OdometroAlRetornar(o.Lectura, subtipo, justificacion, null, nivel), captura));
+               new OdometroAlRetornar(o.Lectura, subtipo, justificacion, null, nivel, razon),
+               captura));
 // `T-19` ya no usa el helper genérico: **`INV-34` exige que todas las asignaciones de
 // combustible estén liquidadas**, y ese recuento no está en el expediente. Dejarlo en el
 // helper significaba pasar nulo, y nulo es «no evaluada»: la regla quedaría escrita y sin
@@ -1173,7 +1174,11 @@ app.MapPost("/sincronizacion", async (
                     Ulid.Parse(h.Abastecimiento.IdVehiculo), h.Abastecimiento.Fuente,
                     h.Abastecimiento.Galones, h.Abastecimiento.Odometro,
                     h.Abastecimiento.Estacion, h.Abastecimiento.Monto,
-                    h.Abastecimiento.Comprobante, h.Abastecimiento.CausaSinComprobante)));
+                    h.Abastecimiento.Comprobante, h.Abastecimiento.CausaSinComprobante),
+            h.NivelDeTanque is { } nivel
+                ? new NivelDeTanqueSincronizado(h.EscalaDelNivel, nivel)
+                : null,
+            h.TanqueNoConsignado));
     }
 
     var resultado = await servicio.RecibirAsync(hechos);
@@ -1354,7 +1359,7 @@ void TransicionConMotivo(
 void ConOdometro(
     string ruta,
     Action<OrdenDeMision, IdPersona, DateTimeOffset, LecturaResuelta, Ulid?, SubtipoDeRetorno,
-           string?, NivelDeTanque?> aplicar) =>
+           string?, NivelDeTanque?, string?> aplicar) =>
     misiones.MapPost($"/{{id}}/{ruta}", async (
         string id,
         RegistrarOdometro peticion,
@@ -1385,7 +1390,8 @@ void ConOdometro(
                 // queda como «no consignado», que es lo que `RN-80` manda declarar.
                 peticion.NivelDeTanque is { } v
                     ? new NivelDeTanque(peticion.EscalaDelNivel, v)
-                    : null),
+                    : null,
+                peticion.TanqueNoConsignado),
             peticion.Momento);
 
         return Results.Ok(new { id, estado = estado.ToString() });
@@ -1583,7 +1589,9 @@ internal sealed record RegistrarOdometro(
     string? Justificacion = null,
     Ulid? IdDeCaptura = null,
     decimal? NivelDeTanque = null,
-    EscalaDeNivel EscalaDelNivel = EscalaDeNivel.FraccionDelIndicador);
+    EscalaDeNivel EscalaDelNivel = EscalaDeNivel.FraccionDelIndicador,
+    /// <summary>Por qué no se leyó. `RN-80` manda declararlo, no estimarlo.</summary>
+    string? TanqueNoConsignado = null);
 
 /// <summary>Declarar el estado operativo de un vehículo — §10.2.</summary>
 /// <param name="Motivo">
@@ -1741,7 +1749,14 @@ internal sealed record HechoDelDispositivo(
     /// porque el vale no alcanzó, no tenía dónde anotarlo: ese galón no llegaba al denominador y
     /// su ausencia se leía como rendimiento imposible.
     /// </summary>
-    AbastecimientoDelDispositivo? Abastecimiento = null);
+    AbastecimientoDelDispositivo? Abastecimiento = null,
+    /// <summary>
+    /// El nivel del tanque leído en el predio — `RN-83`. **Nulo es «no consignado», no cero.**
+    /// </summary>
+    decimal? NivelDeTanque = null,
+    EscalaDeNivel EscalaDelNivel = EscalaDeNivel.FraccionDelIndicador,
+    /// <summary>Por qué no se leyó. Va al diario: `RN-80` manda declararlo, no estimarlo.</summary>
+    string? TanqueNoConsignado = null);
 
 /// <param name="IdVehiculo">
 /// A qué tanque entró. **Es lo único que no puede faltar**: el abastecimiento cuelga del
