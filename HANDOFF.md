@@ -280,6 +280,56 @@ dentro. Un eje de horas dibujado sobre medianoches sería un gráfico que miente
 precisión. Lo que sí se dibuja es el **cronograma de la semana**, que contesta la otra mitad
 —qué se traslapa con qué— y para el que el dato existe.
 
+### El estado operativo del vehículo, y con él `BD-07`
+
+Lo venía citando como faltante en `T-11`, `T-15`, `T-16` y `BD-07`. §10.2 lo tiene
+**completamente especificado** —ocho estados, con quién fija cada uno— y no existía.
+
+**Es un diario, no una columna.** La pregunta de la auditoría no es *«¿en qué estado está?»*
+sino *«¿por qué no estuvo disponible en abril, y quién lo decidió?»*, y un `estado_actual` la
+borra cada vez que cambia. Además §10.2 exige **causa tipificada** para `NO_DISPONIBLE` y
+**acta** para el préstamo y los dos terminales: eso no cabe en un enum guardado en el
+vehículo.
+
+**Las transiciones de la misión lo mueven, dentro de la misma transacción.** `T-08`/`T-10` →
+`ASIGNADO`, `T-14` → `EN_MISION`, `T-11`/`T-13`/`T-18` → `DISPONIBLE`. Va en la capa de
+aplicación porque son **dos agregados**, y dentro de la transacción por lo mismo que el
+asiento de bitácora: una caída entre las dos dejaría un vehículo asignado a una misión que no
+se guardó.
+
+**Nulo no es disponible.** §10.2 lista *«alta reciente sin habilitar»* entre las causas de
+`NO_DISPONIBLE`: dar por disponible el nulo haría que **el alta habilitara sola**. No bloquea
+—hay expedientes anteriores— pero **deja dicho que no se verificó**.
+
+### 🔎 §10.2 dice que sólo se programa desde `DISPONIBLE`, y eso rompe la operación
+
+**Lo destapó la propia coordinación al empezar a funcionar**: en cuanto `T-08` empezó a poner
+el vehículo en `ASIGNADO`, una prueba de `BD-11` cambió de bloqueo — ahora fallaba por
+`BD-07`.
+
+Leída al pie de la letra, la frase impide programar una misión de marzo para un vehículo
+comprometido a una de diciembre: queda `ASIGNADO` desde hoy. **Todo el sistema está
+construido sobre lo contrario** — `EF-01` reserva por ventana, `BD-11` compara ventanas, y el
+cronograma de flota dibuja **varias barras por carril** justamente porque un vehículo tiene
+varias misiones a lo largo del mes.
+
+**Resolución adoptada:** `BD-07` bloquea sólo lo que vuelve al vehículo **inutilizable** —
+`EN_TALLER`, `NO_DISPONIBLE`, `PRESTADO` y los dos terminales—. `ASIGNADO` y `EN_MISION`
+pasan, y el solape lo decide `BD-11`, que además **nombra al titular**. Si `ASIGNADO`
+bloqueara, taparía a `BD-11` con un mensaje mucho peor: *«está asignado»* en vez de *«lo tiene
+la misión X de la delegación Y, del 20 al 23»*.
+
+**Queda como decisión del PO**: o §10.2 se corrige, o hay que explicar cómo se programan dos
+misiones de un mismo vehículo en meses distintos. No se resolvió en silencio.
+
+**⚠️ La otra mitad de `BD-07` no se evalúa**: la compatibilidad entre lo que se mueve y el
+tipo de vehículo necesita la matriz de `M-02`, que no existe, y el objeto del traslado es
+texto libre — no hay nada estructurado contra lo que contrastarla.
+
+**⚠️ Y nadie fija todavía los estados manuales.** `EN_TALLER` es de `ACT-11` (`M-11`),
+`PRESTADO` y los terminales de `ACT-08` con acta. El diario y la regla existen; las pantallas
+que los declaran, no. Hoy sólo se mueven los automáticos.
+
 ### `BD-05` — el odómetro, y con él `T-14` y `T-18` dejan de ser un `Registrar` pelado
 
 *«El hallazgo típico del TSC en flota es el incremento de consumo de combustible sin relación
@@ -605,7 +655,7 @@ filtra por las dos, porque una salida que vuelve a bloquear no es salida. Y los 
 tenían **dos botones de salida**: `Modal` ya rinde el suyo, y encima el llamador agregaba
 otro. El de anulación venía así desde antes.
 
-### `BD-07` sigue sin evaluarse, y `BD-08` a `BD-10` tampoco
+### `BD-08`, `BD-09` y `BD-10` siguen sin evaluarse
 
 `BD-02` y `BD-03` ya están implementadas y probadas — **`BD-04`, `BD-11`, `BD-12` y `BD-13` también, ver arriba.** **`BD-07` no** — estado y compatibilidad del vehículo. Necesita dos cosas que todavía no existen:
 

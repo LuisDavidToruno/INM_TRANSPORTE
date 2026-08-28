@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Sigti.Datos;
 using Sigti.Datos.Bitacora;
 using Sigti.Datos.M07_ProgramacionYDespacho;
+using Sigti.Aplicacion.M03_Flota;
+using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
 using Sigti.Dominio.Organizacion;
 
@@ -15,7 +17,7 @@ namespace Sigti.Aplicacion.M07_ProgramacionYDespacho;
 /// existe — en SICOV, la regla «quien debe una liquidación no viaja» nació dentro de un
 /// controlador y desde ahí el otro asistente de captura no podía consumirla.
 /// </summary>
-public sealed class ServicioDeMisiones(SigtiDbContext contexto)
+public sealed class ServicioDeMisiones(SigtiDbContext contexto, EstadoDeLaFlota flota)
 {
     private readonly ExpedientesDeMision _expedientes = new(contexto);
     private readonly EscritorDeBitacora _bitacora = new(contexto);
@@ -56,6 +58,66 @@ public sealed class ServicioDeMisiones(SigtiDbContext contexto)
     }
 
     /// <summary>
+    /// Mueve el estado operativo del vehículo cuando la transición lo exige — §10.2.
+    ///
+    /// ── Por qué vive acá y no en el agregado ────────────────────────────────
+    /// Porque son <b>dos agregados</b>: la Orden de Misión y el vehículo. Que `OrdenDeMision`
+    /// escribiera el estado del vehículo lo volvería responsable de un bien que no le
+    /// pertenece, y la coordinación entre agregados es de la capa de aplicación.
+    ///
+    /// ── Y por qué DENTRO de la transacción ──────────────────────────────────
+    /// Por lo mismo que el asiento de bitácora: si fueran dos transacciones, una caída entre
+    /// ambas dejaría un vehículo <b>asignado a una misión que no se guardó</b>, o una misión
+    /// programada sobre un vehículo que sigue figurando libre. Las dos son peores que fallar.
+    ///
+    /// ── Qué transiciones lo mueven, y por qué sólo ésas ─────────────────────
+    /// §10.2: <i>«`ASIGNADO` y `EN_MISION` los fija el sistema, no una persona. Son
+    /// consecuencia de transiciones de la Orden de Misión, y permitir fijarlos a mano abre la
+    /// puerta a un vehículo "en misión" sin misión»</i>.
+    ///
+    /// ⚠️ <b>`T-16` y `T-15` no están acá porque no existen.</b> Cuando existan, las dos
+    /// devuelven el vehículo a `DISPONIBLE` —o al estado que corresponda si la causa fue una
+    /// falla— y este mapa es donde se agregan.
+    /// </summary>
+    private async Task MoverElEstadoDelVehiculoAsync(
+        OrdenDeMision expediente, CancellationToken cancelacion)
+    {
+        var ultima = expediente.Diario[^1];
+
+        var destino = ultima.Id switch
+        {
+            // Comprometido a una misión que aún no ha salido.
+            "T-08" or "T-10" => EstadoOperativo.Asignado,
+
+            // Fuera.
+            "T-14" => EstadoOperativo.EnMision,
+
+            // Vuelve a la flota. `T-11` desprograma, `T-13` anula la programada y `T-18`
+            // registra el retorno: en los tres el vehículo deja de estar comprometido.
+            "T-11" or "T-13" or "T-18" => EstadoOperativo.Disponible,
+
+            _ => (EstadoOperativo?)null,
+        };
+
+        if (destino is not { } estado) return;
+
+        // El vehículo sale de la reserva vigente, no de un campo: es la misma proyección
+        // del diario que usa la ocupación de flota.
+        var vehiculo = expediente.Diario
+            .LastOrDefault(t => t.Recursos is not null)?.Recursos?.Vehiculo;
+
+        // Sin reserva registrada no hay a qué vehículo moverle el estado. Pasa en los
+        // expedientes anteriores a `RecursosTomados`, y no es un error: es que esa misión
+        // nunca dejó dicho qué vehículo tomó.
+        if (vehiculo is not { } id) return;
+
+        await flota.AnotarAsync(id, new CambioDeEstadoOperativo(
+            estado, ultima.Momento, ultima.Ejecuta.Valor,
+            Motivo: $"{ultima.Id} de la misión {expediente.Id}",
+            Automatico: true), cancelacion);
+    }
+
+    /// <summary>
     /// El expediente y su asiento se confirman <b>en la misma transacción</b>.
     ///
     /// Si fueran dos transacciones, una caída entre ambas dejaría una de dos cosas: una
@@ -72,6 +134,8 @@ public sealed class ServicioDeMisiones(SigtiDbContext contexto)
             await using var transaccion = await contexto.Database.BeginTransactionAsync(cancelacion);
 
             await _expedientes.GuardarAsync(expediente, cancelacion);
+
+            await MoverElEstadoDelVehiculoAsync(expediente, cancelacion);
 
             var ultima = expediente.Diario[^1];
             await _bitacora.EscribirAsync(

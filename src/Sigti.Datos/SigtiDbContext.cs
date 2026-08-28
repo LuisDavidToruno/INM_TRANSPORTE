@@ -22,6 +22,7 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     public DbSet<FilaDeAsignacionDePuesto> AsignacionesDePuesto => Set<FilaDeAsignacionDePuesto>();
     public DbSet<FilaDeCustodia> Custodias => Set<FilaDeCustodia>();
     public DbSet<FilaDePermisoDeCirculacion> Permisos => Set<FilaDePermisoDeCirculacion>();
+    public DbSet<FilaDeCambioDeEstado> CambiosDeEstado => Set<FilaDeCambioDeEstado>();
 
     /// <summary>
     /// ULID en binary(16) y no en texto: 16 bytes contra 26, y conserva la monotonía que
@@ -225,6 +226,24 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             // error de datos, pero impedirlo en la base impediria tambien registrar el
             // traspaso el mismo dia -- que es como ocurre, con acta y sin hueco entre las
             // dos. El solape se detecta al consultar, no se prohibe al escribir.
+        });
+
+        modelo.Entity<FilaDeCambioDeEstado>(cambio =>
+        {
+            cambio.ToTable("CambioDeEstado", schema: "flota");
+
+            cambio.HasKey(c => c.Id);
+            cambio.Property(c => c.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            cambio.Property(c => c.VehiculoId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            cambio.Property(c => c.Estado).HasConversion<string>().HasMaxLength(32).IsRequired();
+            cambio.Property(c => c.Ejecuta).HasMaxLength(64).IsRequired();
+            cambio.Property(c => c.Motivo).HasMaxLength(500);
+
+            // El diario de un vehiculo no admite dos cambios en la misma posicion. Es el
+            // mismo invariante que el de la mision, y hace mas falta aca: dos cambios
+            // pueden compartir marca de tiempo cuando uno lo fija el sistema por una
+            // transicion y otro una persona en el mismo instante.
+            cambio.HasIndex(c => new { c.VehiculoId, c.Orden }).IsUnique();
         });
 
         modelo.Entity<FilaDePermisoDeCirculacion>(permiso =>

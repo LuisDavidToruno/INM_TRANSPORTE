@@ -152,15 +152,76 @@ public sealed class OrdenDeMision
         PoliticaDeDocumentacion politica,
         DateTimeOffset momento,
         RecursosTomados? recursos = null,
-        IReadOnlyList<ReservaDeRecurso>? reservas = null)
+        IReadOnlyList<ReservaDeRecurso>? reservas = null,
+        EstadoOperativo? estadoDelVehiculo = null)
     {
         ExigirEstado(EstadoDeMision.Aprobada, "T-08");
         ExigirAprobacionVigente(DateOnly.FromDateTime(momento.Date));
+        var operativo = ExigirVehiculoDisponible(estadoDelVehiculo);
         var evidencia = ExigirHabilitacionYDocumentacion(asignacion, matriz, politica, momento);
         var sinSolape = ExigirSinSolapamiento(reservas);
 
         Registrar("T-08", EstadoDeMision.Programada, ejecuta, momento,
-            evidencia + sinSolape, recursos: recursos);
+            evidencia + sinSolape + operativo, recursos: recursos);
+    }
+
+    /// <summary>
+    /// `BD-07` — <b>el vehículo tiene que estar `DISPONIBLE`.</b>
+    ///
+    /// ── Nulo NO es disponible ───────────────────────────────────────────────
+    /// Un vehículo al que nadie le declaró estado no está disponible: §10.2 lista <i>«alta
+    /// reciente sin habilitar»</i> entre las causas de `NO_DISPONIBLE`. Tratar el nulo como
+    /// disponible haría que <b>el alta habilitara sola</b>, que es lo contrario de lo que la
+    /// sección dice.
+    ///
+    /// Se recibe anulable —y no se exige— porque hay expedientes y pruebas anteriores al
+    /// estado operativo. <b>Cuando llega nulo se dice en el diario</b>, en vez de dejar creer
+    /// que se verificó.
+    ///
+    /// ── `ASIGNADO` y `EN_MISION` NO bloquean, y §10.2 dice lo contrario ─────
+    /// §10.2 dice que `DISPONIBLE` <i>«es el único estado desde el que se puede programar»</i>.
+    /// <b>Leído al pie de la letra, eso rompe la operación normal</b>: un vehículo comprometido
+    /// a una misión de diciembre queda `ASIGNADO` desde hoy, y bloquearía programar una
+    /// misión de marzo con la que no se solapa en nada.
+    ///
+    /// El sistema entero está construido sobre lo contrario: `EF-01` reserva <b>por ventana</b>,
+    /// `BD-11` compara ventanas, y el cronograma de flota dibuja <b>varias barras por carril</b>
+    /// precisamente porque un vehículo tiene varias misiones a lo largo del mes.
+    ///
+    /// Por eso acá se bloquea sólo lo que vuelve al vehículo <b>inutilizable</b> —taller, no
+    /// disponible, prestado, terminal— y el solape lo decide `BD-11`, que además nombra al
+    /// titular. Si `ASIGNADO` bloqueara, taparía a `BD-11` con un mensaje mucho peor: «está
+    /// asignado» en vez de «lo tiene la misión X de la delegación Y, del 20 al 23».
+    ///
+    /// ⚠️ <b>Queda como hallazgo para el PO</b>, no resuelto en silencio: o §10.2 se corrige, o
+    /// hay que explicar cómo se programan dos misiones de un mismo vehículo en meses
+    /// distintos.
+    ///
+    /// ── La otra mitad de `BD-07` no se evalúa ───────────────────────────────
+    /// La <b>compatibilidad</b> entre lo que se mueve y el tipo de vehículo necesita la matriz
+    /// de `M-02`, que no existe, y el objeto del traslado es texto libre: no hay nada
+    /// estructurado contra lo que contrastarla. No se finge.
+    /// </summary>
+    private static string ExigirVehiculoDisponible(EstadoOperativo? estado)
+    {
+        if (estado is null)
+            return " · BD-07 NO evaluada: el vehículo no tiene estado operativo declarado";
+
+        // Los tres que dejan al vehículo utilizable. `ASIGNADO` y `EN_MISION` describen un
+        // compromiso vigente, no una imposibilidad futura.
+        if (estado is EstadoOperativo.Disponible
+                   or EstadoOperativo.Asignado
+                   or EstadoOperativo.EnMision)
+            return $" · BD-07 verificada: vehículo {estado}";
+
+        throw new BloqueoDuro("BD-07",
+            $"El vehículo está en estado {estado} y no se puede comprometer. " +
+            // Decir en cuál está y no sólo que «no está disponible»: de EN_TALLER se sale
+            // esperando, de DADO_DE_BAJA no se sale, y quien programa necesita saber si
+            // vale la pena volver mañana.
+            (estado is EstadoOperativo.DadoDeBaja or EstadoOperativo.RetiradoDeFlota
+                ? "Es un estado terminal: este vehículo ya no vuelve a la flota."
+                : "Elija otro vehículo o espere a que vuelva a estar disponible."));
     }
 
     /// <summary>

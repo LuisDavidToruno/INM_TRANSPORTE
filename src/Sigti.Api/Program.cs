@@ -45,6 +45,7 @@ constructor.Services.AddScoped<ConsultaDeCustodias>();
 constructor.Services.AddScoped<ConsultaDePermisos>();
 constructor.Services.AddScoped<ConsultaDelDiaDeDespacho>();
 constructor.Services.AddScoped<ConsultaDeOdometro>();
+constructor.Services.AddScoped<EstadoDeLaFlota>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -542,16 +543,16 @@ misiones.MapPost("/{id}/anular-programada", async (
 // reservado y volver a tomar ahí duplicaría la reserva sin liberar la anterior.
 // `BD-11` sólo la evalúa `T-08`: es la que toma. `T-12` despacha sobre lo ya reservado,
 // y volver a comprobar el solape ahí chocaría contra la reserva de la propia misión.
-ConAsignacion("programar", (e, quien, a, m, p, cuando, recursos, reservas, _, __, ___) =>
-    e.Programar(quien, a, m, p, cuando, recursos, reservas));
-ConAsignacion("despachar", (e, quien, a, m, p, cuando, _, __, ___, custodias, circulacion) =>
+ConAsignacion("programar", (e, quien, a, m, p, cuando, recursos, reservas, _, __, ___, operativo) =>
+    e.Programar(quien, a, m, p, cuando, recursos, reservas, operativo));
+ConAsignacion("despachar", (e, quien, a, m, p, cuando, _, __, ___, custodias, circulacion, ____) =>
     e.Despachar(quien, a, m, p, cuando, custodias, circulacion));
 
 // `T-10` — cambiar el vehículo o quien conduce SIN soltar la misión. Comparte la
 // resolución de recursos con programar y despachar: es la misma verificación de que el
 // identificador existe y la misma construcción de la asignación contra la que se evalúan
 // `BD-02` y `BD-03`. Lo único propio es el motivo, y por eso viaja en la misma petición.
-ConAsignacion("reasignar", (e, quien, a, m, p, cuando, recursos, reservas, peticion, _, __) =>
+ConAsignacion("reasignar", (e, quien, a, m, p, cuando, recursos, reservas, peticion, _, __, ___) =>
     e.Reasignar(quien, a, peticion.Motivo, peticion.Comentario, m, p, cuando, recursos, reservas));
 
 // M-16 — Donde aterriza lo que el dispositivo capturó sin red.
@@ -681,7 +682,7 @@ return;
 
 void ConAsignacion(
     string ruta,
-    Action<OrdenDeMision, IdPersona, AsignacionDeMision, MatrizDeLicencias, PoliticaDeDocumentacion, DateTimeOffset, RecursosTomados?, IReadOnlyList<ReservaDeRecurso>?, AsignarYTransicionar, CustodiaAlDespachar, CirculacionEnDiaInhabil> aplicar) =>
+    Action<OrdenDeMision, IdPersona, AsignacionDeMision, MatrizDeLicencias, PoliticaDeDocumentacion, DateTimeOffset, RecursosTomados?, IReadOnlyList<ReservaDeRecurso>?, AsignarYTransicionar, CustodiaAlDespachar, CirculacionEnDiaInhabil, EstadoOperativo?> aplicar) =>
     misiones.MapPost($"/{{id}}/{ruta}", async (
         string id,
         AsignarYTransicionar peticion,
@@ -692,6 +693,7 @@ void ConAsignacion(
         ConsultaDeCustodias custodias,
         ConsultaDelOrganigrama organigrama,
         ConsultaDePermisos permisos,
+        EstadoDeLaFlota estadoDeLaFlota,
         IParametrosDeLaInstitucion parametros) =>
     {
         // El cliente manda IDENTIFICADORES, no la ficha técnica. Si mandara la ficha,
@@ -736,6 +738,10 @@ void ConAsignacion(
         // juicio es de la regla.
         var permisosDelExpediente = await permisos.DeExpedienteAsync(ulid);
 
+        // `BD-07`: solo se programa desde DISPONIBLE. Nulo es «nadie le declaro estado», y
+        // el dominio lo dice en el diario en vez de darlo por disponible.
+        var estadoDelVehiculo = await estadoDeLaFlota.ActualAsync(idVehiculo);
+
         var estado = await servicio.TransicionarAsync(
             ulid,
             expediente =>
@@ -753,7 +759,8 @@ void ConAsignacion(
                             parametros.CalendarioVigenteAl(salida),
                             idVehiculo, idConductor,
                             vehiculo.Excepcion(),
-                            permisosDelExpediente));
+                            permisosDelExpediente),
+                        estadoDelVehiculo);
             },
             peticion.Momento);
 
