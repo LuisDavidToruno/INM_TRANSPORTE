@@ -5,6 +5,7 @@ import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/rea
 import { CircleCheck } from 'lucide-react';
 
 import { Boton, Campo, LineaDeCarriles, Nota, Panel, Pastilla, avisar } from '../../ui';
+import PanelDeVales from '../M09_Combustible/PanelDeVales';
 import type { CarrilDeLinea } from '../../ui';
 import {
   MOTIVOS_DE_REASIGNACION,
@@ -148,6 +149,24 @@ export default function Asignacion(): ReactElement {
   return (
     <div className="tw:flex tw:flex-col tw:gap-6">
       <Cabecera expediente={expediente} reasignando={reasignando} vehiculos={vehiculos} />
+
+      {/* El combustible sólo cabe desde `PROGRAMADA`: antes no hay vehículo ni motorista
+          contra los que `RN-32` pueda evaluar al receptor (`INV-11`, aprobar no es
+          programar). Mientras la misión no esté programada, ni siquiera se ofrece. */}
+      {reasignando && (
+        <PanelDeVales
+          misionId={id}
+          estadoDeLaMision={expediente.estado}
+          dependencia={expediente.dependencia}
+          // La reserva sale del ÚLTIMO asiento que reservó, no del primero: `T-10`
+          // reasigna sin soltar la misión, y quedarse con el de `T-08` precargaría al
+          // motorista que ya fue sustituido.
+          motoristaDeLaOrden={
+            [...expediente.diario].reverse().find((t) => t.conductorTomado)
+              ?.conductorTomado ?? undefined
+          }
+        />
+      )}
 
       <Panel titulo="Ocupación de la flota en la ventana solicitada">
         <Cronograma

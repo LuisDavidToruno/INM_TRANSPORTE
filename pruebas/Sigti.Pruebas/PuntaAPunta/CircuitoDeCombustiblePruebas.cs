@@ -191,7 +191,6 @@ public class CircuitoDeCombustiblePruebas(BaseDePruebas baseDePruebas)
             Folio = $"VAL-{Ulid.NewUlid()}",
             IdFondo = fondo,
             IdMision = mision,
-            IdVehiculo = r.Vehiculo,
 
             // Otro motorista del padrón, no el de la orden.
             IdMotoristaReceptor = Ulid.NewUlid().ToString(),
@@ -459,7 +458,6 @@ public class CircuitoDeCombustiblePruebas(BaseDePruebas baseDePruebas)
             Folio = $"VAL-{Ulid.NewUlid()}",
             IdFondo = fondo,
             IdMision = mision,
-            IdVehiculo = r.Vehiculo,
             IdMotoristaReceptor = r.Conductor,
             Ejecuta = "P-TRANSPORTE",
             Monto = monto,

@@ -580,15 +580,14 @@ fondos.MapPost("/{id}/cerrar", async (
 
 var vales = app.MapGroup("/combustible");
 
+// **La petición NO trae el vehículo.** `RN-32` manda que el sistema lo precargue de la
+// orden y no lo capture libremente; pedirlo aunque fuera sólo para rotular la respuesta
+// obliga al cliente a conocer la reserva, y el próximo que lea el contrato va a creer que
+// es contra ese valor que se valida.
 vales.MapPost("/", async (
     EmitirVale peticion, ServicioDeCombustible servicio,
-    ConsultaDeFlota flota, IParametrosDeLaInstitucion parametros) =>
+    IParametrosDeLaInstitucion parametros) =>
 {
-    // El tipo de combustible del vehículo sale de su ficha, no de la petición: es contra
-    // eso que `RN-32` comprueba que un vale de diésel no vaya a un vehículo de gasolina.
-    var vehiculos = await flota.TodosAsync();
-    var vehiculo = vehiculos.SingleOrDefault(v => v.Id == Ulid.Parse(peticion.IdVehiculo));
-
     var id = await servicio.EmitirAsync(
         Ulid.Parse(peticion.Id), peticion.Folio, Ulid.Parse(peticion.IdFondo),
         Ulid.Parse(peticion.IdMision), new IdPersona(peticion.Ejecuta),
@@ -604,7 +603,7 @@ vales.MapPost("/", async (
         parametros.ToleranciaDeSobregiro,
         peticion.Momento);
 
-    return Results.Created($"/combustible/{id}", new { id = id.ToString(), vehiculo = vehiculo?.Siglas });
+    return Results.Created($"/combustible/{id}", new { id = id.ToString() });
 });
 
 vales.MapGet("/mision/{id}", async (string id, ServicioDeCombustible servicio) =>
@@ -1305,17 +1304,11 @@ internal sealed record CerrarFondo(string Ejecuta, string? Partida, DateTimeOffs
 /// contra el motorista de la orden: el servidor NO lo deduce de la reserva, porque entonces
 /// compararía la orden consigo misma y el bloqueo no dispararía nunca.
 /// </param>
-/// <param name="IdVehiculo">
-/// Sólo para nombrar el vehículo en la respuesta. **No se usa para validar**: el vehículo
-/// contra el que se comprueba sale de la reserva de la orden, que es lo que `RN-32` manda
-/// precargar.
-/// </param>
 internal sealed record EmitirVale(
     string Id,
     string Folio,
     string IdFondo,
     string IdMision,
-    string IdVehiculo,
     string IdMotoristaReceptor,
     string Ejecuta,
     decimal Monto,

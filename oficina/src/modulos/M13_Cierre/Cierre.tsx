@@ -9,6 +9,7 @@ import { BloqueoDuro, cerrar, devolverLiquidacion, expediente } from '../../api/
 import type { CriterioDetectado } from '../../api/misiones';
 import { ROTULO_ESTADO } from '../../dominio/mision';
 import type { Expediente } from '../../dominio/mision';
+import PanelDeVales from '../M09_Combustible/PanelDeVales';
 import { soloFecha } from '../M06_Autorizacion/formato';
 
 /**
@@ -134,6 +135,10 @@ export default function Cierre(): ReactElement {
           {soloFecha(data.retornoPrevisto)}
         </p>
       </header>
+
+      {/* Va ANTES del pronunciamiento: lo que impide cerrar tiene que verse antes que el
+          botón de cerrar, no después de que el servidor lo rechace. */}
+      <PanelDeVales misionId={id} estadoDeLaMision={data.estado} />
 
       <Panel titulo={hayHallazgo ? 'Este expediente cierra con hallazgo' : 'Este expediente cierra limpio'}>
         <div className="tw:flex tw:flex-col tw:gap-5">

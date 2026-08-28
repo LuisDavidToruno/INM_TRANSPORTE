@@ -346,6 +346,63 @@ en pantalla — un vehículo en taller y uno prestado se pintan apagados en el c
 abril?»* — y cada asiento dice si lo declaró una persona o lo fijó el sistema. Sin esa marca,
 la afirmación de §10.2 sobre quién fija qué **no se puede auditar, sólo creer**.
 
+### `M-09` en pantalla — el fondo, el vale y sus bloqueos
+
+**RESUELTA.** `/combustible` para el fondo del período, y un `PanelDeVales` montado en la
+programación —donde se emite y se entrega— y en el cierre —donde se liquida y se concilia.
+
+**El fondo NO es una tabla, y es deliberado.** No se comparan fondos: se mira *uno* y se actúa
+sobre él. La pregunta al abrir es «¿cuánto queda del de Choluteca?», no «¿cuál de los ocho
+tiene más». Una tabla optimiza la comparación y entierra el saldo entre columnas de igual peso.
+
+**El panel va donde se sufre el bloqueo.** `T-19` y `T-21` se niegan por los vales; sin la
+lista delante, quien cierra recibe un «no se puede» sin objeto al que ir.
+
+Verificado contra la API real, no deducido:
+
+| Qué | Qué contestó |
+|---|---|
+| Solicitar y aprobar un fondo | Saldo `L 45,000.00`, partida, «solicita X · aprueba Y» |
+| Aprobar siendo quien lo solicitó | `RN-26.4` — *«quien pide y quien autoriza tienen que ser dos personas distintas»* |
+| Emitir con receptor equivocado | `RN-32` — nombra al asignado y manda a `RN-14` |
+| Emitir sin fondo vigente del ámbito | *«Sin fondo no se emite un solo vale: la salida es solicitarlo»* |
+| Entregar sin despachar | `EF-04` — *«el vale existe emitido y no sale de la custodia»* |
+| Emitir bien | Vale `EMITIDA`, aviso de `INV-34`, saldo `L 47,500.00` |
+
+**Tres defectos propios, encontrados al mirar la pantalla:**
+
+1. **El nombre del operador estaba cableado**, y con una sola identidad `RN-26.4` disparaba
+   contra el propio operador: **ningún fondo podía pasar de `Solicitado`**. Cada acto ahora
+   declara quién lo ejecuta. ⚠️ Es un **registro, no un control**: nada impide teclear otro
+   nombre. Cuando exista `M-01`, el actor sale del usuario autenticado y ese campo se va.
+2. **«No hay ningún fondo» se decía mientras todavía cargaba** — un negativo definitivo
+   afirmado sin saberlo, que manda a solicitar un fondo que ya existe.
+3. **Se ofrecía «Entregar» sobre una misión sin despachar**, y el servidor lo rechazaba. Las
+   acciones se acotan por el estado de la misión, y lo que no cabe todavía **se dice** en vez
+   de dejar un vale sin botones que parezca atascado.
+
+De paso, dos correcciones de contrato:
+
+- **`POST /combustible` ya no recibe `IdVehiculo`.** Servía sólo para rotular la respuesta, y
+  pedirlo obliga al cliente a conocer la reserva — justo lo que `RN-32` manda que precargue el
+  servidor. El próximo que leyera el contrato iba a creer que era contra ese valor que se valida.
+- **El receptor viene precargado con el motorista de la orden**, que es lo que `RN-32` pide, y
+  cambiarlo avisa antes de intentarlo. La precarga no cierra la puerta al caso que la regla
+  existe para atrapar: si el que llega es otro, se cambia y el bloqueo dispara.
+
+**⚠️ Lo que la pantalla NO hace:**
+
+- **El folio se teclea.** Debería salir del rango de la delegación (`RN-44`) —lo que permite
+  emitirlo sin conectividad—, pero ese rango vive en el cliente de campo y la oficina no lo
+  consume. Es lo que `RN-27` prevé para la institución con folios preimpresos, así que el
+  circuito funciona; lo que falta es el otro esquema.
+- **El umbral de conciliación lo decide quien concilia**, y la pantalla lo dice con todas sus
+  letras. No hay umbrales cargados ni rendimiento esperado.
+- **No hay pantalla de consumo de campo.** `V-04` se registra desde la oficina, y su lugar es
+  el dispositivo del motorista (`M-16`).
+
+---
+
 ### `M-09` — el circuito del combustible, de punta a punta
 
 **RESUELTA.** El fondo del período, el vale con folio y la máquina §10.1 completa, `V-01` a
