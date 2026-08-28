@@ -405,6 +405,40 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+### La pantalla de abastecimientos
+
+`PanelDeAbastecimientos`, montado en el **cierre** —donde se concilia y el numerador tiene que
+verse— y en la **programación**, donde el vehículo está en ruta y carga.
+
+**Va al lado de los vales, no dentro**, porque son dos preguntas distintas: el vale contesta *qué
+se hizo con el dinero del fondo*; esto contesta *cuántos galones entraron a este tanque*.
+Mezclarlos haría que el despacho del tanque de la sede pareciera un movimiento de caja, y no lo
+es — no salió de ningún folio.
+
+**La composición se calla cuando todo vino del fondo.** Decir «100% del fondo» en cada misión
+entrena a saltarse la línea, y con ella se pierde la vez que sí decía algo.
+
+**El comprobante sólo aparece donde debería haber papel.** Mostrarlo siempre haría que la casilla
+se rellenara con «no aplica» y dejara de leerse.
+
+Verificado en pantalla: registrar 35 galones del tanque institucional sobre una misión que tenía
+40 del vale llevó el denominador de **40 a 75 galones**, y la composición apareció desglosada por
+fuente — que es exactamente lo que `RN-30` punto 4 manda exponer.
+
+---
+
+### ⚠️ Los consumos anteriores a `RN-83` no tenían abastecimiento
+
+Y sin él sus galones desaparecían del denominador: **el dictamen decía «la misión no cargó
+combustible» sobre una misión que sí cargó**. Una afirmación falsa es peor que un hueco.
+
+Corregido con una migración de datos que crea el abastecimiento de cada `V-04` histórico. El
+vehículo sale de la reserva de la misión; **los expedientes anteriores a `RecursosTomados` no se
+rellenan** — inventarles un vehículo dejaría el galón cargado a un tanque que quizá no fue el
+suyo, y eso es peor que dejarlos fuera.
+
+---
+
 ⚠️ **Lo que `RN-83` todavía no hace:**
 
 - **No descuenta de las existencias del tanque institucional** (punto 5). Eso es un inventario de

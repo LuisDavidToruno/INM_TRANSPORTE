@@ -304,3 +304,114 @@ export const TEXTO_DE_FONDO: Record<string, string> = {
   Agotado: 'Agotado',
   Cerrado: 'Cerrado',
 };
+
+// ── Abastecimientos — `RN-83` ───────────────────────────────────────────────
+
+/**
+ * Un ingreso de combustible al tanque, venga de donde venga.
+ *
+ * ── Por qué esto no es «el consumo del vale» ────────────────────────────────
+ * Porque el vale cubre sólo el combustible del fondo, que es la mitad que pasa por un
+ * folio. Lo demás —el tanque de la sede, una donación, el galón que puso el motorista de su
+ * bolsillo— <b>no existía para el sistema</b>, y es exactamente lo que produce un
+ * rendimiento imposiblemente bueno.
+ */
+export interface Abastecimiento {
+  id: string;
+  momento: string;
+  galones: number;
+  /** El odómetro del momento: lo que ancla el galón a un tramo recorrido. */
+  odometro: number;
+  fuente: string;
+  registra: string;
+  /** Nulo cuando la fuente no lo tiene. Una donación no trae precio. */
+  monto: number | null;
+  estacion: string | null;
+  comprobante: string | null;
+  causaSinComprobante: string | null;
+  /** Excede el fondo asignado. Se registra igual — su cobertura la resuelve la liquidación. */
+  excedido: boolean;
+  /** Los dos vienen resueltos: el cliente no reimplementa `RN-83`. */
+  entraAlCuadreDelFondo: boolean;
+  generaReintegro: boolean;
+  descripcion: string;
+}
+
+export const abastecimientosDeLaMision = (misionId: string): Promise<Abastecimiento[]> =>
+  pedir<Abastecimiento[]>(`/abastecimientos/mision/${misionId}`);
+
+export const registrarAbastecimiento = (cuerpo: {
+  id: string;
+  idVehiculo: string;
+  ocurridoEn: string;
+  galones: number;
+  odometro: number;
+  /** **No admite `FondoDeLaMision`**: ése entra por su vale, porque además mueve el saldo. */
+  fuente: string;
+  registra: string;
+  /** Nula en el reabastecimiento de rutina — la regla aplica en misión o fuera de ella. */
+  idMision?: string;
+  monto?: number | null;
+  estacion?: string | null;
+  comprobante?: string | null;
+  causaSinComprobante?: string | null;
+}): Promise<{ id: string }> =>
+  pedir<{ id: string }>('/abastecimientos', {
+    method: 'POST',
+    body: JSON.stringify(cuerpo),
+  });
+
+/**
+ * Las fuentes que se registran por esta puerta.
+ *
+ * <b>`FondoDeLaMision` no está</b>, y no es un olvido: ése entra contra su vale porque además
+ * mueve el instrumento y descuenta del saldo. Ofrecerlo acá crearía un galón del fondo que no
+ * descontó de ningún folio.
+ */
+export const FUENTES_REGISTRABLES: {
+  valor: string;
+  texto: string;
+  /** Si normalmente trae factura. Las que no, no piden causa por su ausencia (`RN-85`). */
+  traeComprobante: boolean;
+  ayuda: string;
+}[] = [
+  {
+    valor: 'TanqueInstitucional',
+    texto: 'Tanque institucional',
+    traeComprobante: false,
+    ayuda: 'El despacho desde la sede. No pasa por ningún folio, y es el que más falta hace contar.',
+  },
+  {
+    valor: 'OtraDependencia',
+    texto: 'Otra dependencia',
+    traeComprobante: false,
+    ayuda: 'Cargó en el predio de otra dependencia de la institución.',
+  },
+  {
+    valor: 'Donacion',
+    texto: 'Donación',
+    traeComprobante: false,
+    ayuda: 'Sin monto si no lo hay: un galón sin precio sigue siendo un galón.',
+  },
+  {
+    valor: 'PeculioDelServidor',
+    texto: 'Peculio del servidor',
+    traeComprobante: true,
+    ayuda: 'Lo pagó de su bolsillo. Genera obligación de reintegro a su favor y no toca el fondo.',
+  },
+  {
+    valor: 'TerceroEnApoyo',
+    texto: 'Tercero en apoyo',
+    traeComprobante: false,
+    ayuda: 'Lo puso un tercero que apoya el operativo.',
+  },
+];
+
+export const TEXTO_DE_FUENTE: Record<string, string> = {
+  FondoDeLaMision: 'Fondo de la misión',
+  TanqueInstitucional: 'Tanque institucional',
+  OtraDependencia: 'Otra dependencia',
+  Donacion: 'Donación',
+  PeculioDelServidor: 'Peculio del servidor',
+  TerceroEnApoyo: 'Tercero en apoyo',
+};

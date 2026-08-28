@@ -266,6 +266,6 @@ public class ReglasDeAbastecimientoPruebas
             Ulid.NewUlid(), Vehiculo, Momento, 40m, 84_120,
             FuenteDeAbastecimiento.TanqueInstitucional, Quien);
 
-        Assert.Contains("el tanque institucional", deLaSede.Descripcion);
+        Assert.Contains("del tanque institucional", deLaSede.Descripcion);
     }
 }

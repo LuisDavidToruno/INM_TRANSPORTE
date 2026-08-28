@@ -6,6 +6,7 @@ import { CircleCheck } from 'lucide-react';
 
 import { Boton, Campo, LineaDeCarriles, Nota, Panel, Pastilla, avisar } from '../../ui';
 import PanelDeVales from '../M09_Combustible/PanelDeVales';
+import PanelDeAbastecimientos from '../M09_Combustible/PanelDeAbastecimientos';
 import type { CarrilDeLinea } from '../../ui';
 import {
   MOTIVOS_DE_REASIGNACION,
@@ -164,6 +165,16 @@ export default function Asignacion(): ReactElement {
           motoristaDeLaOrden={
             [...expediente.diario].reverse().find((t) => t.conductorTomado)
               ?.conductorTomado ?? undefined
+          }
+        />
+      )}
+
+      {reasignando && (
+        <PanelDeAbastecimientos
+          misionId={id}
+          vehiculoId={
+            [...expediente.diario].reverse().find((t) => t.vehiculoTomado)?.vehiculoTomado ??
+            undefined
           }
         />
       )}

@@ -262,7 +262,7 @@ public sealed class Abastecimiento
 
     /// <summary>Lo que va al asiento y al reporte de conciliación de `NRM-01`.</summary>
     public string Descripcion =>
-        $"{Galones:N2} gal de {Texto(Fuente)}, odómetro {Odometro:N0} km" +
+        $"{Galones:N2} gal {Texto(Fuente)}, odómetro {Odometro:N0} km" +
         (Monto is { } m ? $", {m:N2}" : ", sin monto") +
         (Estacion is null ? "" : $", en {Estacion}") +
         (Comprobante is null
@@ -272,12 +272,12 @@ public sealed class Abastecimiento
 
     internal static string Texto(FuenteDeAbastecimiento fuente) => fuente switch
     {
-        FuenteDeAbastecimiento.FondoDeLaMision => "el fondo de la misión",
-        FuenteDeAbastecimiento.TanqueInstitucional => "el tanque institucional",
-        FuenteDeAbastecimiento.OtraDependencia => "otra dependencia",
-        FuenteDeAbastecimiento.Donacion => "donación",
-        FuenteDeAbastecimiento.PeculioDelServidor => "peculio del servidor",
-        FuenteDeAbastecimiento.TerceroEnApoyo => "un tercero en apoyo",
+        FuenteDeAbastecimiento.FondoDeLaMision => "del fondo de la misión",
+        FuenteDeAbastecimiento.TanqueInstitucional => "del tanque institucional",
+        FuenteDeAbastecimiento.OtraDependencia => "de otra dependencia",
+        FuenteDeAbastecimiento.Donacion => "de donación",
+        FuenteDeAbastecimiento.PeculioDelServidor => "del peculio del servidor",
+        FuenteDeAbastecimiento.TerceroEnApoyo => "de un tercero en apoyo",
         _ => fuente.ToString(),
     };
 }
@@ -323,7 +323,7 @@ public static class ReglasDeAbastecimiento
 
         if (string.IsNullOrWhiteSpace(causa))
             throw new BloqueoDuro("RN-85",
-                $"Un abastecimiento de {Abastecimiento.Texto(fuente)} normalmente trae " +
+                $"Un abastecimiento {Abastecimiento.Texto(fuente)} normalmente trae " +
                 "comprobante. Sin él hay que declarar por qué: el registro no se omite nunca por " +
                 "falta de papel, pero tampoco se disimula.");
     }
@@ -341,7 +341,7 @@ public static class ReglasDeAbastecimiento
 
         if (fuente is not FuenteDeAbastecimiento.FondoDeLaMision && asignacion is not null)
             throw new BloqueoDuro("RN-83",
-                $"Un abastecimiento de {Abastecimiento.Texto(fuente)} no sale de un vale. " +
+                $"Un abastecimiento {Abastecimiento.Texto(fuente)} no sale de un vale. " +
                 "Vincularlo a uno lo metería en el cuadre del fondo, que no lo pagó.");
     }
 

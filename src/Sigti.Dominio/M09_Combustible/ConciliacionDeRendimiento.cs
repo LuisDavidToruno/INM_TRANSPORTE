@@ -315,7 +315,7 @@ public static class ReglasDeConciliacion
 
         var partes = composicion
             .OrderByDescending(p => p.Value)
-            .Select(p => $"{p.Value:N2} gal de {Abastecimiento.Texto(p.Key)}");
+            .Select(p => $"{p.Value:N2} gal {Abastecimiento.Texto(p.Key)}");
 
         return $" · composición: {string.Join(", ", partes)}";
     }

@@ -118,7 +118,7 @@ public class AbastecimientosPruebas(BaseDePruebas baseDePruebas)
 
         // Y la composición se expone — `RN-30` punto 4.
         Assert.Contains("composición", c.GetProperty("evidencia").GetString());
-        Assert.Contains("el tanque institucional", c.GetProperty("evidencia").GetString());
+        Assert.Contains("del tanque institucional", c.GetProperty("evidencia").GetString());
     }
 
     [Fact]
