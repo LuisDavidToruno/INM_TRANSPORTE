@@ -326,9 +326,28 @@ misiones de un mismo vehículo en meses distintos. No se resolvió en silencio.
 tipo de vehículo necesita la matriz de `M-02`, que no existe, y el objeto del traslado es
 texto libre — no hay nada estructurado contra lo que contrastarla.
 
-**⚠️ Y nadie fija todavía los estados manuales.** `EN_TALLER` es de `ACT-11` (`M-11`),
-`PRESTADO` y los terminales de `ACT-08` con acta. El diario y la regla existen; las pantallas
-que los declaran, no. Hoy sólo se mueven los automáticos.
+**El estado ya se declara.** `POST /flota/{id}/estado`, con dos reglas que tienen consecuencia
+patrimonial:
+
+- **`ASIGNADO` y `EN_MISION` no se declaran a mano.** §10.2: *«permitir fijarlos a mano abre la
+  puerta a un vehículo "en misión" sin misión que lo respalde»*.
+- **Un vehículo con misiones abiertas no se da de baja.** Un expediente vivo colgando de un
+  bien que ya no figura en el registro es un hallazgo que nadie puede explicar después.
+- **De un terminal no se sale**, y el mensaje distingue cuál: revertir un descargo es un
+  trámite del registro de bienes; una devolución de comodato ni siquiera es nuestra para
+  revertirla.
+
+**Esto es lo que vuelve real a `BD-07`.** Antes el estado sólo se movía solo y ningún vehículo
+llegaba nunca a `EN_TALLER`: el bloqueo existía **sin poder alcanzar su condición**. Verificado
+en pantalla — un vehículo en taller y uno prestado se pintan apagados en el cronograma
+(opacidad medida, 0.55 contra 1) y el detalle del carril dice el estado.
+
+**El historial va entero al cliente**, porque la pregunta es *«¿por qué no estuvo disponible en
+abril?»* — y cada asiento dice si lo declaró una persona o lo fijó el sistema. Sin esa marca,
+la afirmación de §10.2 sobre quién fija qué **no se puede auditar, sólo creer**.
+
+**⚠️ Sigue sin haber pantalla de flota.** El estado se declara por API; la oficina lo *muestra*
+en los dos cronogramas, pero no hay dónde cambiarlo. `M-03` no tiene ninguna pantalla todavía.
 
 ### `BD-05` — el odómetro, y con él `T-14` y `T-18` dejan de ser un `Registrar` pelado
 

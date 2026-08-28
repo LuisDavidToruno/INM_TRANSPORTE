@@ -166,7 +166,11 @@ function carrilesDe(ocupacion: Awaited<ReturnType<typeof ocupacionDeFlota>> | un
   return ocupacion.carriles.map((c) => ({
     id: c.vehiculo,
     titulo: c.siglas,
-    detalle: [c.tipoDeVehiculo, c.placa ?? 'sin placa metálica'].join(' · '),
+    // El estado va en el detalle cuando lo hay: un carril vacío por estar en taller y uno
+    // vacío por estar libre se ven igual, y son cosas opuestas.
+    detalle: [c.tipoDeVehiculo, c.placa ?? 'sin placa metálica', c.estado ?? 'sin estado declarado']
+      .join(' · '),
+    inhabilitado: c.inutilizable,
     barras: c.barras.map((b) => ({
       id: b.mision,
       titulo: b.folio,

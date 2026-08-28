@@ -148,6 +148,16 @@ export interface CarrilDeVehiculo {
   placa: string | null;
   tipoDeVehiculo: string;
   barras: BarraDeOcupacion[];
+  /** §10.2. <b>Nulo</b> cuando nunca se declaró — que no es lo mismo que disponible. */
+  estado: string | null;
+  /**
+   * Si el vehículo no se puede comprometer — taller, no disponible, prestado o terminal.
+   *
+   * <b>Lo calcula el servidor.</b> La lista de estados inutilizables es de `BD-07`, y
+   * duplicarla acá la dejaría divergir del bloqueo: el cronograma pintaría disponible un
+   * vehículo que no se puede programar, y quien programa lo descubriría al guardar.
+   */
+  inutilizable: boolean;
 }
 
 export interface OcupacionDeFlota {

@@ -309,6 +309,69 @@ app.MapGet("/organigrama/antiguedad", async (ConsultaDelOrganigrama organigrama)
     });
 });
 
+// El estado operativo del vehículo — §10.2. Sin esta puerta, el estado sólo se movía solo
+// y ningún vehículo llegaba nunca a EN_TALLER: `BD-07` existía sin poder bloquear nada.
+//
+// `ASIGNADO` y `EN_MISION` NO entran por acá: los fija el sistema como consecuencia de una
+// transición de la Orden de Misión, y declararlos a mano abriría la puerta a un vehículo
+// «en misión» sin misión que lo respalde.
+app.MapPost("/flota/{id}/estado", async (
+    string id, DeclararEstado peticion, EstadoDeLaFlota flota, ConsultaDeFlota padron) =>
+{
+    if (!Identificador.Valido(id, out var idVehiculo, out var error)) return error;
+
+    if (await padron.PorIdAsync(idVehiculo) is null)
+        return Results.NotFound(new { mensaje = $"No existe el vehículo {id}." });
+
+    var actual = await flota.ActualAsync(idVehiculo);
+
+    // Sólo se cuentan las misiones abiertas cuando el destino es terminal: es una consulta
+    // que recorre el diario del vehículo entero, y pedirla para declarar un taller sería
+    // pagarla en cada cambio de estado sin usarla.
+    var abiertas = ReglasDeEstadoOperativo.EsTerminal(peticion.Estado)
+        ? await flota.MisionesAbiertasAsync(idVehiculo)
+        : 0;
+
+    try
+    {
+        ReglasDeEstadoOperativo.ExigirDeclarable(peticion.Estado, actual, abiertas);
+    }
+    catch (CambioDeEstadoInvalido invalido)
+    {
+        return Results.Conflict(new { precondicion = "10.2", mensaje = invalido.Message });
+    }
+
+    if (string.IsNullOrWhiteSpace(peticion.Motivo))
+        return Results.BadRequest(new
+        {
+            mensaje = "Declare el motivo: §10.2 pide causa tipificada para NO_DISPONIBLE y " +
+                      "acta para el préstamo y los estados terminales.",
+        });
+
+    await flota.AnotarAsync(idVehiculo, new CambioDeEstadoOperativo(
+        peticion.Estado, peticion.Momento, peticion.Ejecuta, peticion.Motivo,
+        Automatico: false));
+
+    await flota.ConfirmarAsync();
+
+    return Results.Ok(new { id, estado = peticion.Estado.ToString() });
+});
+
+// El estado actual y su historial. El historial va entero porque la pregunta que se hace la
+// auditoría es «¿por qué no estuvo disponible en abril?», y el estado actual no la contesta.
+app.MapGet("/flota/{id}/estado", async (string id, EstadoDeLaFlota flota) =>
+{
+    if (!Identificador.Valido(id, out var idVehiculo, out var error)) return error;
+
+    return Results.Ok(new
+    {
+        // Nulo es «nunca se declaró», no «disponible»: §10.2 lista «alta reciente sin
+        // habilitar» entre las causas de NO_DISPONIBLE.
+        actual = (await flota.ActualAsync(idVehiculo))?.ToString(),
+        historial = await flota.HistorialAsync(idVehiculo),
+    });
+});
+
 // `PT-038` — el tablero del despachador. Cuatro listas y no una tabla ordenable: qué sale
 // hoy, qué vuelve hoy, qué está afuera y qué debía haber vuelto. Son cuatro acciones con
 // cuatro urgencias, y la cuarta es la que ninguna lista ordenada por fecha muestra sola —
@@ -882,6 +945,18 @@ internal sealed record RegistrarOdometro(
     SubtipoDeRetorno Subtipo = SubtipoDeRetorno.Ordinario,
     string? Justificacion = null,
     Ulid? IdDeCaptura = null);
+
+/// <summary>Declarar el estado operativo de un vehículo — §10.2.</summary>
+/// <param name="Motivo">
+/// Causa tipificada, referencia de acta, o la explicación. <b>Obligatorio</b>: §10.2 pide
+/// causa tipificada para `NO_DISPONIBLE` y acta para el préstamo y los terminales, y un
+/// cambio de estado sin razón no se sostiene ante el Tribunal Superior de Cuentas.
+/// </param>
+internal sealed record DeclararEstado(
+    string Ejecuta,
+    EstadoOperativo Estado,
+    DateTimeOffset Momento,
+    string? Motivo = null);
 
 /// <summary>La lectura del hecho junto con la referencia contra la que se juzga.</summary>
 internal sealed record LecturaResuelta(int Lectura, int? UltimaConocida);

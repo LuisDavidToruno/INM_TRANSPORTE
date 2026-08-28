@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Sigti.Datos;
 using Sigti.Dominio.M03_Flota;
+using Sigti.Dominio.M07_ProgramacionYDespacho;
 
 namespace Sigti.Aplicacion.M03_Flota;
 
@@ -38,6 +39,40 @@ public sealed class EstadoDeLaFlota(SigtiDbContext contexto)
         // uno lo fija el sistema por una transición y otro una persona.
         return cambios.Count == 0 ? null : cambios.MaxBy(c => c.Orden)!.Estado;
     }
+
+    /// <summary>
+    /// Cuántas misiones del vehículo <b>no</b> están en estado terminal — §10.2: <i>«un vehículo
+    /// con misiones abiertas no puede ser dado de baja»</i>.
+    ///
+    /// ── Terminal por lista blanca, otra vez ─────────────────────────────────
+    /// Se cuenta lo que <b>no</b> está en un estado terminal, y los terminales se enumeran. El
+    /// día que se agregue un estado nuevo, contar por descarte lo daría por cerrado en
+    /// silencio y dejaría dar de baja un vehículo con una misión viva.
+    /// </summary>
+    public async Task<int> MisionesAbiertasAsync(
+        Ulid vehiculo,
+        CancellationToken cancelacion = default)
+    {
+        var filas = await contexto.Expedientes
+            .AsNoTracking()
+            .Include(e => e.Transiciones)
+            .Where(e => e.Transiciones.Any(t => t.VehiculoTomado == vehiculo))
+            .ToListAsync(cancelacion);
+
+        return filas.Count(e =>
+        {
+            var ultima = e.Transiciones.MaxBy(t => t.Orden);
+            return ultima is not null && !Terminales.Contains(ultima.Destino);
+        });
+    }
+
+    private static readonly EstadoDeMision[] Terminales =
+    [
+        EstadoDeMision.Cerrada,
+        EstadoDeMision.CerradaConHallazgo,
+        EstadoDeMision.Rechazada,
+        EstadoDeMision.Anulada,
+    ];
 
     /// <summary>
     /// Anota un cambio. <b>No valida la transición entre estados</b>, y es deliberado: §10.2
@@ -78,5 +113,33 @@ public sealed class EstadoDeLaFlota(SigtiDbContext contexto)
         // Sin `SaveChanges`: quien llama decide cuándo confirmar. Cuando el cambio lo dispara
         // una transición de la misión, el asiento tiene que entrar en la MISMA transacción —
         // ver `ServicioDeMisiones.ConfirmarAsync`.
+    }
+
+    /// <summary>
+    /// Confirma lo anotado. Sólo lo llama quien declara un estado <b>por sí mismo</b>: cuando el
+    /// cambio viene de una transición de la misión, quien confirma es la transacción de
+    /// <c>ServicioDeMisiones</c> y llamar acá la partiría en dos.
+    /// </summary>
+    public Task ConfirmarAsync(CancellationToken cancelacion = default) =>
+        contexto.SaveChangesAsync(cancelacion);
+
+    /// <summary>
+    /// El historial completo, en orden. Es lo que contesta <i>«¿por qué no estuvo disponible en
+    /// abril?»</i>, que es la pregunta real — el estado actual sólo contesta el presente.
+    /// </summary>
+    public async Task<IReadOnlyList<CambioDeEstadoOperativo>> HistorialAsync(
+        Ulid vehiculo,
+        CancellationToken cancelacion = default)
+    {
+        var cambios = await contexto.CambiosDeEstado
+            .AsNoTracking()
+            .Where(c => c.VehiculoId == vehiculo)
+            .ToListAsync(cancelacion);
+
+        return cambios
+            .OrderBy(c => c.Orden)
+            .Select(c => new CambioDeEstadoOperativo(
+                c.Estado, c.MomentoUtc, c.Ejecuta, c.Motivo, c.Automatico))
+            .ToList();
     }
 }

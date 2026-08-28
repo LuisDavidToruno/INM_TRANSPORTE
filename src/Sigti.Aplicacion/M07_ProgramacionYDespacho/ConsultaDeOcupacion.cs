@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Sigti.Datos;
+using Sigti.Aplicacion.M03_Flota;
+using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
 
 namespace Sigti.Aplicacion.M07_ProgramacionYDespacho;
@@ -10,7 +12,18 @@ public sealed record CarrilDeVehiculo(
     string Siglas,
     string? Placa,
     string TipoDeVehiculo,
-    IReadOnlyList<BarraDeOcupacion> Barras);
+    IReadOnlyList<BarraDeOcupacion> Barras,
+    /// <summary>
+    /// El estado operativo — §10.2. <b>Nulo cuando nunca se declaró</b>, que no es lo mismo que
+    /// disponible: el cronograma lo dice en vez de pintarlo como si estuviera listo.
+    /// </summary>
+    string? Estado,
+    /// <summary>
+    /// Si el vehículo <b>no se puede comprometer</b> — taller, no disponible, prestado o
+    /// terminal. Va calculado y no deducido en el cliente: la lista de estados inutilizables
+    /// es de `BD-07`, y duplicarla en la pantalla la dejaría divergir del bloqueo.
+    /// </summary>
+    bool Inutilizable);
 
 /// <summary>
 /// Un tramo tomado. <b>Los dos extremos son inclusivos</b>: el retorno previsto es un día
@@ -49,7 +62,7 @@ public sealed record BarraDeOcupacion(
 /// No marca conflictos ni decide compatibilidad. Devuelve lo que está tomado; quién
 /// choca con qué lo resuelve `EvaluacionDeAsignacion`, que es donde vive `BD-02`.
 /// </summary>
-public sealed class ConsultaDeOcupacion(SigtiDbContext contexto)
+public sealed class ConsultaDeOcupacion(SigtiDbContext contexto, EstadoDeLaFlota flota)
 {
     /// <summary>
     /// Los estados en que el vehículo está comprometido.
@@ -112,16 +125,31 @@ public sealed class ConsultaDeOcupacion(SigtiDbContext contexto)
                 Estado: ultima.Destino.ToString()));
         }
 
-        return vehiculos
-            .Select(v => new CarrilDeVehiculo(
+        var carriles = new List<CarrilDeVehiculo>();
+
+        foreach (var v in vehiculos)
+        {
+            var estado = await flota.ActualAsync(v.Id, cancelacion);
+
+            carriles.Add(new CarrilDeVehiculo(
                 Vehiculo: v.Id.ToString(),
                 Siglas: v.Siglas,
                 Placa: v.Placa,
                 TipoDeVehiculo: v.TipoDeVehiculo,
                 Barras: barras.TryGetValue(v.Id, out var b)
                     ? b.OrderBy(x => x.Desde).ToList()
-                    : []))
-            .ToList();
+                    : [],
+                Estado: estado?.ToString(),
+                // Los mismos tres que `BD-07` deja pasar. Si esta lista y la del bloqueo
+                // divergen, el cronograma pintaría disponible un vehículo que no se puede
+                // programar -- y quien programa lo descubriría al guardar.
+                Inutilizable: estado is not null
+                    && estado is not (EstadoOperativo.Disponible
+                                   or EstadoOperativo.Asignado
+                                   or EstadoOperativo.EnMision)));
+        }
+
+        return carriles;
     }
 
     /// <summary>
