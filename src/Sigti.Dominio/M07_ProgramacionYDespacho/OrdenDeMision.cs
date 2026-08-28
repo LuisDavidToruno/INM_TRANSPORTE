@@ -1021,8 +1021,9 @@ public sealed class OrdenDeMision
             // verificó» son cosas distintas y el diario tiene que distinguirlas.
             : $"odómetro de salida {odometro.Lectura:N0} km · sin lectura previa registrada";
 
-        Registrar("T-14", EstadoDeMision.EnRuta, ejecuta, momento, constancia, idDeCaptura,
-                  odometro: odometro.Lectura);
+        Registrar("T-14", EstadoDeMision.EnRuta, ejecuta, momento,
+                  constancia + TextoDelNivel(odometro.Nivel), idDeCaptura,
+                  odometro: odometro.Lectura, nivel: odometro.Nivel);
     }
 
     /// <summary>
@@ -1050,9 +1051,33 @@ public sealed class OrdenDeMision
         var salida = OdometroDeSalida();
         var constancia = ExigirCoherenciaDelOdometro(odometro, salida);
 
-        Registrar("T-18", EstadoDeMision.Retornada, ejecuta, momento, constancia, idDeCaptura,
-                  odometro: odometro.Lectura);
+        Registrar("T-18", EstadoDeMision.Retornada, ejecuta, momento,
+                  constancia + TextoDelNivel(odometro.Nivel), idDeCaptura,
+                  odometro: odometro.Lectura, nivel: odometro.Nivel);
     }
+
+    /// <summary>
+    /// Qué se anotó del tanque. <b>La ausencia se dice</b> — `RN-80`: el campo no consignado
+    /// se declara y <b>no se estima</b>, porque estimarlo produciría un remanente inventado
+    /// que después nadie podría distinguir de uno medido.
+    /// </summary>
+    private static string TextoDelNivel(NivelDeTanque? nivel) =>
+        nivel is null
+            ? " · nivel de tanque NO CONSIGNADO (`RN-83`)"
+            : nivel.Escala is EscalaDeNivel.FraccionDelIndicador
+                ? $" · tanque a {nivel.Valor:P0} del indicador"
+                : $" · tanque con {nivel.Valor:N2} galones";
+
+    /// <summary>
+    /// El nivel al salir y al retornar, cuando los dos se anotaron.
+    ///
+    /// Es lo que hace real el reparo <c>NivelDeTanqueDispar</c> de `RN-30`: hasta ahora se
+    /// marcaba a mano, y una casilla que alguien olvida marcar deja pasar un cálculo que no
+    /// significa nada.
+    /// </summary>
+    public (NivelDeTanque? Salida, NivelDeTanque? Retorno) NivelesDelTanque =>
+        (_diario.LastOrDefault(t => t.Id == "T-14")?.Nivel,
+         _diario.LastOrDefault(t => t.Id == "T-18")?.Nivel);
 
     /// <summary>
     /// La lectura con que salió, sacada del diario y no de un campo.
@@ -1284,6 +1309,8 @@ public sealed class OrdenDeMision
 
     private void Registrar(
         string id, EstadoDeMision destino, IdPersona ejecuta, DateTimeOffset momento, string? motivo,
-        Ulid? idDeCaptura = null, RecursosTomados? recursos = null, int? odometro = null) =>
-        _diario.Add(new Transicion(id, destino, ejecuta, momento, motivo, idDeCaptura, recursos, odometro));
+        Ulid? idDeCaptura = null, RecursosTomados? recursos = null, int? odometro = null,
+        NivelDeTanque? nivel = null) =>
+        _diario.Add(new Transicion(
+            id, destino, ejecuta, momento, motivo, idDeCaptura, recursos, odometro, nivel));
 }

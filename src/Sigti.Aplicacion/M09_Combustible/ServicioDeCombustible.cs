@@ -27,6 +27,7 @@ public sealed class ServicioDeCombustible(SigtiDbContext contexto)
     private readonly CombustibleDeLaInstitucion _combustible = new(contexto);
     private readonly ExpedientesDeMision _expedientes = new(contexto);
     private readonly EscritorDeBitacora _bitacora = new(contexto);
+    private readonly AbastecimientosDeLaFlota _abastecimientos = new(contexto);
 
     // ── El fondo ────────────────────────────────────────────────────────────
 
@@ -227,6 +228,16 @@ public sealed class ServicioDeCombustible(SigtiDbContext contexto)
     /// <summary>
     /// `V-04` — registrar consumo. <b>Sólo mientras la misión está `EN_RUTA`</b>, que es la
     /// otra regla de acoplamiento de §10.1.
+    ///
+    /// ── Y escribe el ABASTECIMIENTO, en la misma transacción ────────────────
+    /// `RN-83`: <b>todo</b> ingreso de combustible al tanque se registra como abastecimiento,
+    /// cualquiera sea su fuente. El consumo del vale es uno de ellos —fuente
+    /// `FONDO_DE_LA_MISION`—, y si sólo viviera en el diario del vale, el numerador de
+    /// `RN-30` tendría dos orígenes distintos según de dónde vino el galón.
+    ///
+    /// <b>No son dos hechos</b>: son el mismo visto desde dos lados. El asiento del vale mueve
+    /// el instrumento; el abastecimiento cuenta el galón. Por eso van juntos o no van, y la
+    /// base impide que dos abastecimientos apunten al mismo asiento.
     /// </summary>
     public async Task<EstadoDeAsignacion> RegistrarConsumoAsync(
         Ulid id,
@@ -252,7 +263,30 @@ public sealed class ServicioDeCombustible(SigtiDbContext contexto)
 
         asignacion.RegistrarConsumo(consume, consumo, momento, idDeCaptura);
 
-        await ConfirmarAsignacionAsync(asignacion, momento, cancelacion);
+        // El vehículo sale de la reserva de la misión, no de la petición: el abastecimiento
+        // cuelga del vehículo (`RN-83` aplica en misión o fuera de ella) y dejar que el
+        // cliente lo declare abriría la puerta a cargarle el galón a otro tanque.
+        var vehiculo = expediente.Diario
+            .LastOrDefault(t => t.Recursos is not null)?.Recursos?.Vehiculo
+            ?? asignacion.Vehiculo;
+
+        var abastecimiento = Abastecimiento.Registrar(
+            Ulid.NewUlid(), vehiculo, momento, consumo.Galones, consumo.Odometro,
+            FuenteDeAbastecimiento.FondoDeLaMision, consume,
+            mision: asignacion.Mision,
+            asignacion: asignacion.Id,
+            monto: consumo.Monto,
+            estacion: consumo.Estacion,
+            comprobante: consumo.Comprobante,
+            causaSinComprobante: consumo.CausaSinComprobante,
+            // `RN-83` punto 6: lo que excede el fondo se registra igual, MARCADO. Omitirlo
+            // dejaría el galón fuera del denominador, que es donde más falta hace.
+            excedido: asignacion.Consumido > asignacion.Monto);
+
+        await ConfirmarAsignacionAsync(
+            asignacion, momento, cancelacion,
+            abastecimiento, asignacion.Diario[^1].Id, asignacion.Diario.Count - 1);
+
         return asignacion.Estado;
     }
 
@@ -271,8 +305,15 @@ public sealed class ServicioDeCombustible(SigtiDbContext contexto)
     /// misión: un movimiento de dinero sin rastro en bitácora es invisible para la auditoría, y
     /// un asiento de algo que no se guardó es peor todavía.
     /// </summary>
+    /// <param name="abastecimiento">
+    /// El ingreso de combustible que produjo esta transición, cuando la hubo. Va <b>dentro de
+    /// la misma transacción</b>: un asiento `V-04` sin su abastecimiento dejaría el galón
+    /// fuera del numerador de `RN-30`, y un abastecimiento sin su asiento movería el
+    /// instrumento sin que nadie lo pidiera.
+    /// </param>
     private async Task ConfirmarAsignacionAsync(
-        AsignacionDeCombustible asignacion, DateTimeOffset momento, CancellationToken cancelacion)
+        AsignacionDeCombustible asignacion, DateTimeOffset momento, CancellationToken cancelacion,
+        Abastecimiento? abastecimiento = null, string? transicion = null, int? orden = null)
     {
         var estrategia = contexto.Database.CreateExecutionStrategy();
 
@@ -281,6 +322,16 @@ public sealed class ServicioDeCombustible(SigtiDbContext contexto)
             await using var transaccion = await contexto.Database.BeginTransactionAsync(cancelacion);
 
             await _combustible.GuardarAsignacionAsync(asignacion, cancelacion);
+
+            if (abastecimiento is not null)
+            {
+                // El identificador del asiento recién escrito. Es lo que ata las dos filas y
+                // lo que el índice único usa para impedir que el galón se cuente dos veces.
+                var idDelAsiento = await _combustible.IdDeLaTransicionAsync(
+                    asignacion.Id, orden!.Value, cancelacion);
+
+                await _abastecimientos.GuardarAsync(abastecimiento, idDelAsiento, cancelacion);
+            }
 
             var ultima = asignacion.Diario[^1];
             await _bitacora.EscribirAsync(

@@ -29,6 +29,7 @@ public sealed class ServicioDeConciliacion(
 {
     private readonly CombustibleDeLaInstitucion _combustible = new(contexto);
     private readonly ExpedientesDeMision _expedientes = new(contexto);
+    private readonly AbastecimientosDeLaFlota _abastecimientos = new(contexto);
 
     /// <summary>
     /// Calcula, sin escribir nada. Se puede llamar para <b>mostrar</b> el dictamen antes de
@@ -61,12 +62,25 @@ public sealed class ServicioDeConciliacion(
               ?? await ProponerDelHistoricoAsync(id, idAsignacion, cancelacion)
             : null;
 
+        // **Todos los abastecimientos de la misión, no los del vale** — `RN-83`. Sumar sólo
+        // los del fondo dejaría fuera lo que salió del tanque de la sede, de una donación o
+        // del bolsillo del motorista, y ese hueco es exactamente lo que produce un
+        // rendimiento imposiblemente bueno.
+        var abastecimientos = await _abastecimientos.DeLaMisionAsync(vale.Mision, cancelacion);
+
+        var galones = abastecimientos.Sum(a => a.Galones);
+
+        var composicion = abastecimientos
+            .GroupBy(a => a.Fuente)
+            .ToDictionary(g => g.Key, g => g.Sum(a => a.Galones));
+
         return ReglasDeConciliacion.Evaluar(
             kilometros,
-            vale.GalonesConsumidos,
+            galones,
             esperado,
             parametros.UmbralesVigentesAl(fecha),
-            reparos);
+            ConNivelDeTanque(expediente, reparos),
+            composicion);
     }
 
     /// <summary>
@@ -89,6 +103,45 @@ public sealed class ServicioDeConciliacion(
 
         await _combustible.GuardarAsignacionAsync(vale, cancelacion);
         return vale.Estado;
+    }
+
+    /// <summary>
+    /// El reparo del <b>nivel de tanque</b>, calculado en vez de declarado — `RN-83`.
+    ///
+    /// ── Por qué esto deja de ser una casilla ────────────────────────────────
+    /// Hasta ahora quien conciliaba marcaba «salió y volvió con niveles muy distintos» a
+    /// mano, porque el sistema no tenía el dato. Una casilla que alguien olvida marcar deja
+    /// pasar un cálculo que no significa nada, y el conciliador no puede saber que no
+    /// significa nada.
+    ///
+    /// ── Dónde vive el umbral ────────────────────────────────────────────────
+    /// En <see cref="NivelDeTanque.MuyDistintoDe"/>, no acá: qué es «muy distinto» es
+    /// conocimiento del dominio, y dejarlo en el servicio lo volvería inalcanzable para una
+    /// prueba que no monte una misión entera.
+    ///
+    /// <b>Lo que NO se hace es estimar.</b> Si falta una de las dos lecturas, no hay
+    /// diferencia que medir y el reparo no se activa — `RN-80`: el campo no consignado se
+    /// declara, no se rellena.
+    /// </summary>
+    private static ReparosDelCalculo ConNivelDeTanque(
+        OrdenDeMision expediente, ReparosDelCalculo? declarados)
+    {
+        declarados ??= new ReparosDelCalculo();
+
+        // Lo que declaró quien concilia manda: si dice que el tanque estaba dispar, lo estaba
+        // — él lo vio y el sistema sólo tiene dos números.
+        if (declarados.NivelDeTanqueDispar) return declarados;
+
+        var (salida, retorno) = expediente.NivelesDelTanque;
+
+        // Falta una de las dos lecturas: no hay diferencia que medir, y no se estima.
+        if (salida is null || retorno is null) return declarados;
+
+        // Nulo cuando las escalas no se pueden comparar. Se deja como estaba: no saber si el
+        // tanque estaba dispar no es lo mismo que saber que no lo estaba.
+        return salida.MuyDistintoDe(retorno) is { } dispar
+            ? declarados with { NivelDeTanqueDispar = dispar }
+            : declarados;
     }
 
     /// <summary>
@@ -146,13 +199,23 @@ public sealed class ServicioDeConciliacion(
 
             var vales = await _combustible.DeLaMisionAsync(idMision, cancelacion);
 
-            var galones = vales
-                .Where(v => v.Id != excluir)
-                // Sólo lo ya conciliado: una carga que todavía nadie revisó no puede ser la
-                // referencia contra la que se revisa la siguiente.
-                .Where(v => v.Estado is EstadoDeAsignacion.Conciliada
-                                     or EstadoDeAsignacion.ConciliadaConDesviacion)
-                .Sum(v => v.GalonesConsumidos);
+            // Sólo misiones ya conciliadas: una carga que todavía nadie revisó no puede ser la
+            // referencia contra la que se revisa la siguiente.
+            var yaConciliada = vales.Any() && vales.All(
+                v => v.Id == excluir ||
+                     v.Estado is EstadoDeAsignacion.Conciliada
+                              or EstadoDeAsignacion.ConciliadaConDesviacion
+                              or EstadoDeAsignacion.Anulada
+                              or EstadoDeAsignacion.Devuelta);
+
+            if (!yaConciliada || vales.Any(v => v.Id == excluir)) continue;
+
+            // Y los galones salen de los ABASTECIMIENTOS, igual que en el cálculo: si la
+            // referencia se armara sólo con los del fondo y el cálculo contara todos, la
+            // media estaría por debajo y toda misión con combustible de otra fuente parecería
+            // consumir de más.
+            var abastecidos = await _abastecimientos.DeLaMisionAsync(idMision, cancelacion);
+            var galones = abastecidos.Sum(a => a.Galones);
 
             if (galones > 0) historico.Add((kilometros, galones));
         }

@@ -239,6 +239,20 @@ public sealed class CombustibleDeLaInstitucion(SigtiDbContext contexto)
         await contexto.SaveChangesAsync(cancelacion);
     }
 
+    /// <summary>
+    /// El identificador de la fila de un asiento del vale, por su posición en el diario.
+    ///
+    /// Existe para que el abastecimiento de `RN-83` pueda apuntar al asiento `V-04` que lo
+    /// produjo: es lo que ata las dos filas y lo que el índice único usa para impedir que el
+    /// mismo galón se cuente dos veces en el denominador de `RN-30`.
+    /// </summary>
+    public async Task<Ulid> IdDeLaTransicionAsync(
+        Ulid asignacionId, int orden, CancellationToken cancelacion = default) =>
+        await contexto.Set<FilaDeTransicionDeAsignacion>()
+            .Where(t => t.AsignacionId == asignacionId && t.Orden == orden)
+            .Select(t => t.Id)
+            .SingleAsync(cancelacion);
+
     // ── Rehidratación ───────────────────────────────────────────────────────
 
     private static FondoDeCombustible AFondo(FilaDeFondo fila) =>

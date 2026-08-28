@@ -50,6 +50,7 @@ constructor.Services.AddScoped<ConsultaDeOdometro>();
 constructor.Services.AddScoped<EstadoDeLaFlota>();
 constructor.Services.AddScoped<ServicioDeCombustible>();
 constructor.Services.AddScoped<ServicioDeConciliacion>();
+constructor.Services.AddScoped<ServicioDeAbastecimientos>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -306,12 +307,13 @@ TransicionConMotivo("aprobar", (e, quien, cuando, motivo) => e.Aprobar(quien, cu
 //
 // La lectura de referencia se busca por VEHÍCULO y cruza misiones: un odómetro que
 // retrocede entre dos misiones distintas es lo que `BD-05` existe para detectar.
-ConOdometro("iniciar-ruta", (e, quien, cuando, o, captura, _, __) =>
-    e.IniciarRuta(quien, cuando, new OdometroAlSalir(o.Lectura, o.UltimaConocida), captura));
+ConOdometro("iniciar-ruta", (e, quien, cuando, o, captura, _, __, nivel) =>
+    e.IniciarRuta(quien, cuando,
+                  new OdometroAlSalir(o.Lectura, o.UltimaConocida, nivel), captura));
 
-ConOdometro("retornar", (e, quien, cuando, o, captura, subtipo, justificacion) =>
+ConOdometro("retornar", (e, quien, cuando, o, captura, subtipo, justificacion, nivel) =>
     e.Retornar(quien, cuando,
-               new OdometroAlRetornar(o.Lectura, subtipo, justificacion), captura));
+               new OdometroAlRetornar(o.Lectura, subtipo, justificacion, null, nivel), captura));
 // `T-19` ya no usa el helper genérico: **`INV-34` exige que todas las asignaciones de
 // combustible estén liquidadas**, y ese recuento no está en el expediente. Dejarlo en el
 // helper significaba pasar nulo, y nulo es «no evaluada»: la regla quedaría escrita y sin
@@ -591,6 +593,59 @@ fondos.MapPost("/{id}/cerrar", async (
     return Results.Ok(new { estado = estado.ToString() });
 });
 
+// `RN-83` — **todo** ingreso de combustible al tanque, venga de donde venga.
+//
+// El del fondo entra por su vale, que además mueve el instrumento. Ésta es la puerta de lo
+// demás: el tanque de la sede, la donación en una emergencia, el galón que el motorista puso
+// de su bolsillo. Sin ella esos galones no existen, y `RN-30` los echa de menos como si
+// fueran fraude.
+app.MapPost("/abastecimientos", async (
+    RegistrarAbastecimiento peticion, ServicioDeAbastecimientos servicio) =>
+{
+    var id = await servicio.RegistrarAsync(
+        Ulid.Parse(peticion.Id),
+        Ulid.Parse(peticion.IdVehiculo),
+        peticion.OcurridoEn,
+        peticion.Galones,
+        peticion.Odometro,
+        peticion.Fuente,
+        new IdPersona(peticion.Registra),
+        peticion.IdMision is null ? null : Ulid.Parse(peticion.IdMision),
+        peticion.Monto,
+        peticion.Estacion,
+        peticion.Comprobante,
+        peticion.CausaSinComprobante);
+
+    return Results.Created($"/abastecimientos/{id}", new { id = id.ToString() });
+});
+
+// Los de una misión, con su fuente. Es el desglose que `RN-30` manda mostrar junto a la
+// desviación: sin la fuente, cuarenta galones del tanque de la sede y cuarenta comprados se
+// leen igual.
+app.MapGet("/abastecimientos/mision/{id}", async (
+    string id, ServicioDeAbastecimientos servicio) =>
+    Results.Ok((await servicio.DeLaMisionAsync(Ulid.Parse(id))).Select(a => new
+    {
+        id = a.Id.ToString(),
+        momento = a.OcurridoEn,
+        galones = a.Galones,
+        odometro = a.Odometro,
+        fuente = a.Fuente.ToString(),
+        registra = a.Registra.Valor,
+        monto = a.Monto,
+        estacion = a.Estacion,
+        comprobante = a.Comprobante,
+        causaSinComprobante = a.CausaSinComprobante,
+        excedido = a.Excedido,
+
+        // Los dos que deciden a qué cuadre pertenece el galón. Van resueltos y no como
+        // cadena de la fuente: el cliente no tiene por qué reimplementar `RN-83`.
+        entraAlCuadreDelFondo = a.EntraAlCuadreDelFondo,
+        generaReintegro = a.GeneraReintegro,
+
+        descripcion = a.Descripcion,
+    })));
+
 var vales = app.MapGroup("/combustible");
 
 // **La petición NO trae el vehículo.** `RN-32` manda que el sistema lo precargue de la
@@ -765,6 +820,16 @@ vales.MapGet("/{id}/conciliacion", async (
             version = r.Esperado.Version,
         },
         desviacion = r.Desviacion,
+
+        // De dónde salió cada galón — `RN-30` punto 4. Va desglosado y no sólo dentro de la
+        // evidencia: sin la fuente, cuarenta galones del tanque de la sede y cuarenta comprados
+        // con el vale se leen igual, y el conciliador no puede saber cuál mirar.
+        composicion = r.Composicion?.Select(c => new
+        {
+            fuente = c.Key.ToString(),
+            galones = c.Value,
+        }),
+
         evidencia = r.Evidencia,
     });
 });
@@ -1267,7 +1332,8 @@ void TransicionConMotivo(
 /// </summary>
 void ConOdometro(
     string ruta,
-    Action<OrdenDeMision, IdPersona, DateTimeOffset, LecturaResuelta, Ulid?, SubtipoDeRetorno, string?> aplicar) =>
+    Action<OrdenDeMision, IdPersona, DateTimeOffset, LecturaResuelta, Ulid?, SubtipoDeRetorno,
+           string?, NivelDeTanque?> aplicar) =>
     misiones.MapPost($"/{{id}}/{ruta}", async (
         string id,
         RegistrarOdometro peticion,
@@ -1293,7 +1359,12 @@ void ConOdometro(
             expediente => aplicar(
                 expediente, new IdPersona(peticion.Ejecuta), peticion.Momento,
                 new LecturaResuelta(lectura, ultima), peticion.IdDeCaptura,
-                peticion.Subtipo, peticion.Justificacion),
+                peticion.Subtipo, peticion.Justificacion,
+                // Los dos o ninguno: un valor sin escala no se puede interpretar. Ausente
+                // queda como «no consignado», que es lo que `RN-80` manda declarar.
+                peticion.NivelDeTanque is { } v
+                    ? new NivelDeTanque(peticion.EscalaDelNivel, v)
+                    : null),
             peticion.Momento);
 
         return Results.Ok(new { id, estado = estado.ToString() });
@@ -1385,6 +1456,32 @@ internal sealed record EmitirVale(
 
 internal sealed record EntregarVale(string Ejecuta, string Constancia, DateTimeOffset Momento);
 
+/// <param name="Fuente">
+/// De dónde salió. **No admite `FondoDeLaMision`**: ése entra por su vale, porque además mueve
+/// el instrumento y descuenta del saldo.
+/// </param>
+/// <param name="IdMision">
+/// A qué misión sirvió. Nula en el reabastecimiento de rutina — `RN-83` aplica a todo vehículo
+/// **en misión o fuera de ella**.
+/// </param>
+/// <param name="Monto">
+/// Nulo cuando la fuente no lo tiene. Una donación no trae precio, y **un galón sin precio
+/// sigue siendo un galón en el denominador**.
+/// </param>
+internal sealed record RegistrarAbastecimiento(
+    string Id,
+    string IdVehiculo,
+    DateTimeOffset OcurridoEn,
+    decimal Galones,
+    int Odometro,
+    FuenteDeAbastecimiento Fuente,
+    string Registra,
+    string? IdMision = null,
+    decimal? Monto = null,
+    string? Estacion = null,
+    string? Comprobante = null,
+    string? CausaSinComprobante = null);
+
 /// <summary>Anular, devolver y declarar extravío: los tres exigen acta, y el acta va acá.</summary>
 internal sealed record MotivarVale(string Ejecuta, string Motivo, DateTimeOffset Momento);
 
@@ -1446,13 +1543,26 @@ internal sealed record ConciliarVale(
 /// inconsistencia, porque el vehículo ya está en el predio y negarse a registrarlo lo deja
 /// secuestrado por un trámite (`RN-79`, `HB3-04`).
 /// </param>
+/// <param name="NivelDeTanque">
+/// El nivel del tanque — **dato obligatorio de bitácora** por `RN-83`, y lo que permite separar
+/// el remanente del consumo de la misión.
+///
+/// ⚠️ **Nulo es «no consignado», no cero.** `RN-80`: el campo que no se llenó se declara como
+/// no consignado y **no se estima**. Un cero diría que el vehículo salió con el tanque vacío.
+/// </param>
+/// <param name="EscalaDelNivel">
+/// En qué se leyó. Con `FraccionDelIndicador` el valor va de 0 a 1 — `0.125` es un octavo.
+/// Se registra porque **un octavo de tanque no es lo mismo en un pickup que en un bus**.
+/// </param>
 internal sealed record RegistrarOdometro(
     string Ejecuta,
     DateTimeOffset Momento,
     int? Odometro = null,
     SubtipoDeRetorno Subtipo = SubtipoDeRetorno.Ordinario,
     string? Justificacion = null,
-    Ulid? IdDeCaptura = null);
+    Ulid? IdDeCaptura = null,
+    decimal? NivelDeTanque = null,
+    EscalaDeNivel EscalaDelNivel = EscalaDeNivel.FraccionDelIndicador);
 
 /// <summary>Declarar el estado operativo de un vehículo — §10.2.</summary>
 /// <param name="Motivo">

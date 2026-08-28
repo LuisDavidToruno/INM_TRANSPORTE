@@ -346,6 +346,80 @@ en pantalla — un vehículo en taller y uno prestado se pintan apagados en el c
 abril?»* — y cada asiento dice si lo declaró una persona o lo fijó el sistema. Sin esa marca,
 la afirmación de §10.2 sobre quién fija qué **no se puede auditar, sólo creer**.
 
+### `RN-83` — todo ingreso de combustible, venga de donde venga
+
+**RESUELTA.** El abastecimiento es ahora una entidad propia, colgada del **vehículo** —`RN-83`
+aplica «a todo vehículo de la flota, en misión o fuera de ella»— con su fuente declarada.
+
+**El hueco que cierra, con números.** Un vehículo recorre 900 km. El vale registra 20 galones y
+los otros 40 salieron del tanque de la sede sin pasar por ningún folio. Con sólo los del fondo,
+el rendimiento da **45 km/gal**: imposible, y `RN-30` lo marca como probable despacho no
+registrado. **Y tenía razón** — lo que faltaba era poder registrarlo. Verificado punta a punta y
+por mutación: contar sólo los del vale rompe la prueba.
+
+| Fuente | Cuadre del fondo | Denominador de `RN-30` |
+|---|---|---|
+| `FondoDeLaMision` | sí | sí |
+| `TanqueInstitucional` · `OtraDependencia` · `Donacion` · `TerceroEnApoyo` | no | sí |
+| `PeculioDelServidor` | no, y **genera reintegro** (`RN-86`) | sí |
+
+**El galón no se cuenta dos veces.** El asiento `V-04` del vale y el abastecimiento son *el
+mismo hecho visto desde dos lados*: van en la misma transacción, y un índice único sobre la
+referencia al asiento lo impone en la base. Dos filas apuntando al mismo `V-04` inflarían el
+denominador y producirían una desviación inventada por el propio sistema.
+
+**La composición por fuente se expone** — `RN-30` punto 4. Sin ella, cuarenta galones del tanque
+de la sede y cuarenta comprados con el vale se leen igual. Va como dato, no sólo dentro de la
+evidencia, y **también cuando el dictamen es `NoEvaluable`**: que no haya contra qué comparar no
+borra de dónde salió cada galón.
+
+**El enum no es un catálogo, y se dice por qué.** `RN-83` lo llama configurable, pero el
+*comportamiento* cambia por fuente —cuadre, reintegro, denominador— y un valor cargado por
+pantalla no sabría a cuál de los tres grupos pertenece. Lo configurable es cuáles usa la
+institución; añadir una séptima es un cambio de código.
+
+**Y a quien no genera factura no se le pide causa.** Una donación y el despacho del tanque de la
+sede no traen papel: exigirles la causa de `RN-85` obligaría a escribir «no aplica» en cada
+registro, y una casilla que siempre dice lo mismo deja de leerse — con ella se pierde la vez que
+sí significaba algo.
+
+---
+
+### El nivel de tanque, y un reparo que deja de marcarse a mano
+
+La otra mitad del enunciado de `RN-83`: **el nivel a la salida y al retorno es dato obligatorio
+de bitácora**. Viaja en `T-14` y `T-18` como dato, con **su escala** — porque un octavo de tanque
+no es lo mismo en un pickup que en un bus, y dos lecturas de escalas distintas no se restan.
+
+Con eso, el reparo `NivelDeTanqueDispar` de `RN-30` **se calcula**. Antes quien conciliaba lo
+marcaba a mano porque el sistema no tenía el dato, y una casilla que alguien olvida marcar deja
+pasar un cálculo que no significa nada. Lo declarado sigue mandando: si el conciliador dice que
+el tanque estaba dispar, lo estaba — él lo vio y el sistema sólo tiene dos números.
+
+⚠️ **El umbral de «muy distinto» es una decisión de esta implementación, no de la norma.**
+`RN-83` no fija cuánto y la institución no lo ha declarado. Un cuarto es lo que una aguja permite
+leer sin discutir; queda `[C]`.
+
+**Nulo es «no consignado», no cero** (`RN-80`). Sin una de las dos lecturas no hay diferencia que
+medir y el reparo no se activa: estimarlo produciría un remanente inventado que después nadie
+podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
+comparar» y «no hay diferencia» son cosas opuestas.
+
+⚠️ **Lo que `RN-83` todavía no hace:**
+
+- **No descuenta de las existencias del tanque institucional** (punto 5). Eso es un inventario de
+  combustible que no está construido: el abastecimiento se imputa al vehículo, pero del otro lado
+  no hay de qué restar.
+- **El reintegro se marca y no se tramita.** `RN-86` y el insumo #37 (`[C]`) deciden si la
+  institución reintegra. Mientras tanto queda registrado: la práctica ocurre igual y hoy quedaría
+  fuera de todo registro.
+- **El remanente en tanque al retorno no se separa del consumo** (punto 3). Su destino contable
+  es parámetro institucional y no está declarado.
+- **No hay pantalla.** Los abastecimientos que no pasan por vale se registran por API, y el
+  cliente de campo tampoco los captura todavía.
+
+---
+
 ### `RN-30` — la conciliación galonaje–kilometraje
 
 **RESUELTA.** `ReglasDeConciliacion` calcula el dictamen y `V-09`/`V-10` lo aplican. Con esto la

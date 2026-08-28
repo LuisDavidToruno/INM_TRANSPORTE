@@ -1,3 +1,5 @@
+using Sigti.Dominio.M09_Combustible;
+
 namespace Sigti.Dominio.M08_Bitacora;
 
 /// <summary>
@@ -66,7 +68,15 @@ public sealed record ActaDeSustitucionDeOdometro(
 /// conteste, porque «no hay lectura previa» y «nadie consultó» no pueden verse igual en un
 /// bloqueo duro.
 /// </param>
-public sealed record OdometroAlSalir(int Lectura, int? UltimaConocida);
+/// <param name="Nivel">
+/// El nivel del tanque a la salida — <b>dato obligatorio de bitácora</b> por `RN-83`.
+///
+/// ⚠️ <b>Nulo es «no consignado», no cero.</b> `RN-80` es explícita sobre la hoja de papel:
+/// un campo que no se llenó se declara como no consignado y <b>no se estima</b>. Un cero
+/// diría que el vehículo salió con el tanque vacío.
+/// </param>
+public sealed record OdometroAlSalir(
+    int Lectura, int? UltimaConocida, NivelDeTanque? Nivel = null);
 
 /// <summary>
 /// Lo que hace falta para juzgar `BD-05` al <b>retornar</b> — `T-18`.
@@ -76,8 +86,15 @@ public sealed record OdometroAlSalir(int Lectura, int? UltimaConocida);
 /// ejecutó. No bloquea, pero no se pasa en silencio: <i>«es el patrón de la misión que nunca
 /// se hizo»</i>, y ese patrón es lo que el Tribunal Superior de Cuentas busca.
 /// </param>
+/// <param name="Nivel">
+/// El nivel al retorno. Con el de la salida es lo que permite separar el <b>remanente en
+/// tanque</b> del consumo de la misión: sin los dos, <i>«salió lleno y volvió vacío»</i> no se
+/// distingue de un faltante, y la conciliación de una misión corta con tanque grande no
+/// significa nada.
+/// </param>
 public sealed record OdometroAlRetornar(
     int Lectura,
     SubtipoDeRetorno Subtipo,
     string? Justificacion = null,
-    ActaDeSustitucionDeOdometro? Acta = null);
+    ActaDeSustitucionDeOdometro? Acta = null,
+    NivelDeTanque? Nivel = null);

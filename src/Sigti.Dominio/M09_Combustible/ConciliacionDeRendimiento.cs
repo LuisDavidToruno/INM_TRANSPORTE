@@ -109,6 +109,13 @@ public sealed record ReparosDelCalculo(
 /// <param name="Desviacion">
 /// Fracción sobre el esperado. Negativa es consumo de más; positiva, rendimiento de más.
 /// </param>
+/// <param name="Composicion">
+/// Cuántos galones puso cada fuente — `RN-30` punto 4.
+///
+/// Va como <b>dato</b> y no sólo dentro de la evidencia porque la pantalla lo tiene que poder
+/// desglosar, y porque sirve <b>aunque el dictamen sea `NoEvaluable`</b>: que no haya contra
+/// qué comparar no borra de dónde salió cada galón.
+/// </param>
 public sealed record Conciliacion(
     DictamenDeConciliacion Dictamen,
     int KilometrosRecorridos,
@@ -116,7 +123,8 @@ public sealed record Conciliacion(
     decimal? RendimientoObservado,
     RendimientoEsperado? Esperado,
     decimal? Desviacion,
-    string Evidencia)
+    string Evidencia,
+    IReadOnlyDictionary<FuenteDeAbastecimiento, decimal>? Composicion = null)
 {
     /// <summary>
     /// Si esto obliga a cerrar la misión con hallazgo. <b>`NoEvaluable` no lo hace</b> — no se
@@ -148,12 +156,14 @@ public static class ReglasDeConciliacion
     /// misión mezclaría dos rendimientos y no significaría nada.
     /// </param>
     /// <param name="galonesConsumidos">
-    /// <b>Todos</b> los abastecimientos, cualquiera sea su fuente (`RN-83`).
-    ///
-    /// ⚠️ <b>Hoy sólo llegan los del fondo</b>, que es lo único que el sistema registra. Un
-    /// despacho desde el tanque institucional no pasa por ningún folio y <b>no existe para el
-    /// cálculo</b> — y es exactamente lo que produce un rendimiento imposiblemente bueno. Sin
-    /// `RN-83`, esta regla señala un síntoma cuya causa el sistema no puede registrar.
+    /// <b>Todos</b> los abastecimientos, cualquiera sea su fuente (`RN-83`) — no sólo los del
+    /// fondo. Un despacho desde el tanque de la sede no pasa por ningún folio, y contarlo es
+    /// justo lo que impide que aparezca como un rendimiento imposiblemente bueno.
+    /// </param>
+    /// <param name="composicion">
+    /// Cuántos galones puso cada fuente. `RN-30` punto 4 manda <b>exponer la fuente de cada
+    /// uno</b>: sin eso, cuarenta galones del tanque institucional y cuarenta comprados con el
+    /// vale se leen igual, y el conciliador no puede saber cuál mirar.
     /// </param>
     /// <param name="esperado">
     /// Nulo cuando la institución no lo fijó y no hay histórico del que proponerlo. <b>Nulo no
@@ -164,27 +174,28 @@ public static class ReglasDeConciliacion
         decimal galonesConsumidos,
         RendimientoEsperado? esperado,
         UmbralesDeDesviacion? umbrales,
-        ReparosDelCalculo? reparos = null)
+        ReparosDelCalculo? reparos = null,
+        IReadOnlyDictionary<FuenteDeAbastecimiento, decimal>? composicion = null)
     {
         reparos ??= new ReparosDelCalculo();
 
         if (kilometrosRecorridos <= 0)
-            return NoEvaluable(kilometrosRecorridos, galonesConsumidos, esperado,
+            return NoEvaluable(kilometrosRecorridos, galonesConsumidos, esperado, composicion,
                 "sin kilómetros recorridos: no hay recorrido que dividir");
 
         if (galonesConsumidos <= 0)
             // Es el caso normal de la misión que salió con el tanque lleno y no cargó. No es un
             // defecto: es que esta misión no tiene consumo que conciliar.
-            return NoEvaluable(kilometrosRecorridos, galonesConsumidos, esperado,
+            return NoEvaluable(kilometrosRecorridos, galonesConsumidos, esperado, composicion,
                 "sin galones consumidos: la misión no cargó combustible");
 
         if (esperado is null)
-            return NoEvaluable(kilometrosRecorridos, galonesConsumidos, esperado,
+            return NoEvaluable(kilometrosRecorridos, galonesConsumidos, esperado, composicion,
                 "NO hay rendimiento esperado para este vehículo. La institución no lo ha fijado " +
                 "y no hay histórico del que proponerlo, así que no hay contra qué comparar");
 
         if (umbrales is null)
-            return NoEvaluable(kilometrosRecorridos, galonesConsumidos, esperado,
+            return NoEvaluable(kilometrosRecorridos, galonesConsumidos, esperado, composicion,
                 "NO hay umbrales de desviación cargados. Sin ellos cualquier diferencia sería " +
                 "hallazgo o ninguna lo sería, y las dos cosas son falsas");
 
@@ -194,7 +205,8 @@ public static class ReglasDeConciliacion
         var cuentas =
             $"{kilometrosRecorridos:N0} km / {galonesConsumidos:N2} gal = {observado:N2} km/gal " +
             $"contra {esperado.KmPorGalon:N2} esperado ({Etiqueta(esperado.Origen)}, " +
-            $"{esperado.Version}) · desviación {desviacion:P1}";
+            $"{esperado.Version}) · desviación {desviacion:P1}" +
+            Composicion(composicion);
 
         // Los reparos se evalúan DESPUÉS de calcular, no antes: `RN-30` manda conservar el
         // cálculo para el análisis agregado, «que sí es válido». Descartarlo perdería el dato
@@ -204,14 +216,16 @@ public static class ReglasDeConciliacion
                 DictamenDeConciliacion.NoConcluyente, kilometrosRecorridos, galonesConsumidos,
                 observado, esperado, desviacion,
                 $"{cuentas} · NO CONCLUYENTE: el odómetro está intervenido o averiado (`RN-90`), " +
-                "así que su lectura no divide nada. Se conserva para el análisis agregado");
+                "así que su lectura no divide nada. Se conserva para el análisis agregado",
+                Composicion: composicion);
 
         if (reparos.NivelDeTanqueDispar)
             return new Conciliacion(
                 DictamenDeConciliacion.NoConcluyente, kilometrosRecorridos, galonesConsumidos,
                 observado, esperado, desviacion,
                 $"{cuentas} · NO CONCLUYENTE: el nivel del tanque a la salida y al retorno es muy " +
-                "distinto, así que los galones consumidos no son los cargados");
+                "distinto, así que los galones consumidos no son los cargados",
+                Composicion: composicion);
 
         if (desviacion < -umbrales.ToleranciaInferior)
         {
@@ -223,14 +237,16 @@ public static class ReglasDeConciliacion
                     observado, esperado, desviacion,
                     $"{cuentas} · consumo por encima del umbral, PERO hay espera prolongada con " +
                     "motor encendido registrada: consume sin recorrer, y por sí sola la " +
-                    "desviación no es hallazgo");
+                    "desviación no es hallazgo",
+                    Composicion: composicion);
 
             return new Conciliacion(
                 DictamenDeConciliacion.ConsumoExcesivo, kilometrosRecorridos, galonesConsumidos,
                 observado, esperado, desviacion,
                 $"{cuentas} · CONSUMO EXCESIVO: más galones de los que el recorrido justifica. " +
                 $"Tolerancia inferior {umbrales.ToleranciaInferior:P0}. Posible consumo no " +
-                "imputable a esta misión");
+                "imputable a esta misión",
+                Composicion: composicion);
         }
 
         if (desviacion > umbrales.ToleranciaSuperior)
@@ -239,7 +255,8 @@ public static class ReglasDeConciliacion
                 observado, esperado, desviacion,
                 $"{cuentas} · RENDIMIENTO IMPOSIBLE: menos galones de los que el recorrido exige. " +
                 $"Tolerancia superior {umbrales.ToleranciaSuperior:P0}. Casi siempre significa un " +
-                "despacho de combustible que no se registró");
+                "despacho de combustible que no se registró",
+                Composicion: composicion);
 
         return new Conciliacion(
             DictamenDeConciliacion.DentroDeUmbral, kilometrosRecorridos, galonesConsumidos,
@@ -285,11 +302,33 @@ public static class ReglasDeConciliacion
             $"PROPUESTA-DEL-HISTORICO-{utiles.Count}-MISIONES");
     }
 
+    /// <summary>
+    /// De dónde salió cada galón — `RN-30` punto 4.
+    ///
+    /// Se calla cuando <b>todo</b> vino del fondo: decir «100% del fondo de la misión» en cada
+    /// conciliación entrena a saltarse la línea, y con ella se pierde la vez que sí decía algo.
+    /// </summary>
+    private static string Composicion(
+        IReadOnlyDictionary<FuenteDeAbastecimiento, decimal>? composicion)
+    {
+        if (composicion is null || composicion.Count <= 1) return "";
+
+        var partes = composicion
+            .OrderByDescending(p => p.Value)
+            .Select(p => $"{p.Value:N2} gal de {Abastecimiento.Texto(p.Key)}");
+
+        return $" · composición: {string.Join(", ", partes)}";
+    }
+
     private static Conciliacion NoEvaluable(
-        int kilometros, decimal galones, RendimientoEsperado? esperado, string porQue) =>
+        int kilometros, decimal galones, RendimientoEsperado? esperado,
+        IReadOnlyDictionary<FuenteDeAbastecimiento, decimal>? composicion, string porQue) =>
         new(DictamenDeConciliacion.NoEvaluable, kilometros, galones,
             RendimientoObservado: null, esperado, Desviacion: null,
-            Evidencia: $"NO EVALUABLE: {porQue}");
+            // La composición va aunque no se pueda comparar: de dónde salió cada galón se
+            // sabe igual, y es la mitad del desglose que `RN-30` manda mostrar.
+            Evidencia: $"NO EVALUABLE: {porQue}{Composicion(composicion)}",
+            Composicion: composicion);
 
     private static string Etiqueta(OrigenDelRendimiento origen) => origen switch
     {

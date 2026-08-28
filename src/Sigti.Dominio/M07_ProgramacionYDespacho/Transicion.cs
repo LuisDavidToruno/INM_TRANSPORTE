@@ -1,3 +1,4 @@
+using Sigti.Dominio.M09_Combustible;
 using Sigti.Dominio.Organizacion;
 
 namespace Sigti.Dominio.M07_ProgramacionYDespacho;
@@ -43,4 +44,15 @@ public sealed record Transicion(
     /// el odómetro de retorno se compara contra el de salida, y sacarlo de una cadena sería
     /// el mismo error que tenía la reserva de `T-08` antes de `RecursosTomados`.
     /// </summary>
-    int? Odometro = null);
+    int? Odometro = null,
+    /// <summary>
+    /// El nivel del tanque que este asiento registró. <b>Sólo lo llevan `T-14` y `T-18`</b>.
+    ///
+    /// Va como DATO y no dentro del texto porque `RN-83` lo hace <b>obligatorio de
+    /// bitácora</b> y `RN-30` lo vuelve a leer: sin los dos extremos, «salió lleno y volvió
+    /// vacío» no se distingue de un faltante.
+    ///
+    /// <b>Nulo es «no consignado»</b> (`RN-80`), no cero — un cero diría que el vehículo
+    /// salió con el tanque vacío.
+    /// </summary>
+    NivelDeTanque? Nivel = null);

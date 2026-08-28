@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Sigti.Datos;
 
@@ -12,9 +13,11 @@ using Sigti.Datos;
 namespace Sigti.Datos.Migraciones
 {
     [DbContext(typeof(SigtiDbContext))]
-    partial class SigtiDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260828224944_AbastecimientosDeCualquierFuente")]
+    partial class AbastecimientosDeCualquierFuente
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -397,10 +400,6 @@ namespace Sigti.Datos.Migraciones
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
-                    b.Property<string>("EscalaDelNivel")
-                        .HasMaxLength(24)
-                        .HasColumnType("nvarchar(24)");
-
                     b.Property<byte[]>("ExpedienteId")
                         .IsRequired()
                         .HasColumnType("binary(16)");
@@ -414,9 +413,6 @@ namespace Sigti.Datos.Migraciones
                     b.Property<string>("Motivo")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
-
-                    b.Property<decimal?>("NivelDeTanque")
-                        .HasColumnType("decimal(9,4)");
 
                     b.Property<int?>("Odometro")
                         .HasColumnType("int");

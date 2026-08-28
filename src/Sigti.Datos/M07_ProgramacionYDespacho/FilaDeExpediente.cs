@@ -1,4 +1,5 @@
 using Sigti.Dominio.M07_ProgramacionYDespacho;
+using Sigti.Dominio.M09_Combustible;
 
 namespace Sigti.Datos.M07_ProgramacionYDespacho;
 
@@ -89,4 +90,16 @@ public sealed class FilaDeTransicion
     /// vuelve a leer para comparar el retorno contra la salida.
     /// </summary>
     public int? Odometro { get; init; }
+
+    /// <summary>
+    /// El nivel del tanque de `T-14` y `T-18` — `RN-83`. <b>Nulo es «no consignado»</b>
+    /// (`RN-80`), no cero: un cero diría que el vehículo salió con el tanque vacío.
+    /// </summary>
+    public decimal? NivelDeTanque { get; init; }
+
+    /// <summary>
+    /// En qué escala se leyó. <b>Se guarda</b> porque un octavo de tanque no es lo mismo en un
+    /// pickup que en un bus, y dos lecturas de escalas distintas no se restan.
+    /// </summary>
+    public EscalaDeNivel? EscalaDelNivel { get; init; }
 }

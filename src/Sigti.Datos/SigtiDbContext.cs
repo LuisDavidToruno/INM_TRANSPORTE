@@ -26,6 +26,7 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     public DbSet<FilaDeCambioDeEstado> CambiosDeEstado => Set<FilaDeCambioDeEstado>();
     public DbSet<FilaDeFondo> Fondos => Set<FilaDeFondo>();
     public DbSet<FilaDeAsignacion> AsignacionesDeCombustible => Set<FilaDeAsignacion>();
+    public DbSet<FilaDeAbastecimiento> Abastecimientos => Set<FilaDeAbastecimiento>();
 
     /// <summary>
     /// ULID en binary(16) y no en texto: 16 bytes contra 26, y conserva la monotonía que
@@ -130,6 +131,12 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             // El odometro de `T-14` y `T-18`, como DATO: `BD-05` lo vuelve a leer, y sacarlo
             // de una cadena seria el mismo error que tenia la reserva antes de existir.
             transicion.Property(t => t.Odometro);
+
+            // El nivel del tanque, como DATO. `RN-30` lo vuelve a leer para saber si el
+            // calculo es concluyente, y sacarlo de una cadena seria el mismo error que ya se
+            // corrigio con la reserva y con el odometro.
+            transicion.Property(t => t.NivelDeTanque).HasColumnType("decimal(9,4)");
+            transicion.Property(t => t.EscalaDelNivel).HasConversion<string>().HasMaxLength(24);
 
             // La reserva de `T-08`, como DATO y no como prosa dentro del motivo.
             transicion.Property(t => t.VehiculoTomado).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
@@ -356,6 +363,40 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             transicion.HasIndex(t => t.IdDeCaptura)
                 .IsUnique()
                 .HasFilter("[IdDeCaptura] IS NOT NULL");
+        });
+
+        modelo.Entity<FilaDeAbastecimiento>(abastecimiento =>
+        {
+            abastecimiento.ToTable("Abastecimiento", schema: "combustible");
+
+            abastecimiento.HasKey(a => a.Id);
+            abastecimiento.Property(a => a.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            abastecimiento.Property(a => a.VehiculoId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            abastecimiento.Property(a => a.MisionId).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+            abastecimiento.Property(a => a.AsignacionId).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+            abastecimiento.Property(a => a.TransicionDelValeId).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+            abastecimiento.Property(a => a.Fuente).HasConversion<string>().HasMaxLength(32).IsRequired();
+            abastecimiento.Property(a => a.Registra).HasMaxLength(64).IsRequired();
+            abastecimiento.Property(a => a.Galones).HasColumnType("decimal(18,3)");
+            abastecimiento.Property(a => a.Monto).HasColumnType("decimal(18,2)");
+            abastecimiento.Property(a => a.Estacion).HasMaxLength(120);
+            abastecimiento.Property(a => a.Comprobante).HasMaxLength(64);
+            abastecimiento.Property(a => a.CausaSinComprobante).HasMaxLength(300);
+
+            // **El galon no se cuenta dos veces.** El asiento `V-04` del vale y esta fila son
+            // el mismo hecho visto desde dos lados; dos filas apuntando al mismo asiento
+            // inflarian el denominador de `RN-30` y producirian una desviacion inventada por
+            // el propio sistema. Lo impone la BASE, no una comprobacion en codigo.
+            abastecimiento.HasIndex(a => a.TransicionDelValeId)
+                .IsUnique()
+                .HasFilter("[TransicionDelValeId] IS NOT NULL");
+
+            // `RN-30` pregunta por VEHICULO y periodo: cuantos galones entraron a este tanque,
+            // vengan de donde vengan. Es la consulta del camino critico de la conciliacion.
+            abastecimiento.HasIndex(a => new { a.VehiculoId, a.MomentoUtc });
+
+            // Y por mision, para el desglose que `RN-30` manda mostrar junto a la desviacion.
+            abastecimiento.HasIndex(a => a.MisionId).HasFilter("[MisionId] IS NOT NULL");
         });
 
         modelo.Entity<FilaDePermisoDeCirculacion>(permiso =>

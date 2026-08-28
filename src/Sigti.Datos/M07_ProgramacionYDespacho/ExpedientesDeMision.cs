@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
+using Sigti.Dominio.M09_Combustible;
 using Sigti.Dominio.Organizacion;
 
 namespace Sigti.Datos.M07_ProgramacionYDespacho;
@@ -48,7 +49,12 @@ public sealed class ExpedientesDeMision(SigtiDbContext contexto)
                     t.VehiculoTomado is { } vehiculo && t.ConductorTomado is { } conductor
                         ? new RecursosTomados(vehiculo, conductor)
                         : null,
-                    t.Odometro)));
+                    t.Odometro,
+                    // Los dos o ninguno: un valor sin escala no se puede interpretar, y una
+                    // escala sin valor no dice nada.
+                    t.NivelDeTanque is { } valor && t.EscalaDelNivel is { } escala
+                        ? new NivelDeTanque(escala, valor)
+                        : null)));
     }
 
     /// <summary>
@@ -100,7 +106,9 @@ public sealed class ExpedientesDeMision(SigtiDbContext contexto)
                 Motivo = transicion.Motivo,
                 VehiculoTomado = transicion.Recursos?.Vehiculo,
                 ConductorTomado = transicion.Recursos?.Conductor,
-                Odometro = transicion.Odometro
+                Odometro = transicion.Odometro,
+                NivelDeTanque = transicion.Nivel?.Valor,
+                EscalaDelNivel = transicion.Nivel?.Escala
             });
         }
 
