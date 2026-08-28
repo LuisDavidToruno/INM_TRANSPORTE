@@ -219,6 +219,8 @@ public class TableroDeDespachoPruebas(BaseDePruebas baseDePruebas)
             Destino = "Choluteca",
             Salida = salida,
             Retorno = retorno,
+            HoraDeSalida = new TimeOnly(8, 0),
+            HoraDeRetorno = new TimeOnly(16, 0),
             HolguraDias = 0,
             Momento,
         });

@@ -15,12 +15,19 @@ namespace Sigti.Dominio.M02_Parametros;
 /// Por eso los feriados <b>se reciben</b>, y por eso una lista vacía es un estado posible y
 /// no un error: significa que la institución todavía no cargó su calendario.
 ///
-/// ── La mitad que este calendario NO puede juzgar ─────────────────────────────
-/// `BD-04` habla de día inhábil <b>u hora inhábil</b>. La hora <b>no se evalúa</b>, y no por
-/// omisión: <see cref="VentanaDeMision"/> lleva <c>DateOnly</c>, sin horas. Una misión no
-/// declara a qué hora sale, así que no hay contra qué contrastar un horario hábil. Fingir la
-/// evaluación sería peor que declararla ausente. `[C]` el horario hábil oficial — insumo #1.
+/// ── La hora: ahora sí se puede, y hace falta lo de los dos lados ─────────────
+/// `BD-04` habla de día inhábil <b>u hora inhábil</b>. Para juzgarla hacen falta <b>dos</b>
+/// datos: que la misión declare sus horas —<see cref="VentanaDeMision.HoraDeSalida"/>— y que
+/// la institución declare su <see cref="HorarioHabil"/>. Falta cualquiera de los dos y la
+/// hora <b>no se evalúa</b>, lo cual se dice en vez de fingirse.
+///
+/// `[C]` el horario hábil oficial — insumo #1. Por eso <see cref="Horario"/> es anulable.
 /// </summary>
+/// <param name="Horario">
+/// Nulo mientras la institución no lo declare. <b>Nulo no es «todo el día es hábil»</b>: es
+/// «no se sabe», y la diferencia importa porque de lo segundo no se deduce que una salida a
+/// las cinco de la mañana no necesite permiso.
+/// </param>
 /// <param name="Version">
 /// Qué calendario se usó. Va al diario: dentro de dos años, reconstruir por qué un domingo
 /// no exigió permiso requiere saber contra qué calendario se juzgó.
@@ -38,7 +45,8 @@ namespace Sigti.Dominio.M02_Parametros;
 public sealed record CalendarioDeDiasHabiles(
     string Version,
     IReadOnlySet<DayOfWeek> DiasHabiles,
-    IReadOnlySet<DateOnly> Feriados)
+    IReadOnlySet<DateOnly> Feriados,
+    HorarioHabil? Horario = null)
 {
     public bool EsInhabil(DateOnly fecha) =>
         !DiasHabiles.Contains(fecha.DayOfWeek) || Feriados.Contains(fecha);
@@ -59,4 +67,57 @@ public sealed record CalendarioDeDiasHabiles(
 
         return dias;
     }
+
+    /// <summary>
+    /// Las horas de la ventana que caen fuera del horario hábil.
+    ///
+    /// ── Sólo los DOS extremos declarados, y es una decisión ──────────────────
+    /// Se evalúan la hora de salida y la de retorno. <b>No las noches intermedias.</b>
+    ///
+    /// Una misión de cuatro días está fuera del horario todas sus madrugadas, y evaluarlas
+    /// haría que <b>toda</b> misión de más de un día exigiera permiso — con lo cual la mitad
+    /// del día de `BD-04` quedaría vacía de sentido y el salvoconducto dejaría de
+    /// distinguir nada.
+    ///
+    /// Los extremos son además lo que el control real mira: el agente detiene al vehículo
+    /// que sale a las cinco de la mañana o vuelve a las diez de la noche, no al que durmió
+    /// en Danlí. Y son los dos únicos momentos que la misión declara.
+    ///
+    /// ⚠️ `[C]` <b>si la institución entiende otra cosa por «hora inhábil»</b> en una misión de
+    /// varios días. La ficha de `BD-04` dice <i>«cualquier parte de la ventana»</i> y no aclara
+    /// el pernocte. Acotarlo a los extremos es la lectura que deja el control con sentido;
+    /// no es la única posible.
+    /// </summary>
+    public IReadOnlyList<string> HorasInhabilesEn(VentanaDeMision ventana)
+    {
+        // Sin horario declarado no se evalúa. Nulo es «no se sabe», no «todo es hábil».
+        if (Horario is not { } horario || !ventana.DeclaraHoras) return [];
+
+        var fuera = new List<string>();
+
+        if (horario.EsInhabil(ventana.HoraDeSalida!.Value))
+            fuera.Add($"salida {ventana.HoraDeSalida:HH\\:mm}");
+
+        if (horario.EsInhabil(ventana.HoraDeRetorno!.Value))
+            fuera.Add($"retorno {ventana.HoraDeRetorno:HH\\:mm}");
+
+        return fuera;
+    }
+}
+
+/// <summary>
+/// El horario laboral de la institución — el otro insumo de la <i>hora</i> inhábil de `BD-04`.
+///
+/// ── Los dos extremos son inclusivos ─────────────────────────────────────────
+/// Salir exactamente a la hora de apertura es salir en horario. Es la misma convención que
+/// usa toda vigencia del sistema, y la alternativa —abrir a las 08:00:01— no la entiende
+/// nadie que lea el mensaje del bloqueo.
+///
+/// ⚠️ <b>No cruza la medianoche.</b> Un horario de 22:00 a 06:00 no se puede expresar acá, y
+/// no se finge que sí: una institución con turno nocturno necesita otra forma, y eso es una
+/// decisión de producto y no un detalle de este tipo. `[C]` insumo #1.
+/// </summary>
+public sealed record HorarioHabil(TimeOnly Desde, TimeOnly Hasta)
+{
+    public bool EsInhabil(TimeOnly hora) => hora < Desde || hora > Hasta;
 }

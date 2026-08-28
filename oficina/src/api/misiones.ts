@@ -66,6 +66,8 @@ interface ExpedienteDelServidor {
   destino: string;
   salidaPrevista: string;
   retornoPrevisto: string;
+  horaDeSalida: string | null;
+  horaDeRetorno: string | null;
   holguraDias: number;
   aprobacionCaducada: boolean;
   diario: Transicion[];

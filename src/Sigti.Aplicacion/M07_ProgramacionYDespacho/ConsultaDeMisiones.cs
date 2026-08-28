@@ -22,6 +22,12 @@ public sealed record VistaDeExpediente(
     string Destino,
     DateOnly SalidaPrevista,
     DateOnly RetornoPrevisto,
+    /// <summary>
+    /// A qué hora sale y a qué hora vuelve. <b>Nulas en los expedientes anteriores al campo</b>:
+    /// se dicen como ausentes, no se rellenan con un 00:00 que se leería como medianoche.
+    /// </summary>
+    TimeOnly? HoraDeSalida,
+    TimeOnly? HoraDeRetorno,
     int HolguraDias,
     /// <summary>
     /// Si la aprobación ya caducó. Va en la vista para que la cola lo muestre <b>antes</b>
@@ -106,6 +112,8 @@ public sealed class ConsultaDeMisiones(SigtiDbContext contexto)
             ObjetoDelTraslado: fila.ObjetoDelTraslado,
             Destino: fila.Destino,
             SalidaPrevista: fila.Salida,
+            HoraDeSalida: fila.HoraDeSalida,
+            HoraDeRetorno: fila.HoraDeRetorno,
             RetornoPrevisto: fila.Retorno,
             HolguraDias: fila.HolguraDias,
             AprobacionCaducada:

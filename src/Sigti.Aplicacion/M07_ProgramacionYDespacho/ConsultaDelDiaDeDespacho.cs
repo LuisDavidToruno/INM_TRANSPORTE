@@ -21,6 +21,12 @@ public sealed record MisionDelDia(
     string? Motorista,
     DateOnly Salida,
     DateOnly Retorno,
+    /// <summary>
+    /// A qué hora sale. <b>Nula en los expedientes anteriores al campo</b> — se dice, no se
+    /// rellena con un 00:00 que el despachador leería como medianoche.
+    /// </summary>
+    TimeOnly? HoraDeSalida,
+    TimeOnly? HoraDeRetorno,
     int DiasDeAtraso);
 
 /// <summary>Lo que el despachador tiene enfrente hoy.</summary>
@@ -134,6 +140,8 @@ public sealed class ConsultaDelDiaDeDespacho(SigtiDbContext contexto)
                     : null,
                 Salida: fila.Salida,
                 Retorno: fila.Retorno,
+                HoraDeSalida: fila.HoraDeSalida,
+                HoraDeRetorno: fila.HoraDeRetorno,
                 DiasDeAtraso: Math.Max(0, atraso));
 
             var estaAfuera = ultima.Destino is EstadoDeMision.Despachada or EstadoDeMision.EnRuta;
@@ -154,9 +162,18 @@ public sealed class ConsultaDelDiaDeDespacho(SigtiDbContext contexto)
         return new DiaDeDespacho(
             fecha,
             // Lo más atrasado primero dentro de cada lista: si algo debía salir ayer y no
-            // salió, va antes que lo de hoy.
-            [.. salen.OrderBy(m => m.Salida).ThenBy(m => m.Folio)],
-            [.. vuelven.OrderBy(m => m.Folio)],
+            // salió, va antes que lo de hoy. Y dentro del mismo día, POR HORA -- que es la
+            // ráfaga de la mañana, y la razón por la que la hora existe.
+            //
+            // Las que no declaran hora van al final: no se puede afirmar que salgan antes
+            // ni después, y ponerlas primero las trataría como si salieran a medianoche.
+            [.. salen.OrderBy(m => m.Salida)
+                     .ThenBy(m => m.HoraDeSalida is null)
+                     .ThenBy(m => m.HoraDeSalida)
+                     .ThenBy(m => m.Folio)],
+            [.. vuelven.OrderBy(m => m.HoraDeRetorno is null)
+                       .ThenBy(m => m.HoraDeRetorno)
+                       .ThenBy(m => m.Folio)],
             [.. afuera.OrderBy(m => m.Retorno).ThenBy(m => m.Folio)],
             [.. atrasadas.OrderByDescending(m => m.DiasDeAtraso).ThenBy(m => m.Folio)]);
     }

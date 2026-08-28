@@ -669,32 +669,54 @@ public sealed class OrdenDeMision
     /// <b>Toca día inhábil y no hay excepción</b> → tiene que haber permiso que ampare
     /// <b>vehículo, motorista, ruta y ventana</b>. Si no, bloqueo.
     ///
-    /// ── Lo que este control NO cubre hoy ─────────────────────────────────────
-    /// La <b>hora</b> inhábil. `BD-04` habla de día <i>u hora</i>, y la ventana de la misión
-    /// no lleva horas: no hay contra qué contrastar un horario hábil. Y el <b>salvoconducto
-    /// impreso</b> que debe emitirse junto con la Orden de Misión es de `M-15`, que no existe.
-    /// Ninguno de los dos se finge.
+    /// ── La hora, y sus dos condiciones ───────────────────────────────────────
+    /// Se evalúa <b>sólo</b> cuando la misión declara sus horas y la institución declaró su
+    /// horario hábil. Falta cualquiera de las dos y no se juzga — y se dice cuál falta, en
+    /// vez de dejar creer que se verificó.
+    ///
+    /// ── Lo que este control sigue sin cubrir ─────────────────────────────────
+    /// El <b>salvoconducto impreso</b> que debe emitirse junto con la Orden de Misión es de
+    /// `M-15`, que no existe. No se finge.
     /// </summary>
     private string ExigirPermisoSiCirculaEnDiaInhabil(CirculacionEnDiaInhabil circulacion)
     {
         var ventana = Solicitud.Ventana;
         var inhabiles = circulacion.Calendario.InhabilesEn(ventana);
+        var horasFuera = circulacion.Calendario.HorasInhabilesEn(ventana);
 
-        if (inhabiles.Count == 0)
-            return $" · BD-04 no aplica · calendario {circulacion.Calendario.Version}";
+        // Qué NO se pudo mirar. Va al diario incluso cuando `BD-04` no aplica: un asiento
+        // que dice «no aplica» sin decir contra qué se miró es indistinguible de uno que
+        // verificó las dos mitades, y dentro de dos años nadie podrá saber cuál fue.
+        var sinEvaluar = !ventana.DeclaraHoras
+            ? " · hora NO evaluada: la misión no declara horas"
+            : circulacion.Calendario.Horario is null
+                ? " · hora NO evaluada: la institución no declaró horario hábil"
+                : "";
 
-        var dias = string.Join(", ", inhabiles.Select(d => d.ToString("yyyy-MM-dd")));
+        if (inhabiles.Count == 0 && horasFuera.Count == 0)
+            return $" · BD-04 no aplica · calendario {circulacion.Calendario.Version}{sinEvaluar}";
+
+        var motivos = new List<string>();
+
+        if (inhabiles.Count > 0)
+            motivos.Add("días inhábiles: " +
+                        string.Join(", ", inhabiles.Select(d => d.ToString("yyyy-MM-dd"))));
+
+        if (horasFuera.Count > 0)
+            motivos.Add("fuera del horario hábil: " + string.Join(", ", horasFuera));
+
+        var dias = string.Join(" · ", motivos);
 
         if (circulacion.Excepcion is { } excepcion && excepcion.VigenteAl(ventana.Salida))
             return $" · BD-04 exceptuada · servicio {excepcion.Tipo} vigente desde " +
-                   $"{excepcion.Desde:yyyy-MM-dd} · días inhábiles: {dias}";
+                   $"{excepcion.Desde:yyyy-MM-dd} · {dias}{sinEvaluar}";
 
         var permiso = circulacion.Permisos.FirstOrDefault(
             p => p.Ampara(circulacion.Vehiculo, circulacion.Motorista, Solicitud.Destino, ventana));
 
         if (permiso is null)
             throw new BloqueoDuro("BD-04",
-                $"La misión circula en día inhábil ({dias}) y no hay permiso de la máxima " +
+                $"La misión circula en franja inhábil ({dias}) y no hay permiso de la máxima " +
                 "autoridad que ampare este vehículo, este motorista, este destino y esta " +
                 $"ventana ({ventana.Salida:yyyy-MM-dd} al {ventana.FinDelRango:yyyy-MM-dd}). " +
                 // Un relevo de motorista invalida el permiso, y quien despacha necesita
@@ -705,7 +727,7 @@ public sealed class OrdenDeMision
                       "esta combinación — un relevo de motorista invalida el permiso."));
 
         return $" · BD-04 verificada · permiso {permiso.Folio} de {permiso.EmitidoPor.Valor} · " +
-               $"días inhábiles: {dias} · calendario {circulacion.Calendario.Version}";
+               $"{dias} · calendario {circulacion.Calendario.Version}{sinEvaluar}";
     }
 
     /// <summary>

@@ -133,6 +133,9 @@ export interface Expediente {
   objetoDelTraslado: string;
   destino: string;
   salidaPrevista: string;
+  /** `HH:mm:ss`, o nula si el expediente es anterior al campo. */
+  horaDeSalida: string | null;
+  horaDeRetorno: string | null;
   retornoPrevisto: string;
   diario: Transicion[];
   validaciones: Validacion[];

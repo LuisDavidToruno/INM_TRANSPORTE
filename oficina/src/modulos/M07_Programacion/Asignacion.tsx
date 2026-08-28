@@ -24,7 +24,7 @@ import type {
 import { BloqueoDuro, expediente as traerExpediente } from '../../api/misiones';
 import { recursoVigente } from '../../dominio/mision';
 import type { Expediente, MotivoDeReasignacion } from '../../dominio/mision';
-import { soloFecha } from '../M06_Autorizacion/formato';
+import { soloFecha, soloHora } from '../M06_Autorizacion/formato';
 import ConflictoDeAgenda from './ConflictoDeAgenda';
 import RechazoPorLicencia from './RechazoPorLicencia';
 
@@ -327,8 +327,10 @@ function Cabecera({
       </p>
       {/* La ventana se muestra, no se edita: es lo que declara quien pide. */}
       <p className="tw:text-sm">
-        Ventana solicitada: <b>{soloFecha(expediente.salidaPrevista)}</b> al{' '}
-        <b>{soloFecha(expediente.retornoPrevisto)}</b>. La licencia tiene que cubrirla completa,
+        Ventana solicitada: <b>{soloFecha(expediente.salidaPrevista)}</b> a las{' '}
+        <b>{soloHora(expediente.horaDeSalida)}</b>, retorno{' '}
+        <b>{soloFecha(expediente.retornoPrevisto)}</b> a las{' '}
+        <b>{soloHora(expediente.horaDeRetorno)}</b>. La licencia tiene que cubrirla completa,
         holgura incluida.
       </p>
     </header>

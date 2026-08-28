@@ -216,6 +216,9 @@ export interface MisionDelDia {
   motorista: string | null;
   salida: string;
   retorno: string;
+  /** `HH:mm:ss`. <b>Nula</b> en los expedientes anteriores al campo. */
+  horaDeSalida: string | null;
+  horaDeRetorno: string | null;
   diasDeAtraso: number;
 }
 

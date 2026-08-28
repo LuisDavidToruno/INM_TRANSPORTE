@@ -25,6 +25,18 @@ public sealed class FilaDeExpediente
     public required DateOnly Salida { get; init; }
 
     public required DateOnly Retorno { get; init; }
+
+    /// <summary>
+    /// A qué hora sale. <b>Nula en los expedientes creados antes de que el campo existiera</b>,
+    /// y por eso la columna admite nulo: fabricarles un «08:00» los haría indistinguibles de
+    /// los que sí lo declararon, y sobre ese dato inventado se juzgaría `BD-04`.
+    ///
+    /// Lo nuevo sí la trae: `POST /misiones` la exige.
+    /// </summary>
+    public TimeOnly? HoraDeSalida { get; init; }
+
+    public TimeOnly? HoraDeRetorno { get; init; }
+
     public required int HolguraDias { get; init; }
     public List<FilaDeTransicion> Transiciones { get; } = [];
 }

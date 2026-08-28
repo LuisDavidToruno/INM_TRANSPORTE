@@ -106,7 +106,16 @@ public sealed class ParametrosProvisionales : IParametrosDeLaInstitucion
         // Vacía a propósito. La versión lo dice en su nombre para que aparezca en el diario
         // de cada despacho: un asiento que cita `PROVISIONAL-SIN-FERIADOS` se puede auditar;
         // uno que dice «calendario vigente» a secas, no.
-        Feriados: new HashSet<DateOnly>());
+        Feriados: new HashSet<DateOnly>(),
+
+        // ⚠️ NULO, y no un 08:00–17:00 razonable. El horario hábil oficial de la institución
+        // es el insumo #1, `[C]`, y esta es la mitad de `BD-04` que decide si una salida a las
+        // cinco de la mañana exige salvoconducto. Inventarlo bloquearía --o dejaría pasar--
+        // salidas contra una jornada que nadie declaró.
+        //
+        // El código que lo usa ya distingue «no se sabe» de «todo es hábil», así que el día
+        // que la institución lo cargue, la hora empieza a evaluarse sin tocar una línea.
+        Horario: null);
 
     /// <summary>Póliza y revisión apagadas: no son obligatorias por ley vigente (`DP-001, D-13`).</summary>
     public PoliticaDeDocumentacion PoliticaVigenteAl(DateOnly fecha) => PoliticaDeDocumentacion.PorDefecto;

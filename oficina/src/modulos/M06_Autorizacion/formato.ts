@@ -102,3 +102,18 @@ export function faltanDias(iso: string, ahora: Date = new Date()): string {
  */
 export const laDependencia = (nombre: string): string =>
   nombre.trim() === '' ? 'la dependencia solicitante, que el expediente no declara' : nombre;
+
+/**
+ * `HH:mm` a partir de lo que manda el servidor, o la ausencia dicha.
+ *
+ * ── Por qué la ausencia se dice y no se rellena ─────────────────────────────
+ * Porque un `00:00` se lee como <b>medianoche</b>, y sobre esa lectura el despachador ordena
+ * su día y decide a quién llamar primero. Los expedientes anteriores al campo no declaran
+ * hora, y eso es un dato distinto de salir a las doce de la noche.
+ */
+export const soloHora = (hora: string | null): string =>
+  hora === null ? 'hora no declarada' : hora.slice(0, 5);
+
+/** Igual, pero para cuando la frase ya dice que es una hora. */
+export const soloHoraCorta = (hora: string | null): string =>
+  hora === null ? 'sin hora' : hora.slice(0, 5);

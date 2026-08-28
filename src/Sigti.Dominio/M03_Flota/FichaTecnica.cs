@@ -61,9 +61,33 @@ public sealed record FichaTecnica(
 /// <summary>
 /// La ventana de la misión. `BD-02` exige vigencia <b>durante todo el rango, incluida la
 /// holgura posterior</b> — no basta que la licencia esté vigente el día de salida.
+///
+/// ── Por qué las horas son anulables ─────────────────────────────────────────
+/// Porque hay expedientes creados antes de que existieran, y <b>fabricarles una hora sería
+/// inventar el dato</b>: un «08:00» por omisión se ve idéntico a uno declarado, y sobre él
+/// se juzgaría `BD-04` y se ordenaría el tablero del despachador.
+///
+/// La exigencia vive donde entra el dato nuevo —`POST /misiones` las pide—, no en el tipo.
+/// Así lo viejo se lee como lo que es, <b>«no declarada»</b>, y lo nuevo está completo.
 /// </summary>
-public sealed record VentanaDeMision(DateOnly Salida, DateOnly Retorno, int HolguraDias)
+/// <param name="HoraDeSalida">
+/// A qué hora sale. La necesitan dos cosas que llegaron por caminos distintos: `BD-04`,
+/// para juzgar la <b>hora</b> inhábil, y `PT-038`, para ordenar el día del despachador — la
+/// ráfaga de las 5:30 con ocho salidas encimadas.
+/// </param>
+public sealed record VentanaDeMision(
+    DateOnly Salida,
+    DateOnly Retorno,
+    int HolguraDias,
+    TimeOnly? HoraDeSalida = null,
+    TimeOnly? HoraDeRetorno = null)
 {
     /// <summary>El último día en que el motorista podría estar conduciendo.</summary>
     public DateOnly FinDelRango => Retorno.AddDays(HolguraDias);
+
+    /// <summary>
+    /// ¿Declaró la misión sus horas? <b>Las dos o ninguna</b>: media ventana con hora es peor
+    /// que ninguna, porque parece completa.
+    /// </summary>
+    public bool DeclaraHoras => HoraDeSalida is not null && HoraDeRetorno is not null;
 }

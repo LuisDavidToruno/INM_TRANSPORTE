@@ -135,6 +135,8 @@ public class SincronizacionPruebas(BaseDePruebas baseDePruebas)
             Destino = "Tocoa",
             Salida = new DateOnly(2026, 3, 16),
             Retorno = new DateOnly(2026, 3, 18),
+            HoraDeSalida = new TimeOnly(8, 0),
+            HoraDeRetorno = new TimeOnly(16, 0),
             HolguraDias = 1,
             Momento,
         });

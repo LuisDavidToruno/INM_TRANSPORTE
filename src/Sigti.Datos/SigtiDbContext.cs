@@ -95,6 +95,12 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             expediente.Property(e => e.CapturadaPor).HasMaxLength(64).IsRequired();
             expediente.Property(e => e.SolicitanteDeDerecho).HasMaxLength(64).IsRequired();
 
+            // `time(0)`: la misión declara a que hora sale, no en que segundo. La precision
+            // por omision de SQL Server --time(7)-- guardaria centesimas que nadie escribio y
+            // que harian que dos horas iguales se comparen distinto.
+            expediente.Property(e => e.HoraDeSalida).HasColumnType("time(0)");
+            expediente.Property(e => e.HoraDeRetorno).HasColumnType("time(0)");
+
             expediente.HasMany(e => e.Transiciones)
                 .WithOne()
                 .HasForeignKey(t => t.ExpedienteId)

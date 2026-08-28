@@ -38,6 +38,8 @@ export function expedientesDeMuestra(): Expediente[] {
       objetoDelTraslado: 'Traslado de 3 servidores y equipo de cómputo',
       destino: 'Choluteca',
       salidaPrevista: enDias(6, 7),
+      horaDeSalida: "07:00:00",
+      horaDeRetorno: "18:00:00",
       retornoPrevisto: enDias(7, 18),
       diario: [
         transicion('T-01', 'Borrador', 'Wendy Cárcamo', enDias(-1, 8)),
@@ -69,6 +71,8 @@ export function expedientesDeMuestra(): Expediente[] {
       objetoDelTraslado: 'Entrega de insumos a la posta de Puerto Lempira',
       destino: 'Puerto Lempira',
       salidaPrevista: enDias(4, 5),
+      horaDeSalida: "05:30:00",
+      horaDeRetorno: "19:30:00",
       retornoPrevisto: enDias(8, 17),
       diario: [
         transicion('T-01', 'Borrador', 'Marvin Zelaya', enDias(-2, 16)),
@@ -101,6 +105,8 @@ export function expedientesDeMuestra(): Expediente[] {
       objetoDelTraslado: 'Supervisión de flota en delegación regional',
       destino: 'Comayagua',
       salidaPrevista: enDias(5, 8),
+      horaDeSalida: "08:00:00",
+      horaDeRetorno: "16:00:00",
       retornoPrevisto: enDias(5, 19),
       diario: [
         transicion('T-01', 'Borrador', 'Wendy Cárcamo', enDias(-1, 10)),

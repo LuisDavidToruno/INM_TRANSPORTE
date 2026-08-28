@@ -7,7 +7,7 @@ import { CampoFecha, Enlace, LineaDeCarriles, Nota, Panel, Pastilla, Vacio } fro
 import type { CarrilDeLinea, Tono } from '../../ui';
 import { diaDeDespacho, ocupacionDeFlota } from '../../api/flota';
 import type { MisionDelDia } from '../../api/flota';
-import { laDependencia, soloFecha } from '../M06_Autorizacion/formato';
+import { laDependencia, soloFecha, soloHora } from '../M06_Autorizacion/formato';
 
 /**
  * `PT-038` — Tablero de despacho del día. **La raíz del Encargado de Despacho.**
@@ -290,6 +290,17 @@ function Fila({
   return (
     <div className="tw:flex tw:flex-col tw:gap-1 tw:rounded tw:border tw:border-linea tw:px-3 tw:py-2">
       <div className="tw:flex tw:flex-wrap tw:items-center tw:gap-2">
+        {/* La hora primero y en grande: es por lo que se ordena la ráfaga de la mañana, y
+            lo que decide a quién se atiende antes. El folio identifica; la hora prioriza. */}
+        <span
+          className={[
+            'tw:font-mono tw:text-sm tw:tabular-nums',
+            mision.horaDeSalida === null ? 'tw:text-tinta-low tw:italic tw:text-xs' : 'tw:font-semibold',
+          ].join(' ')}
+        >
+          {soloHora(mision.horaDeSalida)}
+        </span>
+
         <Enlace href={`/programacion/${mision.mision}`}>
           <span className="tw:font-mono tw:text-[13px] tw:tabular-nums">{mision.folio}</span>
         </Enlace>

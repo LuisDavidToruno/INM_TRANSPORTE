@@ -280,16 +280,50 @@ dentro. Un eje de horas dibujado sobre medianoches sería un gráfico que miente
 precisión. Lo que sí se dibuja es el **cronograma de la semana**, que contesta la otra mitad
 —qué se traslapa con qué— y para el que el dato existe.
 
-### 🔎 Dos necesidades independientes piden el mismo campo ausente
+### La ventana de la misión ya lleva hora
 
-La **hora de salida de la solicitud** no existe, y ya la piden dos cosas distintas:
+Era el campo que **dos necesidades independientes** pedían: `BD-04` no podía juzgar la *hora*
+inhábil y `PT-038` no podía ordenar el día del despachador. Está.
 
-- `BD-04` no puede juzgar la **hora** inhábil — sólo el día.
-- `PT-038` no puede desglosar el día por horas, que es la mitad de su razón de ser.
+**Anulable en el tipo, exigida en el endpoint.** El dominio tiene que poder representar los
+expedientes creados antes del campo; lo que no puede es dejar entrar uno nuevo sin horas.
+`POST /misiones` devuelve `400` sin ellas. **No se fabricó ningún valor por omisión**: un
+`08:00` inventado se ve idéntico a uno declarado, y sobre él se juzgaría `BD-04` y se
+ordenaría el tablero.
 
-Dos necesidades que llegaron por caminos separados apuntando al mismo campo es la señal más
-fuerte que hay de que falta. **Es decisión del PO**: agregar hora a `VentanaDeMision` toca la
-solicitud, `BD-02`, `BD-04` y el cliente de campo.
+**Las dos o ninguna.** Media ventana con hora es peor que ninguna, porque parece completa.
+
+| Qué cambió | Dónde |
+|---|---|
+| `VentanaDeMision` gana `HoraDeSalida` y `HoraDeRetorno` | `M03_Flota/FichaTecnica.cs` |
+| `HorarioHabil` — la jornada de la institución | `M02_Parametros/CalendarioDeDiasHabiles.cs` |
+| `BD-04` evalúa la hora, y **dice cuál mitad no pudo mirar** | `OrdenDeMision.ExigirPermisoSiCirculaEnDiaInhabil` |
+| El tablero ordena la ráfaga **por hora** dentro del día | `ConsultaDelDiaDeDespacho` |
+| `time(0)` en dos columnas nulables | migración `HoraDeSalidaYRetorno` |
+
+**⚠️ La hora se evalúa sólo si están los DOS lados.** Que la misión declare sus horas **y**
+que la institución declare su horario hábil. Falta cualquiera y no se juzga — y el asiento
+del diario **dice cuál faltó**, porque un «BD-04 no aplica» a secas es indistinguible de uno
+que verificó las dos mitades.
+
+**Hoy falta el segundo**: `HorarioHabil` está en **nulo** en el calendario provisional. El
+horario oficial es el insumo #1, `[C]`. Nulo **no es «todo el día es hábil»**: es «no se
+sabe», y de lo segundo no se deduce que una salida a las cinco de la mañana no necesite
+salvoconducto. El día que se cargue, la hora empieza a evaluarse **sin tocar una línea**.
+
+**⚠️ Sólo se evalúan los dos extremos declarados**, no las noches intermedias. Una misión de
+cuatro días está fuera de la jornada todas sus madrugadas, y evaluarlas haría que **toda**
+misión de más de un día exigiera permiso — con lo cual la mitad del *día* de `BD-04`
+quedaría sin sentido. Es además lo que el control real mira: el agente detiene al que sale a
+las cinco, no al que durmió en Danlí. `[C]` **si la institución entiende otra cosa**: la
+ficha dice *«cualquier parte de la ventana»* y no aclara el pernocte.
+
+**`HorarioHabil` no cruza la medianoche.** Un turno de 22:00 a 06:00 no se puede expresar, y
+no se finge que sí. Es decisión de producto, no detalle del tipo.
+
+Verificado por mutación —al anular la comparación horaria caen tres pruebas— y en la
+interfaz: dos salidas del mismo día ordenadas **05:30 antes de 14:15**, y las que no declaran
+hora al final de su día en vez de tratarse como medianoche.
 
 ### La custodia vacante: tener tarjeta abierta no es tener custodio
 

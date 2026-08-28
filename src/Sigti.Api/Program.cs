@@ -189,6 +189,21 @@ var misiones = app.MapGroup("/misiones");
 // en el dispositivo, aunque no haya servidor de por medio.
 misiones.MapPost("/", async (CrearMision peticion, ServicioDeMisiones servicio) =>
 {
+    // Las horas se EXIGEN acá y no en el tipo del dominio. El dominio tiene que poder
+    // representar los expedientes viejos, que no las tienen; lo que no puede es dejar entrar
+    // uno nuevo sin ellas -- son lo que `BD-04` necesita para juzgar la hora inhabil y lo
+    // que `PT-038` necesita para ordenar el dia del despachador.
+    //
+    // Las DOS o ninguna no aplica: acá son las dos, y punto. Media ventana con hora es peor
+    // que ninguna, porque parece completa.
+    if (peticion.HoraDeSalida is null || peticion.HoraDeRetorno is null)
+        return Results.BadRequest(new
+        {
+            mensaje = "Declare la hora de salida y la de retorno (formato HH:mm). Sin ellas no " +
+                      "se puede juzgar si la misión circula en hora inhábil ni ordenar el día " +
+                      "del despachador.",
+        });
+
     var estado = await servicio.CrearAsync(
         Ulid.Parse(peticion.Id),
         new IdPersona(peticion.CapturadaPor),
@@ -197,7 +212,8 @@ misiones.MapPost("/", async (CrearMision peticion, ServicioDeMisiones servicio) 
             peticion.Dependencia,
             peticion.ObjetoDelTraslado,
             peticion.Destino,
-            new VentanaDeMision(peticion.Salida, peticion.Retorno, peticion.HolguraDias)),
+            new VentanaDeMision(peticion.Salida, peticion.Retorno, peticion.HolguraDias,
+                                peticion.HoraDeSalida, peticion.HoraDeRetorno)),
         peticion.Momento);
 
     return Results.Created($"/misiones/{peticion.Id}", new { peticion.Id, estado = estado.ToString() });
@@ -768,7 +784,17 @@ internal sealed record CrearMision(
     DateOnly Salida,
     DateOnly Retorno,
     int HolguraDias,
-    DateTimeOffset Momento);
+    DateTimeOffset Momento,
+    /// <summary>
+    /// A qué hora sale y a qué hora vuelve.
+    ///
+    /// <b>Anulables en el tipo y exigidas en el endpoint.</b> El tipo tiene que poder
+    /// representar una petición sin ellas para poder <b>rechazarla con un mensaje</b>; si
+    /// fueran obligatorias, el enlace de modelo devolvería un error genérico que no dice
+    /// cuál falta ni por qué importa.
+    /// </summary>
+    TimeOnly? HoraDeSalida = null,
+    TimeOnly? HoraDeRetorno = null);
 
 /// <summary>
 /// El momento lo declara el cliente, no lo inventa el servidor: puede venir de un

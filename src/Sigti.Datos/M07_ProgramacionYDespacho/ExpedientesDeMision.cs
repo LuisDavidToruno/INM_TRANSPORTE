@@ -31,7 +31,8 @@ public sealed class ExpedientesDeMision(SigtiDbContext contexto)
                 fila.Dependencia,
                 fila.ObjetoDelTraslado,
                 fila.Destino,
-                new VentanaDeMision(fila.Salida, fila.Retorno, fila.HolguraDias)),
+                new VentanaDeMision(fila.Salida, fila.Retorno, fila.HolguraDias,
+                                    fila.HoraDeSalida, fila.HoraDeRetorno)),
             fila.Transiciones
                 .OrderBy(t => t.Orden)
                 .Select(t => new Transicion(
@@ -73,6 +74,8 @@ public sealed class ExpedientesDeMision(SigtiDbContext contexto)
                 Destino = expediente.Solicitud.Destino,
                 Salida = expediente.Solicitud.Ventana.Salida,
                 Retorno = expediente.Solicitud.Ventana.Retorno,
+                HoraDeSalida = expediente.Solicitud.Ventana.HoraDeSalida,
+                HoraDeRetorno = expediente.Solicitud.Ventana.HoraDeRetorno,
                 HolguraDias = expediente.Solicitud.Ventana.HolguraDias
             };
             contexto.Expedientes.Add(fila);

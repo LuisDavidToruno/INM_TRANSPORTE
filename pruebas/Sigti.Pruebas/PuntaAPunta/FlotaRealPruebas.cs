@@ -170,6 +170,8 @@ public class FlotaRealPruebas(BaseDePruebas baseDePruebas)
             Destino = "Choluteca",
             Salida = new DateOnly(2026, 3, 20),
             Retorno = new DateOnly(2026, 3, 22),
+            HoraDeSalida = new TimeOnly(8, 0),
+            HoraDeRetorno = new TimeOnly(16, 0),
             HolguraDias = 1,
             Momento,
         });
