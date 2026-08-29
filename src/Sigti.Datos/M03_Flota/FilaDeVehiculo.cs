@@ -74,6 +74,26 @@ public sealed class FilaDeVehiculo
     /// </summary>
     public int? NumeroDeEjes { get; set; }
 
+    // ── Las anclas de `RN-66` ───────────────────────────────────────────
+    // Con qué se identifica el vehículo desde afuera: una multa, una línea de estado de
+    // cuenta, un acta de autoridad. **La placa va última** en la jerarquía porque se
+    // reasigna y porque hay vehículos circulando sin ella (`RN-15`); estas tres son las
+    // estables, y hasta hoy el padrón no las tenía.
+    //
+    // ⚠️ Anulables, y nulas para toda la flota cargada: son datos de alta y `M-03` no tiene
+    // pantalla de alta. Una imputación que sólo trae número de bien no se va a resolver
+    // hasta que se carguen — y eso es mejor que resolverla por parecido de placa.
+
+    /// <summary>El número de bien del inventario nacional. El ancla más estable.</summary>
+    public string? BienDelInventario { get; set; }
+
+    public string? Chasis { get; set; }
+
+    public string? Motor { get; set; }
+
+    /// <summary>El correlativo institucional, distinto de las siglas de rotulación.</summary>
+    public string? CorrelativoInstitucional { get; set; }
+
     /// <summary>Bloqueante — [`RN-103`]. La institución puede renovarla; es trámite propio.</summary>
     public required DateOnly VenceMatricula { get; init; }
 

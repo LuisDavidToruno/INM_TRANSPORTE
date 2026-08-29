@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarClock, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone } from 'lucide-react';
+import { CalendarClock, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch } from 'lucide-react';
 
 import { Avisos, Nota, Shell, avisar } from '../ui';
 import type { GrupoNav, Miga } from '../ui';
@@ -20,6 +20,7 @@ import Tablero from '../modulos/M07_Programacion/Tablero';
 import Padron from '../modulos/M03_Flota/Padron';
 import Fondos from '../modulos/M09_Combustible/Fondos';
 import Peajes from '../modulos/M18_Peajes/Peajes';
+import Conciliacion from '../modulos/M14_Auditoria/Conciliacion';
 import ColaDeCierre from '../modulos/M13_Cierre/Cola';
 import Cierre from '../modulos/M13_Cierre/Cierre';
 import { bandejaDeAutorizacion, origenDeDatos } from '../api/misiones';
@@ -124,6 +125,15 @@ function Interior(): ReactElement {
         { texto: 'Cola de cierre', icono: <FileCheck2 />, href: '/cierre' },
       ],
     },
+    {
+      // `M-14` va al final, después del cierre: es lo que se mira **después** de que los
+      // expedientes cerraron. Conciliar contra el proveedor es lo que revela que un
+      // expediente completo y coherente pudo ser falso.
+      titulo: 'M-14 Auditoría',
+      items: [
+        { texto: 'Fuentes externas', icono: <FileSearch />, href: '/conciliacion' },
+      ],
+    },
     { items: [{ texto: 'Sistema de diseño', icono: <Palette />, href: '/sistema-diseno' }] },
   ];
 
@@ -155,6 +165,7 @@ function Interior(): ReactElement {
         <Route path="/flota" element={<Padron />} />
         <Route path="/combustible" element={<Fondos />} />
         <Route path="/peajes" element={<Peajes />} />
+        <Route path="/conciliacion" element={<Conciliacion />} />
         <Route path="/despacho" element={<Tablero />} />
         <Route path="/programacion" element={<Cola />} />
         
@@ -185,6 +196,7 @@ function migasDe(ruta: string): Miga[] {
   if (ruta === '/despacho') return ['Despacho'];
   if (ruta === '/flota') return ['Flota'];
   if (ruta === '/combustible') return ['Combustible'];
+  if (ruta === '/conciliacion') return ['Auditoría', 'Fuentes externas'];
   if (ruta.startsWith('/cierre/')) return [{ texto: 'Cierre', href: '/cierre' }, 'Expediente'];
   if (ruta === '/cierre') return ['Cierre'];
   if (ruta === '/sistema-diseno') return ["Sistema de diseño"];

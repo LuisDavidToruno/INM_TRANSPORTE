@@ -405,6 +405,99 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+### `RN-95` — la conciliación contra fuentes externas
+
+**RESUELTA**, y con ella el mínimo de `RN-66` y de `RN-93` que necesitaba. Nace `M-14`.
+
+`RN-30` concilia **hacia adentro**: galones contra kilómetros, ambos registrados por nosotros.
+`RN-95` lo dice sin rodeos: *«una conciliación que solo compara nuestros datos con nuestros
+datos verifica coherencia interna, no veracidad. **Un registro completo y coherente puede ser
+completamente falso**, y solo la fuente externa lo revela»*.
+
+#### Tres listas, en ambos sentidos
+
+| Lista | Qué es | Qué abre |
+|---|---|---|
+| Coincidentes | Cuadran | Nada |
+| Solo en la fuente | El emisor lo cobra y no lo tenemos | Expediente |
+| Solo en SIGTI | Lo registramos y el emisor no lo reporta | Expediente |
+
+**Las dos últimas, no una.** Conciliar en un solo sentido dejaría fuera el caso más grave —
+*«puede ser un comprobante falso, o una estación que no reportó»*—. Y **la conciliación no
+presume cuál**: eso lo decide quien investiga.
+
+El casado es por **comprobante** primero (`RN-84` lo hace único en la institución) y por
+vehículo–monto–fecha después, con tolerancia, para las estaciones que no numeran el cupón.
+Un asiento se casa **una sola vez**, y eso es lo que hace aparecer el **comprobante
+duplicado** — uno de los tres casos que originaron `CE-28`. Verificado por mutación.
+
+#### La jerarquía de anclas, con la placa última
+
+`RN-66`: número de bien → chasis → motor → correlativo → **placa**. La placa va última porque
+se reasigna y porque hay vehículos circulando sin ella (`RN-15`); resolver por placa primero
+**atribuiría la multa del año pasado al vehículo que hoy tiene esa chapa**. Verificado por
+mutación: invertir el orden rompe dos pruebas.
+
+Lo que no se resuelve **queda no resuelto, nunca asignado por parecido**, con responsable y
+plazo obligatorios. Y el expediente dice **por cuál ancla** se resolvió: no es lo mismo haber
+resuelto por número de bien que por placa — la segunda admite discusión, y la advertencia va
+en el texto.
+
+**El padrón gana cuatro campos**: `BienDelInventario`, `Chasis`, `Motor` y
+`CorrelativoInstitucional`. Nulos para toda la flota cargada, porque son datos de alta.
+
+#### «No disponible» no es «conciliada»
+
+Una institución sin tag de peaje no tiene estado de cuenta que conciliar. Ejecutar contra esa
+fuente produciría **cero diferencias sobre cero líneas**, y ese cero se lee después como
+conformidad — así que se bloquea, y declararla no disponible **exige decir por qué**.
+
+#### El retraso es dato visible
+
+`RN-95` punto 5: *«una fuente sin conciliar durante meses es en sí misma una observación de
+control interno»*. Cuatro estados, y se dicen distinto:
+
+- **Nunca conciliada** — no es cero días de retraso: es el peor caso.
+- **Atrasada** sobre su periodicidad, con los días.
+- **Sin periodicidad declarada** `[C]` — el retraso se mide y no se juzga.
+- **No disponible** — con su razón, y diciendo que no es lo mismo que conciliada.
+
+Cada ejecución guarda su **fecha de corte de conocimiento** (`RN-94`) y **el documento fuente**
+(`RN-95` punto 6): sin ellos, dos ejecuciones con datos distintos se ven idénticas y una
+diferencia no se puede volver a comprobar contra el papel del que salió.
+
+#### Un defecto que salió al probarlo contra la base viva
+
+El retraso decía **«hace -7 días»** cuando la última conciliación quedaba con fecha posterior a
+hoy. Eso no describe nada. Ahora lo dice como lo que es: *o la fecha se capturó mal, o el reloj
+del servidor no es el que se cree* — y esa fuente cuenta como atrasada, porque de ella no se
+sabe nada.
+
+⚠️ **`RN-66` completo sigue pendiente.** La regla además atribuye al **tenedor vigente a la
+fecha del hecho** cuando el vehículo estaba prestado (`RN-63`) y al **conductor registrado** de
+esa fecha y hora (`RN-57`). Eso necesita el expediente de préstamo y la jornada declarada, que
+no existen. Hoy la imputación se resuelve al **vehículo** y ahí se detiene.
+
+⚠️ **`RN-93` completo sigue pendiente.** Lo construido es el expediente que nace de una
+conciliación —con responsable, plazo y resolución que no se borra—. `RN-93` gobierna también el
+que abre un auditor revisando misiones de marzo en noviembre, que es más.
+
+⚠️ **Las infracciones y las actas no tienen asiento propio contra el que conciliar.** La regla
+las manda cruzar contra la bitácora y los expedientes de `M-12`. Hoy toda línea suya cae en
+«solo en la fuente» y se resuelve al vehículo por la jerarquía — que es correcto (una multa
+**no** tiene contraparte nuestra) pero no es la conciliación completa que `RN-95` describe.
+
+⚠️ **Los contratos de integración con proveedores de combustible y de peaje no tienen insumo.**
+`RN-95` lo dice literalmente: *«hay que abrirlo»*. Hoy las líneas entran por la API, es decir,
+alguien las digita o las carga a mano — que `RN-95` admite (*«el formato no exime de
+conciliar»*) pero que no es integración.
+
+⚠️ **El período de calibración de la primera conciliación no está.** `RN-95` lo admite
+declarado, con las diferencias agrupadas por causa. Lo que sí se respetó es lo que no admite:
+**apagar la conciliación hasta que «los datos estén limpios»**.
+
+---
+
 ### `RN-37` — la coherencia de la secuencia de casetas
 
 **RESUELTA. M-18 queda completo**: las seis reglas del módulo corren.

@@ -13,6 +13,9 @@ using Sigti.Aplicacion.M09_Combustible;
 using Sigti.Dominio.M09_Combustible;
 using Sigti.Aplicacion.M18_Peajes;
 using Sigti.Datos.M18_Peajes;
+using Sigti.Aplicacion.M14_Auditoria;
+using Sigti.Datos.M14_Auditoria;
+using Sigti.Dominio.M14_Auditoria;
 using Sigti.Dominio.M18_Peajes;
 using Sigti.Dominio.M01_Organizacion;
 using Sigti.Datos;
@@ -58,6 +61,7 @@ constructor.Services.AddScoped<ServicioDeAbastecimientos>();
 constructor.Services.AddScoped<ServicioDeReintegro>();
 constructor.Services.AddScoped<ServicioDeTanques>();
 constructor.Services.AddScoped<ServicioDePeajes>();
+constructor.Services.AddScoped<ServicioDeConciliacionExterna>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -717,6 +721,153 @@ app.MapGet("/abastecimientos/mision/{id}", async (
 
         descripcion = a.Descripcion,
     })));
+
+// ── `RN-95` — la conciliación contra fuentes externas ───────────────────────
+// `RN-30` concilia hacia adentro: nuestros datos contra nuestros datos. Eso verifica
+// coherencia interna, no veracidad — **un registro completo y coherente puede ser
+// completamente falso**, y sólo la fuente externa lo revela.
+var conciliacion = app.MapGroup("/conciliacion");
+
+/// El catálogo, con el **retraso de cada fuente como dato visible** (`RN-95` punto 5): una
+/// fuente sin conciliar durante meses es en sí misma una observación de control interno.
+conciliacion.MapGet("/fuentes", async (ServicioDeConciliacionExterna servicio) =>
+{
+    var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+
+    return Results.Ok((await servicio.FuentesAsync()).Select(f => new
+    {
+        id = f.Id.ToString(),
+        tipo = f.Tipo.ToString(),
+        emisor = f.Emisor,
+        formato = f.Formato,
+        responsable = f.ResponsableDeLaCarga,
+
+        // **No disponible NO es conciliada.** Confundirlas hace que la ausencia de
+        // diferencias se lea como conformidad.
+        disponible = f.Disponible,
+        porQueNoEstaDisponible = f.PorQueNoEstaDisponible,
+
+        periodicidadEnDias = f.PeriodicidadEnDias,
+
+        // Nula significa **nunca conciliada**, que no es cero días de retraso.
+        ultimaConciliacion = f.UltimaConciliacion,
+        diasDesdeLaUltima = f.DiasDesdeLaUltima(hoy),
+        atrasada = f.Atrasada(hoy),
+        retraso = f.Retraso(hoy),
+    }));
+});
+
+conciliacion.MapPost("/fuentes", async (
+    RegistrarFuente peticion, ServicioDeConciliacionExterna servicio) =>
+{
+    var id = await servicio.RegistrarFuenteAsync(
+        Ulid.Parse(peticion.Id), peticion.Tipo, peticion.Emisor, peticion.Formato,
+        peticion.Responsable, peticion.Disponible, peticion.PeriodicidadEnDias,
+        peticion.PorQueNoEstaDisponible);
+
+    return Results.Created($"/conciliacion/fuentes/{id}", new { id = id.ToString() });
+});
+
+/// Ejecuta la conciliación. Produce **tres listas** —coincidentes, solo en la fuente, solo en
+/// SIGTI— y las dos últimas abren expediente, en ambos sentidos.
+conciliacion.MapPost("/ejecutar", async (
+    EjecutarConciliacion peticion, ServicioDeConciliacionExterna servicio) =>
+{
+    var r = await servicio.ConciliarAsync(
+        Ulid.Parse(peticion.IdFuente),
+        peticion.Desde,
+        peticion.Hasta,
+        [.. peticion.Lineas.Select(l => new LineaExterna(
+            l.Id, l.FechaDelHecho, l.Monto,
+            new IdentificacionExterna(
+                l.BienDelInventario, l.Chasis, l.Motor, l.Correlativo, l.Placa),
+            l.Referencia, l.Descripcion))],
+        peticion.DocumentoFuente,
+        new IdPersona(peticion.Ejecuta),
+        peticion.ResponsableDeSeguimiento,
+        peticion.Plazo,
+        peticion.Momento,
+        peticion.ToleranciaEnDias ?? 1);
+
+    return Results.Ok(new
+    {
+        coincidentes = r.Coincidentes.Count,
+        diferencias = r.Diferencias,
+        montoSoloEnLaFuente = r.MontoSoloEnLaFuente,
+        montoSoloEnSigti = r.MontoSoloEnSigti,
+
+        // Las que ni siquiera se pudieron atribuir a un vehículo van aparte: no hay a quién
+        // preguntarle, hay que ir al proveedor.
+        sinVehiculoResuelto = r.SinVehiculoResuelto,
+
+        // `RN-94` — sin corte, dos ejecuciones con datos distintos se ven idénticas.
+        fechaDeCorte = r.FechaDeCorte,
+        documentoFuente = r.DocumentoFuente,
+
+        soloEnLaFuente = r.SoloEnLaFuente.Select(d => new
+        {
+            linea = d.Linea.Id,
+            fechaDelHecho = d.Linea.FechaDelHecho,
+            monto = d.Linea.Monto,
+            referencia = d.Linea.Referencia,
+            vehiculo = d.Vehiculo.Vehiculo?.ToString(),
+            ancla = d.Vehiculo.Ancla?.ToString(),
+            explicacion = d.Vehiculo.Explicacion,
+        }),
+
+        soloEnSigti = r.SoloEnSigti.Select(d => new
+        {
+            asiento = d.Asiento.Id.ToString(),
+            origen = d.Asiento.Origen,
+            fechaDelHecho = d.Asiento.FechaDelHecho,
+            monto = d.Asiento.Monto,
+            referencia = d.Asiento.Referencia,
+            vehiculo = d.Asiento.Vehiculo?.ToString(),
+        }),
+    });
+});
+
+/// Los expedientes que las diferencias abrieron, ordenados por plazo — lo que alguien tiene
+/// que resolver antes de que el auditor lo encuentre primero.
+conciliacion.MapGet("/diferencias", async (ServicioDeConciliacionExterna servicio) =>
+    Results.Ok((await servicio.DiferenciasAbiertasAsync()).Select(d => new
+    {
+        id = d.Id.ToString(),
+        lado = d.Lado.ToString(),
+        fechaDelHecho = d.FechaDelHecho,
+        monto = d.Monto,
+        referencia = d.Referencia,
+        origen = d.Origen,
+        vehiculo = d.VehiculoId?.ToString(),
+        ancla = d.Ancla?.ToString(),
+        explicacion = d.Explicacion,
+        responsable = d.ResponsableDeSeguimiento,
+        plazo = d.Plazo,
+    })));
+
+conciliacion.MapGet("/ejecuciones", async (ServicioDeConciliacionExterna servicio) =>
+    Results.Ok((await servicio.EjecucionesAsync()).Select(e => new
+    {
+        id = e.Id.ToString(),
+        fuente = e.FuenteId.ToString(),
+        desde = e.Desde,
+        hasta = e.Hasta,
+        documentoFuente = e.DocumentoFuente,
+        fechaDeCorte = new DateTimeOffset(e.FechaDeCorteUtc, TimeSpan.Zero)
+            .ToOffset(TimeSpan.FromMinutes(e.DesfaseMinutos)),
+        ejecuta = e.Ejecuta,
+        coincidentes = e.Coincidentes,
+        soloEnLaFuente = e.SoloEnLaFuente,
+        soloEnSigti = e.SoloEnSigti,
+        sinResolver = e.Diferencias.Count(d => d.Resolucion == null),
+    })));
+
+conciliacion.MapPost("/diferencias/{id}/resolver", async (
+    string id, ResolverDiferencia peticion, ServicioDeConciliacionExterna servicio) =>
+{
+    await servicio.ResolverAsync(Ulid.Parse(id), peticion.Resolucion, peticion.Momento);
+    return Results.Ok(new { resuelta = true });
+});
 
 // ── M-18 Peajes ─────────────────────────────────────────────────────────────
 var peajes = app.MapGroup("/peajes");
@@ -2589,3 +2740,43 @@ internal sealed record DeclararDesvio(
     string Motivo,
     string Declara,
     string? IdDeCaptura = null);
+
+internal sealed record RegistrarFuente(
+    string Id,
+    TipoDeFuenteExterna Tipo,
+    string Emisor,
+    string Formato,
+    string Responsable,
+    bool Disponible,
+    int? PeriodicidadEnDias = null,
+    /// <summary>Obligatorio cuando no está disponible: «no disponible» ≠ «conciliada».</summary>
+    string? PorQueNoEstaDisponible = null);
+
+/// <summary>Una línea del estado de cuenta, tal como la emitió el proveedor.</summary>
+internal sealed record LineaDeclarada(
+    string Id,
+    /// <summary>Cuándo ocurrió, **no el período del estado de cuenta** (`RN-46`).</summary>
+    DateOnly FechaDelHecho,
+    decimal Monto,
+    string? Referencia = null,
+    string? Descripcion = null,
+    string? BienDelInventario = null,
+    string? Chasis = null,
+    string? Motor = null,
+    string? Correlativo = null,
+    string? Placa = null);
+
+internal sealed record EjecutarConciliacion(
+    string IdFuente,
+    DateOnly Desde,
+    DateOnly Hasta,
+    IReadOnlyList<LineaDeclarada> Lineas,
+    /// <summary>El archivo o documento del que salieron las líneas. **Obligatorio.**</summary>
+    string DocumentoFuente,
+    string Ejecuta,
+    string ResponsableDeSeguimiento,
+    DateOnly Plazo,
+    DateTimeOffset Momento,
+    int? ToleranciaEnDias = null);
+
+internal sealed record ResolverDiferencia(string Resolucion, DateTimeOffset Momento);

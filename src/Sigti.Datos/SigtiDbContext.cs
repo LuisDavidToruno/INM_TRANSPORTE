@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Sigti.Datos.M07_ProgramacionYDespacho;
 using Sigti.Datos.M09_Combustible;
+using Sigti.Datos.M14_Auditoria;
 using Sigti.Datos.M18_Peajes;
 using Sigti.Dominio.Bitacora;
 using Sigti.Dominio.M02_Parametros;
@@ -55,6 +56,14 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
         Set<FilaDeRutaAutorizada>();
 
     public DbSet<FilaDeDesvio> DesviosDeclarados => Set<FilaDeDesvio>();
+
+    // ── M-14 Auditoría ──────────────────────────────────────────────────────
+
+    public DbSet<FilaDeFuenteExterna> FuentesExternas => Set<FilaDeFuenteExterna>();
+
+    public DbSet<FilaDeEjecucion> EjecucionesDeConciliacion => Set<FilaDeEjecucion>();
+
+    public DbSet<FilaDeDiferencia> DiferenciasDeConciliacion => Set<FilaDeDiferencia>();
 
     public DbSet<FilaDeMovimientoDeExistencias> MovimientosDeExistencias =>
         Set<FilaDeMovimientoDeExistencias>();
@@ -242,6 +251,16 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             vehiculo.Property(v => v.Placa).HasMaxLength(16);
 
             vehiculo.Property(v => v.TipoDeVehiculo).HasMaxLength(80).IsRequired();
+
+            // Las anclas de `RN-66`. Indexadas las tres estables: la imputacion externa se
+            // resuelve por ellas antes que por placa, y se resuelve en cada conciliacion.
+            vehiculo.Property(v => v.BienDelInventario).HasMaxLength(64);
+            vehiculo.Property(v => v.Chasis).HasMaxLength(64);
+            vehiculo.Property(v => v.Motor).HasMaxLength(64);
+            vehiculo.Property(v => v.CorrelativoInstitucional).HasMaxLength(64);
+
+            vehiculo.HasIndex(v => v.BienDelInventario);
+            vehiculo.HasIndex(v => v.Chasis);
             vehiculo.Property(v => v.CapacidadDeTanqueGalones).HasColumnType("decimal(9,2)");
             vehiculo.Property(v => v.Clase).HasConversion<string>().HasMaxLength(32).IsRequired();
 
@@ -460,6 +479,71 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             levantamiento.HasIndex(l => new { l.MisionId, l.Responsable }).IsUnique();
 
             levantamiento.HasIndex(l => l.Responsable);
+        });
+
+        // ── M-14 Auditoria ──────────────────────────────────────────────────
+
+        modelo.Entity<FilaDeFuenteExterna>(fuente =>
+        {
+            fuente.ToTable("FuenteExterna", schema: "auditoria");
+
+            fuente.HasKey(f => f.Id);
+            fuente.Property(f => f.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            fuente.Property(f => f.Tipo).HasConversion<string>().HasMaxLength(40).IsRequired();
+            fuente.Property(f => f.Emisor).HasMaxLength(160).IsRequired();
+            fuente.Property(f => f.Formato).HasMaxLength(60).IsRequired();
+            fuente.Property(f => f.ResponsableDeLaCarga).HasMaxLength(64).IsRequired();
+            fuente.Property(f => f.PorQueNoEstaDisponible).HasMaxLength(500);
+        });
+
+        modelo.Entity<FilaDeEjecucion>(ejecucion =>
+        {
+            ejecucion.ToTable("EjecucionDeConciliacion", schema: "auditoria");
+
+            ejecucion.HasKey(e => e.Id);
+            ejecucion.Property(e => e.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            ejecucion.Property(e => e.FuenteId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+
+            // **Obligatorio.** `RN-95` punto 6: sin el documento fuente, una diferencia no se
+            // puede volver a comprobar contra el papel del que salio.
+            ejecucion.Property(e => e.DocumentoFuente).HasMaxLength(300).IsRequired();
+
+            ejecucion.Property(e => e.Ejecuta).HasMaxLength(64).IsRequired();
+
+            ejecucion.HasIndex(e => new { e.FuenteId, e.FechaDeCorteUtc });
+
+            ejecucion.HasMany(e => e.Diferencias)
+                .WithOne()
+                .HasForeignKey(d => d.EjecucionId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelo.Entity<FilaDeDiferencia>(diferencia =>
+        {
+            diferencia.ToTable("DiferenciaDeConciliacion", schema: "auditoria");
+
+            diferencia.HasKey(d => d.Id);
+            diferencia.Property(d => d.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            diferencia.Property(d => d.EjecucionId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            diferencia.Property(d => d.AsientoId).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+            diferencia.Property(d => d.VehiculoId).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+            diferencia.Property(d => d.Lado).HasConversion<string>().HasMaxLength(20).IsRequired();
+            diferencia.Property(d => d.Ancla).HasConversion<string>().HasMaxLength(40);
+            diferencia.Property(d => d.Monto).HasColumnType("decimal(18,2)");
+            diferencia.Property(d => d.Referencia).HasMaxLength(64);
+            diferencia.Property(d => d.LineaExterna).HasMaxLength(64);
+            diferencia.Property(d => d.Origen).HasMaxLength(60);
+            diferencia.Property(d => d.Explicacion).HasMaxLength(1000).IsRequired();
+            diferencia.Property(d => d.ResponsableDeSeguimiento).HasMaxLength(64);
+            diferencia.Property(d => d.Resolucion).HasMaxLength(1000);
+
+            // Lo abierto se consulta por vehiculo: es la pregunta de quien tiene que
+            // explicar una diferencia sobre su unidad.
+            diferencia.HasIndex(d => d.VehiculoId);
+
+            // Y el comprobante duplicado se busca por referencia entre delegaciones
+            // (`RN-84`, `RN-95` punto 3: la conciliacion cruza el alcance de datos).
+            diferencia.HasIndex(d => d.Referencia);
         });
 
         // ── M-18 Peajes ─────────────────────────────────────────────────────
