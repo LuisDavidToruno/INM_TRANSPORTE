@@ -323,9 +323,25 @@ function DialogoDeEstado({
 
   const operacion = useMutation({
     mutationFn: () => declararEstado(vehiculo.id, 'Rolando Discua', estado, motivo),
-    onSuccess: async () => {
-      avisar.exito(`${vehiculo.siglas} quedó ${(TEXTO_DE_ESTADO[estado] ?? estado).toLowerCase()}.`);
+    onSuccess: async (resultado) => {
+      // La advertencia gana al «quedó listo». Cuando el servidor no pudo verificar que el
+      // terminal corresponda —porque el vehículo no tiene título de tenencia— el asiento se
+      // hizo igual, y quien lo hizo tiene derecho a saber que `HB3-17` no lo juzgó.
+      if (resultado.advertencia) {
+        // Dura más que un éxito y no menos: quien acaba de dar de baja un vehículo tiene que
+        // alcanzar a leer que el sistema no verificó si ese era el terminal correcto.
+        avisar.alerta(resultado.advertencia, {
+          duracion: 15_000,
+          detalle: 'Se registró igual. Declare el título de tenencia para que se verifique.',
+        });
+      } else {
+        avisar.exito(
+          `${vehiculo.siglas} quedó ${(TEXTO_DE_ESTADO[estado] ?? estado).toLowerCase()}.`,
+        );
+      }
+
       await cliente.invalidateQueries({ queryKey: ['padron-flota'] });
+      await cliente.invalidateQueries({ queryKey: ['cobertura-titulos'] });
       onCerrar();
     },
     onError: (e) => {

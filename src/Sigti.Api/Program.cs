@@ -1571,6 +1571,58 @@ titulosDeTenencia.MapPost("/", async (
     return Results.Created($"/titulos/{id}", new { id = id.ToString() });
 });
 
+/// **La cobertura de titulos sobre la flota entera** — lo que contesta «cuantos controles estan
+/// apagados». Cada vehiculo sin titulo es RN-62 sin evaluar en ese vehiculo: no se contrasta la
+/// ventana de sus misiones contra ninguna vigencia, y el terminal correcto se advierte en vez de
+/// juzgarse.
+///
+/// Va en una sola pregunta y no una por vehiculo: el cliente no puede armar esta lista pidiendo
+/// /titulos/{vehiculo} en bucle sin decidir el «vigente a hoy» por su cuenta, y esa decision es
+/// del dominio.
+titulosDeTenencia.MapGet("/", async (
+    ConsultaDeFlota flota, ServicioDeTitulos servicio, EstadoDeLaFlota estados) =>
+{
+    var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+    var salida = new List<object>();
+
+    foreach (var v in await flota.TodosAsync())
+    {
+        var serie = await servicio.DelVehiculoAsync(v.Id);
+        var vigente = serie.FirstOrDefault(t => t.VigenteAl(hoy));
+        var estado = await estados.ActualAsync(v.Id);
+
+        salida.Add(new
+        {
+            vehiculo = v.Id.ToString(),
+            siglas = v.Siglas,
+            placa = v.Placa,
+            tipoDeVehiculo = v.TipoDeVehiculo,
+
+            // **Nulo es «no consta bajo que regimen lo tenemos»**, y eso no es «propio»: la
+            // suposicion comoda es justo la que produce el asiento falso que HB3-17 impide.
+            titulo = vigente is null ? null : ResumirTitulo(vigente),
+
+            // **«Nunca tuvo titulo» y «se le vencio» son cosas opuestas**, y sin este campo se
+            // ven iguales: las dos llegarian con `titulo` nulo. La primera es un dato de alta que
+            // nadie lleno; la segunda es un comodato corrido de plazo, con un bien ajeno que ya
+            // deberia haberse devuelto. Confundirlas esconde la segunda entre las primeras.
+            ultimo = serie.Count == 0 ? null : ResumirTitulo(serie[0]),
+
+            // Cuantos titulos tuvo en total. Mayor que uno significa que el regimen cambio, y
+            // que las misiones viejas se juzgan contra el que regia entonces.
+            enLaSerie = serie.Count,
+
+            // §10.2. **Un vehiculo en estado terminal ya no tiene ningun control que encender**:
+            // no se le va a programar nada y su salida de la flota ya ocurrio. Contarlo entre los
+            // que «faltan» inflaria el hueco con unidades que no lo son.
+            estado = estado?.ToString(),
+            fueraDeLaFlota = estado is EstadoOperativo.DadoDeBaja or EstadoOperativo.RetiradoDeFlota,
+        });
+    }
+
+    return Results.Ok(salida);
+});
+
 /// La serie de titulos del vehiculo. **Es una serie y no un campo**: un vehiculo que pasa de
 /// comodato a propiedad conserva el anterior, porque las misiones de ese periodo se hicieron bajo
 /// comodato y sus rubros los cubria el cedente.

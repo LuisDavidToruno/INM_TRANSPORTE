@@ -405,6 +405,81 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## El panel de títulos de tenencia, y un defecto del sistema de diseño
+
+**RESUELTO.** `RN-62` ya se puede cargar y mirar desde la oficina: `/titulos`, dentro de M-03,
+pegado al padrón porque es la respuesta a «¿es nuestro?» y de ella cuelga cuál de los dos
+terminales ofrece el propio padrón al dar de baja.
+
+### La pantalla contesta cobertura, no lista
+
+La pregunta no es «qué títulos hay» sino **cuántos controles están apagados**. Mientras un
+vehículo no tenga título el sistema advierte y deja pasar, así que cada uno sin él es
+`RN-62` sin evaluar en esa unidad — y un control apagado que nadie ve es indistinguible de uno
+que nunca hizo falta. Los avisos de cabecera **nombran qué deja de evaluarse**, no dicen
+«faltan datos».
+
+### Tres situaciones que se veían iguales y no lo son
+
+| Situación | Qué exige |
+|---|---|
+| **Nunca tuvo título** | Llenar un dato de alta |
+| **Título vencido** | Recuperar un bien ajeno que ya debía volver |
+| **Vence pronto** | Renovar antes de que frene la próxima misión |
+
+⚠️ Las dos primeras **llegaban idénticas del servidor**: las dos sin título vigente. Se agregó
+`ultimo` —el más reciente, esté vigente o no— porque sin él el comodato corrido de plazo queda
+escondido entre los vehículos a los que sólo les falta un dato de alta, que es exactamente el
+que hay que ver. Va con prueba propia.
+
+**Y una cuarta que no es un hueco:** el vehículo ya dado de baja o retirado. No le queda
+ningún control que encender —no se le va a programar nada y su terminal ya ocurrió—, así que
+no cuenta en el conteo ni se le ofrece registrar. Contarlo inflaría el número justo hasta
+volverlo inservible para decidir por dónde empezar. Lo decide el servidor (`fueraDeLaFlota`),
+como `inutilizable` en el cronograma: la lista de terminales es de §10.2 y duplicarla en el
+cliente la dejaría divergir.
+
+### ⚠️ El sistema de diseño escondía los bloqueos duros
+
+**`Modal` es un `<dialog>` abierto con `showModal()`, que va a la capa superior del navegador
+y se pinta encima de todo `z-index`** — incluido el 999999999 de sonner. Un `avisar.*`
+disparado con un modal abierto quedaba **debajo del modal, invisible**.
+
+El efecto era peor que un problema de pintura, y es la parte que importa: **el éxito se veía
+y el bloqueo no.** El éxito cierra el modal, así que el aviso aparecía; el bloqueo lo deja
+abierto, así que no. Quien apretaba «Guardar» sobre una precondición incumplida veía que no
+pasaba nada, y el motivo del rechazo aparecía recién si se rendía y cancelaba.
+
+**Alcanzaba a siete pantallas**, todas las que muestran un 409 desde dentro de un modal:
+`Padron`, `Titulos`, `Expediente` de autorización, `Cola` de programación, `Fondos`,
+`PanelDeAbastecimientos` y `PanelDeVales`.
+
+Arreglado en `avisos.tsx`, en un solo lugar: la capa de avisos es un `popover`, que también
+vive en la capa superior. Lo que **no** funcionó, medido en vivo y por eso vale anotarlo:
+
+- Promover al montar. La capa superior se ordena por **orden de entrada**, y el modal se abre
+  después.
+- Promover desde `avisar.*`. Corre **antes** de que sonner monte el nodo del aviso, y el aviso
+  seguía debajo. Un cuadro después tampoco alcanza.
+- Registrar la función de promoción desde el efecto en una variable de módulo: la referencia
+  terminaba en el sustituto vacío.
+
+Lo que sí: **promover cuando el nodo del aviso entra al DOM**, con un `MutationObserver` sobre
+la capa. Se probó un `setTimeout` de 500 ms —funcionaba— y se descartó: es la duración de una
+animación disfrazada de constante, y el día que cambie vuelve a fallar en silencio.
+
+### Dos cosas más que salieron de mirar la pantalla
+
+**`declararEstado` tiraba la advertencia a la basura.** Devolvía `Promise<void>` y el servidor
+venía diciendo que no pudo verificar si el terminal correspondía. Ahora el padrón la muestra,
+**gana al «quedó listo»** y dura 15 segundos: quien acaba de dar de baja un vehículo tiene que
+alcanzar a leer que `HB3-17` no juzgó.
+
+**Los siete rubros arrancan en «sin pactar», no en «la institución».** Suponer que pagamos
+nosotros es exactamente la conclusión que hay que dejar en manos de quien llena el formulario.
+
+---
+
 ## `RN-62` — el título de tenencia (M-03)
 
 **RESUELTA.** Era el insumo #100, y era lo que le faltaba a la corrección `HB3-17` para operar:

@@ -303,14 +303,27 @@ export const ESTADOS_DECLARABLES: { valor: string; texto: string; terminal: bool
   { valor: 'RetiradoDeFlota', texto: 'Retirado de flota — fin de tenencia de un bien ajeno', terminal: true },
 ];
 
-export const declararEstado = async (
+/**
+ * Lo que el servidor contesta al declarar un estado.
+ *
+ * <b>La advertencia no es decoración y no se descarta.</b> Es lo que dice que `HB3-17` no pudo
+ * juzgar si el terminal corresponde —porque el vehículo no tiene título de tenencia— y por eso
+ * dejó pasar el asiento. Perderla convierte un control apagado en una operación que salió bien.
+ */
+export interface EstadoDeclarado {
+  id: string;
+  estado: string;
+  /** <b>Nula</b> significa que se verificó y estaba correcto, no que no se verificó. */
+  advertencia: string | null;
+}
+
+export const declararEstado = (
   id: string,
   ejecuta: string,
   estado: string,
   motivo: string,
-): Promise<void> => {
-  await pedir(`/flota/${id}/estado`, {
+): Promise<EstadoDeclarado> =>
+  pedir<EstadoDeclarado>(`/flota/${id}/estado`, {
     method: 'POST',
     body: JSON.stringify({ ejecuta, estado, motivo, momento: new Date().toISOString() }),
   });
-};

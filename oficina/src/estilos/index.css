@@ -1454,6 +1454,35 @@
     background: var(--aviso-fg);
   }
 
+  /* ── Capa de avisos ──────────────────────────────────────────────────────────
+     El contenedor de los avisos es un `popover`, para que caiga en la capa superior
+     del navegador y se pinte por encima del `<dialog>` de `.loki-dlg`. Sin esto un
+     bloqueo duro disparado con un modal abierto queda debajo, invisible.
+
+     Todo lo de acá deshace lo que el navegador le pone de oficio a un popover —caja
+     centrada, borde, fondo, recorte— y lo devuelve a ser una capa transparente que
+     no intercepta el puntero. */
+  .loki-capa-avisos,
+  .loki-capa-avisos:popover-open {
+    position: fixed;
+    inset: 0;
+    width: auto;
+    height: auto;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    overflow: visible;
+    color: inherit;
+    /* La capa cubre la pantalla entera: si atrapara clics dejaría la aplicación muerta. */
+    pointer-events: none;
+  }
+  /* El aviso sí se puede cerrar y accionar. */
+  .loki-capa-avisos [data-sonner-toast] { pointer-events: auto; }
+  .loki-capa-avisos::backdrop { background: transparent; }
+
   /* ── Modal ───────────────────────────────────────────────────────────────────
      `.dlg`: 512px, o 680 en la variante ancha. En móvil se ancla abajo como hoja. */
   .loki-dlg {

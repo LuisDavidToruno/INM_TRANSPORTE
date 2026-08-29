@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins } from 'lucide-react';
+import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText } from 'lucide-react';
 
 import { Avisos, Nota, Shell, avisar } from '../ui';
 import type { GrupoNav, Miga } from '../ui';
@@ -19,6 +19,7 @@ import Cola from '../modulos/M07_Programacion/Cola';
 import Tablero from '../modulos/M07_Programacion/Tablero';
 import Padron from '../modulos/M03_Flota/Padron';
 import PrestamosPantalla from '../modulos/M03_Flota/Prestamos';
+import Titulos from '../modulos/M03_Flota/Titulos';
 import Fondos from '../modulos/M09_Combustible/Fondos';
 import Peajes from '../modulos/M18_Peajes/Peajes';
 import Conciliacion from '../modulos/M14_Auditoria/Conciliacion';
@@ -93,6 +94,9 @@ function Interior(): ReactElement {
       titulo: 'M-03 Flota vehicular',
       items: [
         { texto: 'Padrón de flota', icono: <Truck />, href: '/flota' },
+        // Los títulos van pegados al padrón: son la respuesta a «¿es nuestro?», y de ella
+        // cuelga cuál de los dos terminales ofrece el propio padrón al dar de baja.
+        { texto: 'Títulos de tenencia', icono: <ScrollText />, href: '/titulos' },
         { texto: 'Préstamos', icono: <HandCoins />, href: '/prestamos' },
       ],
     },
@@ -182,6 +186,7 @@ function Interior(): ReactElement {
         <Route path="/autorizacion" element={<Bandeja />} />
         <Route path="/autorizacion/:id" element={<Expediente />} />
         <Route path="/flota" element={<Padron />} />
+        <Route path="/titulos" element={<Titulos />} />
         <Route path="/prestamos" element={<PrestamosPantalla />} />
         <Route path="/combustible" element={<Fondos />} />
         <Route path="/peajes" element={<Peajes />} />
@@ -218,6 +223,7 @@ function migasDe(ruta: string): Miga[] {
   if (ruta === '/programacion') return ['Programación'];
   if (ruta === '/despacho') return ['Despacho'];
   if (ruta === '/flota') return ['Flota'];
+  if (ruta === '/titulos') return ['Flota', 'Títulos de tenencia'];
   if (ruta === '/prestamos') return ['Flota', 'Préstamos'];
   if (ruta === '/combustible') return ['Combustible'];
   if (ruta === '/conciliacion') return ['Auditoría', 'Fuentes externas'];

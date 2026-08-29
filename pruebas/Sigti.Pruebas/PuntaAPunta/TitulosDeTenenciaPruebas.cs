@@ -264,6 +264,79 @@ public class TitulosDeTenenciaPruebas(BaseDePruebas baseDePruebas)
             titulo.GetProperty("rubrosSinPactar").EnumerateArray().Select(x => x.GetString()));
     }
 
+    /// <summary>
+    /// La cobertura sobre la flota — lo que contesta <b>cuántos controles están apagados</b>.
+    ///
+    /// ── Lo que esta prueba defiende ─────────────────────────────────────────
+    /// <b>«Nunca tuvo título» y «se le venció» llegan las dos sin título vigente</b>, y son
+    /// cosas opuestas: la primera es un dato de alta que nadie llenó; la segunda es un bien
+    /// ajeno que ya debía haberse devuelto. Sin `ultimo` se ven iguales, y la que hay que
+    /// ver queda escondida entre las que no.
+    /// </summary>
+    [Fact]
+    public async Task La_cobertura_distingue_al_que_nunca_tuvo_del_que_se_le_vencio()
+    {
+        var sinNada = await Sembrar("TT-0008");
+        var vencido = await Sembrar("TT-0009");
+        var afuera = await Sembrar("TT-0010");
+
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        // Un comodato que terminó el año pasado: hoy no rige ninguno.
+        await Post(cliente, "/titulos", Cuerpo(
+            vencido.Vehiculo, "Comodato", new DateOnly(2025, 1, 1), new DateOnly(2025, 12, 31)));
+
+        // Y una unidad que ya salió de la flota, también sin título.
+        await Declarar(cliente, afuera.Vehiculo, "NoDisponible", "Baja por obsolescencia");
+        await Declarar(cliente, afuera.Vehiculo, "DadoDeBaja", "Acta de descargo 2026-20");
+
+        var cobertura = (await Leer(cliente, "/titulos")).EnumerateArray()
+            .ToDictionary(v => v.GetProperty("vehiculo").GetString()!);
+
+        // Ninguno de los tres tiene título vigente…
+        Assert.True(cobertura[sinNada.Vehiculo].GetProperty("titulo").ValueKind is JsonValueKind.Null);
+        Assert.True(cobertura[vencido.Vehiculo].GetProperty("titulo").ValueKind is JsonValueKind.Null);
+
+        // …y sin embargo NO son lo mismo.
+        Assert.True(cobertura[sinNada.Vehiculo].GetProperty("ultimo").ValueKind is JsonValueKind.Null);
+        Assert.Equal("Comodato",
+            cobertura[vencido.Vehiculo].GetProperty("ultimo").GetProperty("regimen").GetString());
+
+        // Y el que salió de la flota no cuenta como hueco: no le queda control que encender.
+        Assert.False(cobertura[sinNada.Vehiculo].GetProperty("fueraDeLaFlota").GetBoolean());
+        Assert.True(cobertura[afuera.Vehiculo].GetProperty("fueraDeLaFlota").GetBoolean());
+    }
+
+    /// <summary>
+    /// De la serie manda <b>el que rige hoy</b>, no el último registrado. Un vehículo que va a
+    /// pasar a propiedad el mes que viene sigue siendo ajeno hasta ese día.
+    /// </summary>
+    [Fact]
+    public async Task La_cobertura_muestra_el_titulo_que_rige_hoy_y_no_el_ultimo_cargado()
+    {
+        var r = await Sembrar("TT-0011");
+
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+
+        await Post(cliente, "/titulos", Cuerpo(
+            r.Vehiculo, "Comodato", hoy.AddYears(-1), hoy.AddMonths(1)));
+
+        // La propiedad empieza cuando termina el comodato: hoy todavía no rige.
+        await Post(cliente, "/titulos", Cuerpo(
+            r.Vehiculo, "Propiedad", hoy.AddMonths(1).AddDays(1), null));
+
+        var fila = (await Leer(cliente, "/titulos")).EnumerateArray()
+            .Single(v => v.GetProperty("vehiculo").GetString() == r.Vehiculo);
+
+        Assert.Equal("Comodato", fila.GetProperty("titulo").GetProperty("regimen").GetString());
+        Assert.False(fila.GetProperty("titulo").GetProperty("esBienPropio").GetBoolean());
+        Assert.Equal(2, fila.GetProperty("enLaSerie").GetInt32());
+    }
+
     // ── Andamio ─────────────────────────────────────────────────────────────
 
     private static object Cuerpo(
