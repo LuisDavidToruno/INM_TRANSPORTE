@@ -190,6 +190,12 @@ internal static class FlotaSembrada
         PesoBrutoKg = kg,
         CapacidadPasajeros = pasajeros,
         LlevaRemolque = remolque,
+
+        // La capacidad del tanque, para que las lecturas del indicador en fracción se puedan
+        // convertir a galones. Sin ella el remanente de `RN-83` no se separa del consumo, y
+        // las pruebas de conciliación ejercerían siempre la rama de «no calculable».
+        CapacidadDeTanqueGalones = 60m,
+
         // Documentación al día: estas pruebas ejercen `BD-02`, no `BD-03`. Las de `BD-03`
         // siembran su propio vehículo con la fecha que necesitan.
         VenceMatricula = new DateOnly(2030, 12, 31),

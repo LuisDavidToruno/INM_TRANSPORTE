@@ -217,7 +217,24 @@ export interface DictamenDeConciliacion {
     | 'RendimientoImposible';
   esHallazgo: boolean;
   kilometros: number;
+  /** Todo lo que **entró al tanque**, de cualquier fuente. */
+  abastecidos: number;
+  /**
+   * Lo que la misión **quemó**: lo abastecido menos el remanente que quedó en el tanque.
+   * <b>Es el denominador del rendimiento.</b>
+   */
   galones: number;
+  /**
+   * Cuánto quedó —o faltó— en el tanque respecto de como salió.
+   *
+   * Nulo cuando ni se intentó calcular. Dentro, `galones` nulo es **«no se pudo»**, y no
+   * cero: un cero diría que el tanque volvió exacto.
+   */
+  remanente: {
+    galones: number | null;
+    calculable: boolean;
+    explicacion: string;
+  } | null;
   /** Nulo cuando no se pudo calcular. **No es cero**: es que no hubo con qué dividir. */
   observado: number | null;
   esperado: {

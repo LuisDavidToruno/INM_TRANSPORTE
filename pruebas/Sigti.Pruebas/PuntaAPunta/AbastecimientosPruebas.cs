@@ -336,6 +336,135 @@ public class AbastecimientosPruebas(BaseDePruebas baseDePruebas)
         Assert.Contains("NO CONSIGNADO", retorno.GetProperty("motivo").GetString());
     }
 
+    [Fact]
+    public async Task El_tanque_que_vuelve_SERVIDO_no_se_cuenta_como_consumo_de_esta_mision()
+    {
+        // **El caso que `CE-07` describe.** El vehículo sale a un cuarto de tanque, carga 60
+        // galones y vuelve con tres cuartos: 30 de esos galones siguen en el tanque y no los
+        // gastó esta misión. Contarlos la haría aparecer consumiendo el doble.
+        //
+        // «Lo que no puede pasar es que un tanque lleno pagado con fondo de esta misión
+        // desaparezca del expediente.»
+        var r = await Sembrar("RM-0001");
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        var (mision, vale) = await MisionEnRuta(cliente, r, nivelDeSalida: 0.25m);
+
+        await Post(cliente, $"/combustible/{vale}/consumo", new
+        {
+            Ejecuta = "P-MOTORISTA", Galones = 60m, Monto = 2_400m,
+            Estacion = "Estación Uno", Odometro = 84_100, Comprobante = "F-1",
+            Momento = EnRuta,
+        });
+
+        await Post(cliente, $"/misiones/{mision}/retornar", new
+        {
+            Ejecuta = "P-MOTORISTA", Momento, Odometro = 84_600,
+            NivelDeTanque = 0.75m, EscalaDelNivel = "FraccionDelIndicador",
+        });
+
+        await Post(cliente, $"/combustible/{vale}/liquidar", new
+        {
+            Ejecuta = "P-CONTABILIDAD", SaldoDevuelto = 100m,
+            Observacion = (string?)null, Momento,
+        });
+
+        var c = await cliente.GetFromJsonAsync<JsonElement>($"/combustible/{vale}/conciliacion");
+
+        // Entraron 60 galones al tanque…
+        Assert.Equal(60m, c.GetProperty("abastecidos").GetDecimal());
+
+        // …y la misión quemó 30: medio tanque de sesenta galones quedó adentro.
+        Assert.Equal(30m, c.GetProperty("galones").GetDecimal());
+
+        var remanente = c.GetProperty("remanente");
+        Assert.True(remanente.GetProperty("calculable").GetBoolean());
+        Assert.Equal(30m, remanente.GetProperty("galones").GetDecimal());
+        Assert.Contains("no los gastó esta misión", remanente.GetProperty("explicacion").GetString());
+    }
+
+    [Fact]
+    public async Task Salir_lleno_y_volver_casi_vacio_hace_que_el_consumo_SUPERE_lo_cargado()
+    {
+        // `RN-30` lo nombra: «el problema aparece cuando sale lleno y retorna vacío: los galones
+        // consumidos exceden a los cargados». Sin el nivel, ese exceso no se ve.
+        var r = await Sembrar("RM-0002");
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        var (mision, vale) = await MisionEnRuta(cliente, r, nivelDeSalida: 1m);
+
+        await Post(cliente, $"/combustible/{vale}/consumo", new
+        {
+            Ejecuta = "P-MOTORISTA", Galones = 20m, Monto = 800m,
+            Estacion = "Estación Uno", Odometro = 84_100, Comprobante = "F-1",
+            Momento = EnRuta,
+        });
+
+        await Post(cliente, $"/misiones/{mision}/retornar", new
+        {
+            Ejecuta = "P-MOTORISTA", Momento, Odometro = 84_900,
+            NivelDeTanque = 0.25m, EscalaDelNivel = "FraccionDelIndicador",
+        });
+
+        await Post(cliente, $"/combustible/{vale}/liquidar", new
+        {
+            Ejecuta = "P-CONTABILIDAD", SaldoDevuelto = 1_700m,
+            Observacion = (string?)null, Momento,
+        });
+
+        var c = await cliente.GetFromJsonAsync<JsonElement>($"/combustible/{vale}/conciliacion");
+
+        // Cargó 20 y además quemó 45 que llevaba: perdió tres cuartos de un tanque de sesenta.
+        Assert.Equal(20m, c.GetProperty("abastecidos").GetDecimal());
+        Assert.Equal(65m, c.GetProperty("galones").GetDecimal());
+
+        Assert.Contains("ya estaba en el tanque",
+            c.GetProperty("remanente").GetProperty("explicacion").GetString());
+    }
+
+    [Fact]
+    public async Task Sin_el_nivel_al_retorno_el_remanente_NO_se_estima()
+    {
+        // `RN-80`. El consumido iguala a lo abastecido porque es lo mejor que se puede afirmar,
+        // y **la evidencia dice que no es lo mismo que un remanente de cero**.
+        var r = await Sembrar("RM-0003");
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        var (mision, vale) = await MisionEnRuta(cliente, r, nivelDeSalida: 1m);
+
+        await Post(cliente, $"/combustible/{vale}/consumo", new
+        {
+            Ejecuta = "P-MOTORISTA", Galones = 40m, Monto = 1_600m,
+            Estacion = "Estación Uno", Odometro = 84_100, Comprobante = "F-1",
+            Momento = EnRuta,
+        });
+
+        await Post(cliente, $"/misiones/{mision}/retornar", new
+        {
+            Ejecuta = "P-MOTORISTA", Momento, Odometro = 84_900,
+            TanqueNoConsignado = "El indicador está averiado.",
+        });
+
+        await Post(cliente, $"/combustible/{vale}/liquidar", new
+        {
+            Ejecuta = "P-CONTABILIDAD", SaldoDevuelto = 900m,
+            Observacion = (string?)null, Momento,
+        });
+
+        var c = await cliente.GetFromJsonAsync<JsonElement>($"/combustible/{vale}/conciliacion");
+
+        Assert.Equal(40m, c.GetProperty("abastecidos").GetDecimal());
+        Assert.Equal(40m, c.GetProperty("galones").GetDecimal());
+
+        var remanente = c.GetProperty("remanente");
+        Assert.False(remanente.GetProperty("calculable").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, remanente.GetProperty("galones").ValueKind);
+        Assert.Contains("prohíbe estimarlo", remanente.GetProperty("explicacion").GetString());
+    }
+
     // ── Andamio ─────────────────────────────────────────────────────────────
 
     private async Task<FlotaSembrada.ParaProgramar> Sembrar(string prefijo)

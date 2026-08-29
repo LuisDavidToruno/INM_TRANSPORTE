@@ -52,6 +52,15 @@ public sealed class FilaDeVehiculo
     /// </summary>
     public required bool LlevaRemolque { get; init; }
 
+    /// <summary>
+    /// Cuánto le cabe al tanque, en galones. <b>Dato del fabricante</b>, no de la institución.
+    ///
+    /// Nula cuando no se ha cargado, y entonces las lecturas del indicador en fracción no se
+    /// pueden convertir a galones: un octavo <b>no es una cantidad</b> hasta saber de qué
+    /// tanque, y sin la conversión el remanente de `RN-83` no se separa del consumo.
+    /// </summary>
+    public decimal? CapacidadDeTanqueGalones { get; init; }
+
     /// <summary>Bloqueante — [`RN-103`]. La institución puede renovarla; es trámite propio.</summary>
     public required DateOnly VenceMatricula { get; init; }
 
@@ -100,7 +109,8 @@ public sealed class FilaDeVehiculo
 
     /// <summary>La ficha técnica que `BD-02` necesita, armada desde las columnas.</summary>
     public FichaTecnica Ficha() =>
-        new(TipoDeVehiculo, Clase, PesoBrutoKg, CapacidadPasajeros, LlevaRemolque);
+        new(TipoDeVehiculo, Clase, PesoBrutoKg, CapacidadPasajeros, LlevaRemolque,
+            CapacidadDeTanqueGalones);
 
     /// <summary>La documentación que `BD-03` evalúa. <b>Con fechas reales.</b></summary>
     public DocumentacionDelVehiculo Documentacion() => new()

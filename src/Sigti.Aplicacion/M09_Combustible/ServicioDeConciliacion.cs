@@ -3,6 +3,7 @@ using Sigti.Aplicacion.M02_Parametros;
 using Sigti.Datos;
 using Sigti.Datos.M07_ProgramacionYDespacho;
 using Sigti.Datos.M09_Combustible;
+using Sigti.Aplicacion.M03_Flota;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
 using Sigti.Dominio.M09_Combustible;
 using Sigti.Aplicacion.M07_ProgramacionYDespacho;
@@ -30,6 +31,7 @@ public sealed class ServicioDeConciliacion(
     private readonly CombustibleDeLaInstitucion _combustible = new(contexto);
     private readonly ExpedientesDeMision _expedientes = new(contexto);
     private readonly AbastecimientosDeLaFlota _abastecimientos = new(contexto);
+    private readonly ConsultaDeFlota _flota = new(contexto);
 
     /// <summary>
     /// Calcula, sin escribir nada. Se puede llamar para <b>mostrar</b> el dictamen antes de
@@ -74,13 +76,25 @@ public sealed class ServicioDeConciliacion(
             .GroupBy(a => a.Fuente)
             .ToDictionary(g => g.Key, g => g.Sum(a => a.Galones));
 
+        // **El remanente se separa del consumo** — `RN-83` punto 3 y `CE-07`. Sin esta resta,
+        // un vehículo que vuelve con el tanque servido aparece consumiendo de más, de un
+        // combustible que sigue en el tanque a la vista de cualquiera que abra la tapa.
+        var (salida, retorno) = expediente.NivelesDelTanque;
+
+        var capacidad = vehiculo is { } idVehiculo
+            ? (await _flota.PorIdAsync(idVehiculo, cancelacion))?.Ficha().CapacidadDeTanqueGalones
+            : null;
+
+        var remanente = ReglasDelRemanente.Calcular(salida, retorno, capacidad);
+
         return ReglasDeConciliacion.Evaluar(
             kilometros,
             galones,
             esperado,
             parametros.UmbralesVigentesAl(fecha),
             ConNivelDeTanque(expediente, reparos),
-            composicion);
+            composicion,
+            remanente);
     }
 
     /// <summary>

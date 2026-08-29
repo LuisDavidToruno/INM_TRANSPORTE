@@ -210,6 +210,7 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             vehiculo.Property(v => v.Placa).HasMaxLength(16);
 
             vehiculo.Property(v => v.TipoDeVehiculo).HasMaxLength(80).IsRequired();
+            vehiculo.Property(v => v.CapacidadDeTanqueGalones).HasColumnType("decimal(9,2)");
             vehiculo.Property(v => v.Clase).HasConversion<string>().HasMaxLength(32).IsRequired();
 
             // Encontrar lo que vence pronto es lo que sostiene RN-17, y sin indice eso

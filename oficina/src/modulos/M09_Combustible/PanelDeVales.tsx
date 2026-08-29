@@ -1085,6 +1085,12 @@ function DictamenVista({
 
       <div className="tw:flex tw:flex-wrap tw:gap-x-5 tw:gap-y-1 tw:text-xs tw:text-tinta-mid">
         <span>{d.kilometros.toLocaleString('es-HN')} km recorridos</span>
+        {/* Las dos cifras cuando difieren. Mostrar sólo la consumida escondería que parte
+            de lo abastecido sigue en el tanque; mostrar sólo la abastecida haría que el
+            vehículo pareciera consumir de más. */}
+        {d.abastecidos !== d.galones && (
+          <span>{enGalones(d.abastecidos)} abastecidos</span>
+        )}
         <span>{enGalones(d.galones)} consumidos</span>
         {d.esperado && (
           <span>
@@ -1106,6 +1112,18 @@ function DictamenVista({
           vehículo consigo mismo: si el desvío es constante desde siempre, la media ya lo
           incorporó.
         </Nota>
+      )}
+
+      {/* El remanente, cuando se intentó calcular. `CE-07`: lo que no puede pasar es que un
+          tanque lleno pagado con fondo de esta misión desaparezca del expediente. */}
+      {d.remanente !== null && (
+        <p
+          className={`tw:text-xs ${
+            d.remanente.calculable ? 'tw:text-tinta-mid' : 'tw:text-aviso-fg'
+          }`}
+        >
+          <b>Remanente en tanque:</b> {d.remanente.explicacion}
+        </p>
       )}
 
       {d.dictamen === 'NoEvaluable' && (

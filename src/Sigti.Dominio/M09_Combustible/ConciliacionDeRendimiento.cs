@@ -116,15 +116,33 @@ public sealed record ReparosDelCalculo(
 /// desglosar, y porque sirve <b>aunque el dictamen sea `NoEvaluable`</b>: que no haya contra
 /// qué comparar no borra de dónde salió cada galón.
 /// </param>
+/// <param name="GalonesAbastecidos">
+/// Todo lo que <b>entró al tanque</b>, de cualquier fuente (`RN-83`).
+/// </param>
+/// <param name="GalonesConsumidos">
+/// Lo que la misión <b>quemó</b>: lo abastecido menos el remanente que quedó en el tanque
+/// (`CE-07`). <b>Es el denominador del rendimiento</b> — usar lo abastecido haría que un
+/// vehículo que vuelve con el tanque servido apareciera consumiendo de más.
+///
+/// Iguala a lo abastecido cuando el remanente no se pudo calcular, y entonces la evidencia
+/// lo dice: no es lo mismo que un remanente de cero.
+/// </param>
 public sealed record Conciliacion(
     DictamenDeConciliacion Dictamen,
     int KilometrosRecorridos,
+    decimal GalonesAbastecidos,
     decimal GalonesConsumidos,
     decimal? RendimientoObservado,
     RendimientoEsperado? Esperado,
     decimal? Desviacion,
     string Evidencia,
-    IReadOnlyDictionary<FuenteDeAbastecimiento, decimal>? Composicion = null)
+    IReadOnlyDictionary<FuenteDeAbastecimiento, decimal>? Composicion = null,
+    /// <summary>
+    /// Cuánto quedó —o faltó— en el tanque. <b>Nulo cuando no se pudo calcular</b>, y su
+    /// explicación dice por qué: un remanente ausente sin razón se lee como un tanque que no
+    /// se movió, y son cosas distintas.
+    /// </summary>
+    Remanente? Remanente = null)
 {
     /// <summary>
     /// Si esto obliga a cerrar la misión con hallazgo. <b>`NoEvaluable` no lo hace</b> — no se
@@ -169,33 +187,50 @@ public static class ReglasDeConciliacion
     /// Nulo cuando la institución no lo fijó y no hay histórico del que proponerlo. <b>Nulo no
     /// es cero ni es conforme</b>: es que no hay contra qué comparar.
     /// </param>
+    /// <param name="galonesAbastecidos">
+    /// Todo lo que entró al tanque, de cualquier fuente (`RN-83`).
+    /// </param>
+    /// <param name="remanente">
+    /// Lo que quedó —o faltó— en el tanque respecto de como salió (`CE-07`). <b>Se resta</b>
+    /// para obtener lo que la misión quemó: usar lo abastecido haría que un vehículo que vuelve
+    /// con el tanque servido apareciera consumiendo de más, de un combustible que sigue ahí.
+    /// </param>
     public static Conciliacion Evaluar(
         int kilometrosRecorridos,
-        decimal galonesConsumidos,
+        decimal galonesAbastecidos,
         RendimientoEsperado? esperado,
         UmbralesDeDesviacion? umbrales,
         ReparosDelCalculo? reparos = null,
-        IReadOnlyDictionary<FuenteDeAbastecimiento, decimal>? composicion = null)
+        IReadOnlyDictionary<FuenteDeAbastecimiento, decimal>? composicion = null,
+        Remanente? remanente = null)
     {
         reparos ??= new ReparosDelCalculo();
 
+        var galonesConsumidos = remanente is null
+            ? galonesAbastecidos
+            : ReglasDelRemanente.ConsumidoPorLaMision(galonesAbastecidos, remanente);
+
         if (kilometrosRecorridos <= 0)
-            return NoEvaluable(kilometrosRecorridos, galonesConsumidos, esperado, composicion,
+            return NoEvaluable(kilometrosRecorridos, galonesAbastecidos, galonesConsumidos, esperado,
+                composicion, remanente,
                 "sin kilómetros recorridos: no hay recorrido que dividir");
 
         if (galonesConsumidos <= 0)
             // Es el caso normal de la misión que salió con el tanque lleno y no cargó. No es un
             // defecto: es que esta misión no tiene consumo que conciliar.
-            return NoEvaluable(kilometrosRecorridos, galonesConsumidos, esperado, composicion,
+            return NoEvaluable(kilometrosRecorridos, galonesAbastecidos, galonesConsumidos, esperado,
+                composicion, remanente,
                 "sin galones consumidos: la misión no cargó combustible");
 
         if (esperado is null)
-            return NoEvaluable(kilometrosRecorridos, galonesConsumidos, esperado, composicion,
+            return NoEvaluable(kilometrosRecorridos, galonesAbastecidos, galonesConsumidos, esperado,
+                composicion, remanente,
                 "NO hay rendimiento esperado para este vehículo. La institución no lo ha fijado " +
                 "y no hay histórico del que proponerlo, así que no hay contra qué comparar");
 
         if (umbrales is null)
-            return NoEvaluable(kilometrosRecorridos, galonesConsumidos, esperado, composicion,
+            return NoEvaluable(kilometrosRecorridos, galonesAbastecidos, galonesConsumidos, esperado,
+                composicion, remanente,
                 "NO hay umbrales de desviación cargados. Sin ellos cualquier diferencia sería " +
                 "hallazgo o ninguna lo sería, y las dos cosas son falsas");
 
@@ -206,26 +241,29 @@ public static class ReglasDeConciliacion
             $"{kilometrosRecorridos:N0} km / {galonesConsumidos:N2} gal = {observado:N2} km/gal " +
             $"contra {esperado.KmPorGalon:N2} esperado ({Etiqueta(esperado.Origen)}, " +
             $"{esperado.Version}) · desviación {desviacion:P1}" +
-            Composicion(composicion);
+            Composicion(composicion) +
+            TextoDelRemanente(remanente);
 
         // Los reparos se evalúan DESPUÉS de calcular, no antes: `RN-30` manda conservar el
         // cálculo para el análisis agregado, «que sí es válido». Descartarlo perdería el dato
         // justo donde el patrón se ve.
         if (reparos.OdometroAveriado)
             return new Conciliacion(
-                DictamenDeConciliacion.NoConcluyente, kilometrosRecorridos, galonesConsumidos,
+                DictamenDeConciliacion.NoConcluyente, kilometrosRecorridos,
+                galonesAbastecidos, galonesConsumidos,
                 observado, esperado, desviacion,
                 $"{cuentas} · NO CONCLUYENTE: el odómetro está intervenido o averiado (`RN-90`), " +
                 "así que su lectura no divide nada. Se conserva para el análisis agregado",
-                Composicion: composicion);
+                Composicion: composicion, Remanente: remanente);
 
         if (reparos.NivelDeTanqueDispar)
             return new Conciliacion(
-                DictamenDeConciliacion.NoConcluyente, kilometrosRecorridos, galonesConsumidos,
+                DictamenDeConciliacion.NoConcluyente, kilometrosRecorridos,
+                galonesAbastecidos, galonesConsumidos,
                 observado, esperado, desviacion,
                 $"{cuentas} · NO CONCLUYENTE: el nivel del tanque a la salida y al retorno es muy " +
                 "distinto, así que los galones consumidos no son los cargados",
-                Composicion: composicion);
+                Composicion: composicion, Remanente: remanente);
 
         if (desviacion < -umbrales.ToleranciaInferior)
         {
@@ -233,33 +271,37 @@ public static class ReglasDeConciliacion
                 // `RN-30`: «una desviación con espera prolongada registrada no produce hallazgo
                 // por sí sola. Sin esa medición, el hallazgo sería infundado.»
                 return new Conciliacion(
-                    DictamenDeConciliacion.NoConcluyente, kilometrosRecorridos, galonesConsumidos,
+                    DictamenDeConciliacion.NoConcluyente, kilometrosRecorridos,
+                    galonesAbastecidos, galonesConsumidos,
                     observado, esperado, desviacion,
                     $"{cuentas} · consumo por encima del umbral, PERO hay espera prolongada con " +
                     "motor encendido registrada: consume sin recorrer, y por sí sola la " +
                     "desviación no es hallazgo",
-                    Composicion: composicion);
+                    Composicion: composicion, Remanente: remanente);
 
             return new Conciliacion(
-                DictamenDeConciliacion.ConsumoExcesivo, kilometrosRecorridos, galonesConsumidos,
+                DictamenDeConciliacion.ConsumoExcesivo, kilometrosRecorridos,
+                galonesAbastecidos, galonesConsumidos,
                 observado, esperado, desviacion,
                 $"{cuentas} · CONSUMO EXCESIVO: más galones de los que el recorrido justifica. " +
                 $"Tolerancia inferior {umbrales.ToleranciaInferior:P0}. Posible consumo no " +
                 "imputable a esta misión",
-                Composicion: composicion);
+                Composicion: composicion, Remanente: remanente);
         }
 
         if (desviacion > umbrales.ToleranciaSuperior)
             return new Conciliacion(
-                DictamenDeConciliacion.RendimientoImposible, kilometrosRecorridos, galonesConsumidos,
+                DictamenDeConciliacion.RendimientoImposible, kilometrosRecorridos,
+                galonesAbastecidos, galonesConsumidos,
                 observado, esperado, desviacion,
                 $"{cuentas} · RENDIMIENTO IMPOSIBLE: menos galones de los que el recorrido exige. " +
                 $"Tolerancia superior {umbrales.ToleranciaSuperior:P0}. Casi siempre significa un " +
                 "despacho de combustible que no se registró",
-                Composicion: composicion);
+                Composicion: composicion, Remanente: remanente);
 
         return new Conciliacion(
-            DictamenDeConciliacion.DentroDeUmbral, kilometrosRecorridos, galonesConsumidos,
+            DictamenDeConciliacion.DentroDeUmbral, kilometrosRecorridos,
+            galonesAbastecidos, galonesConsumidos,
             observado, esperado, desviacion, cuentas);
     }
 
@@ -320,15 +362,27 @@ public static class ReglasDeConciliacion
         return $" · composición: {string.Join(", ", partes)}";
     }
 
+    /// <summary>
+    /// Qué pasó con el tanque. <b>Va siempre que se haya intentado</b>: un remanente ausente
+    /// sin razón se lee como un tanque que no se movió, y son cosas distintas.
+    ///
+    /// Se calla cuando ni siquiera se intentó calcularlo —conciliaciones sin niveles de
+    /// bitácora—, porque ahí no hay nada que declarar todavía.
+    /// </summary>
+    private static string TextoDelRemanente(Remanente? remanente) =>
+        remanente is null ? "" : $" · remanente: {remanente.Explicacion}";
+
     private static Conciliacion NoEvaluable(
-        int kilometros, decimal galones, RendimientoEsperado? esperado,
-        IReadOnlyDictionary<FuenteDeAbastecimiento, decimal>? composicion, string porQue) =>
-        new(DictamenDeConciliacion.NoEvaluable, kilometros, galones,
+        int kilometros, decimal abastecido, decimal consumido, RendimientoEsperado? esperado,
+        IReadOnlyDictionary<FuenteDeAbastecimiento, decimal>? composicion,
+        Remanente? remanente, string porQue) =>
+        new(DictamenDeConciliacion.NoEvaluable, kilometros, abastecido, consumido,
             RendimientoObservado: null, esperado, Desviacion: null,
             // La composición va aunque no se pueda comparar: de dónde salió cada galón se
             // sabe igual, y es la mitad del desglose que `RN-30` manda mostrar.
-            Evidencia: $"NO EVALUABLE: {porQue}{Composicion(composicion)}",
-            Composicion: composicion);
+            Evidencia: $"NO EVALUABLE: {porQue}{Composicion(composicion)}{TextoDelRemanente(remanente)}",
+            Composicion: composicion,
+            Remanente: remanente);
 
     private static string Etiqueta(OrigenDelRendimiento origen) => origen switch
     {

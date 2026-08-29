@@ -51,12 +51,26 @@ public enum ClaseNormativa
 /// El tipo del catálogo institucional —«PICKUP», «MICROBÚS»—. Es el eje de compatibilidad
 /// de `BD-07`, que es otra pregunta: <b>la matriz de licencias no lo usa</b>.
 /// </param>
+/// <param name="CapacidadDeTanqueGalones">
+/// Cuánto le cabe al tanque. <b>Es dato del fabricante</b>, no de la institución, y por eso
+/// vive en la ficha técnica y no en los parámetros.
+///
+/// ── Para qué hace falta ─────────────────────────────────────────────────
+/// Para convertir la lectura del indicador en galones. Un octavo de tanque <b>no es una
+/// cantidad</b> hasta saber de qué tanque, y sin la conversión el remanente de `RN-83` no se
+/// puede separar del consumo de la misión.
+///
+/// ⚠️ <b>Nula cuando no está cargada</b>, y entonces las lecturas en fracción no se
+/// convierten. Suponer una capacidad produciría un remanente que entra directo al
+/// denominador del rendimiento y que después nadie distinguiría de uno medido.
+/// </param>
 public sealed record FichaTecnica(
     string TipoDeVehiculo,
     ClaseNormativa Clase,
     int PesoBrutoKg,
     int CapacidadPasajeros,
-    bool LlevaRemolque);
+    bool LlevaRemolque,
+    decimal? CapacidadDeTanqueGalones = null);
 
 /// <summary>
 /// La ventana de la misión. `BD-02` exige vigencia <b>durante todo el rango, incluida la

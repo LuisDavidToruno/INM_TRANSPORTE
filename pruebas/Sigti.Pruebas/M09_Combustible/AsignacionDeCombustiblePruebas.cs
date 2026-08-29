@@ -51,15 +51,21 @@ public class AsignacionDeCombustiblePruebas
 
     /// <summary>Lo que `RN-30` devuelve cuando el rendimiento cuadra.</summary>
     private static readonly Conciliacion Conforme = new(
-        DictamenDeConciliacion.DentroDeUmbral, 1_000, 105m, 9.52m,
-        new RendimientoEsperado(10m, OrigenDelRendimiento.Institucional, "RENDIMIENTO-2026-Q1"),
-        -0.048m, "1,000 km / 105.00 gal = 9.52 km/gal contra 10.00 esperado");
+        DictamenDeConciliacion.DentroDeUmbral, 1_000,
+        GalonesAbastecidos: 105m, GalonesConsumidos: 105m, RendimientoObservado: 9.52m,
+        Esperado: new RendimientoEsperado(
+            10m, OrigenDelRendimiento.Institucional, "RENDIMIENTO-2026-Q1"),
+        Desviacion: -0.048m,
+        Evidencia: "1,000 km / 105.00 gal = 9.52 km/gal contra 10.00 esperado");
 
     /// <summary>Y cuando no. Es el dictamen, no una opinión de quien concilia.</summary>
     private static readonly Conciliacion ConDesviacion = new(
-        DictamenDeConciliacion.RendimientoImposible, 1_000, 80m, 12.5m,
-        new RendimientoEsperado(10m, OrigenDelRendimiento.Institucional, "RENDIMIENTO-2026-Q1"),
-        0.25m, "RENDIMIENTO IMPOSIBLE: menos galones de los que el recorrido exige");
+        DictamenDeConciliacion.RendimientoImposible, 1_000,
+        GalonesAbastecidos: 80m, GalonesConsumidos: 80m, RendimientoObservado: 12.5m,
+        Esperado: new RendimientoEsperado(
+            10m, OrigenDelRendimiento.Institucional, "RENDIMIENTO-2026-Q1"),
+        Desviacion: 0.25m,
+        Evidencia: "RENDIMIENTO IMPOSIBLE: menos galones de los que el recorrido exige");
 
     private static ConsumoRegistrado Carga(decimal galones = 30m, decimal monto = 1_500m) =>
         new(galones, monto, "Estación Uno, Choluteca", Odometro: 84_120, Comprobante: "F-0011-9932");

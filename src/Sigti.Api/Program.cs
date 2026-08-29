@@ -809,7 +809,21 @@ vales.MapGet("/{id}/conciliacion", async (
         dictamen = r.Dictamen.ToString(),
         esHallazgo = r.EsHallazgo,
         kilometros = r.KilometrosRecorridos,
+
+        // **Las dos cifras, no una.** Lo abastecido es lo que entró al tanque; lo consumido es
+        // lo que la misión quemó. Difieren en el remanente, y mostrar sólo una haría que un
+        // vehículo que vuelve con el tanque servido pareciera consumir de más.
+        abastecidos = r.GalonesAbastecidos,
         galones = r.GalonesConsumidos,
+
+        remanente = r.Remanente is null ? null : new
+        {
+            // Nulo es «no se pudo calcular», no cero. La explicación dice por qué.
+            galones = r.Remanente.Galones,
+            calculable = r.Remanente.EsCalculable,
+            explicacion = r.Remanente.Explicacion,
+        },
+
         observado = r.RendimientoObservado,
         esperado = r.Esperado is null ? null : new
         {

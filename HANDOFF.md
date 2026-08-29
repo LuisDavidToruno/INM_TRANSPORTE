@@ -405,6 +405,53 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+### El remanente en tanque — `RN-83` punto 3 y `CE-07`
+
+**RESUELTA.** `ReglasDelRemanente` calcula lo que quedó en el tanque, y la conciliación lo
+**separa del consumo de la misión**.
+
+**La fórmula es de `CE-07`**, textual: `consumido por la misión = entregado − devuelto en vales
+− remanente en tanque atribuible`. Traducido a lo que el sistema tiene: lo que la misión quemó
+es lo que entró al tanque menos lo que quedó de más.
+
+**Sin esa resta, un vehículo que vuelve con el tanque servido aparece consumiendo de más** — de
+un combustible que sigue en el tanque, a la vista de cualquiera que abra la tapa. Medido: sale a
+un cuarto, carga 60 galones, vuelve a tres cuartos. Antes: 60 galones consumidos. Ahora:
+**abastecidos 60, consumidos 30**, y los otros 30 declarados como remanente.
+
+Y el caso inverso, que `RN-30` nombra: sale lleno y vuelve a un cuarto habiendo cargado 20 →
+**consumió 65**, porque quemó los 45 que ya llevaba. Sin el nivel, ese exceso no se veía.
+Verificado por mutación.
+
+**La ficha técnica gana `CapacidadDeTanqueGalones`.** Es dato del fabricante, no de la
+institución, y por eso vive ahí y no en los parámetros. Sin ella, las lecturas en fracción **no
+se convierten**: un octavo no es una cantidad hasta saber de qué tanque, y suponer una capacidad
+produciría un remanente que entra directo al denominador del rendimiento y que después nadie
+distinguiría de uno medido.
+
+**Nulo es «no se pudo calcular», no cero**, y la explicación va siempre — un remanente ausente
+sin razón se lee como un tanque que no se movió. Cuando no se puede, el consumido iguala a lo
+abastecido porque **es lo mejor que se puede afirmar**, y la evidencia dice que eso no es lo
+mismo que un remanente de cero.
+
+**La pantalla muestra las dos cifras** cuando difieren. Mostrar sólo la consumida escondería que
+parte de lo abastecido sigue en el tanque; mostrar sólo la abastecida haría que el vehículo
+pareciera consumir de más.
+
+⚠️ **El destino contable del remanente sigue sin decidirse — `[C]`.** `CE-07` nombra las tres
+salidas —se abona al fondo, se imputa a la siguiente misión de ese vehículo, o sólo se
+documenta— y deja abierta cuál rige (insumo #7). El sistema **documenta**, que es la única de
+las tres que se puede hacer sin saber cuál manda, y no mueve ningún cuadre. Lo que el caso
+prohíbe —*«que un tanque lleno pagado con fondo de esta misión desaparezca del expediente»*— ya
+no puede pasar.
+
+⚠️ **La capacidad del tanque no está cargada para la flota real.** Se sembró en las pruebas
+para poder ejercer la conversión; en desarrollo los vehículos la tienen nula, así que sus
+lecturas en fracción caen en «no calculable». Es un dato de alta de vehículo, y `M-03` no tiene
+pantalla de alta.
+
+---
+
 ### El nivel de tanque desde el campo
 
 **RESUELTA.** `campo/nucleo/SalidaYRetorno.ts` prepara `T-14` y `T-18` con odómetro **y nivel**,
