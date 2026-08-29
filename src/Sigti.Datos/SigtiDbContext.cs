@@ -71,6 +71,8 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
 
     public DbSet<FilaDeSaldo> SaldosDeApertura => Set<FilaDeSaldo>();
 
+    public DbSet<FilaDeActaDeCierre> ActasDeCierre => Set<FilaDeActaDeCierre>();
+
     public DbSet<FilaDeMovimientoDeExistencias> MovimientosDeExistencias =>
         Set<FilaDeMovimientoDeExistencias>();
     public DbSet<FilaDeAbastecimiento> Abastecimientos => Set<FilaDeAbastecimiento>();
@@ -702,6 +704,52 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             // **Un pendiente una vez por saldo.** Contarlo dos veces en el mismo documento
             // inflaria el inventario que `RN-97` manda cuadrar renglon por renglon.
             renglon.HasIndex(r => new { r.SaldoId, r.Tipo, r.Referencia }).IsUnique();
+        });
+
+        modelo.Entity<FilaDeActaDeCierre>(acta =>
+        {
+            acta.ToTable("ActaDeCierreDeEjercicio", schema: "auditoria");
+
+            acta.HasKey(a => a.Id);
+            acta.Property(a => a.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            acta.Property(a => a.Folio).HasMaxLength(32).IsRequired();
+            acta.Property(a => a.Ejercicio).HasMaxLength(16).IsRequired();
+            acta.Property(a => a.Persona).HasMaxLength(64).IsRequired();
+            acta.Property(a => a.Puesto).HasMaxLength(64).IsRequired();
+            acta.Property(a => a.SaldoDeAperturaFolio).HasMaxLength(32);
+            acta.Property(a => a.DiferenciasConElSaldo).HasMaxLength(4000).IsRequired();
+            acta.Property(a => a.Observaciones).HasMaxLength(4000).IsRequired();
+
+            // **Una acta por ejercicio.** Dos actas del mismo cierre dejarian sin decidir cual
+            // es la que el saldo de apertura cita y cual listo los folios que se anularon.
+            acta.HasIndex(a => a.Ejercicio).IsUnique();
+
+            acta.HasIndex(a => a.Folio).IsUnique();
+
+            acta.HasMany(a => a.Folios)
+                .WithOne()
+                .HasForeignKey(f => f.ActaId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelo.Entity<FilaDeFolioDelActa>(folio =>
+        {
+            folio.ToTable("FolioDelActaDeCierre", schema: "auditoria");
+
+            folio.HasKey(f => f.Id);
+            folio.Property(f => f.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            folio.Property(f => f.ActaId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            folio.Property(f => f.AsignacionId).HasConversion(UlidABinario)
+                .HasColumnType("binary(16)");
+            folio.Property(f => f.Folio).HasMaxLength(32).IsRequired();
+            folio.Property(f => f.Delegacion).HasMaxLength(120).IsRequired();
+            folio.Property(f => f.Estado).HasMaxLength(40).IsRequired();
+            folio.Property(f => f.AnuladoPor).HasMaxLength(64);
+            folio.Property(f => f.Monto).HasColumnType("decimal(18,2)");
+
+            // **Un vale una sola vez por acta.** Listarlo dos veces duplicaria el monto del
+            // reporte de reversion de compromisos.
+            folio.HasIndex(f => new { f.ActaId, f.AsignacionId }).IsUnique();
         });
 
         // ── M-18 Peajes ─────────────────────────────────────────────────────

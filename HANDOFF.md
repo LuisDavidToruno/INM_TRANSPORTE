@@ -1,6 +1,6 @@
 # Estado del trabajo
 
-**Última actualización: 2026-08-27.**
+**Última actualización: 2026-08-28.**
 
 Punto único de entrada para saber en qué va el proyecto. Si algo figura acá como abierto, está abierto; si se cierra, se saca de la lista el mismo día.
 
@@ -405,6 +405,96 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+### `RN-96` — el cierre de ejercicio como corte de imputación
+
+**RESUELTA.** Y lo que se construyó es, sobre todo, **lo que el cierre no hace**: *«no ejecuta
+ni habilita ninguna transición de la Orden de Misión. **Ningún expediente cambia de estado por
+efecto de una fecha**»*.
+
+La ficha nombra el riesgo con precisión: *«sin esta regla escrita la primera implementación va a
+poner un cierre masivo por fecha, porque es lo que resuelve ese problema»*. No hay un solo
+método, endpoint ni botón que cierre misiones, y **la prueba que sostiene toda la regla** produce
+el acta y verifica que el diario de un expediente en ruta quedó idéntico, asiento por asiento.
+
+#### Lo que el acta produce
+
+| `RN-96` | Qué hace |
+|---|---|
+| **1** · acta con folio | Dos cortes —legal y operativo— con su bloqueo: el operativo anterior al legal deja los días de en medio sin ejercicio al que imputarse |
+| **2** · inventario y saldo | Cuadra renglón por renglón contra `RN-97`. **Es la comprobación que existía sin nada contra qué correr** |
+| **3** · evaluación individual | Detecta motivos de cierre compartidos por varios expedientes |
+| **4** · desglose por ejercicio | La misión que cruza **no se divide**; sus hechos se imputan a su propia fecha, con la tabla que los valoró |
+| **5** · folios no consumidos | Se listan; anular es un acto aparte que cita el acta |
+| **6** · parámetros de la ventana | Quién movió qué umbral en diciembre, de qué valor a cuál |
+
+#### El cierre en bloque se detecta, y sin acusar a quien sí evaluó
+
+El motivo se compara **normalizado** —espacios y mayúsculas—, porque quien cierra cincuenta
+expedientes copiando y pegando no escribe idéntico cada vez. Lo que **no** se hace es buscar
+parecidos: dos motivos que dicen lo mismo con otras palabras son dos evaluaciones, y presumir lo
+contrario produciría el hallazgo contra quien hizo bien el trabajo. Ambas cosas tienen prueba.
+
+La ventana entre el primero y el último va en el hallazgo: **minutos son peor que días**. Y una
+sola misión con dos asientos de cierre no cuenta — se casa por misión distinta, verificado por
+mutación.
+
+#### El indicador de apuro, y lo que se negó a decir
+
+*«El sistema no la resuelve; la hace visible»*. El promedio del año **excluye la ventana**: si la
+mitad de los cierres del año caen en diciembre, un promedio que los cuente diría que diciembre
+fue normal. Romper eso hace caer la prueba.
+
+Sin cierres fuera de la ventana el indicador **se declara no evaluable**, no infinito. La pantalla
+lo dice así: *«no es que el ritmo fuera normal — es que no hay medida»*.
+
+#### `RN-96` punto 6, medido en vivo
+
+Se busca por el eje de **transacción** —cuándo se registró— y no por el de vigencia. Un umbral
+cargado el 28 de diciembre con vigencia retroactiva a enero es exactamente el caso que la regla
+quiere ver, y buscarlo por `VigenteDesde` lo dejaría fuera. La bitemporalidad de `ADR-006` es lo
+que hace posible la consulta.
+
+Sembrado contra la base de desarrollo, la pantalla lo dijo entero: **«5 → 15, registrado el 28 de
+diciembre por P-ADMIN, sin aprobar · rige desde el 01 de enero — con vigencia retroactiva»**.
+
+#### Dos defectos que solo se vieron con la pantalla abierta
+
+**El acta decía «coincide con el saldo de apertura» sin haber saldo alguno.** La lista de
+diferencias estaba vacía porque no había contra qué compararla, no porque cuadrara — la misma
+mentira que `RN-97` persigue cuando un inventario se ve completo estando incompleto. Ahora el
+acta lleva el folio del saldo que cita, **nulo declarado**, y observa que no se cuadró contra
+nada. Verificado por mutación.
+
+**Cambiar el ejercicio no movía los cortes**, y el inventario salía en cero: se estaba mirando un
+año contra el corte de otro. Con el arreglo, 2026 devuelve los mismos **23 renglones** que dio
+`RN-97` — los dos caminos llegan al mismo número.
+
+#### El vale entregado no se anula, y decirlo importa
+
+`V-03` solo corre sobre un vale `Emitida`. Un vale **entregado** y sin consumir al 31 de diciembre
+es dinero fuera de la caja al cierre —un problema mayor que el folio ocioso, no menor— y `RN-96`
+no lo alcanza. Va en la lista **marcado**, fuera del monto por anular, con su camino nombrado:
+devolución con acta u obligación de reintegro (`RN-86`). Contarlo en el monto diría que ese dinero
+vuelve al fondo por efecto del acta, que es falso.
+
+⚠️ **La ventana de cierre es una constante de 15 días, no un parámetro con vigencia.** `RN-96`
+declara configurables las fechas de corte. Queda fija en el código y **visible ahí**: leerla de una
+clave que ninguna pantalla puede editar sería peor, porque parecería configurada.
+
+⚠️ **El criterio de imputación entre ejercicios sigue `[C]`.** La ficha lo dice: *«confirmar con la
+Gerencia Administrativa y contra SIAFI — es el tipo de detalle que cada institución resuelve
+distinto»*. Hoy el ejercicio sale del año de la fecha del hecho, que es lo defendible sin norma.
+
+⚠️ **El reporte de reversión de compromisos para ARGOS y SIAFI no está** (`RN-96` punto 5,
+`RN-81`). El acta produce la cifra y la lista por delegación; **falta el archivo de conciliación**.
+
+⚠️ **El combustible no se valora contra tabla paramétrica**, y el acta lo dice en vez de fingirlo:
+su monto sale del comprobante. El hecho sin comprobante queda **nombrado** como hueco. El peaje sí
+trae tabla —la tarifa vigente a la fecha— y el que no la tiene es el que pasó por una caseta que
+el catálogo no conocía.
+
+---
+
 ### `RN-97` — el saldo de apertura de control interno
 
 **RESUELTA.** Es la regla que impide el abandono, y la propia ficha explica por qué hacía
@@ -458,10 +548,9 @@ existen como registro. El sistema lo dice en el documento y en la pantalla: *«2
 deberían impedir cerrar el período — así que ese bloqueo hoy no puede disparar»*. **Es la
 consecuencia más importante de este turno y no está resuelta.**
 
-⚠️ **`RN-96` sigue pendiente** — el cierre de ejercicio como corte de imputación. `RN-97` dice
-que el saldo *«debe coincidir renglón por renglón con el inventario de expedientes no
-terminales al corte»* de `RN-96`; hoy coincide **por construcción** —se genera del inventario—
-y existe la comprobación, pero no hay contra qué correrla porque `RN-96` no produce nada.
+✅ **`RN-96` ya corre esa comprobación.** El acta de cierre cuadra el inventario contra el saldo
+congelado renglón por renglón, y declara **el folio del saldo que cita** — nulo cuando no hay
+ninguno, que no es lo mismo que cuadrar. Ver [`RN-96`](#rn-96--el-cierre-de-ejercicio-como-corte-de-imputacion).
 
 ⚠️ **Los renglones de misión se citan por ULID.** La orden de misión sigue sin folio (`RN-44`),
 y un renglón que se cita con un identificador que nadie reconoce no sirve en un acta.

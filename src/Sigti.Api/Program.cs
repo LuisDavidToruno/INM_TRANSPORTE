@@ -64,6 +64,7 @@ constructor.Services.AddScoped<ServicioDePeajes>();
 constructor.Services.AddScoped<ServicioDeConciliacionExterna>();
 constructor.Services.AddScoped<ServicioDeHallazgosPosteriores>();
 constructor.Services.AddScoped<ServicioDeSaldoDeApertura>();
+constructor.Services.AddScoped<ServicioDeCierreDeEjercicio>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -288,6 +289,99 @@ static object ResumirRenglon(RenglonDelSaldo r, DateOnly corte) => new
 
     monto = r.Monto,
     impideCerrar = r.ImpideCerrarElPeriodo,
+};
+
+/// <summary>
+/// El acta de cierre de ejercicio — `RN-96`.
+///
+/// <b>El inventario no se repite acá:</b> vive en el saldo de apertura, que es el documento
+/// con el que `RN-96` punto 2 manda que cuadre renglón por renglón. Lo que va es su conteo y
+/// las diferencias contra él.
+/// </summary>
+static object ResumirActa(ActaDeCierreDeEjercicio a) => new
+{
+    id = a.Id.ToString(),
+    folio = a.Folio,
+    ejercicio = a.Ejercicio,
+    corteLegal = a.CorteLegal,
+    corteOperativo = a.CorteOperativo,
+    ejecuta = a.Ejecuta.Persona.Valor,
+    momento = a.Momento,
+
+    inventario = a.InventarioNoTerminal.Count,
+
+    // **Nulo es que no hay saldo producido**, y por lo tanto nada contra qué cuadrar. Sin
+    // este campo una lista de diferencias vacía se lee como coincidencia perfecta.
+    saldoDeAperturaFolio = a.SaldoDeAperturaFolio,
+    diferenciasConElSaldo = a.DiferenciasConElSaldo,
+
+    // `RN-96` punto 4 — la misión no se divide; sus hechos se imputan a su propia fecha.
+    misionesQueCruzan = a.MisionesQueCruzan.Select(m => new
+    {
+        mision = m.Mision.ToString(),
+        referencia = m.Referencia,
+        salida = m.Salida,
+        retorno = m.Retorno,
+        porEjercicio = m.PorEjercicio,
+        hechos = m.Hechos.Select(h => new
+        {
+            ejercicio = h.Ejercicio,
+            fechaDelHecho = h.FechaDelHecho,
+            concepto = h.Concepto,
+            monto = h.Monto,
+            tablaParametrica = h.TablaParametrica,
+        }),
+        sinTablaParametrica = m.SinTablaParametrica.Count,
+    }),
+
+    // `RN-96` punto 5 — ni el compromiso ni el folio se arrastran al ejercicio siguiente.
+    foliosPorAnular = a.FoliosPorAnular.Select(f => new
+    {
+        asignacion = f.Asignacion.ToString(),
+        folio = f.Folio,
+        delegacion = f.Delegacion,
+        monto = f.Monto,
+        emitido = f.Emitido,
+        estado = f.Estado,
+        sePuedeAnular = f.SePuedeAnular,
+    }),
+    montoPorAnular = a.MontoPorAnular,
+
+    // `RN-96` punto 6 — la evidencia de que nadie aflojó un umbral en diciembre.
+    cambiosDeParametros = a.CambiosDeParametros.Select(c => new
+    {
+        clave = c.Clave,
+        valorAnterior = c.ValorAnterior,
+        valorNuevo = c.ValorNuevo,
+        vigenteDesde = c.VigenteDesde,
+        registrado = c.Registrado,
+        cargadoPor = c.CargadoPor,
+        aprobadoPor = c.AprobadoPor,
+    }),
+
+    // `RN-96` punto 3 — nunca un motivo compartido por varios expedientes.
+    motivosCompartidos = a.MotivosCompartidos.Select(m => new
+    {
+        motivo = m.Motivo,
+        misiones = m.Misiones.Select(x => x.ToString()),
+        primero = m.Primero,
+        ultimo = m.Ultimo,
+        ventanaEnMinutos = (int)m.Ventana.TotalMinutes,
+    }),
+
+    // El indicador que expone el cierre apurado. `Veces` va nulo cuando no hay con qué
+    // comparar: decir «infinito» sería inventar el hallazgo.
+    apuro = new
+    {
+        cerradasEnLaVentana = a.Apuro.CerradasEnLaVentana,
+        cerradasEnElAnio = a.Apuro.CerradasEnElAnio,
+        diasDeLaVentana = a.Apuro.DiasDeLaVentana,
+        promedioDiarioEnLaVentana = a.Apuro.PromedioDiarioEnLaVentana,
+        promedioDiarioDelAnio = a.Apuro.PromedioDiarioDelAnio,
+        veces = a.Apuro.Veces,
+    },
+
+    observaciones = a.Observaciones,
 };
 
 static object ResumirSaldo(SaldoDeApertura s) => new
@@ -1168,6 +1262,62 @@ saldos.MapPost("/renglones/{id}/resolver", async (
 
     return Results.Ok(new { resuelto = true });
 });
+
+// ── RN-96 · El cierre de ejercicio ──────────────────────────────────────────
+//
+// **Ninguna de estas rutas mueve un expediente.** `RN-96`: «no ejecuta ni habilita ninguna
+// transición de la Orden de Misión. Ningún expediente cambia de estado por efecto de una
+// fecha». La única que escribe sobre otro agregado es la anulación de folios, que es un acto
+// aparte con autor y motivo.
+var cierreDeEjercicio = app.MapGroup("/cierre-de-ejercicio");
+
+/// El acta armada y **sin congelar**. Es lo que se mira antes de producir.
+cierreDeEjercicio.MapGet("/{ejercicio}/vista-previa", async (
+    string ejercicio, DateOnly corteLegal, DateOnly corteOperativo,
+    ServicioDeCierreDeEjercicio servicio) =>
+    Results.Ok(ResumirActa(await servicio.ArmarAsync(
+        ejercicio, corteLegal, corteOperativo,
+        Autoria.De(new IdPersona("P-ADMIN"), new IdPuesto("PU-GERENCIA"), corteLegal),
+        DateTimeOffset.UtcNow))));
+
+/// Produce el acta con folio — `RN-96` punto 1. **No anula nada**: eso es un acto aparte.
+cierreDeEjercicio.MapPost("/", async (
+    ProducirActaDeCierre peticion, ServicioDeCierreDeEjercicio servicio) =>
+{
+    var acta = await servicio.ProducirAsync(
+        peticion.Folio, peticion.Ejercicio, peticion.CorteLegal, peticion.CorteOperativo,
+        Autoria.De(new IdPersona(peticion.Persona), new IdPuesto(peticion.Puesto),
+            peticion.CorteLegal),
+        peticion.Momento);
+
+    return Results.Created($"/cierre-de-ejercicio/{acta.Ejercicio}", ResumirActa(acta));
+});
+
+/// `RN-96` punto 5 — el acta de anulación de folios no consumidos, **por rango y delegación**.
+///
+/// Va aparte de producir el acta a propósito: anular decenas de folios al producirse un
+/// documento sería un cierre masivo por fecha con otro nombre.
+cierreDeEjercicio.MapPost("/{ejercicio}/anular-folios", async (
+    string ejercicio, AnularFolios peticion, ServicioDeCierreDeEjercicio servicio) =>
+{
+    var anulados = await servicio.AnularFoliosAsync(
+        ejercicio, new IdPersona(peticion.Persona), peticion.Motivo, peticion.Momento);
+
+    return Results.Ok(new { anulados });
+});
+
+cierreDeEjercicio.MapGet("/", async (ServicioDeCierreDeEjercicio servicio) =>
+    Results.Ok((await servicio.ProducidasAsync()).Select(a => new
+    {
+        ejercicio = a.Ejercicio,
+        folio = a.Folio,
+        corteLegal = a.CorteLegal,
+        corteOperativo = a.CorteOperativo,
+        folios = a.Folios,
+        anulados = a.Anulados,
+        monto = a.Monto,
+        saldoDeAperturaFolio = a.SaldoDeAperturaFolio,
+    })));
 
 // ── M-18 Peajes ─────────────────────────────────────────────────────────────
 var peajes = app.MapGroup("/peajes");
@@ -3152,3 +3302,23 @@ internal sealed record ProducirSaldo(
     string? DeclaracionDeBloqueantes = null);
 
 internal sealed record ResolverRenglon(string ComoSeResolvio, DateOnly Fecha);
+
+/// <summary>Producir el acta de cierre de ejercicio — `RN-96` punto 1.</summary>
+internal sealed record ProducirActaDeCierre(
+    /// <summary>Sin folio el saldo de apertura no tiene a qué acta corresponder.</summary>
+    string Folio,
+    string Ejercicio,
+    /// <summary>La fecha que fija la norma contable.</summary>
+    DateOnly CorteLegal,
+    /// <summary>Hasta cuándo la operación siguió registrando hechos del ejercicio.</summary>
+    DateOnly CorteOperativo,
+    string Persona,
+    string Puesto,
+    DateTimeOffset Momento);
+
+/// <summary>
+/// Anular los folios que el acta listó — `RN-96` punto 5.
+///
+/// El motivo es lo que distingue el acta de anulación de un borrado en bloque.
+/// </summary>
+internal sealed record AnularFolios(string Persona, string Motivo, DateTimeOffset Momento);

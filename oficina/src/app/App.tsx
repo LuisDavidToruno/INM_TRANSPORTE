@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarClock, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive } from 'lucide-react';
+import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive } from 'lucide-react';
 
 import { Avisos, Nota, Shell, avisar } from '../ui';
 import type { GrupoNav, Miga } from '../ui';
@@ -22,6 +22,7 @@ import Fondos from '../modulos/M09_Combustible/Fondos';
 import Peajes from '../modulos/M18_Peajes/Peajes';
 import Conciliacion from '../modulos/M14_Auditoria/Conciliacion';
 import SaldoDeAperturaPantalla from '../modulos/M14_Auditoria/SaldoDeApertura';
+import CierreDeEjercicioPantalla from '../modulos/M14_Auditoria/CierreDeEjercicio';
 import ColaDeCierre from '../modulos/M13_Cierre/Cola';
 import Cierre from '../modulos/M13_Cierre/Cierre';
 import { bandejaDeAutorizacion, origenDeDatos } from '../api/misiones';
@@ -134,6 +135,10 @@ function Interior(): ReactElement {
       items: [
         { texto: 'Fuentes externas', icono: <FileSearch />, href: '/conciliacion' },
         { texto: 'Saldo de apertura', icono: <Archive />, href: '/saldo-de-apertura' },
+        // El cierre de ejercicio va al final del grupo: es lo que se produce DESPUES de que
+        // el saldo esta, porque el acta lo cita. Ofrecerlo antes invita a producir un acta
+        // que no tiene contra que cuadrar.
+        { texto: 'Cierre de ejercicio', icono: <CalendarX2 />, href: '/cierre-de-ejercicio' },
       ],
     },
     { items: [{ texto: 'Sistema de diseño', icono: <Palette />, href: '/sistema-diseno' }] },
@@ -169,6 +174,7 @@ function Interior(): ReactElement {
         <Route path="/peajes" element={<Peajes />} />
         <Route path="/conciliacion" element={<Conciliacion />} />
         <Route path="/saldo-de-apertura" element={<SaldoDeAperturaPantalla />} />
+        <Route path="/cierre-de-ejercicio" element={<CierreDeEjercicioPantalla />} />
         <Route path="/despacho" element={<Tablero />} />
         <Route path="/programacion" element={<Cola />} />
         
@@ -201,6 +207,7 @@ function migasDe(ruta: string): Miga[] {
   if (ruta === '/combustible') return ['Combustible'];
   if (ruta === '/conciliacion') return ['Auditoría', 'Fuentes externas'];
   if (ruta === '/saldo-de-apertura') return ['Auditoría', 'Saldo de apertura'];
+  if (ruta === '/cierre-de-ejercicio') return ['Auditoría', 'Cierre de ejercicio'];
   if (ruta.startsWith('/cierre/')) return [{ texto: 'Cierre', href: '/cierre' }, 'Expediente'];
   if (ruta === '/cierre') return ['Cierre'];
   if (ruta === '/sistema-diseno') return ["Sistema de diseño"];
