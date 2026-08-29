@@ -17,6 +17,7 @@ import type {
   FuenteExterna,
 } from '../../api/conciliacion';
 import { momentoCompleto, soloFecha } from '../M06_Autorizacion/formato';
+import PanelDeHallazgos from './PanelDeHallazgos';
 
 /**
  * `RN-95` — la conciliación contra fuentes externas.
@@ -94,6 +95,12 @@ export default function Conciliacion(): ReactElement {
       )}
 
       {abiertas.length > 0 && <PanelDeDiferencias diferencias={abiertas} />}
+
+      {/* Los expedientes van despues de las diferencias porque nacen de ellas: cada
+          diferencia abre uno. Lo que la diferencia dice es que dos registros no se
+          corresponden; lo que el expediente da es el ciclo para resolverlo sin reabrir
+          nada. */}
+      <PanelDeHallazgos />
 
       {corridas.length > 0 && <PanelDeEjecuciones ejecuciones={corridas} />}
     </div>

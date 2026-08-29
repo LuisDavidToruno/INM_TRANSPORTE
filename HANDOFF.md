@@ -405,6 +405,100 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+### `RN-93` — el expediente de hallazgo posterior
+
+**RESUELTA**, y con ella queda cableado el pendiente que `RN-95` dejó: **cada diferencia de
+una conciliación abre expediente de forma automática**.
+
+`RN-93` explica por qué existe: *«basta con que la reapertura de un expediente cerrado exista
+para que se use, y basta con que se use una vez para que **ningún reporte histórico vuelva a
+ser reproducible**. El expediente de hallazgo posterior es la salida que permite corregir el
+efecto económico sin destruir la reproducibilidad»*.
+
+#### Lo que nunca hace
+
+**Tocar el objeto vinculado.** El servicio no tiene una sola escritura sobre el expediente de
+la misión, y eso es deliberado: una `CERRADA` no se reabre, ni por auditoría. Lo que se
+entrega a quien la pide es el paquete sellado tal como cerró **más** este expediente — es más
+información, no menos.
+
+La pantalla de cierre **muestra** los hallazgos vinculados (§7.5) consultándolos desde el
+hallazgo, no guardando una marca en la misión: guardar algo en un expediente cerrado sería
+modificarlo.
+
+#### El asiento reverso, con el contenido completo de §8.3
+
+| Exigencia | Qué impide |
+|---|---|
+| Referencia al asiento **exacto** | *«No existe el reverso genérico de la misión»*: sin destinatario, nadie sabe si ya se revirtió |
+| Valor anterior **siempre** | El reporte muestra tres valores; sin el anterior sólo puede mostrar dos |
+| Valor nuevo **incluso nulo** | Nulo es un valor: *sin valor correcto conocido* ≠ no declarado |
+| Quien autoriza ≠ quien registró | `BD-06`. Corregirse a sí mismo un asiento cerrado es lo que la inmutabilidad impide |
+| Imputación al período **corriente** | Reimputar al original haría que un reporte publicado diera otro número según cuándo se pida |
+| Un asiento se revierte **una vez** | Un segundo duplicaría el efecto económico, y esa corrección de más no la rastrea nadie |
+
+Lo último lo impone un índice único de la base, no una comprobación que el próximo endpoint
+pueda olvidar. Verificado por mutación: quitar el control de imputación rompe dos pruebas.
+
+#### Las dos fechas, y por qué son dos
+
+`RN-93`: *«fecha del hecho y fecha del descubrimiento son campos distintos y ambos
+obligatorios»*, y la antigüedad se cuenta **desde el hecho** — *«evita el incentivo perverso
+más obvio: descubrir tarde para que el indicador se vea mejor»*.
+
+El tiempo entre las dos **es un indicador por sí mismo**: un hallazgo de hace ocho meses
+descubierto ayer dice algo del control, no sólo del hecho. Medido contra la base viva: hecho
+del 15/03, descubierto el 20/11, **250 días después**.
+
+#### Cero misiones es el caso interesante
+
+El paso por caseta de un domingo, el consumo de un vehículo que ese día no tenía orden.
+**La ausencia de misión es el hallazgo** (`RN-59`). El expediente se abre con cero misiones, el
+vehículo cuando se resolvió y el período — pero **algo** tiene que vincular: sin ninguno de los
+cuatro, un hallazgo no se puede investigar ni reportar.
+
+#### La resolución tiene que ser cierta
+
+Tres salidas: **con asiento reverso**, **real sin efecto económico** (el vehículo que circuló
+sin orden — hay hallazgo y no hay monto), y **sin efecto** (era un error del propio
+descubridor). Declarar «con reverso» sin reversos diría que se corrigió algo que nadie tocó;
+declarar «sin efecto» habiendo revertido dinero sería falso **de una forma que ningún reporte
+podría detectar después**. Las dos se bloquean, y la mutación lo confirma.
+
+El error del descubridor **se cierra, no se borra**: borrarlo dejaría a quien fue señalado sin
+constancia de que se le señaló y de que no procedía.
+
+#### Y el pendiente de `RN-95`, cerrado
+
+La conciliación ahora abre un expediente por cada diferencia, en ambos sentidos, con la fecha
+del hecho de la línea y la del descubrimiento de la conciliación. Probado contra la base viva:
+una línea del proveedor de marzo, conciliada en noviembre, abre su expediente sola con el
+vehículo resuelto y el período — y su reverso queda imputado a noviembre con los tres valores.
+
+⚠️ **El paquete de evidencia sellado no está** — `RN-93` punto 7: *«debe poder entregarse
+idéntico al que se pudo exportar el día del cierre»*. La cadena de hash de la bitácora existe
+y el sello por cola funciona; lo que falta es el **exportador** que arma el paquete y lo firma.
+Sin él, «se entrega el paquete tal como cerró» es una promesa que el sistema no puede cumplir.
+
+⚠️ **§8.3 dice que el reverso «reabre el sello de la cadena con un eslabón adicional».** Hoy el
+asiento reverso vive en su propio expediente y **no se encadena a la bitácora de la misión**.
+Es coherente con no tocar el expediente cerrado, pero no es lo que §8.3 describe — y decidir
+cuál de las dos lecturas manda es del PO.
+
+⚠️ **Los indicadores «antes y después del ajuste» no están** (`RN-93` punto 5). Existe el
+ajuste del período como capa identificada; lo que falta es mostrarlo junto al indicador del
+vehículo, que es de `M-14` reportes.
+
+⚠️ **`tipo_de_hallazgo_posterior` es texto libre validado, no catálogo.** La regla lo declara
+configurable. Hoy se exige que venga y no esté vacío, pero nada garantiza que dos expedientes
+del mismo tipo lo escriban igual — y lo que no se agrupa no produce indicador.
+
+⚠️ **`RN-96` y `RN-97` siguen pendientes.** El criterio de imputación entre ejercicios
+fiscales es `[C]` y depende de SIAFI; el saldo de apertura de control interno arrastra los
+expedientes abiertos con su antigüedad, y esa consulta no existe.
+
+---
+
 ### `RN-95` — la conciliación contra fuentes externas
 
 **RESUELTA**, y con ella el mínimo de `RN-66` y de `RN-93` que necesitaba. Nace `M-14`.

@@ -62,6 +62,7 @@ constructor.Services.AddScoped<ServicioDeReintegro>();
 constructor.Services.AddScoped<ServicioDeTanques>();
 constructor.Services.AddScoped<ServicioDePeajes>();
 constructor.Services.AddScoped<ServicioDeConciliacionExterna>();
+constructor.Services.AddScoped<ServicioDeHallazgosPosteriores>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -258,6 +259,37 @@ static object ResumirPaso(PasoPorCaseta p) => new
     puntoNoCatalogado = p.PuntoNoCatalogado,
     ubicacion = p.UbicacionDeclarada,
     registra = p.Registra.Valor,
+};
+
+/// <summary>
+/// El resumen de un expediente de hallazgo posterior. <b>Lleva las dos fechas</b>: `RN-93` las
+/// exige como campos distintos, y la antigüedad se cuenta desde el hecho — contarla desde el
+/// descubrimiento premiaría descubrir tarde.
+/// </summary>
+static object ResumirHallazgo(ExpedienteDeHallazgoPosterior h) => new
+{
+    id = h.Id.ToString(),
+    tipo = h.Tipo,
+    fechaDelHecho = h.FechaDelHecho,
+    fechaDelDescubrimiento = h.FechaDelDescubrimiento,
+    antiguedadEnDias = h.AntiguedadEnDias(DateOnly.FromDateTime(DateTime.UtcNow)),
+    diasHastaElDescubrimiento = h.DiasHastaElDescubrimiento,
+    comoSeDescubrio = h.ComoSeDescubrio,
+    fuente = h.Fuente,
+    documentoAdjunto = h.DocumentoAdjunto,
+
+    // Cero es un caso previsto: el paso de un domingo sin orden. **La ausencia de misión es
+    // el hallazgo.**
+    misiones = h.Misiones.Select(m => m.ToString()),
+
+    vehiculo = h.Vehiculo?.ToString(),
+    motorista = h.Motorista?.ToString(),
+    periodo = h.Periodo,
+    abierto = h.EstaAbierto,
+    resolucion = h.Resolucion?.ToString(),
+    fundamento = h.Fundamento,
+    reversos = h.Reversos.Count,
+    efectoEconomicoTotal = h.EfectoEconomicoTotal,
 };
 
 static object Resumir(ObligacionDeReintegro o) => new
@@ -771,7 +803,8 @@ conciliacion.MapPost("/fuentes", async (
 /// Ejecuta la conciliación. Produce **tres listas** —coincidentes, solo en la fuente, solo en
 /// SIGTI— y las dos últimas abren expediente, en ambos sentidos.
 conciliacion.MapPost("/ejecutar", async (
-    EjecutarConciliacion peticion, ServicioDeConciliacionExterna servicio) =>
+    EjecutarConciliacion peticion, ServicioDeConciliacionExterna servicio,
+    ServicioDeHallazgosPosteriores hallazgos) =>
 {
     var r = await servicio.ConciliarAsync(
         Ulid.Parse(peticion.IdFuente),
@@ -787,6 +820,14 @@ conciliacion.MapPost("/ejecutar", async (
         peticion.ResponsableDeSeguimiento,
         peticion.Plazo,
         peticion.Momento,
+
+        // `RN-95`: cada diferencia abre expediente de hallazgo posterior, en ambos sentidos.
+        // El expediente es lo que les da ciclo propio, asiento reverso y resolución que no se
+        // borra — y lo que impide que se resuelvan reabriendo la misión.
+        hallazgos,
+        Autoria.De(new IdPersona(peticion.Ejecuta), new IdPuesto(peticion.Puesto ?? "PU-AUDITORIA"),
+            DateOnly.FromDateTime(peticion.Momento.Date)),
+
         peticion.ToleranciaEnDias ?? 1);
 
     return Results.Ok(new
@@ -868,6 +909,142 @@ conciliacion.MapPost("/diferencias/{id}/resolver", async (
     await servicio.ResolverAsync(Ulid.Parse(id), peticion.Resolucion, peticion.Momento);
     return Results.Ok(new { resuelta = true });
 });
+
+// ── `RN-93` — el expediente de hallazgo posterior ───────────────────────────
+// Ni su apertura ni su resolución alteran el objeto vinculado. Una misión `CERRADA` **no se
+// reabre**, ni por auditoría: lo que se entrega es el paquete sellado tal como cerró MÁS este
+// expediente. Es más información, no menos.
+var hallazgosPosteriores = app.MapGroup("/hallazgos");
+
+hallazgosPosteriores.MapGet("/", async (ServicioDeHallazgosPosteriores servicio) =>
+    Results.Ok((await servicio.TodosAsync()).Select(ResumirHallazgo)));
+
+/// Los hallazgos de una misión — §7.5: la misión cerrada muestra que los tiene, **sin que eso
+/// la modifique**. Se consulta desde acá y no se guarda una marca en el expediente cerrado.
+hallazgosPosteriores.MapGet("/mision/{id}", async (
+    string id, ServicioDeHallazgosPosteriores servicio) =>
+    Results.Ok((await servicio.DeLaMisionAsync(Ulid.Parse(id))).Select(ResumirHallazgo)));
+
+hallazgosPosteriores.MapGet("/{id}", async (
+    string id, ServicioDeHallazgosPosteriores servicio) =>
+    await servicio.BuscarAsync(Ulid.Parse(id)) is { } h
+        ? Results.Ok(new
+        {
+            resumen = ResumirHallazgo(h),
+
+            // El diario entero. Un expediente que sólo muestra su resolución no sirve: lo que
+            // el auditor pide es quién lo abrió, cómo, y qué se asentó en el camino.
+            diario = h.Diario.Select(m => new
+            {
+                movimiento = m.Id,
+                persona = m.Autor.Persona.Valor,
+                puesto = m.Autor.Puesto.Valor,
+                momento = m.Momento,
+                motivo = m.Motivo,
+            }),
+
+            // **Los tres valores, siempre.** §8.3: nunca sólo el resultado.
+            reversos = h.Reversos.Select(r => new
+            {
+                id = r.Id.ToString(),
+                naturaleza = r.Naturaleza.ToString(),
+                asientoRevertido = r.Revertido.Identificador,
+                tipoDeAsiento = r.Revertido.Tipo,
+                descripcion = r.Revertido.Descripcion,
+                valorAnterior = r.ValorAnterior,
+                valorNuevo = r.ValorNuevo,
+                efectoEconomico = r.EfectoEconomico,
+                periodoAfectado = r.PeriodoAfectado,
+                periodoDeImputacion = r.PeriodoDeImputacion,
+                motivo = r.MotivoTipificado,
+                fundamento = r.Fundamento,
+                autoriza = r.Autoriza.Valor,
+                cadena = r.Cadena,
+            }),
+        })
+        : Results.NotFound());
+
+hallazgosPosteriores.MapPost("/", async (
+    AbrirHallazgo peticion, ServicioDeHallazgosPosteriores servicio) =>
+{
+    var id = await servicio.AbrirAsync(
+        Ulid.Parse(peticion.Id), peticion.Tipo,
+        peticion.FechaDelHecho, peticion.FechaDelDescubrimiento,
+        peticion.ComoSeDescubrio, peticion.Fuente, peticion.DocumentoAdjunto,
+        [.. (peticion.Misiones ?? []).Select(Ulid.Parse)],
+        peticion.IdVehiculo is null ? null : Ulid.Parse(peticion.IdVehiculo),
+        peticion.IdMotorista is null ? null : Ulid.Parse(peticion.IdMotorista),
+        peticion.Periodo,
+        Autoria.De(new IdPersona(peticion.Persona), new IdPuesto(peticion.Puesto),
+            peticion.FechaDelDescubrimiento),
+        peticion.Momento);
+
+    return Results.Created($"/hallazgos/{id}", new { id = id.ToString() });
+});
+
+/// `H-03` — el asiento reverso de §8.3, con su contenido obligatorio completo. **El asiento
+/// original no se toca**: éste se agrega y se refiere a él.
+hallazgosPosteriores.MapPost("/{id}/reverso", async (
+    string id, AsentarReverso peticion, ServicioDeHallazgosPosteriores servicio) =>
+{
+    await servicio.MoverAsync(Ulid.Parse(id), h => h.Revertir(
+        new AsientoReverso(
+            Ulid.NewUlid(),
+            new ReferenciaAlAsiento(
+                peticion.TipoDeAsiento, peticion.IdentificadorDelAsiento,
+                peticion.DescripcionDelAsiento),
+            peticion.Naturaleza,
+            peticion.ValorAnterior,
+            peticion.ValorNuevo,
+            peticion.FechaDelHechoOriginal,
+            peticion.Momento,
+            Autoria.De(new IdPersona(peticion.Persona), new IdPuesto(peticion.Puesto),
+                DateOnly.FromDateTime(peticion.Momento.Date)),
+            new IdPersona(peticion.Autoriza),
+            new IdPersona(peticion.AutorDelAsientoOriginal),
+            peticion.MotivoTipificado,
+            peticion.Fundamento,
+            peticion.Adjunto,
+            peticion.PeriodoAfectado,
+            peticion.PeriodoDeImputacion,
+            peticion.EfectoEconomico,
+            peticion.TablasParametricas),
+        peticion.Momento));
+
+    return Results.Ok(new { asentado = true });
+});
+
+hallazgosPosteriores.MapPost("/{id}/vincular", async (
+    string id, VincularMision peticion, ServicioDeHallazgosPosteriores servicio) =>
+{
+    await servicio.MoverAsync(Ulid.Parse(id), h => h.Vincular(
+        Ulid.Parse(peticion.IdMision),
+        Autoria.De(new IdPersona(peticion.Persona), new IdPuesto(peticion.Puesto),
+            DateOnly.FromDateTime(peticion.Momento.Date)),
+        peticion.Motivo, peticion.Momento));
+
+    return Results.Ok(new { vinculada = true });
+});
+
+/// `H-04` — resolver. **El expediente no se cierra sin resolución**, y la resolución tiene que
+/// ser cierta respecto de lo que el expediente contiene.
+hallazgosPosteriores.MapPost("/{id}/resolver", async (
+    string id, ResolverHallazgo peticion, ServicioDeHallazgosPosteriores servicio) =>
+{
+    await servicio.MoverAsync(Ulid.Parse(id), h => h.Resolver(
+        peticion.Resolucion, peticion.Fundamento,
+        Autoria.De(new IdPersona(peticion.Persona), new IdPuesto(peticion.Puesto),
+            DateOnly.FromDateTime(peticion.Momento.Date)),
+        peticion.Momento));
+
+    return Results.Ok(new { resuelto = peticion.Resolucion.ToString() });
+});
+
+/// El ajuste imputado a un período — `RN-93` punto 3: **no se recalculan los históricos ya
+/// publicados**; se ajusta el corriente y se muestra el ajuste como capa identificada.
+hallazgosPosteriores.MapGet("/ajuste/{periodo}", async (
+    string periodo, ServicioDeHallazgosPosteriores servicio) =>
+    Results.Ok(new { periodo, ajuste = await servicio.AjusteDelPeriodoAsync(periodo) }));
 
 // ── M-18 Peajes ─────────────────────────────────────────────────────────────
 var peajes = app.MapGroup("/peajes");
@@ -2777,6 +2954,61 @@ internal sealed record EjecutarConciliacion(
     string ResponsableDeSeguimiento,
     DateOnly Plazo,
     DateTimeOffset Momento,
+    /// <summary>Con qué competencia se ejecuta. Va al expediente que abre cada diferencia.</summary>
+    string? Puesto = null,
     int? ToleranciaEnDias = null);
 
 internal sealed record ResolverDiferencia(string Resolucion, DateTimeOffset Momento);
+
+internal sealed record AbrirHallazgo(
+    string Id,
+    /// <summary>Del catálogo `tipo_de_hallazgo_posterior`. Tipificado, no libre.</summary>
+    string Tipo,
+    /// <summary>Cuándo ocurrió. **La antigüedad se cuenta desde acá.**</summary>
+    DateOnly FechaDelHecho,
+    /// <summary>Cuándo se descubrió. **Campo distinto, y ambos obligatorios.**</summary>
+    DateOnly FechaDelDescubrimiento,
+    string ComoSeDescubrio,
+    string Fuente,
+    string Persona,
+    string Puesto,
+    DateTimeOffset Momento,
+    string? DocumentoAdjunto = null,
+    /// <summary>Cero, una o varias. **Cero es el caso interesante.**</summary>
+    IReadOnlyList<string>? Misiones = null,
+    string? IdVehiculo = null,
+    string? IdMotorista = null,
+    string? Periodo = null);
+
+internal sealed record AsentarReverso(
+    string TipoDeAsiento,
+    /// <summary>El identificador exacto. **No existe el reverso genérico «de la misión».**</summary>
+    string IdentificadorDelAsiento,
+    string DescripcionDelAsiento,
+    NaturalezaDelReverso Naturaleza,
+    /// <summary>Siempre. Sin él el reporte sólo muestra dos de los tres valores.</summary>
+    string ValorAnterior,
+    DateOnly FechaDelHechoOriginal,
+    string Persona,
+    string Puesto,
+    string Autoriza,
+    /// <summary>Quien produjo el asiento. **No puede ser quien autoriza** (`BD-06`).</summary>
+    string AutorDelAsientoOriginal,
+    string MotivoTipificado,
+    string Fundamento,
+    string PeriodoAfectado,
+    /// <summary>El corriente. Distinto del afectado cuando hay efecto económico.</summary>
+    string PeriodoDeImputacion,
+    DateTimeOffset Momento,
+    /// <summary>Siempre, **incluso nulo**: nulo significa sin valor correcto conocido.</summary>
+    string? ValorNuevo = null,
+    string? Adjunto = null,
+    decimal? EfectoEconomico = null,
+    IReadOnlyList<string>? TablasParametricas = null);
+
+internal sealed record VincularMision(
+    string IdMision, string Persona, string Puesto, string Motivo, DateTimeOffset Momento);
+
+internal sealed record ResolverHallazgo(
+    ResolucionDelHallazgo Resolucion, string Fundamento,
+    string Persona, string Puesto, DateTimeOffset Momento);

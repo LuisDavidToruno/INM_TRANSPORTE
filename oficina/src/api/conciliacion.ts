@@ -83,3 +83,70 @@ export const TEXTO_DE_LADO: Record<string, string> = {
   SoloEnLaFuente: 'El emisor lo reporta y nosotros no lo tenemos',
   SoloEnSigti: 'Nosotros lo registramos y el emisor no lo reporta',
 };
+
+// ── `RN-93` — el expediente de hallazgo posterior ───────────────────────────
+
+/**
+ * Un asiento reverso — §8.3. **Lleva los tres valores**: original, reverso y resultado. Nunca
+ * sólo el resultado.
+ */
+export interface AsientoReverso {
+  id: string;
+  naturaleza: string;
+  /** El identificador exacto. **No existe el reverso genérico «de la misión».** */
+  asientoRevertido: string;
+  tipoDeAsiento: string;
+  descripcion: string;
+  valorAnterior: string;
+  /** Nulo significa **sin valor correcto conocido**, que es distinto de no declararlo. */
+  valorNuevo: string | null;
+  efectoEconomico: number | null;
+  periodoAfectado: string;
+  /** El corriente. Los históricos ya publicados siguen siendo reproducibles. */
+  periodoDeImputacion: string;
+  motivo: string;
+  fundamento: string;
+  autoriza: string;
+  cadena: string;
+}
+
+/**
+ * El expediente. **Ni su apertura ni su resolución alteran el objeto vinculado**: una misión
+ * `CERRADA` no se reabre, ni por auditoría.
+ */
+export interface HallazgoPosterior {
+  id: string;
+  tipo: string;
+  /** Cuándo ocurrió. **La antigüedad se cuenta desde acá.** */
+  fechaDelHecho: string;
+  /** Cuándo se descubrió. Campo distinto, y ambos obligatorios. */
+  fechaDelDescubrimiento: string;
+  antiguedadEnDias: number;
+  /** Cuánto tardó en descubrirse. Es un indicador por sí mismo. */
+  diasHastaElDescubrimiento: number;
+  comoSeDescubrio: string;
+  fuente: string;
+  documentoAdjunto: string | null;
+  /** Cero, una o varias. **Cero es el caso interesante.** */
+  misiones: string[];
+  vehiculo: string | null;
+  motorista: string | null;
+  periodo: string | null;
+  abierto: boolean;
+  resolucion: string | null;
+  fundamento: string | null;
+  reversos: number;
+  efectoEconomicoTotal: number;
+}
+
+export const hallazgosPosteriores = (): Promise<HallazgoPosterior[]> =>
+  pedir<HallazgoPosterior[]>('/hallazgos');
+
+export const hallazgosDeLaMision = (mision: string): Promise<HallazgoPosterior[]> =>
+  pedir<HallazgoPosterior[]>(`/hallazgos/mision/${mision}`);
+
+export const TEXTO_DE_RESOLUCION: Record<string, string> = {
+  ConAsientoReverso: 'Resuelto con asiento reverso',
+  SinEfectoEconomico: 'Real, sin efecto económico',
+  SinEfecto: 'Sin efecto — era un error del descubridor',
+};

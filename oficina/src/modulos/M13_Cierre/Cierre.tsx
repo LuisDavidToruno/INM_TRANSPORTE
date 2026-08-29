@@ -12,6 +12,7 @@ import { ROTULO_ESTADO } from '../../dominio/mision';
 import PanelDeVales from '../M09_Combustible/PanelDeVales';
 import PanelDeAbastecimientos from '../M09_Combustible/PanelDeAbastecimientos';
 import PanelDeCoherencia from '../M18_Peajes/PanelDeCoherencia';
+import PanelDeHallazgos from '../M14_Auditoria/PanelDeHallazgos';
 import { valesDeLaMision } from '../../api/combustible';
 import type { Vale } from '../../api/combustible';
 import { soloFecha } from '../M06_Autorizacion/formato';
@@ -169,6 +170,12 @@ export default function Cierre(): ReactElement {
           antes de decidir. `NRM-10`: es lo que busca el auditor del TSC -- correlacion, no
           comprobantes archivados. */}
       <PanelDeCoherencia mision={id} />
+
+      {/* §7.5: la mision cerrada muestra que tiene hallazgos posteriores vinculados. Se
+          consulta desde el hallazgo y no se guarda una marca aca -- guardar algo en un
+          expediente cerrado seria modificarlo, que es justo lo que la inmutabilidad
+          prohibe. */}
+      <PanelDeHallazgos mision={id} />
 
       <Panel titulo={hayHallazgo ? 'Este expediente cierra con hallazgo' : 'Este expediente cierra limpio'}>
         <div className="tw:flex tw:flex-col tw:gap-5">

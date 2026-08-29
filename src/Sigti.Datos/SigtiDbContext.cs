@@ -65,6 +65,10 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
 
     public DbSet<FilaDeDiferencia> DiferenciasDeConciliacion => Set<FilaDeDiferencia>();
 
+    public DbSet<FilaDeHallazgo> HallazgosPosteriores => Set<FilaDeHallazgo>();
+
+    public DbSet<FilaDeReverso> AsientosReversos => Set<FilaDeReverso>();
+
     public DbSet<FilaDeMovimientoDeExistencias> MovimientosDeExistencias =>
         Set<FilaDeMovimientoDeExistencias>();
     public DbSet<FilaDeAbastecimiento> Abastecimientos => Set<FilaDeAbastecimiento>();
@@ -544,6 +548,107 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             // Y el comprobante duplicado se busca por referencia entre delegaciones
             // (`RN-84`, `RN-95` punto 3: la conciliacion cruza el alcance de datos).
             diferencia.HasIndex(d => d.Referencia);
+        });
+
+        modelo.Entity<FilaDeHallazgo>(hallazgo =>
+        {
+            hallazgo.ToTable("HallazgoPosterior", schema: "auditoria");
+
+            hallazgo.HasKey(h => h.Id);
+            hallazgo.Property(h => h.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            hallazgo.Property(h => h.VehiculoId).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+            hallazgo.Property(h => h.MotoristaId).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+            hallazgo.Property(h => h.Tipo).HasMaxLength(160).IsRequired();
+            hallazgo.Property(h => h.ComoSeDescubrio).HasMaxLength(500).IsRequired();
+            hallazgo.Property(h => h.Fuente).HasMaxLength(300).IsRequired();
+            hallazgo.Property(h => h.DocumentoAdjunto).HasMaxLength(300);
+            hallazgo.Property(h => h.Periodo).HasMaxLength(40);
+            hallazgo.Property(h => h.Resolucion).HasConversion<string>().HasMaxLength(40);
+            hallazgo.Property(h => h.Fundamento).HasMaxLength(2000);
+
+            // La antiguedad se cuenta desde el HECHO, y `RN-97` arrastra los abiertos al
+            // ejercicio siguiente por ese orden.
+            hallazgo.HasIndex(h => h.FechaDelHecho);
+            hallazgo.HasIndex(h => h.VehiculoId);
+
+            hallazgo.HasMany(h => h.Misiones)
+                .WithOne()
+                .HasForeignKey(m => m.HallazgoId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            hallazgo.HasMany(h => h.Movimientos)
+                .WithOne()
+                .HasForeignKey(m => m.HallazgoId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            hallazgo.HasMany(h => h.Reversos)
+                .WithOne()
+                .HasForeignKey(r => r.HallazgoId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelo.Entity<FilaDeMisionDelHallazgo>(vinculo =>
+        {
+            vinculo.ToTable("MisionDelHallazgo", schema: "auditoria");
+
+            vinculo.HasKey(v => new { v.HallazgoId, v.MisionId });
+            vinculo.Property(v => v.HallazgoId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            vinculo.Property(v => v.MisionId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+
+            // **La pregunta desde la mision.** Una `CERRADA` no se reabre, pero tiene que
+            // poder mostrar que tiene hallazgos posteriores vinculados (§7.5).
+            vinculo.HasIndex(v => v.MisionId);
+        });
+
+        modelo.Entity<FilaDeMovimientoDelHallazgo>(movimiento =>
+        {
+            movimiento.ToTable("MovimientoDelHallazgo", schema: "auditoria");
+
+            movimiento.HasKey(m => m.Id);
+            movimiento.Property(m => m.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            movimiento.Property(m => m.HallazgoId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            movimiento.Property(m => m.ReversoId).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+            movimiento.Property(m => m.Movimiento).HasMaxLength(8).IsRequired();
+            movimiento.Property(m => m.Persona).HasMaxLength(64).IsRequired();
+            movimiento.Property(m => m.Puesto).HasMaxLength(64).IsRequired();
+            movimiento.Property(m => m.Motivo).HasMaxLength(2000).IsRequired();
+
+            movimiento.HasIndex(m => new { m.HallazgoId, m.Orden }).IsUnique();
+        });
+
+        modelo.Entity<FilaDeReverso>(reverso =>
+        {
+            reverso.ToTable("AsientoReverso", schema: "auditoria");
+
+            reverso.HasKey(r => r.Id);
+            reverso.Property(r => r.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            reverso.Property(r => r.HallazgoId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            reverso.Property(r => r.Naturaleza).HasConversion<string>().HasMaxLength(40).IsRequired();
+            reverso.Property(r => r.TipoDeAsiento).HasMaxLength(60).IsRequired();
+            reverso.Property(r => r.IdentificadorDelAsiento).HasMaxLength(64).IsRequired();
+            reverso.Property(r => r.DescripcionDelAsiento).HasMaxLength(300).IsRequired();
+            reverso.Property(r => r.ValorAnterior).HasMaxLength(300).IsRequired();
+            reverso.Property(r => r.ValorNuevo).HasMaxLength(300);
+            reverso.Property(r => r.Persona).HasMaxLength(64).IsRequired();
+            reverso.Property(r => r.Puesto).HasMaxLength(64).IsRequired();
+            reverso.Property(r => r.Autoriza).HasMaxLength(64).IsRequired();
+            reverso.Property(r => r.AutorDelAsientoOriginal).HasMaxLength(64).IsRequired();
+            reverso.Property(r => r.MotivoTipificado).HasMaxLength(160).IsRequired();
+            reverso.Property(r => r.Fundamento).HasMaxLength(2000).IsRequired();
+            reverso.Property(r => r.Adjunto).HasMaxLength(300);
+            reverso.Property(r => r.PeriodoAfectado).HasMaxLength(40).IsRequired();
+            reverso.Property(r => r.PeriodoDeImputacion).HasMaxLength(40).IsRequired();
+            reverso.Property(r => r.TablasParametricas).HasMaxLength(500);
+            reverso.Property(r => r.EfectoEconomico).HasColumnType("decimal(18,2)");
+
+            // **Un asiento se revierte una sola vez.** Un segundo reverso duplicaria el
+            // efecto economico sobre el periodo corriente, y esa correccion de mas no la va
+            // a poder rastrear nadie. El indice lo impone la base, no una comprobacion que
+            // el proximo endpoint pueda olvidar.
+            reverso.HasIndex(r => new { r.TipoDeAsiento, r.IdentificadorDelAsiento }).IsUnique();
+
+            // Y el acumulado del periodo corriente se arma sumando por aca.
+            reverso.HasIndex(r => r.PeriodoDeImputacion);
         });
 
         // ── M-18 Peajes ─────────────────────────────────────────────────────

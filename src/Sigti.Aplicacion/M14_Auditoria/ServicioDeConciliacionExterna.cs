@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Sigti.Datos;
 using Sigti.Datos.M14_Auditoria;
+using Sigti.Dominio.M01_Organizacion;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
 using Sigti.Dominio.M09_Combustible;
 using Sigti.Dominio.M14_Auditoria;
@@ -69,6 +70,19 @@ public sealed class ServicioDeConciliacionExterna(SigtiDbContext contexto)
     /// Quién persigue las diferencias que no se resuelvan. `RN-66` lo exige junto con el plazo:
     /// sin ellos, «no resuelto» se vuelve un montón que crece y que nadie revisa.
     /// </param>
+    /// <param name="hallazgos">
+    /// <b>`RN-95` lo exige: cada diferencia abre expediente de hallazgo posterior «de forma
+    /// automática»</b> (`RN-93`). Se recibe el servicio y no se construye acá porque el
+    /// expediente es de `M-14` y esta conciliación es sólo una de sus fuentes.
+    ///
+    /// El expediente se abre <b>sólo para las diferencias que ya cayeron sobre un objeto
+    /// cerrado</b>: una diferencia de una misión que sigue viva se resuelve en su liquidación,
+    /// y `RN-93` no aplica al hallazgo detectado antes del cierre.
+    /// </param>
+    /// <param name="descubre">
+    /// Quién y con qué competencia. Va al expediente: `RN-93` punto 1 pide quién lo descubrió,
+    /// cómo, cuándo y contra qué fuente.
+    /// </param>
     public async Task<ResultadoDeConciliacion> ConciliarAsync(
         Ulid fuenteId,
         DateOnly desde,
@@ -79,6 +93,8 @@ public sealed class ServicioDeConciliacionExterna(SigtiDbContext contexto)
         string responsableDeSeguimiento,
         DateOnly plazo,
         DateTimeOffset momento,
+        ServicioDeHallazgosPosteriores hallazgos,
+        Autoria descubre,
         int toleranciaEnDias = 1,
         CancellationToken cancelacion = default)
     {
@@ -103,7 +119,81 @@ public sealed class ServicioDeConciliacionExterna(SigtiDbContext contexto)
         await GuardarAsync(
             resultado, ejecuta, responsableDeSeguimiento, plazo, momento, fila, cancelacion);
 
+        // **`RN-95`: cada diferencia abre expediente de hallazgo posterior**, en ambos
+        // sentidos. Hasta ahora la conciliación las dejaba como filas con responsable y plazo;
+        // el expediente es lo que les da ciclo propio, asiento reverso y resolución que no se
+        // borra — y lo que impide que se resuelvan reabriendo la misión.
+        await AbrirExpedientesAsync(
+            resultado, fuente, documentoFuente.Trim(), hallazgos, descubre, momento, cancelacion);
+
         return resultado;
+    }
+
+    /// <summary>
+    /// Abre un expediente de hallazgo posterior por cada diferencia — `RN-95` y `RN-93`.
+    ///
+    /// ── La fecha del hecho y la del descubrimiento, separadas ───────────────
+    /// `RN-93` las exige como campos distintos, y acá salen de dos lugares distintos: la del
+    /// hecho es la de la línea o la del asiento; la del descubrimiento es la de esta
+    /// conciliación. Contar la antigüedad desde el descubrimiento premiaría conciliar tarde.
+    ///
+    /// ── Sin misión vinculable, y eso es previsto ────────────────────────────
+    /// La conciliación no sabe a qué misión pertenece una línea del proveedor. El expediente
+    /// se abre con <b>cero misiones</b>, el vehículo cuando se resolvió, y el período — que es
+    /// exactamente el caso que `RN-93` describe: <i>«el paso por caseta de un domingo, el
+    /// consumo de un vehículo que ese día no tenía orden»</i>.
+    /// </summary>
+    private static async Task AbrirExpedientesAsync(
+        ResultadoDeConciliacion resultado,
+        FuenteExterna fuente,
+        string documentoFuente,
+        ServicioDeHallazgosPosteriores hallazgos,
+        Autoria descubre,
+        DateTimeOffset momento,
+        CancellationToken cancelacion)
+    {
+        var descubrimiento = DateOnly.FromDateTime(momento.Date);
+        var periodo = $"{resultado.Desde:yyyy-MM}";
+
+        foreach (var d in resultado.SoloEnLaFuente)
+        {
+            await hallazgos.AbrirAsync(
+                Ulid.NewUlid(),
+                $"Cobro del emisor sin registro en SIGTI ({fuente.Tipo})",
+                d.Linea.FechaDelHecho,
+                descubrimiento,
+                $"Conciliación contra {fuente.Emisor}, línea {d.Linea.Id}" +
+                    (d.Linea.Referencia is { } r ? $", comprobante {r}" : ""),
+                $"{fuente.Emisor} — {documentoFuente}",
+                documentoFuente,
+                misiones: [],
+                d.Vehiculo.Vehiculo,
+                motorista: null,
+                periodo,
+                descubre,
+                momento,
+                cancelacion);
+        }
+
+        foreach (var d in resultado.SoloEnSigti)
+        {
+            await hallazgos.AbrirAsync(
+                Ulid.NewUlid(),
+                $"Registro en SIGTI sin respaldo del emisor ({fuente.Tipo})",
+                d.Asiento.FechaDelHecho,
+                descubrimiento,
+                $"Conciliación contra {fuente.Emisor}: {d.Asiento.Origen} registrado y no " +
+                    "reportado por el emisor",
+                $"{fuente.Emisor} — {documentoFuente}",
+                documentoFuente,
+                misiones: [],
+                d.Asiento.Vehiculo,
+                motorista: null,
+                periodo,
+                descubre,
+                momento,
+                cancelacion);
+        }
     }
 
     /// <summary>
