@@ -144,6 +144,15 @@ export const CONSTRUIDAS: Readonly<Record<string, Construida>> = {
   },
   'PT-097': { ruta: '/organizacion', archivo: 'M01_Organizacion/Puestos.tsx' },
 
+  // ── M-14 Auditoría ────────────────────────────────────────────────────────
+  'PT-091': {
+    ruta: '/intentos-bloqueados',
+    archivo: 'M14_Auditoria/IntentosBloqueados.tsx',
+    incompleta:
+      'Registra los intentos con su par y su origen. El escalamiento de §5.3.B.3 todavía no ' +
+      'encola nada: los dos primeros saltos exigen la jerarquía de puestos, que el espejo no trae.',
+  },
+
   // ── M-05 Motoristas y habilitación ────────────────────────────────────────
   'PT-082': { ruta: '/motoristas', archivo: 'M05_Motoristas/Padron.tsx' },
   'PT-084': { ruta: '/motoristas/matriz', archivo: 'M05_Motoristas/Matriz.tsx' },

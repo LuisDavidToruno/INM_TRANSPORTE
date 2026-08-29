@@ -405,6 +405,82 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## §5.3.B — el control bloqueante, y `PT-091`
+
+**El otro momento del control.** El preventivo mira la acumulación de roles al otorgarlos y
+sólo puede rechazar lo absoluto. Éste es donde el documento dice que *«se decide de verdad»*:
+hay un expediente concreto y se compara persona contra persona.
+
+### Lo que hasta ayer no bloqueaba en ninguna parte
+
+`BD-01` cubre la autorización de una misión y **nada más**. Los demás pares no tenían dónde
+dispararse. Medido en vivo sobre `PROV-00000C`, al liquidar:
+
+| Quién | Ya había hecho | Resultado |
+|---|---|---|
+| `P-ASISTENTE` | la solicitud | **409 `I-04`** |
+| `P-ENCARGADO` | el despacho | **409 `I-09`** |
+| `P-JEFATURA` | la autorización | **409 `I-07`** · núcleo irreductible |
+| `P-TRANSPORTE` | emitió la Orden de Misión | **200** — `I-14` está apagado |
+
+Esa última fila es la que prueba que el bloqueo no es un «rechaza todo»: `ACT-04` emite y
+liquida por diseño, y encender `I-14` por omisión lo dejaría sin operar.
+
+### El mensaje es el del documento, literal
+
+§5.3.B.1 pide precisión — *«un mensaje genérico produce una llamada a soporte; uno preciso
+produce la acción correcta»*. Medido: *«Usted ya ejerció el despacho sobre este expediente
+(despacho de … (T-12), el 12/03/2026). No puede además la liquidación: es la incompatibilidad
+I-09. Quien despacha no declara cómo volvió.»* Y **no lleva nombres de tipos**: quien lo lee
+está resolviendo un trámite, no depurando el sistema.
+
+### La pista registra lo que NO pasó — `PT-091`
+
+§5.3.B.2: *«el intento bloqueado es información de control, no ruido»*. Los tres intentos
+quedaron con persona, función pretendida, expediente, par, contra qué chocó, referencia,
+momento y origen. **El registro ocurre aunque el acto se impida**, y en su propia unidad de
+trabajo: dejarlo al manejador de la excepción haría que el rollback se llevara el asiento
+justo cuando ocurrió.
+
+La pantalla pone **la reincidencia primero**: *«un mismo usuario intentando quince veces
+autorizar sus propias solicitudes es exactamente lo que Auditoría Interna quiere ver»*, y
+ordenar por fecha la esconde entre los aislados. Y cuando está vacía **no se lee como un
+certificado**: cero no prueba que el control opere, prueba que no se ha necesitado.
+
+### ⚠️ Un cuarto error del mismo tipo: `I-14` era inalcanzable
+
+Lo destapó la prueba que exige **las dos ramas del parámetro configurable**. `I-14` estaba
+escrito con las funciones de `I-07` —Autoriza × Liquida—, así que `I-07` disparaba primero por
+ser el mismo par y de mayor nivel, **y el configurable no decidía nada nunca**.
+
+Son cosas distintas: `ACT-03` se pronuncia sobre la **procedencia de la necesidad**; `ACT-04`
+**emite la Orden de Misión**. Por eso el MARCI separa el primero de la liquidación —`I-07`,
+núcleo irreductible— y no dice nada del segundo. Se agregó `EmiteOrdenDeMision`.
+
+Cuatro errores en el puente rol→función en dos turnos, **todos encontrados por pruebas que
+exigen las dos ramas o por leer la ficha en vez de suponer**. Es el punto más frágil de `M-01`
+y conviene tratarlo así.
+
+### ⚠️ El escalamiento está a medias, y lo dice
+
+§5.3.B.3 pide tres saltos: puesto superior → respaldo de sede → `ACT-08`. **Los dos primeros
+exigen la jerarquía de puestos**, y el espejo del organigrama sólo trae persona↔puesto.
+
+El bloqueo nombra el destino que sí puede resolver y **declara qué le falta**, en vez de
+inventar un destinatario: la misión quedaría *«visiblemente pendiente»* en la bandeja
+equivocada. Y **todavía no encola nada** — la pista registra, no encamina.
+
+Lo que destraba esto es que el espejo traiga `id_puesto_superior` y la unidad organizativa,
+que el modelo de §2.2 ya declara y la integración con ARGOS no trae.
+
+### Dónde está cableado, y dónde no
+
+Hoy opera en **`T-20` liquidar**, que es donde convergen cinco pares. Falta cablearlo en
+despachar (`T-12`), entregar el fondo (`V-02`) y aprobar el fondo. El motor y la pista ya
+existen: cada uno es armar sus `ActosDelExpediente` y llamar.
+
+---
+
 ## `M-01` — la segregación de funciones deja de ser un documento
 
 **`PT-096` y `PT-097` entregadas, y con ellas la mitad de `M-01` que le faltaba al sistema.**

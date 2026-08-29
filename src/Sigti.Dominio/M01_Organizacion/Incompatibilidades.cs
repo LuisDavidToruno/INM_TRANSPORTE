@@ -51,6 +51,22 @@ public enum Funcion
     OrdenaMantenimiento,
     /// <summary>Recibir conforme el trabajo de taller — `I-16`.</summary>
     RecibeConforme,
+
+    /// <summary>
+    /// Convertir una necesidad autorizada en misión ejecutable — `ACT-04`. `I-14`.
+    ///
+    /// ── No es <c>Autoriza</c>, y la diferencia es todo `I-14` ──────────────────
+    /// `ACT-03` se pronuncia sobre <b>la procedencia de la necesidad</b>; `ACT-04` decide vehículo,
+    /// motorista y fecha y <b>emite la Orden de Misión</b>. Son actos distintos de personas
+    /// distintas, y por eso el MARCI separa el primero de la liquidación (`I-07`, núcleo
+    /// irreductible) y <b>no dice nada del segundo</b> — `I-14` es práctica de control,
+    /// configurable y apagada.
+    ///
+    /// Escribir `I-14` con las funciones de `I-07` lo vuelve <b>inalcanzable</b>: `I-07` dispara
+    /// primero por ser el mismo par y de mayor nivel, y el parámetro configurable no decide
+    /// nada nunca. Lo destapó la prueba que exige las dos ramas del parámetro.
+    /// </summary>
+    EmiteOrdenDeMision,
 }
 
 /// <summary>Con qué fuerza opera un par incompatible — §5.2, columna «Nivel».</summary>
@@ -203,7 +219,7 @@ public static class Incompatibilidades
             "Podría otorgarse a sí mismo la facultad y borrar el rastro."),
 
         // `I-14` NO está en la enumeración del MARCI. Configurable y apagado por omisión.
-        new("I-14", Funcion.Autoriza, Funcion.Liquida, AlcanceDelPar.MismoExpediente,
+        new("I-14", Funcion.EmiteOrdenDeMision, Funcion.Liquida, AlcanceDelPar.MismoExpediente,
             NivelDeIncompatibilidad.Configurable,
             "Emitir la Orden de Misión y liquidarla. Activable para instituciones con " +
             "planilla suficiente."),
@@ -259,7 +275,10 @@ public static class Incompatibilidades
             // (ACT-07), no cierra el expediente (ACT-08)». Lo que sí hace: programar, solicitar
             // el fondo, liquidar y gestionar el padrón de motoristas.
             [Rol.JefeDeTransporte] =
-                [Funcion.SolicitaFondo, Funcion.Liquida, Funcion.HabilitaLicencia],
+            [
+                Funcion.EmiteOrdenDeMision, Funcion.SolicitaFondo, Funcion.Liquida,
+                Funcion.HabilitaLicencia,
+            ],
 
             // «No programa la misión, no la autoriza y no la liquida.»
             [Rol.EncargadoDeDespacho] = [Funcion.Despacha],
@@ -283,7 +302,7 @@ public static class Incompatibilidades
             [Rol.EncargadoDeDelegacion] =
             [
                 Funcion.Solicita, Funcion.Autoriza, Funcion.Despacha, Funcion.EntregaFondo,
-                Funcion.SolicitaFondo, Funcion.Liquida,
+                Funcion.SolicitaFondo, Funcion.Liquida, Funcion.EmiteOrdenDeMision,
             ],
 
             // «Declarar la indisponibilidad del vehículo y su reingreso al servicio.»

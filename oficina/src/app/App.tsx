@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText, LayoutList, IdCard, Scale, Users } from 'lucide-react';
+import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText, LayoutList, IdCard, Scale, Users, ShieldAlert } from 'lucide-react';
 
 import { Avisos, Nota, Shell, avisar } from '../ui';
 import type { GrupoNav, Miga } from '../ui';
@@ -21,6 +21,7 @@ import Padron from '../modulos/M03_Flota/Padron';
 import PrestamosPantalla from '../modulos/M03_Flota/Prestamos';
 import Titulos from '../modulos/M03_Flota/Titulos';
 import Puestos from '../modulos/M01_Organizacion/Puestos';
+import IntentosBloqueados from '../modulos/M14_Auditoria/IntentosBloqueados';
 import ExpedienteDeVehiculo from '../modulos/M03_Flota/Expediente';
 import PadronDeMotoristas from '../modulos/M05_Motoristas/Padron';
 import MatrizDeLicencias from '../modulos/M05_Motoristas/Matriz';
@@ -172,6 +173,9 @@ function Interior(): ReactElement {
       // expediente completo y coherente pudo ser falso.
       titulo: 'M-14 Auditoría',
       items: [
+        // Va primero del grupo: es lo que Auditoría Interna abre para ver si el control
+        // opera, y una pista de intentos escondida al final es una pista que no se mira.
+        { texto: 'Intentos bloqueados', icono: <ShieldAlert />, href: '/intentos-bloqueados' },
         { texto: 'Fuentes externas', icono: <FileSearch />, href: '/conciliacion' },
         { texto: 'Saldo de apertura', icono: <Archive />, href: '/saldo-de-apertura' },
         // El cierre de ejercicio va al final del grupo: es lo que se produce DESPUES de que
@@ -231,6 +235,7 @@ function Interior(): ReactElement {
         <Route path="/prestamos" element={<PrestamosPantalla />} />
         <Route path="/combustible" element={<Fondos />} />
         <Route path="/peajes" element={<Peajes />} />
+        <Route path="/intentos-bloqueados" element={<IntentosBloqueados />} />
         <Route path="/conciliacion" element={<Conciliacion />} />
         <Route path="/saldo-de-apertura" element={<SaldoDeAperturaPantalla />} />
         <Route path="/cierre-de-ejercicio" element={<CierreDeEjercicioPantalla />} />
@@ -275,6 +280,7 @@ function migasDe(ruta: string): Miga[] {
   if (ruta === '/pantallas') return ['Pantallas'];
   if (ruta === '/prestamos') return ['Flota', 'Préstamos'];
   if (ruta === '/combustible') return ['Combustible'];
+  if (ruta === '/intentos-bloqueados') return ['Auditoría', 'Intentos bloqueados'];
   if (ruta === '/conciliacion') return ['Auditoría', 'Fuentes externas'];
   if (ruta === '/saldo-de-apertura') return ['Auditoría', 'Saldo de apertura'];
   if (ruta === '/cierre-de-ejercicio') return ['Auditoría', 'Cierre de ejercicio'];

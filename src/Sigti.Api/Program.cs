@@ -77,6 +77,7 @@ constructor.Services.AddScoped<ServicioDePrestamos>();
 constructor.Services.AddScoped<ServicioDeIndisponibilidad>();
 constructor.Services.AddScoped<ServicioDeTitulos>();
 constructor.Services.AddScoped<ServicioDeCompetencias>();
+constructor.Services.AddScoped<ServicioDeSegregacion>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -114,6 +115,18 @@ app.UseExceptionHandler(rama => rama.Run(async contexto =>
             (object)new { precondicion = b.Precondicion, mensaje = b.Message }),
         TransicionInvalida t => (StatusCodes.Status409Conflict,
             new { transicion = t.Transicion, estadoActual = t.EstadoActual.ToString(), mensaje = t.Message }),
+        // **El bloqueo por segregacion trae su propia forma.** El par de §5.2 es lo que
+        // dice por donde se sale, y meterlo en 'precondicion' junto a los BD-xx haria que la
+        // pantalla no pudiera ofrecer el escalamiento que §5.3.B.3 exige.
+        SegregacionIncompatible seg => (StatusCodes.Status409Conflict,
+            new
+            {
+                par = seg.Par,
+                mensaje = seg.Message,
+                pretendia = seg.Intento.Pretendia.ToString(),
+                chocaCon = seg.Intento.ChocaCon.ToString(),
+                escalarA = ReglasDeSegregacion.DestinoDelEscalamiento(false),
+            }),
         CargaRechazada c => (StatusCodes.Status409Conflict,
             new { motivo = c.Motivo.ToString(), mensaje = c.Message }),
         ExpedienteNoEncontrado n => (StatusCodes.Status404NotFound,
@@ -911,13 +924,54 @@ ConOdometro("retornar", (e, quien, cuando, o, captura, subtipo, justificacion, n
 // combustible estén liquidadas**, y ese recuento no está en el expediente. Dejarlo en el
 // helper significaba pasar nulo, y nulo es «no evaluada»: la regla quedaría escrita y sin
 // ejecutar, que es exactamente lo que se está cerrando.
+/// `T-20` — liquidar, **con el control bloqueante de §5.3.B**.
+///
+/// Es la transición donde convergen cinco pares —`I-04`, `I-07`, `I-09`, `I-10` e `I-11`— y
+/// hasta ahora **ninguno bloqueaba acá**: `BD-01` cubre la autorización de la misión y nada mas.
+/// El caso que esto impide es el clasico: **quien condujo liquidando su propia mision**.
 misiones.MapPost("/{id}/liquidar", async (
-    string id, EjecutarTransicion peticion,
-    ServicioDeMisiones servicio, ServicioDeCombustible combustible) =>
+    string id, EjecutarTransicion peticion, HttpContext http,
+    ServicioDeMisiones servicio, ServicioDeCombustible combustible,
+    ServicioDeSegregacion segregacion, ConsultaDeConductores padron) =>
 {
     if (!Identificador.Valido(id, out var ulid, out var error)) return error;
 
     var recuento = await combustible.RecuentoDeLaMisionAsync(ulid);
+
+    var expediente = await servicio.BuscarAsync(ulid)
+        ?? throw new ExpedienteNoEncontrado(ulid);
+
+    // Quien conduce. **Nulo es «no se pudo resolver», no «nadie conduce»**: sin el, `I-11`
+    // —nucleo irreductible, el vector de fraude clasico en combustible— no se evalua.
+    var recursos = expediente.Diario.LastOrDefault(t => t.Recursos is not null)?.Recursos;
+
+    IdPersona? conductor = null;
+
+    if (recursos is not null)
+    {
+        var enElPadron = (await padron.TodosAsync())
+            .FirstOrDefault(c => c.Id == recursos.Conductor);
+
+        // La identidad de PERSONA, no la del registro de conductor: `I-11` compara personas.
+        // Mientras `M-05` no traiga el vinculo con Talento Humano, el nombre es lo que hay —y
+        // es lo mismo que ya usan `BD-13` y la custodia.
+        if (enElPadron is not null) conductor = new IdPersona(enElPadron.Nombre);
+    }
+
+    // Quien entrego el fondo vive en `M-09`, que la mision no conoce. `V-02` es la entrega.
+    var entrego = (await combustible.DeLaMisionAsync(ulid))
+        .Select(v => v.QuienHizo("V-02"))
+        .FirstOrDefault(e => e is not null);
+
+    await segregacion.ExigirAsync(
+        new IdPersona(peticion.Ejecuta),
+        Funcion.Liquida,
+        ActosDeLaMision.De(expediente, id, conductor, entrego),
+        id,
+        peticion.Momento,
+
+        // De donde vino el intento — §5.3.B.2 lo enumera entre los siete datos.
+        origen: http.Connection.RemoteIpAddress?.ToString());
 
     var estado = await servicio.TransicionarAsync(
         ulid,
@@ -1047,6 +1101,49 @@ app.MapGet("/matriz-de-licencias", async (
         // lea como «la categoría no habilita nada».
         clasesEnLaFlota = vehiculos.Select(v => v.Clase.ToString()).Distinct(),
         vehiculosEnLaFlota = vehiculos.Count,
+    });
+});
+
+// ── M-01 · Intentos bloqueados por segregacion ──────────────────────────────
+//
+// `PT-091`. §5.3.B.2: **el intento bloqueado es informacion de control, no ruido**. Un sistema
+// que solo guarda lo que se consumo no puede contestar si el control opero: un bloqueo perfecto
+// y uno que nunca se activo se ven exactamente igual.
+app.MapGet("/segregacion/intentos", async (ServicioDeSegregacion servicio) =>
+{
+    var todos = await servicio.TodosAsync();
+
+    return Results.Ok(new
+    {
+        total = todos.Count,
+
+        // **La reincidencia es lo que Auditoria mira.** «Un mismo usuario intentando quince
+        // veces autorizar sus propias solicitudes es exactamente lo que quiere ver.»
+        reincidentes = todos
+            .GroupBy(i => i.Quien)
+            .Where(g => g.Count() > 1)
+            .Select(g => new { persona = g.Key, intentos = g.Count() })
+            .OrderByDescending(x => x.intentos),
+
+        porPar = todos
+            .GroupBy(i => i.Par)
+            .Select(g => new { par = g.Key, intentos = g.Count() })
+            .OrderByDescending(x => x.intentos),
+
+        intentos = todos.Select(i => new
+        {
+            id = i.Id.ToString(),
+            quien = i.Quien,
+            pretendia = i.Pretendia,
+            expediente = i.Expediente,
+            par = i.Par,
+            chocaCon = i.ChocaCon,
+            referencia = i.Referencia,
+            momento = i.MomentoUtc,
+
+            // Nulo es «no se supo», no «desde el servidor».
+            origen = i.Origen,
+        }),
     });
 });
 

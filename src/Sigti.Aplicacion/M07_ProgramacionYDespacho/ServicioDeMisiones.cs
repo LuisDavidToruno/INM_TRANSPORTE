@@ -42,6 +42,17 @@ public sealed class ServicioDeMisiones(SigtiDbContext contexto, EstadoDeLaFlota 
     /// precondición de bloqueo duro, lanza <see cref="BloqueoDuro"/> <b>antes</b> de que
     /// se escriba nada.
     /// </summary>
+    /// <summary>
+    /// El expediente, para <b>mirarlo antes de intentar la transición</b>.
+    ///
+    /// Existe por el control bloqueante de §5.3.B: la segregación compara quién pretende actuar
+    /// contra quién ya actuó, y esos actos están en el diario. Evaluarla <i>dentro</i> de la
+    /// transición obligaría al dominio de la misión a conocer `M-09` —el fondo vive allá— y a
+    /// escribir en la pista de auditoría, que es de la capa de aplicación.
+    /// </summary>
+    public Task<OrdenDeMision?> BuscarAsync(Ulid id, CancellationToken cancelacion = default) =>
+        _expedientes.BuscarAsync(id, cancelacion);
+
     public async Task<EstadoDeMision> TransicionarAsync(
         Ulid id,
         Action<OrdenDeMision> transicion,

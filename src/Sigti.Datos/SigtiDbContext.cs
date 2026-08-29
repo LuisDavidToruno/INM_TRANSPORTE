@@ -32,6 +32,12 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     /// asignaciones. ARGOS no sabe qué es despachar un vehículo.
     /// </summary>
     public DbSet<FilaDeCompetencia> Competencias => Set<FilaDeCompetencia>();
+
+    /// <summary>
+    /// Los intentos bloqueados por segregación — §5.3.B.2. <b>Pista de auditoría</b>: se
+    /// escribe desde el propio bloqueo y no se edita ni se borra.
+    /// </summary>
+    public DbSet<FilaDeIntentoBloqueado> IntentosBloqueados => Set<FilaDeIntentoBloqueado>();
     public DbSet<FilaDeCustodia> Custodias => Set<FilaDeCustodia>();
     public DbSet<FilaDePermisoDeCirculacion> Permisos => Set<FilaDePermisoDeCirculacion>();
     public DbSet<FilaDeCambioDeEstado> CambiosDeEstado => Set<FilaDeCambioDeEstado>();
@@ -262,6 +268,27 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
 
             // La pregunta que se hace siempre: que competencias tiene este puesto.
             competencia.HasIndex(c => c.Puesto);
+        });
+
+        modelo.Entity<FilaDeIntentoBloqueado>(intento =>
+        {
+            intento.ToTable("IntentoBloqueado", schema: "organizacion");
+
+            intento.HasKey(i => i.Id);
+            intento.Property(i => i.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            intento.Property(i => i.Quien).HasMaxLength(64).IsRequired();
+            intento.Property(i => i.Pretendia).HasMaxLength(40).IsRequired();
+            intento.Property(i => i.Expediente).HasMaxLength(64).IsRequired();
+            intento.Property(i => i.Par).HasMaxLength(10).IsRequired();
+            intento.Property(i => i.ChocaCon).HasMaxLength(40).IsRequired();
+            intento.Property(i => i.Referencia).HasMaxLength(300).IsRequired();
+            intento.Property(i => i.Origen).HasMaxLength(120);
+
+            // Las dos preguntas de Auditoria: quien reincide, y sobre que expediente.
+            // «Un mismo usuario intentando quince veces autorizar sus propias solicitudes es
+            // exactamente lo que Auditoria Interna quiere ver.»
+            intento.HasIndex(i => i.Quien);
+            intento.HasIndex(i => i.Expediente);
         });
 
         modelo.Entity<FilaDeConductor>(conductor =>
