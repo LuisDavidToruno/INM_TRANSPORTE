@@ -81,6 +81,31 @@ export interface MotivoCompartido {
 }
 
 /**
+ * Las dos fechas de corte del ejercicio — `RN-96`, **parámetros con vigencia**.
+ *
+ * El legal se guarda como día y mes porque el parámetro rige para todos los ejercicios; el
+ * operativo como días después, porque cae en el año siguiente.
+ */
+export interface CortesDelEjercicio {
+  legal: string;
+  operativo: string;
+  /** De qué versiones salieron, con sus vigencias. */
+  origen: string;
+}
+
+/** Por qué no se pudieron resolver. **Sin cortes no hay acta.** */
+export interface CortesSinResolver {
+  clave: string;
+  porQueNo: string;
+}
+
+export const cortesDelEjercicio = (ejercicio: string): Promise<{
+  cortes: CortesDelEjercicio | null;
+  sinCortes: CortesSinResolver | null;
+}> =>
+  pedir(`/cierre-de-ejercicio/${ejercicio}/cortes`);
+
+/**
  * La ventana de cierre — `RN-96`, **parámetro con vigencia**.
  *
  * Resuelta a la fecha del corte legal, no a hoy: reevaluar el cierre de 2026 usa la ventana que
@@ -134,6 +159,8 @@ export interface ActaDeCierre {
   apuro: CierreApurado | null;
   /** El saldo que el acta cita. **Nulo es que no hay saldo producido**, no que cuadró. */
   saldoDeAperturaFolio: string | null;
+  /** De dónde salieron los cortes. Una vista previa con fechas impuestas lo declara. */
+  origenDeLosCortes: string;
   observaciones: string[];
 }
 
@@ -149,24 +176,36 @@ export interface ActaProducida {
   saldoDeAperturaFolio: string | null;
 }
 
+/**
+ * El acta armada y sin congelar.
+ *
+ * **Sin cortes usa los parámetros de la institución.** Pasarlos es explorar «qué pasaría si», y
+ * el acta lo declara en `origenDeLosCortes` para que no se confunda con el cierre real.
+ */
 export const vistaPreviaDelCierre = (
   ejercicio: string,
-  corteLegal: string,
-  corteOperativo: string,
+  cortes?: { legal: string; operativo: string },
 ): Promise<ActaDeCierre> =>
   pedir<ActaDeCierre>(
     `/cierre-de-ejercicio/${ejercicio}/vista-previa` +
-      `?corteLegal=${corteLegal}&corteOperativo=${corteOperativo}`,
+      (cortes === undefined
+        ? ""
+        : `?corteLegal=${cortes.legal}&corteOperativo=${cortes.operativo}`),
   );
 
 export const actasDeCierre = (): Promise<ActaProducida[]> =>
   pedir<ActaProducida[]>('/cierre-de-ejercicio');
 
+/**
+ * Produce el acta con folio.
+ *
+ * **No lleva fechas de corte**: salen de los parámetros de la institución. Un acta producida
+ * contra un corte que alguien escribió en el momento afirmaría sobre todo lo demás contra un
+ * criterio que nadie autorizó.
+ */
 export const producirActa = (cuerpo: {
   folio: string;
   ejercicio: string;
-  corteLegal: string;
-  corteOperativo: string;
   persona: string;
   puesto: string;
 }): Promise<ActaDeCierre> =>

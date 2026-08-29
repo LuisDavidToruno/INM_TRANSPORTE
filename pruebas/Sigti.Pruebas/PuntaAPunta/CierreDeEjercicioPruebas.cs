@@ -49,6 +49,9 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
     public async Task Producir_el_acta_NO_mueve_ningun_expediente()
     {
         const int anio = 2031;
+
+        await SembrarCortesAsync(anio);
+
         var mision = await SembrarMisionAsync(anio, EstadoDeMision.EnRuta, "En ruta al corte");
 
         using var aplicacion = Aplicacion();
@@ -72,6 +75,9 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
     public async Task Un_segundo_acta_del_mismo_ejercicio_no_pasa()
     {
         const int anio = 2032;
+
+        await SembrarCortesAsync(anio);
+
         using var aplicacion = Aplicacion();
         using var cliente = aplicacion.CreateClient();
 
@@ -97,6 +103,7 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         const int anio = 2033;
         const string motivo = "Cierre de ejercicio fiscal, sin observaciones";
 
+        await SembrarCortesAsync(anio);
         await SembrarVentanaAsync(anio, dias: 15);
 
         await SembrarMisionAsync(anio, EstadoDeMision.Cerrada, motivo,
@@ -131,6 +138,7 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
     {
         const int anio = 2034;
 
+        await SembrarCortesAsync(anio);
         await SembrarVentanaAsync(anio, dias: 15);
 
         await SembrarMisionAsync(anio, EstadoDeMision.Cerrada,
@@ -154,6 +162,127 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         Assert.Empty(acta.GetProperty("motivosCompartidos").EnumerateArray());
     }
 
+    // ── Las fechas de corte son parámetros con vigencia ─────────────────────
+
+    /// <summary>
+    /// `RN-96` declara las dos fechas configurables con vigencia. El acta las toma del parámetro
+    /// y <b>declara de qué versiones salieron</b>.
+    /// </summary>
+    [Fact]
+    public async Task Los_cortes_salen_del_parametro_y_el_acta_declara_su_origen()
+    {
+        const int anio = 2041;
+
+        // Una institución que cierra el 30 de junio con diez días de ventana operativa. Si
+        // hubiera un «31 de diciembre» escondido, esto lo delataría.
+        await SembrarCortesAsync(anio, diaYMes: "06-30", diasDespues: 10);
+
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        var acta = await VistaPrevia(cliente, anio);
+
+        Assert.Equal($"{anio}-06-30", acta.GetProperty("corteLegal").GetString());
+        Assert.Equal($"{anio}-07-10", acta.GetProperty("corteOperativo").GetString());
+
+        var origen = acta.GetProperty("origenDeLosCortes").GetString()!;
+        Assert.Contains("06-30", origen);
+        Assert.Contains("10 días", origen);
+    }
+
+    /// <summary>
+    /// <b>Sin los cortes parametrizados no hay acta.</b>
+    ///
+    /// A diferencia de la ventana —que apaga dos reportes— los cortes deciden qué expedientes
+    /// entran al inventario y a qué ejercicio se imputa cada hecho: un acta producida con fechas
+    /// supuestas afirmaría cosas falsas sobre todo lo demás.
+    /// </summary>
+    [Fact]
+    public async Task Sin_los_cortes_parametrizados_el_acta_NO_se_arma()
+    {
+        // Un ejercicio que ninguna prueba siembra.
+        const int anio = 2042;
+
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        var respuesta = await cliente.GetAsync($"/cierre-de-ejercicio/{anio}/vista-previa");
+
+        Assert.False(respuesta.IsSuccessStatusCode);
+
+        var cuerpo = await respuesta.Content.ReadAsStringAsync();
+        Assert.Contains("no están parametrizadas", cuerpo);
+        Assert.Contains("falsearía todo lo demás", cuerpo);
+    }
+
+    [Fact]
+    public async Task Sin_los_cortes_parametrizados_el_acta_tampoco_se_produce()
+    {
+        const int anio = 2043;
+
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        var respuesta = await cliente.PostAsJsonAsync(
+            "/cierre-de-ejercicio", Cuerpo($"AC-{anio}-001", anio));
+
+        Assert.False(respuesta.IsSuccessStatusCode);
+        Assert.Contains("no están parametrizadas", await respuesta.Content.ReadAsStringAsync());
+    }
+
+    /// <summary>
+    /// La vista previa <b>sí</b> admite cortes impuestos —es «qué pasaría si»— y el acta lo
+    /// declara para que esa respuesta no se confunda con el cierre real.
+    ///
+    /// <b>Producir con cortes impuestos no se puede</b>: el endpoint ni siquiera los recibe.
+    /// </summary>
+    [Fact]
+    public async Task La_vista_previa_con_cortes_impuestos_se_declara_exploratoria()
+    {
+        const int anio = 2044;
+        await SembrarCortesAsync(anio);
+
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        var acta = await Leer(cliente,
+            $"/cierre-de-ejercicio/{anio}/vista-previa" +
+            $"?corteLegal={anio}-09-30&corteOperativo={anio}-10-05");
+
+        Assert.Equal($"{anio}-09-30", acta.GetProperty("corteLegal").GetString());
+
+        Assert.Contains("NO son los parámetros de la institución",
+            acta.GetProperty("origenDeLosCortes").GetString());
+    }
+
+    /// <summary>
+    /// Los cortes se consultan aparte para que la pantalla pueda mostrarlos antes de armar nada.
+    /// </summary>
+    [Fact]
+    public async Task Los_cortes_del_ejercicio_se_pueden_consultar_solos()
+    {
+        const int anio = 2045;
+        await SembrarCortesAsync(anio, diaYMes: "12-31", diasDespues: 20);
+
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        var conCortes = await Leer(cliente, $"/cierre-de-ejercicio/{anio}/cortes");
+
+        Assert.Equal($"{anio + 1}-01-20",
+            conCortes.GetProperty("cortes").GetProperty("operativo").GetString());
+
+        Assert.True(conCortes.GetProperty("sinCortes").ValueKind is JsonValueKind.Null);
+
+        // Y el ejercicio sin parámetros dice por qué, en vez de devolver una fecha inventada.
+        var sinCortes = await Leer(cliente, "/cierre-de-ejercicio/2046/cortes");
+
+        Assert.True(sinCortes.GetProperty("cortes").ValueKind is JsonValueKind.Null);
+
+        Assert.Contains("no hay versión aprobada",
+            sinCortes.GetProperty("sinCortes").GetProperty("porQueNo").GetString());
+    }
+
     // ── La ventana de cierre es parámetro con vigencia ──────────────────────
 
     /// <summary>
@@ -165,6 +294,8 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
     public async Task La_ventana_sale_del_parametro_y_el_acta_declara_su_origen()
     {
         const int anio = 2040;
+
+        await SembrarCortesAsync(anio);
         await SembrarVentanaAsync(anio, dias: 40);
 
         using var aplicacion = Aplicacion();
@@ -196,6 +327,10 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         // diciembre de su año, así que ninguna alcanza a éste.
         const int anio = 2030;
         const string motivo = "Cierre de ejercicio fiscal, sin observaciones";
+
+        // Los cortes sí, la ventana no: sin cortes el acta no se arma siquiera, y lo que esta
+        // prueba mira es lo que pasa cuando falta **solo** la ventana.
+        await SembrarCortesAsync(anio);
 
         await SembrarMisionAsync(anio, EstadoDeMision.Cerrada, motivo,
             cierre: new DateTime(anio, 12, 30, 16, 40, 0));
@@ -234,6 +369,9 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
     public async Task El_folio_emitido_al_corte_se_lista_y_se_anula_citando_el_acta()
     {
         const int anio = 2027;
+
+        await SembrarCortesAsync(anio);
+
         using var aplicacion = Aplicacion();
         using var cliente = aplicacion.CreateClient();
 
@@ -310,6 +448,7 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         const int anio = 2036;
         const string clave = "cierre.tolerancia-de-galonaje-2036";
 
+        await SembrarCortesAsync(anio);
         await SembrarVentanaAsync(anio, dias: 15);
 
         await using (var contexto = baseDePruebas.Contexto())
@@ -354,6 +493,7 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         const int anio = 2037;
         const string clave = "cierre.plazo-de-liquidacion-2037";
 
+        await SembrarCortesAsync(anio);
         await SembrarVentanaAsync(anio, dias: 15);
 
         await using (var contexto = baseDePruebas.Contexto())
@@ -389,6 +529,8 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
     {
         const int anio = 2038;
         var corte = new DateOnly(anio, 12, 31);
+
+        await SembrarCortesAsync(anio);
 
         using var aplicacion = Aplicacion();
         using var cliente = aplicacion.CreateClient();
@@ -462,13 +604,28 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
     /// Y de paso lo deja fuera de la ventana de cierre, donde contaminaría el reporte de
     /// `RN-96` punto 6 de la propia prueba.
     /// </summary>
-    private async Task SembrarVentanaAsync(int anio, int dias)
+    private Task SembrarVentanaAsync(int anio, int dias) =>
+        SembrarParametroAsync(anio, "cierre.ventana_de_cierre_dias", $"{dias}");
+
+    /// <summary>
+    /// Las dos fechas de corte del ejercicio — `RN-96`, parámetros con vigencia.
+    ///
+    /// <b>Sin esto no se arma ni se produce ninguna acta</b>, y por eso todas las pruebas lo
+    /// siembran: si hubiera un «31 de diciembre» por omisión escondido, pasarían sin sembrar nada.
+    /// </summary>
+    private async Task SembrarCortesAsync(int anio, string diaYMes = "12-31", int diasDespues = 15)
+    {
+        await SembrarParametroAsync(anio, "cierre.corte_legal_dia_y_mes", diaYMes);
+        await SembrarParametroAsync(anio, "cierre.corte_operativo_dias_despues", $"{diasDespues}");
+    }
+
+    private async Task SembrarParametroAsync(int anio, string clave, string valor)
     {
         await using var contexto = baseDePruebas.Contexto();
 
         contexto.Parametros.Add(new VersionDeParametro(
-            "cierre.ventana_de_cierre_dias",
-            $"{dias}",
+            clave,
+            valor,
             new DateOnly(anio, 1, 1),
             new DateOnly(anio, 12, 31),
             new DateTimeOffset(2020, 1, 2, 8, 0, 0, TimeSpan.Zero),
@@ -662,21 +819,26 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
             .Select(t => $"{t.Orden}:{t.Transicion}:{t.Destino}")];
     }
 
+    /// <summary>
+    /// El cuerpo para producir. <b>Ya no lleva fechas de corte</b>: salen de los parámetros de la
+    /// institución, porque un acta producida contra un corte que alguien escribió en el momento
+    /// afirmaría sobre todo lo demás contra un criterio que nadie autorizó.
+    /// </summary>
     private static object Cuerpo(string folio, int anio) => new
     {
         Folio = folio,
         Ejercicio = $"{anio}",
-        CorteLegal = new DateOnly(anio, 12, 31),
-        CorteOperativo = new DateOnly(anio + 1, 1, 15),
         Persona = "P-ADMIN",
         Puesto = "PU-GERENCIA",
         Momento = new DateTimeOffset(anio + 1, 1, 16, 9, 0, 0, TimeSpan.FromHours(-6)),
     };
 
+    /// <summary>
+    /// La vista previa <b>sin imponer cortes</b>: los toma del parámetro, que es lo que hace la
+    /// pantalla. Pasarlos sería explorar, y entonces el acta lo declara.
+    /// </summary>
     private static Task<JsonElement> VistaPrevia(HttpClient cliente, int anio) =>
-        Leer(cliente,
-            $"/cierre-de-ejercicio/{anio}/vista-previa" +
-            $"?corteLegal={anio}-12-31&corteOperativo={anio + 1}-01-15");
+        Leer(cliente, $"/cierre-de-ejercicio/{anio}/vista-previa");
 
     private static async Task<JsonElement> Leer(HttpClient cliente, string ruta)
     {

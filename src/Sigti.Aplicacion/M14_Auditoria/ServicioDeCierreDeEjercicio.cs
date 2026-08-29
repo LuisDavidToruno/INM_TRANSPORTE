@@ -39,27 +39,94 @@ public sealed class ServicioDeCierreDeEjercicio(
     private readonly ParametrosNormativos _parametros = new(contexto);
 
     /// <summary>
+    /// Las dos fechas de corte del ejercicio — `RN-96`, <b>parámetros con vigencia</b>.
+    ///
+    /// ── Resueltas al último día del ejercicio, no al corte ──────────────────
+    /// Sería circular resolverlas a la fecha del corte: hace falta el corte para saberla. Se
+    /// resuelven al 31 de diciembre del ejercicio, que se conoce sin depender de nada, y por eso
+    /// una versión que empieza a regir a mitad de año ya alcanza a ese ejercicio.
+    /// </summary>
+    public async Task<(CortesDelEjercicio? Cortes, CortesSinResolver? Sin)> CortesAsync(
+        string ejercicio, DateTimeOffset momento, CancellationToken cancelacion = default)
+    {
+        if (!int.TryParse(ejercicio, out var anio) || anio is < 1900 or > 9999)
+            return ReglasDelCierreDeEjercicio.CortesDe(ejercicio, null, null, null, null);
+
+        var alCierre = new DateOnly(anio, 12, 31);
+
+        var legal = (await _parametros.CatalogoDeAsync(
+                ReglasDelCierreDeEjercicio.ClaveDelCorteLegal, cancelacion))
+            .ResolverSiHay(ReglasDelCierreDeEjercicio.ClaveDelCorteLegal, alCierre, momento);
+
+        var operativo = (await _parametros.CatalogoDeAsync(
+                ReglasDelCierreDeEjercicio.ClaveDelCorteOperativo, cancelacion))
+            .ResolverSiHay(ReglasDelCierreDeEjercicio.ClaveDelCorteOperativo, alCierre, momento);
+
+        return ReglasDelCierreDeEjercicio.CortesDe(
+            ejercicio,
+            legal?.Valor, legal?.VigenteDesde,
+            operativo?.Valor, operativo?.VigenteDesde);
+    }
+
+    /// <summary>
     /// Arma el acta sin congelarla. Es lo que la pantalla muestra antes de producir.
     ///
-    /// ── El corte legal y el operativo son parámetros, no constantes ─────────
-    /// `RN-96` los declara configurables con vigencia. Quien llama los resuelve contra la tabla
-    /// vigente; acá se validan, no se inventan.
+    /// ── Los cortes salen del parámetro; imponerlos es explorar ──────────────
+    /// `RN-96` declara las dos fechas configurables con vigencia. Quien no pase nada obtiene las
+    /// de la institución; quien las imponga está preguntando <i>«qué pasaría si…»</i>, y el acta
+    /// lo dice en su origen para que esa respuesta no se confunda con el cierre real.
+    ///
+    /// <b>Producir con cortes impuestos no se puede</b>, y por eso
+    /// <see cref="ProducirAsync"/> ni siquiera los recibe.
     /// </summary>
+    /// <param name="corteLegal">Nulo toma el del parámetro. Pasarlo es explorar.</param>
+    /// <param name="corteOperativo">Ídem. Si se pasa uno hay que pasar los dos.</param>
     public async Task<ActaDeCierreDeEjercicio> ArmarAsync(
         string ejercicio,
-        DateOnly corteLegal,
-        DateOnly corteOperativo,
+        DateOnly? corteLegal,
+        DateOnly? corteOperativo,
         Autoria ejecuta,
         DateTimeOffset momento,
         CancellationToken cancelacion = default)
     {
+        string origenDeLosCortes;
+
+        if (corteLegal is null || corteOperativo is null)
+        {
+            var (cortes, sin) = await CortesAsync(ejercicio, momento, cancelacion);
+
+            if (cortes is null)
+                throw new BloqueoDuro("RN-96",
+                    $"Las fechas de corte del ejercicio no están parametrizadas: {sin!.PorQueNo} " +
+                    "Sin ellas no se puede armar el acta: los cortes deciden qué expedientes " +
+                    "entran al inventario y a qué ejercicio se imputa cada hecho, y suponerlos " +
+                    "falsearía todo lo demás. Se cargan en " +
+                    $"«{ReglasDelCierreDeEjercicio.ClaveDelCorteLegal}» y " +
+                    $"«{ReglasDelCierreDeEjercicio.ClaveDelCorteOperativo}», con vigencia y " +
+                    "doble control.");
+
+            corteLegal = cortes.Legal;
+            corteOperativo = cortes.Operativo;
+            origenDeLosCortes = cortes.Origen;
+        }
+        else
+        {
+            // **Exploración, y el acta lo dice.** Una vista previa con cortes impuestos responde
+            // «qué pasaría si», y esa respuesta no se puede confundir con el cierre real.
+            origenDeLosCortes =
+                "Cortes impuestos en la vista previa — NO son los parámetros de la institución.";
+        }
+
         // El folio no se exige para armar: armar es mirar, no producir. `ExigirCortes` corre
         // igual con el folio de la vista previa para que la coherencia entre fechas se juzgue
         // antes de que alguien apriete producir.
         ReglasDelCierreDeEjercicio.ExigirCortes(
-            "(vista previa)", ejercicio, corteLegal, corteOperativo);
+            "(vista previa)", ejercicio, corteLegal.Value, corteOperativo.Value);
 
-        var (inventario, _) = await saldos.InventarioAsync(corteOperativo, cancelacion);
+        var legal = corteLegal.Value;
+        var operativo = corteOperativo.Value;
+
+        var (inventario, _) = await saldos.InventarioAsync(operativo, cancelacion);
 
         var saldo = await saldos.DelEjercicioAsync(ejercicio, cancelacion);
 
@@ -72,20 +139,19 @@ public sealed class ServicioDeCierreDeEjercicio(
         // ── La ventana se resuelve UNA vez y se pasa a lo que la usa ────────
         // Resolverla dentro de cada reporte dejaría que uno la leyera parametrizada y otro no,
         // y el acta mostraría dos secciones medidas contra ventanas distintas sin decirlo.
-        var (ventana, sinVentana) = await VentanaAsync(
-            corteLegal, corteOperativo, momento, cancelacion);
+        var (ventana, sinVentana) = await VentanaAsync(legal, operativo, momento, cancelacion);
 
         return new ActaDeCierreDeEjercicio(
             Ulid.NewUlid(),
             "(vista previa)",
             ejercicio,
-            corteLegal,
-            corteOperativo,
+            legal,
+            operativo,
             ejecuta,
             momento,
             inventario,
-            await MisionesQueCruzanAsync(corteLegal, corteOperativo, cancelacion),
-            await FoliosPorAnularAsync(corteOperativo, cancelacion),
+            await MisionesQueCruzanAsync(legal, operativo, cancelacion),
+            await FoliosPorAnularAsync(operativo, cancelacion),
 
             // El registro de cambios de parámetros **sí necesita la ventana**, y por eso sale
             // vacío cuando no la hay: buscar cambios «en la ventana» sin ventana devolvería el
@@ -105,7 +171,8 @@ public sealed class ServicioDeCierreDeEjercicio(
             diferencias,
             saldo?.Folio,
             ventana,
-            sinVentana);
+            sinVentana,
+            origenDeLosCortes);
     }
 
     /// <summary>
@@ -142,17 +209,24 @@ public sealed class ServicioDeCierreDeEjercicio(
     ///
     /// Congela el folio del saldo que cita, las diferencias vistas ese día y la lista de folios
     /// a anular. <b>No anula nada</b>: eso es <see cref="AnularFoliosAsync"/>.
+    ///
+    /// ── NO recibe las fechas de corte, y es deliberado ──────────────────────
+    /// Salen de los parámetros de la institución. Recibirlas dejaría producir un acta contra un
+    /// corte que alguien escribió en el momento, y los cortes deciden qué expedientes entran al
+    /// inventario y a qué ejercicio se imputa cada hecho: sería el documento del cierre
+    /// afirmando sobre todo lo demás contra un criterio que nadie autorizó.
+    ///
+    /// Explorar otras fechas se hace en <see cref="ArmarAsync"/>, que las admite y marca el acta
+    /// como exploratoria.
     /// </summary>
     public async Task<ActaDeCierreDeEjercicio> ProducirAsync(
         string folio,
         string ejercicio,
-        DateOnly corteLegal,
-        DateOnly corteOperativo,
         Autoria ejecuta,
         DateTimeOffset momento,
         CancellationToken cancelacion = default)
     {
-        ReglasDelCierreDeEjercicio.ExigirCortes(folio, ejercicio, corteLegal, corteOperativo);
+        ReglasDelCierreDeEjercicio.ExigirFolioDelActa(folio, ejercicio);
 
         if (await contexto.ActasDeCierre.AnyAsync(a => a.Ejercicio == ejercicio, cancelacion))
             throw new BloqueoDuro("RN-96",
@@ -162,8 +236,7 @@ public sealed class ServicioDeCierreDeEjercicio(
                 "resuelve en el ejercicio corriente, con expediente de hallazgo posterior " +
                 "(`RN-93`) — no reescribiendo el acta.");
 
-        var vista = await ArmarAsync(
-            ejercicio, corteLegal, corteOperativo, ejecuta, momento, cancelacion);
+        var vista = await ArmarAsync(ejercicio, null, null, ejecuta, momento, cancelacion);
 
         var saldo = await saldos.DelEjercicioAsync(ejercicio, cancelacion);
 
@@ -174,8 +247,8 @@ public sealed class ServicioDeCierreDeEjercicio(
             Id = acta.Id,
             Folio = acta.Folio,
             Ejercicio = acta.Ejercicio,
-            CorteLegal = corteLegal,
-            CorteOperativo = corteOperativo,
+            CorteLegal = vista.CorteLegal,
+            CorteOperativo = vista.CorteOperativo,
             Persona = ejecuta.Persona.ToString(),
             Puesto = ejecuta.Puesto.ToString(),
             MomentoUtc = momento.UtcDateTime,

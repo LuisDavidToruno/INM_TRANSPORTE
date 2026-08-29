@@ -402,6 +402,10 @@ static object ResumirActa(ActaDeCierreDeEjercicio a) => new
         veces = a.Apuro.Veces,
     },
 
+    // De donde salieron las dos fechas de corte. Un acta producida las toma del parametro; una
+    // vista previa con fechas impuestas lo dice, para que no se confunda con el cierre real.
+    origenDeLosCortes = a.OrigenDeLosCortes,
+
     observaciones = a.Observaciones,
 };
 
@@ -1293,22 +1297,47 @@ saldos.MapPost("/renglones/{id}/resolver", async (
 var cierreDeEjercicio = app.MapGroup("/cierre-de-ejercicio");
 
 /// El acta armada y **sin congelar**. Es lo que se mira antes de producir.
+///
+/// Sin `corteLegal` ni `corteOperativo` usa **los parámetros de la institución** (`RN-96`).
+/// Pasarlos es explorar «qué pasaría si», y el acta lo declara en su origen.
 cierreDeEjercicio.MapGet("/{ejercicio}/vista-previa", async (
-    string ejercicio, DateOnly corteLegal, DateOnly corteOperativo,
+    string ejercicio, DateOnly? corteLegal, DateOnly? corteOperativo,
     ServicioDeCierreDeEjercicio servicio) =>
     Results.Ok(ResumirActa(await servicio.ArmarAsync(
         ejercicio, corteLegal, corteOperativo,
-        Autoria.De(new IdPersona("P-ADMIN"), new IdPuesto("PU-GERENCIA"), corteLegal),
+        Autoria.De(new IdPersona("P-ADMIN"), new IdPuesto("PU-GERENCIA"),
+            corteLegal ?? DateOnly.FromDateTime(DateTime.UtcNow)),
         DateTimeOffset.UtcNow))));
 
+/// Las dos fechas de corte que rigen para un ejercicio, o por qué no se pudieron resolver.
+cierreDeEjercicio.MapGet("/{ejercicio}/cortes", async (
+    string ejercicio, ServicioDeCierreDeEjercicio servicio) =>
+{
+    var (cortes, sin) = await servicio.CortesAsync(ejercicio, DateTimeOffset.UtcNow);
+
+    return Results.Ok(new
+    {
+        cortes = cortes is null ? null : new
+        {
+            legal = cortes.Legal,
+            operativo = cortes.Operativo,
+            origen = cortes.Origen,
+        },
+        sinCortes = sin is null ? null : new { clave = sin.Clave, porQueNo = sin.PorQueNo },
+    });
+});
+
 /// Produce el acta con folio — `RN-96` punto 1. **No anula nada**: eso es un acto aparte.
+///
+/// **No recibe las fechas de corte.** Salen de los parámetros de la institución: recibirlas
+/// dejaría producir el documento del cierre contra un criterio que nadie autorizó.
 cierreDeEjercicio.MapPost("/", async (
     ProducirActaDeCierre peticion, ServicioDeCierreDeEjercicio servicio) =>
 {
     var acta = await servicio.ProducirAsync(
-        peticion.Folio, peticion.Ejercicio, peticion.CorteLegal, peticion.CorteOperativo,
+        peticion.Folio, peticion.Ejercicio,
         Autoria.De(new IdPersona(peticion.Persona), new IdPuesto(peticion.Puesto),
-            peticion.CorteLegal),
+            DateOnly.FromDateTime(peticion.Momento.UtcDateTime)),
         peticion.Momento);
 
     return Results.Created($"/cierre-de-ejercicio/{acta.Ejercicio}", ResumirActa(acta));
@@ -3329,10 +3358,6 @@ internal sealed record ProducirActaDeCierre(
     /// <summary>Sin folio el saldo de apertura no tiene a qué acta corresponder.</summary>
     string Folio,
     string Ejercicio,
-    /// <summary>La fecha que fija la norma contable.</summary>
-    DateOnly CorteLegal,
-    /// <summary>Hasta cuándo la operación siguió registrando hechos del ejercicio.</summary>
-    DateOnly CorteOperativo,
     string Persona,
     string Puesto,
     DateTimeOffset Momento);

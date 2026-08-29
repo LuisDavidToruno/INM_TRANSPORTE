@@ -501,10 +501,40 @@ bloqueando.
 ⚠️ **Insumo #93: nadie ha cargado la ventana.** Mientras tanto los dos controles están apagados —
 declarados, pero apagados. La ficha no fija ningún número, así que no se inventa.
 
-⚠️ **Las fechas de corte legal y operativa siguen viniendo del cliente**, no de parámetros. `RN-96`
-las declara configurables con vigencia (insumo #86) y hoy cualquiera puede pedir cualquier corte en
-la vista previa. Es editable a propósito mientras se ajusta, pero el valor por omisión debería salir
-del catálogo igual que la ventana.
+#### Las fechas de corte también, y producir dejó de aceptarlas
+
+Venían del cliente: cualquiera podía pedir cualquier corte. Ahora salen de
+`cierre.corte_legal_dia_y_mes` —día y mes en formato `MM-DD`— y de
+`cierre.corte_operativo_dias_despues`.
+
+**El legal se guarda como día y mes, no como fecha completa.** El parámetro rige para *todos* los
+ejercicios: guardar «2026-12-31» obligaría a cargar una versión por año, y el primer enero que
+nadie la cargara dejaría al sistema sin corte. Lo que la institución decide una vez es *«cerramos
+el 31 de diciembre»*.
+
+**El operativo se guarda como días después.** Cae en el año siguiente, y un «01-15» tendría que
+adivinar a cuál — una institución que cerrara el 30 de junio rompería la adivinanza. De paso hace
+imposible por construcción el caso que el bloqueo de cortes existe para impedir.
+
+Se resuelven al **31 de diciembre del ejercicio**, no al corte: resolverlos a la fecha del corte
+sería circular, porque hace falta el corte para saberla.
+
+`POST /cierre-de-ejercicio` **ya no recibe fechas.** Producir el documento del cierre contra un
+corte que alguien escribió en el momento lo haría afirmar sobre todo lo demás contra un criterio
+que nadie autorizó. La vista previa **sí** las admite —es «qué pasaría si»— y el acta lo declara:
+*«Cortes impuestos en la vista previa — NO son los parámetros de la institución»*.
+
+**El 29 de febrero de un año no bisiesto se rechaza, no se corre al 28.** Correrlo movería el corte
+un día sin que nadie lo decidiera, y ese día tiene hechos. Verificado por mutación. Quien cargue
+`31-12` invirtiendo el formato lee *«dice mes 31, que no existe»*, que le dice exactamente qué hizo
+mal.
+
+Medido en vivo contra la base de desarrollo: sin los parámetros la pantalla explica qué falta
+cargar y no arma nada; con ellos, el ejercicio 2026 da **corte legal 31/12/2026, operativo
+15/01/2027** y los mismos **23 renglones**.
+
+⚠️ **Insumo #94: nadie los ha cargado**, así que hoy la pantalla de cierre no arma ninguna acta.
+Es el insumo #86 aterrizado a dos claves concretas.
 
 **Tres pruebas de punta a punta cambiaron de significado al cablear esto:** pasaban con listas
 vacías por falta de parámetro, no por ausencia de hallazgos. Ahora siembran la ventana y **asertan

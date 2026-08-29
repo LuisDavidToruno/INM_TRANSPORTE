@@ -207,6 +207,139 @@ public class ReglasDelCierreDeEjercicioPruebas
         Assert.Empty(compartidos);
     }
 
+    // ── Las fechas de corte son parámetros con vigencia ─────────────────────
+
+    /// <summary>
+    /// `RN-96` las declara configurables. El legal se guarda como <b>día y mes</b> porque el
+    /// parámetro rige para todos los ejercicios; el operativo como <b>días después</b> porque
+    /// cae en el año siguiente y un «01-15» tendría que adivinar a cuál.
+    /// </summary>
+    [Fact]
+    public void Los_cortes_salen_de_los_parametros_y_declaran_su_origen()
+    {
+        var (cortes, sin) = ReglasDelCierreDeEjercicio.CortesDe(
+            "2026", "12-31", new DateOnly(2024, 1, 1), "15", new DateOnly(2024, 1, 1));
+
+        Assert.Null(sin);
+        Assert.Equal(new DateOnly(2026, 12, 31), cortes!.Legal);
+        Assert.Equal(new DateOnly(2027, 1, 15), cortes.Operativo);
+        Assert.Contains("12-31", cortes.Origen);
+        Assert.Contains("15 días", cortes.Origen);
+    }
+
+    /// <summary>
+    /// El mismo parámetro sirve para cualquier ejercicio. Eso es lo que se gana guardando día y
+    /// mes en vez de la fecha completa: nadie tiene que cargar una versión cada enero.
+    /// </summary>
+    [Fact]
+    public void El_mismo_parametro_fecha_cualquier_ejercicio()
+    {
+        var (a, _) = ReglasDelCierreDeEjercicio.CortesDe("2026", "12-31", null, "15", null);
+        var (b, _) = ReglasDelCierreDeEjercicio.CortesDe("2031", "12-31", null, "15", null);
+
+        Assert.Equal(new DateOnly(2026, 12, 31), a!.Legal);
+        Assert.Equal(new DateOnly(2031, 12, 31), b!.Legal);
+    }
+
+    /// <summary>
+    /// Una institución que cierra a mitad de año no rompe nada: el operativo se cuenta desde el
+    /// legal, sin adivinar el año.
+    /// </summary>
+    [Fact]
+    public void Un_corte_a_mitad_de_anio_tambien_resuelve()
+    {
+        var (cortes, _) = ReglasDelCierreDeEjercicio.CortesDe("2026", "06-30", null, "10", null);
+
+        Assert.Equal(new DateOnly(2026, 6, 30), cortes!.Legal);
+        Assert.Equal(new DateOnly(2026, 7, 10), cortes.Operativo);
+    }
+
+    /// <summary>
+    /// Cero días es válido: hay instituciones sin ventana operativa. Rechazarlo obligaría a
+    /// inventar un día que la norma no da.
+    /// </summary>
+    [Fact]
+    public void Cero_dias_despues_deja_los_dos_cortes_el_mismo_dia()
+    {
+        var (cortes, _) = ReglasDelCierreDeEjercicio.CortesDe("2026", "12-31", null, "0", null);
+
+        Assert.Equal(cortes!.Legal, cortes.Operativo);
+    }
+
+    [Fact]
+    public void Sin_el_dia_y_mes_cargado_NO_hay_corte_por_omision()
+    {
+        var (cortes, sin) = ReglasDelCierreDeEjercicio.CortesDe("2026", null, null, "15", null);
+
+        Assert.Null(cortes);
+        Assert.Equal("cierre.corte_legal_dia_y_mes", sin!.Clave);
+    }
+
+    [Fact]
+    public void Sin_los_dias_del_operativo_tampoco()
+    {
+        var (cortes, sin) = ReglasDelCierreDeEjercicio.CortesDe("2026", "12-31", null, null, null);
+
+        Assert.Null(cortes);
+        Assert.Equal("cierre.corte_operativo_dias_despues", sin!.Clave);
+    }
+
+    /// <summary>
+    /// <b>El 29 de febrero de un año no bisiesto se rechaza, no se corre al 28.</b>
+    ///
+    /// Correrlo movería el corte un día sin que nadie lo decidiera, y ese día tiene hechos: los
+    /// del 28 pasarían al ejercicio siguiente o se quedarían, según hacia dónde se corriera.
+    /// </summary>
+    [Fact]
+    public void El_29_de_febrero_de_un_anio_no_bisiesto_se_rechaza()
+    {
+        var (bisiesto, _) = ReglasDelCierreDeEjercicio.CortesDe("2028", "02-29", null, "0", null);
+        Assert.Equal(new DateOnly(2028, 2, 29), bisiesto!.Legal);
+
+        var (comun, sin) = ReglasDelCierreDeEjercicio.CortesDe("2026", "02-29", null, "0", null);
+
+        Assert.Null(comun);
+        Assert.Contains("No se corre al día más cercano", sin!.PorQueNo);
+    }
+
+    [Theory]
+    // dd-MM en vez de MM-DD. Cae en el chequeo del mes, y el mensaje lo dice tal cual: quien
+    // cargó «31-12» leerá «mes 31, que no existe» y va a entender de inmediato qué invirtió.
+    [InlineData("31-12", "dice mes 31, que no existe")]
+    [InlineData("13-01", "dice mes 13, que no existe")]
+    [InlineData("diciembre", "la forma MM-DD")]
+    public void Un_dia_y_mes_mal_cargado_se_declara_con_lo_que_decia(
+        string valor, string esperado)
+    {
+        var (cortes, sin) = ReglasDelCierreDeEjercicio.CortesDe("2026", valor, null, "15", null);
+
+        Assert.Null(cortes);
+        Assert.Contains(esperado, sin!.PorQueNo);
+    }
+
+    /// <summary>
+    /// Días negativos dejarían el corte operativo antes del legal — los días de en medio sin
+    /// ejercicio al que imputarse. Es el mismo bloqueo de <c>ExigirCortes</c>, un paso antes.
+    /// </summary>
+    [Fact]
+    public void Dias_negativos_no_resuelven()
+    {
+        var (cortes, sin) = ReglasDelCierreDeEjercicio.CortesDe("2026", "12-31", null, "-5", null);
+
+        Assert.Null(cortes);
+        Assert.Contains("no puede ser anterior al legal", sin!.PorQueNo);
+    }
+
+    [Fact]
+    public void Un_ejercicio_que_no_es_un_anio_no_resuelve()
+    {
+        var (cortes, sin) = ReglasDelCierreDeEjercicio.CortesDe(
+            "el que viene", "12-31", null, "15", null);
+
+        Assert.Null(cortes);
+        Assert.Contains("no es un ejercicio", sin!.PorQueNo);
+    }
+
     // ── La ventana de cierre es parámetro con vigencia ──────────────────────
 
     /// <summary>

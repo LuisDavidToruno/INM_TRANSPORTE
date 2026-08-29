@@ -114,6 +114,39 @@ public sealed record MotivoCompartido(
 }
 
 /// <summary>
+/// Las dos fechas de corte del ejercicio — `RN-96`, <b>parámetros con vigencia</b>.
+///
+/// ── Por qué el corte legal se guarda como día y mes ─────────────────────────
+/// Porque el parámetro rige para <b>todos</b> los ejercicios, no para uno. Guardar
+/// «2026-12-31» obligaría a cargar una versión por año y el primer enero que nadie la cargara
+/// dejaría al sistema sin corte. Lo que la institución decide una vez es <i>«cerramos el 31 de
+/// diciembre»</i>, y eso es día y mes.
+///
+/// ── Y por qué el operativo se guarda como días después ──────────────────────
+/// Porque cae en el <b>año siguiente</b>. Un «01-15» tendría que adivinar a qué año pertenece, y
+/// una institución que cerrara el 30 de junio rompería la adivinanza. «Quince días después del
+/// corte legal» no tiene esa ambigüedad, y de paso hace imposible por construcción el caso que
+/// <see cref="ReglasDelCierreDeEjercicio.ExigirCortes"/> bloquea.
+/// </summary>
+/// <param name="Origen">
+/// De qué versiones salieron, con sus vigencias. Va al acta: dos actas producidas con cortes
+/// distintos no se pueden comparar si ninguna dice cuál usó.
+/// </param>
+public sealed record CortesDelEjercicio(
+    DateOnly Legal,
+    DateOnly Operativo,
+    string Origen);
+
+/// <summary>
+/// Por qué no se pudieron resolver las fechas de corte — `RN-96`.
+///
+/// <b>Sin cortes no hay acta.</b> A diferencia de la ventana —que apaga dos reportes— los cortes
+/// deciden qué expedientes entran al inventario y qué hechos se imputan a qué ejercicio: un acta
+/// producida con fechas supuestas afirmaría cosas falsas sobre todo lo demás.
+/// </summary>
+public sealed record CortesSinResolver(string Clave, string PorQueNo);
+
+/// <summary>
 /// La ventana de cierre — `RN-96`, <b>parámetro con vigencia</b>.
 ///
 /// ── Por qué no es una constante, y por qué tampoco tiene omisión ────────────
@@ -240,7 +273,18 @@ public sealed record ActaDeCierreDeEjercicio(
     VentanaDeCierre? Ventana = null,
 
     /// <summary>Por qué no se pudo resolver. Presente exactamente cuando la ventana es nula.</summary>
-    VentanaSinResolver? SinVentana = null)
+    VentanaSinResolver? SinVentana = null,
+
+    /// <summary>
+    /// De dónde salieron las dos fechas de corte — `RN-96`, parámetros con vigencia.
+    ///
+    /// ── Un acta producida no puede tener cortes impuestos a mano ────────────
+    /// Los cortes deciden qué expedientes entran al inventario y a qué ejercicio se imputa cada
+    /// hecho. Dos actas con cortes distintos no se pueden comparar si ninguna dice cuál usó, y
+    /// una producida con fechas que alguien escribió en el momento afirma sobre todo lo demás
+    /// contra un criterio que nadie autorizó.
+    /// </summary>
+    string OrigenDeLosCortes = "")
 {
     /// <summary>
     /// El valor de los folios que <b>sí se pueden anular</b>. Es la cifra del reporte de
@@ -337,13 +381,7 @@ public static class ReglasDelCierreDeEjercicio
     public static void ExigirCortes(
         string folio, string ejercicio, DateOnly corteLegal, DateOnly corteOperativo)
     {
-        if (string.IsNullOrWhiteSpace(folio))
-            throw new BloqueoDuro("RN-96",
-                "El acta de cierre de ejercicio es un documento con folio. Sin él no se puede " +
-                "citar, y el saldo de apertura no tiene a qué acta corresponder.");
-
-        if (string.IsNullOrWhiteSpace(ejercicio))
-            throw new BloqueoDuro("RN-96", "El acta exige qué ejercicio cierra.");
+        ExigirFolioDelActa(folio, ejercicio);
 
         if (corteOperativo < corteLegal)
             throw new BloqueoDuro("RN-96",
@@ -395,10 +433,108 @@ public static class ReglasDelCierreDeEjercicio
             .ToUpperInvariant();
 
     /// <summary>
+    /// `RN-96` punto 1 — el acta es un <b>documento con folio</b> de un ejercicio.
+    ///
+    /// Va aparte de <see cref="ExigirCortes"/> porque producir el acta ya no recibe fechas —las
+    /// resuelve del parámetro— pero sigue necesitando esto antes de trabajar.
+    /// </summary>
+    public static void ExigirFolioDelActa(string folio, string ejercicio)
+    {
+        if (string.IsNullOrWhiteSpace(folio))
+            throw new BloqueoDuro("RN-96",
+                "El acta de cierre de ejercicio es un documento con folio. Sin él no se puede " +
+                "citar, y el saldo de apertura no tiene a qué acta corresponder.");
+
+        if (string.IsNullOrWhiteSpace(ejercicio))
+            throw new BloqueoDuro("RN-96", "El acta exige qué ejercicio cierra.");
+    }
+
+    /// <summary>
     /// La clave del parámetro que fija cuántos días antes del corte legal empieza la ventana de
     /// cierre — `RN-96`, configurable con vigencia.
     /// </summary>
     public const string ClaveDeLaVentana = "cierre.ventana_de_cierre_dias";
+
+    /// <summary>
+    /// El día y mes del corte legal, en formato <c>MM-DD</c>. <b>No es dd/MM</b>: se guarda
+    /// ordenable, y quien lo cargue lo verá documentado en la pantalla de parámetros.
+    /// </summary>
+    public const string ClaveDelCorteLegal = "cierre.corte_legal_dia_y_mes";
+
+    /// <summary>Cuántos días después del corte legal cae el operativo.</summary>
+    public const string ClaveDelCorteOperativo = "cierre.corte_operativo_dias_despues";
+
+    /// <summary>
+    /// Arma las dos fechas de corte del ejercicio a partir de los valores cargados — `RN-96`.
+    ///
+    /// ── Devuelve nulo con razón, y nunca una fecha de reemplazo ─────────────
+    /// Un «31 de diciembre razonable» decidiría qué expedientes entran al inventario y a qué
+    /// ejercicio se imputa cada hecho, contra una fecha que nadie declaró. Es peor que el caso
+    /// de la ventana: ahí se apagan dos reportes, acá se falsea todo lo demás.
+    /// </summary>
+    /// <param name="ejercicio">A qué año pertenece el corte legal.</param>
+    /// <param name="diaYMes">
+    /// <c>MM-DD</c> del corte legal. <b>Nulo es que no hay versión aprobada.</b>
+    /// </param>
+    /// <param name="diasDespues">Cuántos días después cae el corte operativo. Nulo, ídem.</param>
+    public static (CortesDelEjercicio? Cortes, CortesSinResolver? Sin) CortesDe(
+        string ejercicio,
+        string? diaYMes, DateOnly? vigenteDesdeDelDiaYMes,
+        string? diasDespues, DateOnly? vigenteDesdeDeLosDias)
+    {
+        if (!int.TryParse(ejercicio, out var anio) || anio is < 1900 or > 9999)
+            return (null, new CortesSinResolver(ClaveDelCorteLegal,
+                $"«{ejercicio}» no es un ejercicio contra el que se pueda fechar un corte."));
+
+        if (diaYMes is null)
+            return (null, new CortesSinResolver(ClaveDelCorteLegal,
+                "no hay versión aprobada que fije el día y mes del corte legal."));
+
+        if (diasDespues is null)
+            return (null, new CortesSinResolver(ClaveDelCorteOperativo,
+                "no hay versión aprobada que fije cuántos días después cae el corte operativo."));
+
+        var partes = diaYMes.Split('-');
+
+        if (partes.Length != 2
+            || !int.TryParse(partes[0], out var mes)
+            || !int.TryParse(partes[1], out var dia))
+            return (null, new CortesSinResolver(ClaveDelCorteLegal,
+                $"la versión vigente dice «{diaYMes}», que no tiene la forma MM-DD."));
+
+        if (mes is < 1 or > 12)
+            return (null, new CortesSinResolver(ClaveDelCorteLegal,
+                $"la versión vigente dice mes {mes}, que no existe. El formato es MM-DD."));
+
+        // **El 29 de febrero de un año no bisiesto se rechaza, no se corre al 28.** Correrlo
+        // movería el corte de un día sin que nadie lo decidiera, y ese día tiene hechos.
+        if (dia < 1 || dia > DateTime.DaysInMonth(anio, mes))
+            return (null, new CortesSinResolver(ClaveDelCorteLegal,
+                $"la versión vigente dice «{diaYMes}», y el mes {mes} de {anio} no tiene día " +
+                $"{dia}. No se corre al día más cercano: el corte decide a qué ejercicio se " +
+                "imputa cada hecho, y moverlo un día movería gasto de un año a otro."));
+
+        if (!int.TryParse(diasDespues, out var dias))
+            return (null, new CortesSinResolver(ClaveDelCorteOperativo,
+                $"la versión vigente dice «{diasDespues}», que no es un número de días."));
+
+        // Cero es válido: hay instituciones que no dan ventana operativa. Negativo no, y es la
+        // misma razón que `ExigirCortes`: los días de en medio quedarían sin ejercicio.
+        if (dias < 0)
+            return (null, new CortesSinResolver(ClaveDelCorteOperativo,
+                $"la versión vigente dice «{dias}» días. El corte operativo no puede ser " +
+                "anterior al legal: la operación no deja de registrar hechos del ejercicio " +
+                "antes de que la contabilidad lo cierre."));
+
+        var legal = new DateOnly(anio, mes, dia);
+
+        return (
+            new CortesDelEjercicio(legal, legal.AddDays(dias),
+                $"{ClaveDelCorteLegal} = {diaYMes} (vigente desde el " +
+                $"{vigenteDesdeDelDiaYMes:dd/MM/yyyy}) · {ClaveDelCorteOperativo} = {dias} " +
+                $"días (vigente desde el {vigenteDesdeDeLosDias:dd/MM/yyyy})"),
+            null);
+    }
 
     /// <summary>
     /// Arma la ventana de cierre a partir del valor cargado — `RN-96`.

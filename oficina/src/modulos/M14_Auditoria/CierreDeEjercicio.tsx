@@ -1,13 +1,14 @@
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CircleAlert, Gauge, Scale, ShieldAlert, SlidersHorizontal, Split, Ticket } from 'lucide-react';
+import { CalendarRange, CircleAlert, Gauge, Scale, ShieldAlert, SlidersHorizontal, Split, Ticket } from 'lucide-react';
 
-import { Campo, CampoFecha, Nota, Panel, Pastilla, Boton, avisar } from '../../ui';
+import { Campo, Nota, Panel, Pastilla, Boton, avisar } from '../../ui';
 import { lempiras } from '../../api/combustible';
 import {
   actasDeCierre,
   anularFolios,
+  cortesDelEjercicio,
   producirActa,
   vistaPreviaDelCierre,
 } from '../../api/cierre-de-ejercicio';
@@ -15,6 +16,8 @@ import type {
   ActaDeCierre,
   CambioDeParametro,
   CierreApurado,
+  CortesDelEjercicio,
+  CortesSinResolver,
   FolioPorAnular,
   MisionQueCruza,
   MotivoCompartido,
@@ -39,32 +42,25 @@ export default function CierreDeEjercicioPantalla(): ReactElement {
   const anio = new Date().getFullYear() - 1;
 
   const [ejercicio, setEjercicio] = useState(`${anio}`);
-  const [corteLegal, setCorteLegal] = useState(`${anio}-12-31`);
-  const [corteOperativo, setCorteOperativo] = useState(`${anio + 1}-01-15`);
-
-  /**
-   * Cambiar el ejercicio mueve los cortes.
-   *
-   * **Se vio en la pantalla:** al pasar de 2025 a 2026 los cortes seguían en 2025 y el
-   * inventario salía en cero — no porque no hubiera pendientes, sino porque se estaba mirando
-   * un año contra el corte de otro. Las fechas siguen siendo editables: la norma puede fijar
-   * otras, y `RN-96` las declara configurables con vigencia.
-   */
-  function cambiarEjercicio(valor: string): void {
-    setEjercicio(valor);
-
-    const n = Number(valor);
-    if (!Number.isInteger(n) || valor.length !== 4) return;
-
-    setCorteLegal(`${n}-12-31`);
-    setCorteOperativo(`${n + 1}-01-15`);
-  }
 
   const cola = useQueryClient();
 
+  // ── Los cortes ya no se escriben acá: se resuelven del parámetro ──────────
+  // `RN-96` los declara configurables con vigencia. Un campo editable dejaría producir el acta
+  // contra un corte que alguien escribió en el momento, y los cortes deciden qué expedientes
+  // entran al inventario y a qué ejercicio se imputa cada hecho.
+  const cortes = useQuery({
+    queryKey: ['cortes-del-ejercicio', ejercicio],
+    queryFn: () => cortesDelEjercicio(ejercicio),
+  });
+
   const vista = useQuery({
-    queryKey: ['cierre-vista-previa', ejercicio, corteLegal, corteOperativo],
-    queryFn: () => vistaPreviaDelCierre(ejercicio, corteLegal, corteOperativo),
+    queryKey: ['cierre-vista-previa', ejercicio],
+    queryFn: () => vistaPreviaDelCierre(ejercicio),
+
+    // Sin cortes parametrizados el acta no se arma, y el servidor devuelve un bloqueo duro.
+    // Pedirla igual dejaría un error rojo donde lo correcto es explicar qué falta cargar.
+    enabled: cortes.data?.cortes != null,
   });
 
   const producidas = useQuery({ queryKey: ['actas-de-cierre'], queryFn: actasDeCierre });
@@ -76,8 +72,6 @@ export default function CierreDeEjercicioPantalla(): ReactElement {
       producirActa({
         folio: `AC-${ejercicio}-001`,
         ejercicio,
-        corteLegal,
-        corteOperativo,
         persona: 'P-ADMIN',
         puesto: 'PU-GERENCIA',
       }),
@@ -104,10 +98,11 @@ export default function CierreDeEjercicioPantalla(): ReactElement {
     onError: (error: Error) => { avisar.error(error.message); },
   });
 
-  if (vista.isError) {
+  if (cortes.isError || vista.isError) {
     return (
       <Nota tono="riesgo" icono={<CircleAlert />}>
-        No se pudo armar el acta de cierre. {(vista.error as Error).message}
+        No se pudo armar el acta de cierre.{" "}
+        {((cortes.error ?? vista.error) as Error).message}
       </Nota>
     );
   }
@@ -124,41 +119,34 @@ export default function CierreDeEjercicioPantalla(): ReactElement {
       </header>
 
       <Panel>
-        <div className="tw:grid tw:gap-4 tw:sm:grid-cols-3">
-          <Campo etiqueta="Ejercicio" ayuda="A qué año se imputa lo que cerró.">
-            {(control) => (
-              <input
-                {...control}
-                inputMode="numeric"
-                value={ejercicio}
-                onChange={(e) => { cambiarEjercicio(e.target.value); }}
-                className="loki-foco tw:w-full tw:rounded-control tw:border tw:border-linea tw:bg-panel tw:px-2 tw:py-1.5 tw:text-cuerpo-2 tw:font-mono tw:tabular-nums tw:text-tinta-hi"
-              />
-            )}
-          </Campo>
+        <div className="tw:flex tw:flex-col tw:gap-3">
+          <div className="tw:max-w-[10rem]">
+            <Campo etiqueta="Ejercicio" ayuda="A qué año se imputa lo que cerró.">
+              {(control) => (
+                <input
+                  {...control}
+                  inputMode="numeric"
+                  value={ejercicio}
+                  onChange={(e) => { setEjercicio(e.target.value); }}
+                  className="loki-foco tw:w-full tw:rounded-control tw:border tw:border-linea tw:bg-panel tw:px-2 tw:py-1.5 tw:text-cuerpo-2 tw:font-mono tw:tabular-nums tw:text-tinta-hi"
+                />
+              )}
+            </Campo>
+          </div>
 
-          <Campo
-            etiqueta="Corte legal"
-            ayuda="La fecha que fija la norma contable. Los hechos hasta acá son del ejercicio que cierra."
-          >
-            <CampoFecha valor={corteLegal} onCambiar={setCorteLegal} etiqueta="Corte legal" />
-          </Campo>
-
-          <Campo
-            etiqueta="Corte operativo"
-            ayuda="Hasta cuándo la operación sigue registrando hechos del ejercicio. No es la misma fecha, y confundirlas imputa mal los días de en medio."
-          >
-            <CampoFecha
-              valor={corteOperativo}
-              onCambiar={setCorteOperativo}
-              etiqueta="Corte operativo"
-              min={corteLegal}
-            />
-          </Campo>
+          {/* ── Los cortes se muestran, no se escriben ────────────────────────
+              `RN-96` los declara configurables con vigencia. Un campo editable acá dejaría
+              producir el acta contra un corte que nadie autorizó, y los cortes deciden qué
+              expedientes entran al inventario y a qué ejercicio se imputa cada hecho. */}
+          <PanelDeCortes
+            cortes={cortes.data?.cortes ?? null}
+            sinCortes={cortes.data?.sinCortes ?? null}
+            cargando={cortes.isPending}
+          />
         </div>
       </Panel>
 
-      {vista.isPending ? (
+      {cortes.data?.cortes == null ? null : vista.isPending ? (
         <p className="tw:text-sm tw:text-tinta-mid">Armando el acta…</p>
       ) : (
         <>
@@ -225,6 +213,70 @@ export default function CierreDeEjercicioPantalla(): ReactElement {
           </Panel>
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * Las dos fechas de corte — `RN-96`, **parámetros con vigencia**.
+ *
+ * ── Sin ellas no hay acta, y no es lo mismo que con la ventana ──────────────
+ * La ventana apaga dos reportes. Los cortes deciden **qué expedientes entran al inventario y a
+ * qué ejercicio se imputa cada hecho**: un acta producida con fechas supuestas afirmaría cosas
+ * falsas sobre todo lo demás.
+ */
+function PanelDeCortes({
+  cortes,
+  sinCortes,
+  cargando,
+}: {
+  cortes: CortesDelEjercicio | null;
+  sinCortes: CortesSinResolver | null;
+  cargando: boolean;
+}): ReactElement {
+  if (cargando) {
+    return <p className="tw:text-sm tw:text-tinta-mid">Resolviendo las fechas de corte…</p>;
+  }
+
+  if (cortes === null) {
+    return (
+      <div className="tw:flex tw:flex-col tw:gap-2">
+        <Nota tono="riesgo" icono={<CircleAlert />}>
+          <b>Las fechas de corte del ejercicio no están parametrizadas.</b> Sin ellas no se puede
+          armar el acta: los cortes deciden qué expedientes entran al inventario y a qué ejercicio
+          se imputa cada hecho.
+        </Nota>
+
+        {sinCortes !== null && (
+          <p className="tw:text-xs tw:text-tinta-mid">
+            {sinCortes.porQueNo} Se cargan en{' '}
+            <span className="tw:font-mono">cierre.corte_legal_dia_y_mes</span> —el día y mes en
+            formato <span className="tw:font-mono">MM-DD</span>— y{' '}
+            <span className="tw:font-mono">cierre.corte_operativo_dias_despues</span>, con
+            vigencia y doble control.
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="tw:flex tw:flex-col tw:gap-1">
+      <div className="tw:flex tw:flex-wrap tw:items-baseline tw:gap-x-5 tw:gap-y-1 tw:text-sm">
+        <span className="tw:flex tw:items-center tw:gap-1.5">
+          <CalendarRange className="tw:size-4 tw:text-tinta-mid" aria-hidden />
+          <span className="tw:text-tinta-mid">corte legal</span>{' '}
+          <b>{soloFecha(cortes.legal)}</b>
+        </span>
+        <span>
+          <span className="tw:text-tinta-mid">corte operativo</span>{' '}
+          <b>{soloFecha(cortes.operativo)}</b>
+        </span>
+      </div>
+
+      {/* De qué versiones salieron. Dos actas con cortes distintos no se pueden comparar si
+          ninguna dice cuál usó. */}
+      <p className="tw:font-mono tw:text-xs tw:text-tinta-mid">{cortes.origen}</p>
     </div>
   );
 }
