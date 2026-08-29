@@ -405,6 +405,88 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## Las 138 pantallas, navegables — mapa y fichas «en desarrollo»
+
+**El inventario ya no es sólo un documento.** Las 138 pantallas de
+[`inventario-de-pantallas.md`](docs/04-diseno/inventario-de-pantallas.md) se recorren desde
+`/pantallas`: la construida abre su ruta real y la que falta abre una ficha que dice **por qué**
+no está.
+
+### Se genera del documento, no se copia
+
+`npm run generar-inventario` lee el markdown y produce `inventario.generado.ts`. Una lista
+escrita a mano en el frontend **es una lista que va a divergir**: el día que el inventario dé de
+alta una pantalla, la aplicación seguiría diciendo 138 y nadie se enteraría.
+
+El generador **se valida contra lo que el propio documento declara** —138 filas, 99/29/10 por
+papel, 103/9/25/1 por cliente— y falla si el conteo no da. Y `npm run verificar` corre
+`--verificar`, que falla si el generado quedó atrás. **Probado**: al cambiar una fila del
+markdown, la verificación se cae en el momento.
+
+### Lo que el mapa deja ver
+
+| Situación | |
+|---|---|
+| Construidas | 17 |
+| A medias | 13 |
+| **En desarrollo — se pueden escribir hoy** | **63** |
+| Falta el formato en papel | 20 |
+| Cliente de campo | 25 |
+
+**El número que importa es 63, no 108.** De lo que falta, 20 no se destraban programando —esperan
+el insumo #2— y 25 no son de la oficina. Meter los tres en una sola cifra produce una cola que no
+se puede planificar.
+
+### ⚠️ El conteo de bloqueadas NO da los 29 del documento, y se dice
+
+Aparecen 20. La diferencia se muestra en la propia pantalla porque **un número que discrepa de la
+autoridad sin explicarse obliga a elegir a cuál creerle**:
+
+- **2 se construyeron igual**, sin el formato a la vista: `PT-074` y `PT-081`. Las dos quedaron
+  marcadas *a medias* con la advertencia de que puede haber que rehacerlas contra el papel.
+- **7 son del cliente de campo** (`PT-106`, `114`, `118`, `121`, `122`, `123`, `124`): no esperan
+  un formato, esperan un cliente entero.
+
+### ⚠️ El desfase inverso: seis pantallas construidas que el inventario no tiene
+
+Préstamos, Peajes, Incidentes, Conciliación, Saldo de apertura y Cierre de ejercicio. **No son
+sobras**: cada una salió de una regla escrita después del inventario. De dos de ellas §7.1 ya
+avisaba —*«M-12 más allá del registro en ruta»*, *«M-18 sin pantalla propia hasta que haya
+historias»*— y se construyeron igual; de las otras cuatro el documento no dice nada porque son
+posteriores. El mapa las lista aparte, y **ninguna cuenta dentro de las 138**.
+
+**Y `PT-139` ya está construido.** El cronograma de flota semanal que el inventario dejó fuera
+esperando que el PO lo acepte —*«el ID queda reservado y no se usa para otra cosa»*— vive hoy en
+`/despacho` y en la asignación. Hay una pantalla en uso con una decisión sin tomar.
+
+### La ficha de la que falta
+
+No dice «próximamente». Dice qué pantalla es, **qué la origina** —`CU`, `HU`, roles, si funciona
+sin red— y en cuál de cuatro situaciones está, porque cada una la destraba alguien distinto:
+
+| | Quién la destraba |
+|---|---|
+| En desarrollo | Quien programa. Nada más la frena |
+| Falta el formato | La institución, entregando el papel |
+| Cliente de campo | Un cliente que no existe |
+| A medias | Quien programa, y se nombra **qué mitad** falta |
+
+Las filas que el inventario dejó sin trazar se muestran como *«el inventario no lo trazó»* y no
+como un guion: un guion suelto se lee como «ninguno».
+
+### La trazabilidad pantalla↔`PT`, que antes no existía
+
+Trece pantallas construidas no citaban su `PT-xxx`, así que el inventario era incontrastable
+contra el código: no había forma de decir cuántas de las 138 estaban hechas. Ahora vive en
+`registro.ts`, **escrito a mano y no derivado**, porque es una afirmación sobre el código y
+derivarla del documento daría por construida una pantalla por estar inventariada.
+
+Una ruta puede cubrir varias pantallas del inventario —la asignación resuelve `PT-026`, `027`,
+`028` y `031` en un solo recorrido— y eso es correcto: partirlas obligaría a ir y volver entre
+cuatro páginas para tomar una decisión.
+
+---
+
 ## Las seis pantallas que tenían el bloqueo invisible
 
 **RESUELTAS.** El arreglo de la capa de avisos era central, así que las seis quedaron

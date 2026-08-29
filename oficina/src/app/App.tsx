@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText } from 'lucide-react';
+import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText, LayoutList } from 'lucide-react';
 
 import { Avisos, Nota, Shell, avisar } from '../ui';
 import type { GrupoNav, Miga } from '../ui';
@@ -20,6 +20,8 @@ import Tablero from '../modulos/M07_Programacion/Tablero';
 import Padron from '../modulos/M03_Flota/Padron';
 import PrestamosPantalla from '../modulos/M03_Flota/Prestamos';
 import Titulos from '../modulos/M03_Flota/Titulos';
+import Mapa from '../pantallas/Mapa';
+import EnDesarrollo from '../pantallas/EnDesarrollo';
 import Fondos from '../modulos/M09_Combustible/Fondos';
 import Peajes from '../modulos/M18_Peajes/Peajes';
 import Conciliacion from '../modulos/M14_Auditoria/Conciliacion';
@@ -157,7 +159,15 @@ function Interior(): ReactElement {
         { texto: 'Cierre de ejercicio', icono: <CalendarX2 />, href: '/cierre-de-ejercicio' },
       ],
     },
-    { items: [{ texto: 'Sistema de diseño', icono: <Palette />, href: '/sistema-diseno' }] },
+    {
+      // El mapa va con la vitrina y no dentro de un módulo: no es una pantalla de operar sino
+      // el estado de construcción del sistema entero, y meterlo bajo M-xx daría a entender que
+      // pertenece a ese módulo.
+      items: [
+        { texto: 'Mapa de pantallas', icono: <LayoutList />, href: '/pantallas' },
+        { texto: 'Sistema de diseño', icono: <Palette />, href: '/sistema-diseno' },
+      ],
+    },
   ];
 
   return (
@@ -187,6 +197,10 @@ function Interior(): ReactElement {
         <Route path="/autorizacion/:id" element={<Expediente />} />
         <Route path="/flota" element={<Padron />} />
         <Route path="/titulos" element={<Titulos />} />
+        {/* Las 138 del inventario. La que existe abre su ruta real desde el mapa; la que no,
+            cae acá y dice POR QUÉ no está. Ninguna queda sin destino. */}
+        <Route path="/pantallas" element={<Mapa />} />
+        <Route path="/pantallas/:id" element={<EnDesarrollo />} />
         <Route path="/prestamos" element={<PrestamosPantalla />} />
         <Route path="/combustible" element={<Fondos />} />
         <Route path="/peajes" element={<Peajes />} />
@@ -224,6 +238,10 @@ function migasDe(ruta: string): Miga[] {
   if (ruta === '/despacho') return ['Despacho'];
   if (ruta === '/flota') return ['Flota'];
   if (ruta === '/titulos') return ['Flota', 'Títulos de tenencia'];
+  if (ruta.startsWith('/pantallas/')) {
+    return [{ texto: 'Pantallas', href: '/pantallas' }, ruta.slice('/pantallas/'.length).toUpperCase()];
+  }
+  if (ruta === '/pantallas') return ['Pantallas'];
   if (ruta === '/prestamos') return ['Flota', 'Préstamos'];
   if (ruta === '/combustible') return ['Combustible'];
   if (ruta === '/conciliacion') return ['Auditoría', 'Fuentes externas'];

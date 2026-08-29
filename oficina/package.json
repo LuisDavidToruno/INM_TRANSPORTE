@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "verificar-tokens": "node scripts/verificar-tokens.mjs",
-    "verificar": "npm run typecheck && npm run verificar-tokens"
+    "verificar": "npm run typecheck && npm run verificar-tokens && node scripts/generar-inventario.mjs --verificar",
+    "generar-inventario": "node scripts/generar-inventario.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.2",
