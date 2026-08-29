@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Sigti.Datos.M07_ProgramacionYDespacho;
 using Sigti.Datos.M09_Combustible;
+using Sigti.Datos.M18_Peajes;
 using Sigti.Dominio.Bitacora;
 using Sigti.Dominio.M02_Parametros;
 using Sigti.Dominio.Organizacion;
@@ -32,6 +33,23 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     public DbSet<FilaDeLevantamiento> LevantamientosDeBloqueo => Set<FilaDeLevantamiento>();
 
     public DbSet<FilaDeTanque> Tanques => Set<FilaDeTanque>();
+
+    // ── M-18 Peajes ─────────────────────────────────────────────────────────
+
+    public DbSet<FilaDePunto> PuntosDePeaje => Set<FilaDePunto>();
+
+    public DbSet<FilaDeVigenciaDelPunto> VigenciasDePunto => Set<FilaDeVigenciaDelPunto>();
+
+    public DbSet<FilaDeCategoriaDePeaje> CategoriasDePeaje => Set<FilaDeCategoriaDePeaje>();
+
+    public DbSet<FilaDeTarifa> TarifasDePeaje => Set<FilaDeTarifa>();
+
+    public DbSet<FilaDeReglaDeCategoria> ReglasDeCategoriaDePeaje =>
+        Set<FilaDeReglaDeCategoria>();
+
+    public DbSet<FilaDeExoneracion> ExoneracionesDePeaje => Set<FilaDeExoneracion>();
+
+    public DbSet<FilaDePaso> PasosPorCaseta => Set<FilaDePaso>();
 
     public DbSet<FilaDeMovimientoDeExistencias> MovimientosDeExistencias =>
         Set<FilaDeMovimientoDeExistencias>();
@@ -437,6 +455,138 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             levantamiento.HasIndex(l => new { l.MisionId, l.Responsable }).IsUnique();
 
             levantamiento.HasIndex(l => l.Responsable);
+        });
+
+        // ── M-18 Peajes ─────────────────────────────────────────────────────
+
+        modelo.Entity<FilaDePunto>(punto =>
+        {
+            punto.ToTable("Punto", schema: "peajes");
+
+            punto.HasKey(p => p.Id);
+            punto.Property(p => p.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            punto.Property(p => p.Nombre).HasMaxLength(120).IsRequired();
+            punto.Property(p => p.Operador).HasMaxLength(120).IsRequired();
+            punto.Property(p => p.Carretera).HasMaxLength(120).IsRequired();
+            punto.Property(p => p.SentidoDeCobro).HasMaxLength(60);
+
+            // La exoneracion por operador se resuelve contra esta columna: es como se
+            // otorgan, un acuerdo con un concesionario y no caseta por caseta.
+            punto.HasIndex(p => p.Operador);
+
+            punto.HasMany(p => p.Vigencias)
+                .WithOne()
+                .HasForeignKey(v => v.PuntoId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelo.Entity<FilaDeVigenciaDelPunto>(vigencia =>
+        {
+            vigencia.ToTable("VigenciaDelPunto", schema: "peajes");
+
+            vigencia.HasKey(v => v.Id);
+            vigencia.Property(v => v.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            vigencia.Property(v => v.PuntoId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            vigencia.Property(v => v.Estado).HasConversion<string>().HasMaxLength(20).IsRequired();
+            vigencia.Property(v => v.Fundamento).HasMaxLength(1000).IsRequired();
+
+            vigencia.HasIndex(v => new { v.PuntoId, v.VigenteDesde });
+        });
+
+        modelo.Entity<FilaDeCategoriaDePeaje>(categoria =>
+        {
+            categoria.ToTable("Categoria", schema: "peajes");
+
+            // **La llave es el codigo, no un ULID.** `RN-33` exige tabla abierta: las filas
+            // se cargan en produccion y se citan por su codigo publicado por la SAPP.
+            categoria.HasKey(c => c.Codigo);
+            categoria.Property(c => c.Codigo).HasMaxLength(32);
+            categoria.Property(c => c.Nombre).HasMaxLength(120).IsRequired();
+        });
+
+        modelo.Entity<FilaDeTarifa>(tarifa =>
+        {
+            tarifa.ToTable("Tarifa", schema: "peajes");
+
+            tarifa.HasKey(t => t.Id);
+            tarifa.Property(t => t.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            tarifa.Property(t => t.PuntoId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            tarifa.Property(t => t.Categoria).HasMaxLength(32).IsRequired();
+            tarifa.Property(t => t.Monto).HasColumnType("decimal(12,2)");
+
+            // **Obligatoria.** `RN-34` punto 3: una tarifa sin fuente no se guarda. La tarifa
+            // que ve el usuario es politica y no contractual, y sin saber quien la publico no
+            // se puede defender un cobro ante nadie.
+            tarifa.Property(t => t.Fuente).HasMaxLength(120).IsRequired();
+
+            tarifa.HasIndex(t => new { t.PuntoId, t.Categoria, t.VigenteDesde });
+        });
+
+        modelo.Entity<FilaDeReglaDeCategoria>(regla =>
+        {
+            regla.ToTable("ReglaDeCategoria", schema: "peajes");
+
+            regla.HasKey(r => r.Id);
+            regla.Property(r => r.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            regla.Property(r => r.Categoria).HasMaxLength(32).IsRequired();
+            regla.Property(r => r.Clase).HasConversion<string>().HasMaxLength(32);
+            regla.Property(r => r.TipoDeVehiculo).HasMaxLength(80);
+            regla.Property(r => r.Fundamento).HasMaxLength(1000).IsRequired();
+
+            regla.HasIndex(r => r.Prioridad);
+        });
+
+        modelo.Entity<FilaDeExoneracion>(exoneracion =>
+        {
+            exoneracion.ToTable("Exoneracion", schema: "peajes");
+
+            exoneracion.HasKey(e => e.Id);
+            exoneracion.Property(e => e.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            exoneracion.Property(e => e.VehiculoId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            exoneracion.Property(e => e.PuntoId).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+            exoneracion.Property(e => e.Operador).HasMaxLength(120);
+
+            // **Obligatorio.** Una exoneracion es una excepcion permanente al pago: exige
+            // vigilancia proporcional, y sin fundamento no hay que vigilar.
+            exoneracion.Property(e => e.Fundamento).HasMaxLength(1000).IsRequired();
+
+            exoneracion.HasIndex(e => e.VehiculoId);
+        });
+
+        modelo.Entity<FilaDePaso>(paso =>
+        {
+            paso.ToTable("PasoPorCaseta", schema: "peajes");
+
+            paso.HasKey(p => p.Id);
+            paso.Property(p => p.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            paso.Property(p => p.PuntoId).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+            paso.Property(p => p.VehiculoId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            paso.Property(p => p.MisionId).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+            paso.Property(p => p.IdDeCaptura).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+            paso.Property(p => p.Medio).HasConversion<string>().HasMaxLength(20).IsRequired();
+            paso.Property(p => p.Registra).HasMaxLength(64).IsRequired();
+            paso.Property(p => p.MontoPagado).HasColumnType("decimal(12,2)");
+            paso.Property(p => p.MontoEsperado).HasColumnType("decimal(12,2)");
+
+            // **Las dos categorias, en columnas separadas.** Guardar solo la cobrada haria
+            // que el error de la caseta se volviera la verdad institucional y el reclamo
+            // nunca ocurriria -- `RN-36`.
+            paso.Property(p => p.CategoriaEsperada).HasMaxLength(32);
+            paso.Property(p => p.CategoriaCobrada).HasMaxLength(32);
+
+            paso.Property(p => p.Ticket).HasMaxLength(300);
+            paso.Property(p => p.CausaSinTicket).HasMaxLength(500);
+            paso.Property(p => p.UbicacionDeclarada).HasMaxLength(300);
+
+            paso.HasIndex(p => p.MisionId);
+            paso.HasIndex(p => p.VehiculoId);
+
+            // El paso se captura sin conectividad (`RN-43`) y el dispositivo reintenta hasta
+            // que le contesten. Un paso duplicado infla el gasto de la mision y produce una
+            // discrepancia inventada por el propio sistema.
+            paso.HasIndex(p => p.IdDeCaptura)
+                .IsUnique()
+                .HasFilter("[IdDeCaptura] IS NOT NULL");
         });
 
         modelo.Entity<FilaDeTanque>(tanque =>

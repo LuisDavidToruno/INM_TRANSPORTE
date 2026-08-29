@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarClock, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel } from 'lucide-react';
+import { CalendarClock, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone } from 'lucide-react';
 
 import { Avisos, Nota, Shell, avisar } from '../ui';
 import type { GrupoNav, Miga } from '../ui';
@@ -19,6 +19,7 @@ import Cola from '../modulos/M07_Programacion/Cola';
 import Tablero from '../modulos/M07_Programacion/Tablero';
 import Padron from '../modulos/M03_Flota/Padron';
 import Fondos from '../modulos/M09_Combustible/Fondos';
+import Peajes from '../modulos/M18_Peajes/Peajes';
 import ColaDeCierre from '../modulos/M13_Cierre/Cola';
 import Cierre from '../modulos/M13_Cierre/Cierre';
 import { bandejaDeAutorizacion, origenDeDatos } from '../api/misiones';
@@ -99,6 +100,15 @@ function Interior(): ReactElement {
       ],
     },
     {
+      // `M-18` va pegado a `M-09` porque son el mismo bolsillo visto en dos monedas: el
+      // fondo cubre galones y el peaje se paga en efectivo de la misma misión. Quien mira
+      // uno tiene que poder mirar el otro sin cambiar de sección.
+      titulo: 'M-18 Peajes',
+      items: [
+        { texto: 'Catálogo y tarifas', icono: <Milestone />, href: '/peajes' },
+      ],
+    },
+    {
       titulo: 'M-07 Programación y despacho',
       items: [
         // El tablero va PRIMERO: es la raíz de `ACT-05` en el mapa de navegación, y la
@@ -144,6 +154,7 @@ function Interior(): ReactElement {
         <Route path="/autorizacion/:id" element={<Expediente />} />
         <Route path="/flota" element={<Padron />} />
         <Route path="/combustible" element={<Fondos />} />
+        <Route path="/peajes" element={<Peajes />} />
         <Route path="/despacho" element={<Tablero />} />
         <Route path="/programacion" element={<Cola />} />
         

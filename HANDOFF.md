@@ -405,6 +405,102 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+### M-18 Peajes — `RN-33` a `RN-36` y `RN-38`
+
+**RESUELTAS cinco de las seis reglas del módulo.** Catálogo con vigencias, derivación de
+categoría, tarifa a la fecha del hecho, estimación desglosada, exoneración y paso por caseta
+con discrepancia. Falta `RN-37` — la coherencia de la secuencia de casetas contra la bitácora.
+
+#### El error que el módulo existe para no cometer
+
+`NRM-10`, con evidencia `[V]`: *«un vehículo liviano tiene 2 ejes y paga L. 22. Un "Vehículo
+de 2 Ejes" paga L. 90. **Ambos tienen dos ejes**»*. Y la consecuencia, textual: *«cualquier
+modelo que use `numero_ejes` como única llave para resolver la tarifa está mal y va a cobrar
+cuatro veces de más a cada pickup de la flota»*.
+
+**No hay una sola línea de aritmética sobre ejes en todo el módulo.** La derivación es una
+**tabla cargada** con filas por prioridad: la excepción nominal de la SAPP —H-100, K2700,
+Sprinter— es una fila de prioridad alta, no un caso especial en el código. Medido: un pickup
+de 2 ejes estima L 44 por dos cruces; un camión de 2 ejes, L 180.
+
+#### El otro error: que el cobro de la caseta se vuelva la verdad
+
+Entre agosto y septiembre de 2025 COVI-H cobró **L 90 en lugar de L 22** a los H-100, K2700 y
+Sprinter, y la SAPP tuvo que ordenarle suspenderlo el 17/09/2025 `[V]`. `RN-36` es taxativa:
+*«si el sistema ajustara la categoría del vehículo al cobro recibido, el error de la caseta se
+volvería la verdad institucional y **el reclamo nunca ocurriría**»*.
+
+El paso guarda **las dos categorías en columnas separadas**. `/peajes/discrepancias` es el
+insumo del expediente ante la SAPP. Probado contra la base de desarrollo con el caso exacto:
+L 90 pagados, L 22 esperados, L 68 de diferencia, y la categoría del vehículo intacta.
+
+#### Nada vale cero por omisión
+
+| Situación | Qué hace |
+|---|---|
+| Sin tarifa cargada | Línea **no valorada**, con mensaje accionable: punto, categoría, fecha y a quién pedírsela |
+| Sin categoría resuelta | Igual, y nombra **el atributo que falta** |
+| Sin estado del punto declarado | No se supone activo. Suponerlo estimaría de más sobre una caseta que quizá cerró |
+| Punto cerrado | Cero **con fundamento**, y dice que no es exoneración del vehículo |
+| Vehículo exonerado | Cero **con el fundamento en la misma línea** |
+
+`RN-34` es explícita: *«el sistema no debe calcular un valor por defecto»*. Un cero
+indistinguible de un error es peor que la ausencia declarada. Y el estimado **no bloquea la
+aprobación** (`RN-35`): sale marcado no disponible con su causa, porque el sistema arranca sin
+tarifas cargadas y detener toda aprobación pararía la institución por un dato de catálogo.
+
+#### El desglose es la regla, no una preferencia
+
+Tegucigalpa → San Pedro Sula atraviesa las tres estaciones del Corredor Logístico; ida y
+vuelta son **6 cruces** `[V]`. Sin desglose el autorizador no puede distinguir un estimado
+correcto de uno que duplicó un cruce, y *«el estimado deja de ser un control para volverse un
+trámite»*. El sistema cuenta **cruces, no puntos distintos**.
+
+#### Las vigencias soportan lo que ya pasó
+
+2026: anuncio el 08/01, suspensión hacia el 15/01, prórroga al 15/02, nuevo anuncio el 27/02 y
+confirmación de la SIT el 28/02 de que no habría incremento. La tabla admite **vigencias
+cortas**, **cierre anticipado** de una vigencia abierta y **aumentos retroactivos** — el eje de
+transacción de `ADR-006` reproduce el número que se pagó y el corregido, que son dos preguntas
+legítimas. Verificado por mutación.
+
+⚠️ **La tarifa vigente hoy sigue sin confirmarse — `[C]`, insumo #21.** `NRM-10` instruye **no
+cargar ninguna tarifa** hasta confirmarla con COVI-H o la SAPP: hay contradicción abierta entre
+el comunicado de la SIT y un agregador comercial. Lo sembrado en desarrollo lleva fuente
+`[C] SIN CONFIRMAR — dato de desarrollo` a propósito, y la pantalla lo muestra.
+
+⚠️ **El Artículo 51 de la Ley de Tránsito no se pudo transcribir — `[C]`, insumo #23.** El PDF
+oficial es un escaneo sin capa de texto, así que la matriz de derivación **no se puede fijar**.
+Toda categoría sale marcada **provisional**, siempre, y eso viaja al estimado: una categoría
+provisional mostrada igual que una firme se cita después como si lo fuera.
+
+⚠️ **La lista oficial de exoneraciones no existe — `[C]`, insumo #22.** `NRM-10` la califica
+como *«lo que decide cómo se construye M-18»*. El valor por defecto es **paga**, y ninguna
+exoneración se carga sola: la suposición contraria —«somos del Estado, no pagamos»— es la más
+probable y la más costosa, porque produce estimados en cero y un motorista pagando de su
+bolsillo en Zambrano.
+
+⚠️ **La frontera con ARGOS sigue abierta — `[C]`, insumo #25.** Si el peaje se financia con el
+viático es de ARGOS y M-18 se solapa. `NRM-10` exige resolverlo **antes de escribir historias
+de M-18**. La estimación sobrevive en cualquier escenario: quien paga cambia, la necesidad de
+estimar no.
+
+⚠️ **`FichaTecnica` gana `NumeroDeEjes`, nulo para toda la flota cargada.** Es dato de alta y
+`M-03` no tiene pantalla de alta. Sin él la categoría queda **no resuelta** —no adivinada— y
+`BD-07` no deja programar ese vehículo.
+
+⚠️ **`RN-37` queda pendiente**: la coherencia de la secuencia de casetas contra la bitácora. Es
+lo que detecta el odómetro manipulado —*«un vehículo que declara 980 km pero sólo cruzó una
+caseta dos veces está diciendo dos cosas incompatibles»*—. El dato ya está: cada paso lleva su
+odómetro y su momento. Falta el cruce.
+
+**Hallazgo de método:** la primera prueba de mutación sobre la derivación **no hizo fallar
+nada** — el peso discriminaba antes que la clase, así que ese campo no estaba cubierto por
+ninguna prueba. Se agregó una con dos filas que difieren **sólo en la clase**, y entonces sí
+muerde.
+
+---
+
 ### Las existencias del tanque institucional — `RN-83` punto 5
 
 **RESUELTA.** El tanque tiene libro, el despacho descuenta, y lo que se declaró salido sin

@@ -61,6 +61,19 @@ public sealed class FilaDeVehiculo
     /// </summary>
     public decimal? CapacidadDeTanqueGalones { get; init; }
 
+    /// <summary>
+    /// Cuántos ejes tiene. Lo exige la matriz de derivación de categoría de peaje de
+    /// <c>RN-33</c>.
+    ///
+    /// <b>Nunca es la única llave.</b> Un liviano de 2 ejes paga L 22 y un «Vehículo de 2
+    /// Ejes» paga L 90: resolver la tarifa por este número cobraría cuatro veces de más a
+    /// cada pickup de la flota.
+    ///
+    /// ⚠️ Nulo deja la categoría <i>no resuelta</i> —no adivinada— y el vehículo no se puede
+    /// programar (<c>BD-07</c>).
+    /// </summary>
+    public int? NumeroDeEjes { get; set; }
+
     /// <summary>Bloqueante — [`RN-103`]. La institución puede renovarla; es trámite propio.</summary>
     public required DateOnly VenceMatricula { get; init; }
 
@@ -110,7 +123,7 @@ public sealed class FilaDeVehiculo
     /// <summary>La ficha técnica que `BD-02` necesita, armada desde las columnas.</summary>
     public FichaTecnica Ficha() =>
         new(TipoDeVehiculo, Clase, PesoBrutoKg, CapacidadPasajeros, LlevaRemolque,
-            CapacidadDeTanqueGalones);
+            CapacidadDeTanqueGalones, NumeroDeEjes);
 
     /// <summary>La documentación que `BD-03` evalúa. <b>Con fechas reales.</b></summary>
     public DocumentacionDelVehiculo Documentacion() => new()

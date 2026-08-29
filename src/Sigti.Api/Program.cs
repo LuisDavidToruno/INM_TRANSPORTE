@@ -11,6 +11,9 @@ using Sigti.Dominio.M08_Bitacora;
 using Sigti.Aplicacion.M07_ProgramacionYDespacho;
 using Sigti.Aplicacion.M09_Combustible;
 using Sigti.Dominio.M09_Combustible;
+using Sigti.Aplicacion.M18_Peajes;
+using Sigti.Datos.M18_Peajes;
+using Sigti.Dominio.M18_Peajes;
 using Sigti.Dominio.M01_Organizacion;
 using Sigti.Datos;
 using Sigti.Dominio.M02_Parametros;
@@ -54,6 +57,7 @@ constructor.Services.AddScoped<ServicioDeConciliacion>();
 constructor.Services.AddScoped<ServicioDeAbastecimientos>();
 constructor.Services.AddScoped<ServicioDeReintegro>();
 constructor.Services.AddScoped<ServicioDeTanques>();
+constructor.Services.AddScoped<ServicioDePeajes>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -227,6 +231,31 @@ static FilaDeCustodia CustodiaDeDesarrollo(
 /// saldo: `CE-26` — el reporte muestra el valor original, el reverso y el resultado, nunca
 /// sólo el resultado.
 /// </summary>
+/// <summary>
+/// Un paso por caseta. <b>Lleva las dos categorías</b>: guardar sólo la cobrada haría que el
+/// error de la caseta se volviera la verdad institucional y el reclamo nunca ocurriría.
+/// </summary>
+static object ResumirPaso(PasoPorCaseta p) => new
+{
+    id = p.Id.ToString(),
+    punto = p.Punto.ToString(),
+    vehiculo = p.Vehiculo.ToString(),
+    mision = p.Mision?.ToString(),
+    momento = p.OcurridoEn,
+    odometro = p.Odometro,
+    montoPagado = p.MontoPagado,
+    montoEsperado = p.MontoEsperado,
+    diferencia = p.Diferencia,
+    medio = p.Medio.ToString(),
+    categoriaEsperada = p.CategoriaEsperada?.Nombre,
+    categoriaCobrada = p.CategoriaCobrada?.Nombre,
+    discrepancia = p.HayDiscrepanciaDeClasificacion,
+    ticket = p.Ticket,
+    puntoNoCatalogado = p.PuntoNoCatalogado,
+    ubicacion = p.UbicacionDeclarada,
+    registra = p.Registra.Valor,
+};
+
 static object Resumir(ObligacionDeReintegro o) => new
 {
     id = o.Id.ToString(),
@@ -688,6 +717,228 @@ app.MapGet("/abastecimientos/mision/{id}", async (
 
         descripcion = a.Descripcion,
     })));
+
+// ── M-18 Peajes ─────────────────────────────────────────────────────────────
+var peajes = app.MapGroup("/peajes");
+
+/// El catálogo, con el estado y la tarifa vigentes **hoy**. Para valorar un paso pasado se
+/// usa la fecha del hecho, que es otra pregunta y otra ruta.
+peajes.MapGet("/puntos", async (ServicioDePeajes servicio) =>
+{
+    var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+    var ahora = DateTimeOffset.UtcNow;
+
+    var puntos = await servicio.PuntosAsync();
+    var vigencias = await servicio.VigenciasAsync();
+    var tarifas = await servicio.TarifasAsync();
+
+    return Results.Ok(puntos.Select(p =>
+    {
+        var estado = ReglasDeTarifaDePeaje.EstadoA(vigencias, p.Id, hoy, ahora);
+
+        return new
+        {
+            id = p.Id.ToString(),
+            nombre = p.Nombre,
+            operador = p.Operador,
+            carretera = p.Carretera,
+            sentidoDeCobro = p.SentidoDeCobro,
+
+            // Nulo es **sin estado declarado**, y no «activo». Suponerlo activo estimaría de
+            // más sobre una caseta que quizá cerró.
+            estado = estado?.Estado.ToString(),
+            fundamentoDelEstado = estado?.Fundamento,
+
+            tarifas = tarifas
+                .Where(t => t.Punto == p.Id &&
+                            t.VigenteDesde <= hoy &&
+                            (t.VigenteHasta == null || hoy <= t.VigenteHasta))
+                .Select(t => new
+                {
+                    categoria = t.Categoria,
+                    monto = t.Monto,
+                    fuente = t.Fuente,
+                    verificada = t.FechaDeVerificacion,
+                    desde = t.VigenteDesde,
+
+                    // La tarifa cambia al menos una vez al año, en enero. Se advierte y no se
+                    // invalida: una tarifa vieja sigue siendo la mejor información que hay.
+                    sinRevisar = t.SinRevisarHaceMasDeUnAnio(hoy),
+                }),
+        };
+    }));
+});
+
+/// La carga del catálogo. `RN-34` punto 5: los puntos son catálogo ampliable **en producción,
+/// sin cambio de código** — `NRM-10` advierte que hay proyectos en cartera.
+peajes.MapPost("/puntos", async (AbrirPunto peticion, ServicioDePeajes servicio) =>
+{
+    var id = await servicio.AbrirPuntoAsync(
+        Ulid.Parse(peticion.Id), peticion.Nombre, peticion.Operador, peticion.Carretera,
+        peticion.SentidoDeCobro, peticion.Estado, peticion.Fundamento, peticion.VigenteDesde);
+
+    return Results.Created($"/peajes/puntos/{id}", new { id = id.ToString() });
+});
+
+/// El cambio de estado **abre una vigencia nueva**, no edita la que hay: un viaje pasado por
+/// una caseta que ya cerró tiene que seguir valorándose con el estado que regía entonces.
+peajes.MapPost("/puntos/{id}/estado", async (
+    string id, CambiarEstadoDelPunto peticion, ServicioDePeajes servicio) =>
+{
+    await servicio.CambiarEstadoAsync(
+        Ulid.Parse(id), peticion.Estado, peticion.Fundamento, peticion.VigenteDesde);
+
+    return Results.Ok(new { estado = peticion.Estado.ToString() });
+});
+
+peajes.MapPost("/categorias", async (CargarCategoria peticion, ServicioDePeajes servicio) =>
+{
+    await servicio.CargarCategoriaAsync(peticion.Codigo, peticion.Nombre);
+    return Results.Created($"/peajes/categorias/{peticion.Codigo}", new { peticion.Codigo });
+});
+
+/// `RN-34` — exige fuente y fecha de verificación. **Una tarifa sin fuente no se guarda.**
+peajes.MapPost("/tarifas", async (CargarTarifa peticion, ServicioDePeajes servicio) =>
+{
+    var id = await servicio.CargarTarifaAsync(
+        Ulid.Parse(peticion.IdPunto), peticion.Categoria, peticion.Monto, peticion.Fuente,
+        peticion.FechaDeVerificacion, peticion.VigenteDesde);
+
+    return Results.Created($"/peajes/tarifas/{id}", new { id = id.ToString() });
+});
+
+/// `RN-33` — una fila de la matriz de derivación. **No es una fórmula**: es una tabla, y el
+/// criterio legal —el Artículo 51— sigue sin transcribirse (`[C]`, insumo #23).
+peajes.MapPost("/matriz", async (CargarRegla peticion, ServicioDePeajes servicio) =>
+{
+    var id = await servicio.CargarReglaAsync(new FilaDeReglaDeCategoria
+    {
+        Id = Ulid.NewUlid(),
+        Categoria = peticion.Categoria,
+        Prioridad = peticion.Prioridad,
+        Fundamento = peticion.Fundamento,
+        Clase = peticion.Clase,
+        TipoDeVehiculo = peticion.TipoDeVehiculo,
+        PesoBrutoDesdeKg = peticion.PesoBrutoDesdeKg,
+        PesoBrutoHastaKg = peticion.PesoBrutoHastaKg,
+        EjesDesde = peticion.EjesDesde,
+        EjesHasta = peticion.EjesHasta,
+        PasajerosDesde = peticion.PasajerosDesde,
+        PasajerosHasta = peticion.PasajerosHasta,
+        LlevaRemolque = peticion.LlevaRemolque,
+        VigenteDesde = peticion.VigenteDesde,
+        RegistradoDesdeUtc = DateTime.UtcNow,
+    });
+
+    return Results.Created($"/peajes/matriz/{id}", new { id = id.ToString() });
+});
+
+/// `RN-38` — el valor por defecto es **paga**. Ninguna exoneración se carga sola.
+peajes.MapPost("/exoneraciones", async (
+    CargarExoneracion peticion, ServicioDePeajes servicio) =>
+{
+    var id = await servicio.CargarExoneracionAsync(
+        Ulid.Parse(peticion.IdVehiculo),
+        peticion.IdPunto is null ? null : Ulid.Parse(peticion.IdPunto),
+        peticion.Operador, peticion.Fundamento,
+        peticion.VigenteDesde, peticion.VigenteHasta);
+
+    return Results.Created($"/peajes/exoneraciones/{id}", new { id = id.ToString() });
+});
+
+/// `RN-33` — la categoría de un vehículo, **con la explicación de qué la determinó**. Una
+/// categoría sin explicación no se puede defender ante la SAPP ni ante un auditor.
+peajes.MapGet("/categoria/{idVehiculo}", async (
+    string idVehiculo, ServicioDePeajes servicio) =>
+{
+    var r = await servicio.CategoriaDelVehiculoAsync(
+        Ulid.Parse(idVehiculo), DateOnly.FromDateTime(DateTime.UtcNow));
+
+    return Results.Ok(new
+    {
+        resuelta = r.EstaResuelta,
+        codigo = r.Categoria?.Codigo,
+        nombre = r.Categoria?.Nombre,
+        baseDeLaCategoria = r.Base.ToString(),
+        explicacion = r.Explicacion,
+        provisional = r.Provisional,
+        atributoQueFalta = r.AtributoQueFalta,
+    });
+});
+
+/// `RN-35` — el estimado **desglosado por punto**, nunca un total opaco. Sin desglose, quien
+/// autoriza no puede distinguir un estimado correcto de uno que duplicó un cruce.
+peajes.MapPost("/estimacion", async (EstimarPeajes peticion, ServicioDePeajes servicio) =>
+{
+    var e = await servicio.EstimarAsync(
+        [.. peticion.Cruces.Select(c => (Ulid.Parse(c.IdPunto), c.Cruces))],
+        peticion.IdVehiculo is null ? null : Ulid.Parse(peticion.IdVehiculo),
+        peticion.CategoriaDelTipo is null
+            ? null
+            : new CategoriaDePeaje(peticion.CategoriaDelTipo, peticion.CategoriaDelTipo),
+        peticion.TipoDeVehiculo ?? "",
+        peticion.FechaPrevista);
+
+    return Results.Ok(new
+    {
+        // Nulo cuando ninguna línea se pudo valorar. Un total de cero sobre líneas no
+        // valoradas diría que la misión no cuesta peaje.
+        total = e.Total,
+        disponible = e.Disponible,
+
+        // Se dice aunque el total exista: un total parcial presentado como completo
+        // subestima el costo y produce faltante de efectivo en ruta.
+        parcial = e.Parcial,
+
+        baseDeLaCategoria = e.Base.ToString(),
+        provisional = e.Provisional,
+        faltantes = e.Faltantes,
+
+        lineas = e.Lineas.Select(l => new
+        {
+            punto = l.Punto.ToString(),
+            nombre = l.NombreDelPunto,
+            cruces = l.Cruces,
+            categoria = l.Categoria?.Nombre,
+            tarifaUnitaria = l.TarifaUnitaria,
+            subtotal = l.Subtotal,
+            valorada = l.SeValoro,
+            fundamento = l.Fundamento,
+        }),
+    });
+});
+
+/// `RN-36` — registra un paso tal como ocurrió. La categoría esperada la resuelve el
+/// servidor: si el cliente pudiera declararla, el error de la caseta entraría por la puerta
+/// de atrás como «esperada».
+peajes.MapPost("/pasos", async (RegistrarPaso peticion, ServicioDePeajes servicio) =>
+{
+    var id = await servicio.RegistrarPasoAsync(
+        Ulid.Parse(peticion.Id),
+        peticion.IdPunto is null ? default : Ulid.Parse(peticion.IdPunto),
+        Ulid.Parse(peticion.IdVehiculo),
+        peticion.IdMision is null ? null : Ulid.Parse(peticion.IdMision),
+        peticion.OcurridoEn,
+        peticion.Odometro,
+        peticion.MontoPagado,
+        peticion.Medio,
+        new IdPersona(peticion.Registra),
+        peticion.CategoriaCobrada,
+        peticion.Ticket,
+        peticion.CausaSinTicket,
+        peticion.PuntoNoCatalogado,
+        peticion.UbicacionDeclarada,
+        peticion.IdDeCaptura is null ? null : Ulid.Parse(peticion.IdDeCaptura));
+
+    return Results.Created($"/peajes/pasos/{id}", new { id = id.ToString() });
+});
+
+peajes.MapGet("/pasos/mision/{id}", async (string id, ServicioDePeajes servicio) =>
+    Results.Ok((await servicio.PasosDeLaMisionAsync(Ulid.Parse(id))).Select(ResumirPaso)));
+
+/// **Dónde nos están cobrando mal** — el insumo del expediente de reclamo ante la SAPP.
+peajes.MapGet("/discrepancias", async (ServicioDePeajes servicio) =>
+    Results.Ok((await servicio.DiscrepanciasAsync()).Select(ResumirPaso)));
 
 // ── `RN-83` punto 5 — el libro de existencias del tanque institucional ──────
 var tanques = app.MapGroup("/tanques");
@@ -2181,3 +2432,58 @@ internal sealed record Trasiego(
     string Persona,
     string Puesto,
     DateTimeOffset Momento);
+
+/// <summary>Un punto de la ruta y **cuántas veces se cruza** — no cuántos puntos hay.</summary>
+internal sealed record CruceDeclarado(string IdPunto, int Cruces);
+
+internal sealed record EstimarPeajes(
+    IReadOnlyList<CruceDeclarado> Cruces,
+    /// <summary>Nulo en la estimación previa de `T-02`: todavía no hay unidad asignada.</summary>
+    string? IdVehiculo,
+    string? CategoriaDelTipo,
+    string? TipoDeVehiculo,
+    DateOnly FechaPrevista);
+
+internal sealed record RegistrarPaso(
+    string Id,
+    string? IdPunto,
+    string IdVehiculo,
+    string? IdMision,
+    DateTimeOffset OcurridoEn,
+    int Odometro,
+    decimal MontoPagado,
+    MedioDePagoDelPeaje Medio,
+    string Registra,
+    /// <summary>Con la que cobró la caseta. Nula cuando el ticket no la dice.</summary>
+    string? CategoriaCobrada = null,
+    string? Ticket = null,
+    string? CausaSinTicket = null,
+    bool PuntoNoCatalogado = false,
+    string? UbicacionDeclarada = null,
+    string? IdDeCaptura = null);
+
+internal sealed record AbrirPunto(
+    string Id, string Nombre, string Operador, string Carretera,
+    string? SentidoDeCobro, EstadoDelPunto Estado, string Fundamento, DateOnly VigenteDesde);
+
+internal sealed record CambiarEstadoDelPunto(
+    EstadoDelPunto Estado, string Fundamento, DateOnly VigenteDesde);
+
+internal sealed record CargarCategoria(string Codigo, string Nombre);
+
+internal sealed record CargarTarifa(
+    string IdPunto, string Categoria, decimal Monto,
+    /// <summary>SAPP, COVI-H, contrato o comunicado de la SIT. **Sin ella no se guarda.**</summary>
+    string Fuente, DateOnly FechaDeVerificacion, DateOnly VigenteDesde);
+
+internal sealed record CargarRegla(
+    string Categoria, int Prioridad, string Fundamento, DateOnly VigenteDesde,
+    ClaseNormativa? Clase = null, string? TipoDeVehiculo = null,
+    int? PesoBrutoDesdeKg = null, int? PesoBrutoHastaKg = null,
+    int? EjesDesde = null, int? EjesHasta = null,
+    int? PasajerosDesde = null, int? PasajerosHasta = null,
+    bool? LlevaRemolque = null);
+
+internal sealed record CargarExoneracion(
+    string IdVehiculo, string? IdPunto, string? Operador, string Fundamento,
+    DateOnly VigenteDesde, DateOnly? VigenteHasta);

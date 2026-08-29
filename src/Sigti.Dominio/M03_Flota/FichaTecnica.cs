@@ -70,7 +70,22 @@ public sealed record FichaTecnica(
     int PesoBrutoKg,
     int CapacidadPasajeros,
     bool LlevaRemolque,
-    decimal? CapacidadDeTanqueGalones = null);
+    decimal? CapacidadDeTanqueGalones = null,
+
+    /// <summary>
+    /// Cuántos ejes tiene. Lo exige la matriz de derivación de categoría de peaje de
+    /// <c>RN-33</c>, junto con el tipo, el peso, los pasajeros y la condición de articulado.
+    ///
+    /// ── Nunca es la única llave, y por eso solo no basta ────────────────────
+    /// <c>NRM-10</c>, con evidencia: un vehículo liviano tiene 2 ejes y paga L. 22; un
+    /// «Vehículo de 2 Ejes» paga L. 90. <b>Ambos tienen dos ejes.</b> Resolver la tarifa por
+    /// este número solo cobraría cuatro veces de más a cada pickup de la flota.
+    ///
+    /// ⚠️ <b>Nulo cuando no está cargado</b>, y entonces la categoría queda <i>no resuelta</i>
+    /// —no adivinada— y el vehículo no se puede programar (<c>BD-07</c>). Es la dirección
+    /// segura del error: una categoría supuesta cobra mal y nadie lo nota.
+    /// </summary>
+    int? NumeroDeEjes = null);
 
 /// <summary>
 /// La ventana de la misión. `BD-02` exige vigencia <b>durante todo el rango, incluida la

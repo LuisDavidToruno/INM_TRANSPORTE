@@ -177,9 +177,15 @@ internal static class FlotaSembrada
         await contexto.SaveChangesAsync();
     }
 
-    private static FilaDeVehiculo Vehiculo(
+    /// <summary>
+    /// Una fila de vehículo con lo mínimo para pasar <c>BD-03</c>. <b>Pública</b> porque las
+    /// pruebas que necesitan una ficha técnica distinta —un camión, un bus— tienen que poder
+    /// plantar la suya en vez de mutar la del pick-up sembrado: la base se comparte entre
+    /// pruebas, y reescribirle la ficha a un vehículo ajeno rompe a quien lo estaba mirando.
+    /// </summary>
+    public static FilaDeVehiculo Vehiculo(
         Ulid id, string siglas, string? placa, string tipo,
-        ClaseNormativa clase, int kg, int pasajeros, bool remolque) => new()
+        ClaseNormativa clase, int kg, int pasajeros, bool remolque, int? ejes = null) => new()
     {
         Id = id,
         Siglas = siglas,
@@ -190,6 +196,7 @@ internal static class FlotaSembrada
         PesoBrutoKg = kg,
         CapacidadPasajeros = pasajeros,
         LlevaRemolque = remolque,
+        NumeroDeEjes = ejes,
 
         // La capacidad del tanque, para que las lecturas del indicador en fracción se puedan
         // convertir a galones. Sin ella el remanente de `RN-83` no se separa del consumo, y
