@@ -472,9 +472,9 @@ nada**, y cero es la respuesta correcta; el negativo se lee como un error del si
 Durante el trabajo, **SAC bloqueó primero las pruebas y después la propia aplicación** —cada
 compilación produce un binario sin firma ni reputación—. El PO lo desactivó y todo corrió.
 
-Queda anotado porque **el síntoma es reconocible y engañoso**: ,
+Queda anotado porque **el síntoma es reconocible y engañoso**: `FileLoadException 0x800711C7`,
 cero pruebas corriendo o fallas masivas **sin una sola aserción rota**. Lo que NO hay que hacer
-es limpiar / para «arreglarlo»: cada limpieza produce binarios nuevos y lo empeora.
+es limpiar `bin`/`obj` para «arreglarlo»: cada limpieza produce binarios nuevos y lo empeora.
 
 ---
 ## §5.3.B.3 — el escalamiento, con el espejo trayendo la jerarquía
