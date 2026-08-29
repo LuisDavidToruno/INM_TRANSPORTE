@@ -7,6 +7,7 @@ using Sigti.Dominio.M01_Organizacion;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
 using Sigti.Dominio.M09_Combustible;
 using Sigti.Dominio.M14_Auditoria;
+using Sigti.Dominio.M20_Integraciones;
 using Sigti.Dominio.Organizacion;
 
 namespace Sigti.Aplicacion.M14_Auditoria;
@@ -360,6 +361,107 @@ public sealed class ServicioDeCierreDeEjercicio(
 
         await contexto.SaveChangesAsync(cancelacion);
         return anulados;
+    }
+
+    /// <summary>
+    /// El reporte de reversión de compromisos — `RN-96` punto 5, para ARGOS y SIAFI (`RN-81`).
+    ///
+    /// ── Reporta lo que se revirtió, no lo que se listó ──────────────────────
+    /// Sale de los folios del acta que <b>efectivamente se anularon</b>. Uno listado y todavía
+    /// sin anular no liberó nada: su compromiso sigue vivo en SIGTI, y reportarlo haría que
+    /// SIAFI revirtiera un dinero que acá sigue comprometido — el descuadre simétrico del que
+    /// `RN-81` existe para impedir.
+    ///
+    /// ── El liberado es neto ─────────────────────────────────────────────────
+    /// Se le resta lo que se hubiera consumido contra ese vale antes de anularlo. Para un vale
+    /// que se anula desde <c>Emitida</c> eso es cero, pero se calcula en vez de suponerse: el
+    /// día que un vale llegue a la anulación con consumo, el reporte lo va a decir en vez de
+    /// devolver el bruto.
+    /// </summary>
+    /// <param name="corteDeConocimiento">
+    /// `RN-94` — hasta qué momento se miran los registros. <b>Es lo que hace el reporte
+    /// reproducible</b>: el mismo período con el mismo corte da el mismo resultado dentro de
+    /// cinco años.
+    /// </param>
+    public async Task<ReporteDeReversion?> ReversionAsync(
+        string ejercicio,
+        DateTimeOffset corteDeConocimiento,
+        CancellationToken cancelacion = default)
+    {
+        var acta = await contexto.ActasDeCierre
+            .Include(a => a.Folios)
+            .SingleOrDefaultAsync(a => a.Ejercicio == ejercicio, cancelacion);
+
+        if (acta is null) return null;
+
+        var hasta = corteDeConocimiento.UtcDateTime;
+
+        var anulados = acta.Folios
+            .Where(f => f.AnuladoUtc is not null && f.AnuladoUtc <= hasta)
+            .ToList();
+
+        var renglones = new List<CompromisoLiberado>();
+
+        if (anulados.Count > 0)
+        {
+            var ids = anulados.Select(f => f.AsignacionId).ToHashSet();
+
+            var vales = await contexto.AsignacionesDeCombustible
+                .Where(a => ids.Contains(a.Id))
+                .ToDictionaryAsync(a => a.Id, cancelacion);
+
+            var fondos = await contexto.Fondos.ToDictionaryAsync(f => f.Id, cancelacion);
+
+            // Lo consumido contra estos vales **hasta el corte de conocimiento**. Un consumo
+            // digitado después no cambia un reporte ya emitido: `RN-94` lo llama capa
+            // identificada, no corrección del histórico.
+            var consumido = await contexto.Abastecimientos
+                .Where(a => a.AsignacionId != null
+                    && ids.Contains(a.AsignacionId.Value)
+                    && a.MomentoUtc <= hasta)
+                .GroupBy(a => a.AsignacionId!.Value)
+                .Select(g => new { Asignacion = g.Key, Monto = g.Sum(a => a.Monto ?? 0m) })
+                .ToDictionaryAsync(x => x.Asignacion, x => x.Monto, cancelacion);
+
+            foreach (var f in anulados)
+            {
+                if (!vales.TryGetValue(f.AsignacionId, out var vale)) continue;
+
+                var anulado = f.AnuladoUtc!.Value;
+
+                renglones.Add(new CompromisoLiberado(
+                    // ⚠️ El ULID de la misión: **la clave de vinculación con ARGOS no existe**
+                    // como campo. El modelo de datos la nombra, el código no la tiene.
+                    vale.MisionId.ToString(),
+                    vale.MisionId,
+                    f.Folio,
+                    f.Delegacion,
+
+                    // Nula cuando el espejo de ARGOS no la traía — `RN-26` deja registrar el
+                    // fondo igual, y ese renglón no se puede imputar en SIAFI.
+                    fondos.TryGetValue(vale.FondoId, out var fondo)
+                        ? fondo.PartidaPresupuestaria
+                        : null,
+
+                    DateOnly.FromDateTime(anulado),
+                    DateOnly.FromDateTime(anulado),
+                    f.Monto,
+                    consumido.GetValueOrDefault(f.AsignacionId)));
+            }
+        }
+
+        // El período del hecho es el del cierre: del corte legal al operativo. Los compromisos
+        // se liberan por ese cierre, aunque la anulación se ejecute en enero.
+        ReglasDeLaReversion.ExigirLasDosFechas(
+            acta.CorteLegal, acta.CorteOperativo, corteDeConocimiento);
+
+        return new ReporteDeReversion(
+            acta.Ejercicio,
+            acta.CorteLegal,
+            acta.CorteOperativo,
+            corteDeConocimiento,
+            acta.Folio,
+            [.. renglones.OrderBy(r => r.Delegacion).ThenBy(r => r.Folio)]);
     }
 
     public async Task<IReadOnlyList<(string Ejercicio, string Folio, DateOnly CorteLegal,

@@ -16,6 +16,7 @@ using Sigti.Datos.M18_Peajes;
 using Sigti.Aplicacion.M14_Auditoria;
 using Sigti.Datos.M14_Auditoria;
 using Sigti.Dominio.M14_Auditoria;
+using Sigti.Dominio.M20_Integraciones;
 using Sigti.Dominio.M18_Peajes;
 using Sigti.Dominio.M01_Organizacion;
 using Sigti.Datos;
@@ -1354,6 +1355,95 @@ cierreDeEjercicio.MapPost("/{ejercicio}/anular-folios", async (
         ejercicio, new IdPersona(peticion.Persona), peticion.Motivo, peticion.Momento);
 
     return Results.Ok(new { anulados });
+});
+
+/// `RN-96` punto 5 — el reporte de reversión de compromisos para ARGOS y SIAFI (`RN-81`).
+///
+/// `RN-94`: el corte de conocimiento entra como parámetro para que el reporte sea reproducible.
+/// Sin él se toma «ahora», que es la pregunta de hoy; con él se reproduce la de un día pasado.
+cierreDeEjercicio.MapGet("/{ejercicio}/reversion", async (
+    string ejercicio, DateTimeOffset? corteDeConocimiento,
+    ServicioDeCierreDeEjercicio servicio) =>
+{
+    var reporte = await servicio.ReversionAsync(
+        ejercicio, corteDeConocimiento ?? DateTimeOffset.UtcNow);
+
+    return reporte is null
+        ? Results.NotFound(new
+        {
+            mensaje = $"No hay acta de cierre del ejercicio {ejercicio}. La reversión de " +
+                "compromisos reporta lo que un acta listó y se anuló: sin acta no hay nada " +
+                "que conciliar contra SIAFI.",
+        })
+        : Results.Ok(new
+        {
+            ejercicio = reporte.Ejercicio,
+
+            // `RN-94` — las dos fechas, en el encabezado del reporte.
+            periodoDesde = reporte.PeriodoDesde,
+            periodoHasta = reporte.PeriodoHasta,
+            corteDeConocimiento = reporte.CorteDeConocimiento,
+
+            actaQueLoRespalda = reporte.ActaQueLoRespalda,
+
+            renglones = reporte.Renglones.Select(r => new
+            {
+                // ⚠️ Hoy es el ULID de la misión: la clave de vinculación con ARGOS no existe
+                // como campo, y ARGOS no va a reconocer este valor.
+                claveDeVinculacion = r.ClaveDeVinculacion,
+                mision = r.Mision.ToString(),
+                folio = r.Folio,
+                delegacion = r.Delegacion,
+
+                // Nulo es **sin partida**, no cero: ese renglón no se puede imputar en SIAFI.
+                objetoDelGasto = r.ObjetoDelGasto,
+
+                fechaDelHecho = r.FechaDelHecho,
+                fechaDeCaptura = r.FechaDeCaptura,
+                comprometido = r.Comprometido,
+                ejecutado = r.Ejecutado,
+
+                // **Neto.** `RN-81`: el bruto haría que SIAFI revirtiera dinero ya gastado.
+                liberado = r.Liberado,
+                tuvoEjecucionParcial = r.TuvoEjecucionParcial,
+                seConcilia = r.SeConcilia,
+            }),
+
+            totalComprometido = reporte.TotalComprometido,
+            totalEjecutado = reporte.TotalEjecutado,
+            totalLiberado = reporte.TotalLiberado,
+
+            // El detalle por objeto del gasto que `RN-81` punto 4 pide para conciliar.
+            porObjetoDelGasto = reporte.PorObjetoDelGasto,
+
+            sinObjetoDelGasto = reporte.SinObjetoDelGasto.Count,
+            conEjecucionParcial = reporte.ConEjecucionParcial.Count,
+            advertencias = reporte.Advertencias,
+        });
+});
+
+/// El archivo de conciliación — `RN-96` punto 5.
+///
+/// ⚠️ **No es el formato de SIAFI.** `RN-81` punto 3: sin contrato de API conocido —insumos #16
+/// y #17— el mecanismo inicial es el reporte con formato acordado, y este CSV es el mínimo que
+/// se puede conciliar a mano.
+cierreDeEjercicio.MapGet("/{ejercicio}/reversion.csv", async (
+    string ejercicio, DateTimeOffset? corteDeConocimiento,
+    ServicioDeCierreDeEjercicio servicio) =>
+{
+    var reporte = await servicio.ReversionAsync(
+        ejercicio, corteDeConocimiento ?? DateTimeOffset.UtcNow);
+
+    if (reporte is null) return Results.NotFound();
+
+    return Results.File(
+        System.Text.Encoding.UTF8.GetBytes(
+            ReglasDeLaReversion.ArchivoDeConciliacion(reporte)),
+
+        // Con codificación declarada: el archivo lleva nombres de delegación con tildes y ñ, y
+        // abierto como ANSI se ven partidos.
+        "text/csv; charset=utf-8",
+        $"reversion-de-compromisos-{reporte.Ejercicio}.csv");
 });
 
 cierreDeEjercicio.MapGet("/", async (ServicioDeCierreDeEjercicio servicio) =>

@@ -414,6 +414,190 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         Assert.Contains($"AC-{anio}-001", ultima.Motivo);
     }
 
+    // ── El reporte de reversión para ARGOS y SIAFI ──────────────────────────
+
+    /// <summary>
+    /// `RN-96` punto 5 y `RN-81` — el circuito entero, hasta el archivo de conciliación.
+    ///
+    /// ── Y lo que NO reporta antes de anular ─────────────────────────────────
+    /// Un folio listado y todavía sin anular <b>no liberó nada</b>: su compromiso sigue vivo en
+    /// SIGTI, y reportarlo haría que SIAFI revirtiera un dinero que acá sigue comprometido — el
+    /// descuadre simétrico del que `RN-81` existe para impedir.
+    /// </summary>
+    [Fact]
+    public async Task El_compromiso_liberado_se_reporta_recien_cuando_el_folio_se_anula()
+    {
+        const int anio = 2028;
+
+        await SembrarCortesAsync(anio);
+
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        var folio = await SembrarValeEmitidoAsync(cliente, anio);
+
+        await Post(cliente, "/cierre-de-ejercicio", Cuerpo($"AC-{anio}-001", anio));
+
+        // El corte de conocimiento va explícito y posterior a la anulación. Sin él se toma
+        // «ahora», y una anulación registrada con fecha de enero del año siguiente queda fuera
+        // del corte de hoy —correctamente— y el reporte saldría vacío por otra razón.
+        var corte = $"corteDeConocimiento={anio + 1}-02-01T00:00:00Z";
+
+        // ── Con el acta producida pero sin anular: nada que revertir ─────────
+        var antes = await Leer(cliente, $"/cierre-de-ejercicio/{anio}/reversion?{corte}");
+
+        Assert.Empty(antes.GetProperty("renglones").EnumerateArray());
+        Assert.Equal(0m, antes.GetProperty("totalLiberado").GetDecimal());
+
+        // `RN-94` — las dos fechas van igual, aunque no haya renglones.
+        Assert.Equal($"{anio}-12-31", antes.GetProperty("periodoDesde").GetString());
+        Assert.Equal($"AC-{anio}-001", antes.GetProperty("actaQueLoRespalda").GetString());
+
+        await Post(cliente, $"/cierre-de-ejercicio/{anio}/anular-folios", new
+        {
+            Persona = "P-ADMIN",
+            Motivo = $"Folio no consumido al cierre; no se arrastra a {anio + 1}",
+            Momento = new DateTimeOffset(anio + 1, 1, 10, 9, 0, 0, TimeSpan.FromHours(-6)),
+        });
+
+        // ── Y ahora sí ──────────────────────────────────────────────────────
+        var despues = await Leer(cliente, $"/cierre-de-ejercicio/{anio}/reversion?{corte}");
+
+        var renglon = Assert.Single(despues.GetProperty("renglones").EnumerateArray(),
+            r => r.GetProperty("folio").GetString() == folio);
+
+        Assert.Equal(1_500m, renglon.GetProperty("comprometido").GetDecimal());
+
+        // El vale se anuló desde `Emitida`, así que no se ejecutó nada y libera entero. Se
+        // calcula igual, para que el día que llegue uno con consumo el reporte lo diga.
+        Assert.Equal(0m, renglon.GetProperty("ejecutado").GetDecimal());
+        Assert.Equal(1_500m, renglon.GetProperty("liberado").GetDecimal());
+
+        Assert.Equal("12-01-001-4-31200", renglon.GetProperty("objetoDelGasto").GetString());
+        Assert.True(renglon.GetProperty("seConcilia").GetBoolean());
+
+        // El detalle por objeto del gasto que `RN-81` punto 4 pide para conciliar.
+        Assert.Equal(1_500m, despues.GetProperty("porObjetoDelGasto")
+            .GetProperty("12-01-001-4-31200").GetDecimal());
+    }
+
+    /// <summary>
+    /// El archivo de conciliación — `RN-96` punto 5.
+    ///
+    /// ⚠️ <b>No es el formato de SIAFI.</b> `RN-81` punto 3: sin contrato de API conocido el
+    /// mecanismo inicial es el reporte con formato acordado, y este CSV es el mínimo que se
+    /// puede conciliar a mano.
+    /// </summary>
+    [Fact]
+    public async Task El_archivo_de_conciliacion_sale_con_una_fila_por_compromiso_liberado()
+    {
+        const int anio = 2029;
+
+        await SembrarCortesAsync(anio);
+
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        var folio = await SembrarValeEmitidoAsync(cliente, anio);
+
+        await Post(cliente, "/cierre-de-ejercicio", Cuerpo($"AC-{anio}-001", anio));
+
+        await Post(cliente, $"/cierre-de-ejercicio/{anio}/anular-folios", new
+        {
+            Persona = "P-ADMIN",
+            Motivo = "Folio no consumido al cierre",
+            Momento = new DateTimeOffset(anio + 1, 1, 10, 9, 0, 0, TimeSpan.FromHours(-6)),
+        });
+
+        var respuesta = await cliente.GetAsync(
+            $"/cierre-de-ejercicio/{anio}/reversion.csv" +
+            $"?corteDeConocimiento={anio + 1}-02-01T00:00:00Z");
+
+        Assert.True(respuesta.IsSuccessStatusCode);
+        Assert.Equal("text/csv", respuesta.Content.Headers.ContentType?.MediaType);
+
+        var csv = await respuesta.Content.ReadAsStringAsync();
+        var lineas = csv.Split('\n');
+
+        Assert.Contains("clave_de_vinculacion", lineas[0]);
+
+        var fila = Assert.Single(lineas.Skip(1), l => l.Contains(folio));
+
+        // Las dos fechas de `RN-94` van en la fila, no en un bloque de metadatos que una hoja
+        // de cálculo pierde al ordenar.
+        Assert.Contains($"{anio}-12-31", fila);
+        Assert.Contains($"AC-{anio}-001", fila);
+
+        // Monto invariante: lo lee otro sistema.
+        Assert.Contains("1500.00", fila);
+    }
+
+    /// <summary>
+    /// `RN-94` — <b>el corte de conocimiento es lo que hace el reporte reproducible.</b>
+    ///
+    /// El mismo período con un corte anterior a la anulación no la ve; con uno posterior, sí. Un
+    /// reporte que cambiara de valor sin que cambiara ninguno de sus dos parámetros sería
+    /// <i>«un defecto, no una actualización»</i>.
+    /// </summary>
+    [Fact]
+    public async Task El_reporte_con_corte_anterior_a_la_anulacion_no_la_ve()
+    {
+        const int anio = 2048;
+
+        await SembrarCortesAsync(anio);
+
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        var folio = await SembrarValeEmitidoAsync(cliente, anio);
+
+        await Post(cliente, "/cierre-de-ejercicio", Cuerpo($"AC-{anio}-001", anio));
+
+        await Post(cliente, $"/cierre-de-ejercicio/{anio}/anular-folios", new
+        {
+            Persona = "P-ADMIN",
+            Motivo = "Folio no consumido al cierre",
+            Momento = new DateTimeOffset(anio + 1, 1, 10, 9, 0, 0, TimeSpan.FromHours(-6)),
+        });
+
+        // Al 5 de enero todavía no se había anulado: el compromiso seguía vivo.
+        var antes = await Leer(cliente,
+            $"/cierre-de-ejercicio/{anio}/reversion" +
+            $"?corteDeConocimiento={anio + 1}-01-05T00:00:00Z");
+
+        Assert.Empty(antes.GetProperty("renglones").EnumerateArray());
+
+        // Al 1 de febrero sí. Mismo período, otro corte, otro resultado — y las dos respuestas
+        // son correctas, cada una a su pregunta.
+        var despues = await Leer(cliente,
+            $"/cierre-de-ejercicio/{anio}/reversion" +
+            $"?corteDeConocimiento={anio + 1}-02-01T00:00:00Z");
+
+        Assert.Single(despues.GetProperty("renglones").EnumerateArray(),
+            r => r.GetProperty("folio").GetString() == folio);
+
+        // Y volver a pedir el primero da lo mismo que la primera vez: es la reproducibilidad
+        // que `RN-94` exige, no una foto que envejece.
+        var otraVez = await Leer(cliente,
+            $"/cierre-de-ejercicio/{anio}/reversion" +
+            $"?corteDeConocimiento={anio + 1}-01-05T00:00:00Z");
+
+        Assert.Empty(otraVez.GetProperty("renglones").EnumerateArray());
+    }
+
+    /// <summary>
+    /// Sin acta no hay reversión: la reversión reporta lo que un acta listó y se anuló.
+    /// </summary>
+    [Fact]
+    public async Task Sin_acta_no_hay_reporte_de_reversion()
+    {
+        var respuesta = await Aplicacion().CreateClient()
+            .GetAsync("/cierre-de-ejercicio/2047/reversion");
+
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, respuesta.StatusCode);
+        Assert.Contains("sin acta no hay nada", await respuesta.Content.ReadAsStringAsync());
+    }
+
     /// <summary>
     /// Sin acta no se anulan folios. Los folios se anulan <b>citando el acta que los listó</b>:
     /// sin ella no consta que fueran los que quedaron reservados y sin consumir al corte.
@@ -713,9 +897,41 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         FlotaSembrada.ParaProgramar flota;
 
         await using (var contexto = baseDePruebas.Contexto())
+        {
             flota = await FlotaSembrada.ParaProgramarAsync(contexto, $"CE{anio % 100}");
 
-        var momento = new DateTimeOffset(anio, 12, 10, 9, 0, 0, TimeSpan.FromHours(-6));
+            // ── Los documentos se renuevan, no se debilitan los bloqueos ─────
+            // El motorista sembrado trae licencia hasta abril de 2028 y el vehículo matrícula
+            // hasta diciembre de 2030; estas pruebas cierran ejercicios posteriores. `BD-02` y
+            // `BD-03` bloquean programar más allá de esas vigencias —con razón, y ya lo hicieron
+            // tres veces acá—. Lo que corresponde es que el motorista y el vehículo de la prueba
+            // tengan documentos para el año que la prueba usa, no aflojar los bloqueos.
+            //
+            // Los dos campos son de solo inicialización a propósito —la ficha no se edita en
+            // caliente— así que se actualizan por consulta, que es lo que haría una renovación
+            // real en su propio circuito.
+            var conductor = Ulid.Parse(flota.Conductor);
+            var vehiculo = Ulid.Parse(flota.Vehiculo);
+
+            await contexto.Conductores
+                .Where(c => c.Id == conductor)
+                .ExecuteUpdateAsync(c =>
+                    c.SetProperty(x => x.VenceLicencia, new DateOnly(anio + 2, 4, 30)));
+
+            await contexto.Vehiculos
+                .Where(v => v.Id == vehiculo)
+                .ExecuteUpdateAsync(v =>
+                    v.SetProperty(x => x.VenceMatricula, new DateOnly(anio + 2, 12, 31)));
+        }
+
+        // Cinco días antes de la salida. La aprobación **caduca** si la ventana solicitada ya
+        // inició —«pida a la dependencia una solicitud nueva»— y capturar el mismo día de la
+        // salida la deja caducada al llegar a programar. Salió al mover las fechas a días
+        // hábiles.
+        var salida = LunesDeDiciembre(anio);
+
+        var momento = new DateTimeOffset(
+            salida.AddDays(-5).ToDateTime(new TimeOnly(9, 0)), TimeSpan.FromHours(-6));
         var dependencia = $"Delegacion de cierre {anio}";
 
         var fondo = Ulid.NewUlid().ToString();
@@ -754,8 +970,8 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
             Dependencia = dependencia,
             ObjetoDelTraslado = "Traslado de personal",
             Destino = $"Destino de cierre {anio}",
-            Salida = new DateOnly(anio, 12, 20),
-            Retorno = new DateOnly(anio, 12, 22),
+            Salida = salida,
+            Retorno = salida.AddDays(2),
             HoraDeSalida = new TimeOnly(8, 0),
             HoraDeRetorno = new TimeOnly(16, 0),
             HolguraDias = 0,
@@ -804,6 +1020,24 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         });
 
         return folio;
+    }
+
+    /// <summary>
+    /// Un lunes de diciembre, para que la misión salga el lunes y retorne el miércoles.
+    ///
+    /// ── `BD-04` bloquea la franja inhábil, y hace bien ──────────────────────
+    /// El andamio fijaba el 20 al 22 de diciembre, que en unos años cae en fin de semana:
+    /// despachar exige entonces permiso de la máxima autoridad. Estas pruebas juzgan el cierre
+    /// de ejercicio, no `BD-04`, así que el andamio elige días hábiles en vez de pedir un
+    /// salvoconducto que la prueba no está probando.
+    /// </summary>
+    private static DateOnly LunesDeDiciembre(int anio)
+    {
+        var dia = new DateOnly(anio, 12, 10);
+
+        while (dia.DayOfWeek != DayOfWeek.Monday) dia = dia.AddDays(1);
+
+        return dia;
     }
 
     private async Task<List<string>> AsientosDeAsync(Ulid mision)

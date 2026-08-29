@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarRange, CircleAlert, Gauge, Scale, ShieldAlert, SlidersHorizontal, Split, Ticket } from 'lucide-react';
+import { CalendarRange, CircleAlert, Gauge, Landmark, Scale, ShieldAlert, SlidersHorizontal, Split, Ticket } from 'lucide-react';
 
 import { Campo, Nota, Panel, Pastilla, Boton, avisar } from '../../ui';
 import { lempiras } from '../../api/combustible';
@@ -10,6 +10,7 @@ import {
   anularFolios,
   cortesDelEjercicio,
   producirActa,
+  reversionDeCompromisos,
   vistaPreviaDelCierre,
 } from '../../api/cierre-de-ejercicio';
 import type {
@@ -21,6 +22,7 @@ import type {
   FolioPorAnular,
   MisionQueCruza,
   MotivoCompartido,
+  ReporteDeReversion,
   VentanaDeCierre,
   VentanaSinResolver,
 } from '../../api/cierre-de-ejercicio';
@@ -65,6 +67,14 @@ export default function CierreDeEjercicioPantalla(): ReactElement {
 
   const producidas = useQuery({ queryKey: ['actas-de-cierre'], queryFn: actasDeCierre });
 
+  // `RN-96` punto 5 — lo que se reporta a ARGOS y SIAFI. Sale vacío hasta que los folios se
+  // anulen: un compromiso listado y no anulado sigue vivo.
+  const reversion = useQuery({
+    queryKey: ['reversion-de-compromisos', ejercicio],
+    queryFn: () => reversionDeCompromisos(ejercicio),
+    enabled: cortes.data?.cortes != null,
+  });
+
   const producida = producidas.data?.find((a) => a.ejercicio === ejercicio);
 
   const producir = useMutation({
@@ -94,6 +104,10 @@ export default function CierreDeEjercicioPantalla(): ReactElement {
       avisar.exito(`${r.anulados} folio(s) anulado(s) citando el acta.`);
       void cola.invalidateQueries({ queryKey: ['actas-de-cierre'] });
       void cola.invalidateQueries({ queryKey: ['cierre-vista-previa'] });
+
+      // El panel de reversión aparece recién al anular: hasta entonces no hay compromiso
+      // liberado que reportar.
+      void cola.invalidateQueries({ queryKey: ['reversion-de-compromisos'] });
     },
     onError: (error: Error) => { avisar.error(error.message); },
   });
@@ -180,6 +194,10 @@ export default function CierreDeEjercicioPantalla(): ReactElement {
 
           {vista.data.cambiosDeParametros.length > 0 && (
             <PanelDeParametros cambios={vista.data.cambiosDeParametros} />
+          )}
+
+          {reversion.data != null && reversion.data.renglones.length > 0 && (
+            <PanelDeReversion reporte={reversion.data} ejercicio={ejercicio} />
           )}
 
           <Panel>
@@ -593,6 +611,111 @@ function PanelDeFolios({
             los que quedaron sin consumir al corte.
           </p>
         )}
+      </div>
+    </Panel>
+  );
+}
+
+/**
+ * `RN-96` punto 5 y `RN-81` — el reporte de reversión de compromisos.
+ *
+ * ── Por qué existe, en las palabras de `RN-81` ──────────────────────────────
+ * *«`RN-48` prohíbe que SIGTI escriba en ARGOS, y hace bien. Pero de esa prohibición no se sigue
+ * que SIGTI pueda **callar**: si SIGTI anula un compromiso de combustible y no lo reporta, el
+ * descuadre aparece en SIAFI y nadie sabe de dónde vino»*.
+ */
+function PanelDeReversion({
+  reporte,
+  ejercicio,
+}: {
+  reporte: ReporteDeReversion;
+  ejercicio: string;
+}): ReactElement {
+  const objetos = Object.entries(reporte.porObjetoDelGasto);
+
+  return (
+    <Panel titulo="Reversión de compromisos para ARGOS y SIAFI">
+      <div className="tw:flex tw:flex-col tw:gap-3">
+        {/* `RN-94` — las dos fechas, en el encabezado del reporte. */}
+        <p className="tw:text-xs tw:text-tinta-mid">
+          Hechos del {soloFecha(reporte.periodoDesde)} al {soloFecha(reporte.periodoHasta)} ·
+          conocido al {soloFecha(reporte.corteDeConocimiento)} · respalda el acta{' '}
+          <span className="tw:font-mono">{reporte.actaQueLoRespalda}</span>
+        </p>
+
+        <div className="tw:flex tw:flex-wrap tw:items-baseline tw:gap-x-5 tw:gap-y-1 tw:text-sm">
+          <span className="tw:flex tw:items-center tw:gap-1.5">
+            <Landmark className="tw:size-4 tw:text-tinta-mid" aria-hidden />
+            <b>{lempiras(reporte.totalLiberado)}</b> liberados
+          </span>
+          <span className="tw:text-xs tw:text-tinta-mid">
+            de {lempiras(reporte.totalComprometido)} comprometidos
+            {reporte.totalEjecutado !== 0 &&
+              `, menos ${lempiras(reporte.totalEjecutado)} ya ejecutados`}
+          </span>
+        </div>
+
+        {reporte.advertencias.map((a) => (
+          <Nota key={a} tono="aviso" icono={<ShieldAlert />}>
+            {a}
+          </Nota>
+        ))}
+
+        {objetos.length > 0 && (
+          <div className="tw:flex tw:flex-col tw:gap-1">
+            <span className="tw:text-xs tw:text-tinta-mid">Por objeto del gasto</span>
+            {objetos.map(([partida, monto]) => (
+              <div
+                key={partida}
+                className="tw:flex tw:flex-wrap tw:items-baseline tw:gap-x-3 tw:text-sm"
+              >
+                <span className="tw:font-mono tw:text-xs">{partida}</span>
+                <span className="tw:tabular-nums">{lempiras(monto)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="tw:flex tw:flex-col tw:gap-1.5">
+          {reporte.renglones.map((r) => (
+            <div
+              key={r.folio}
+              className="tw:flex tw:flex-wrap tw:items-baseline tw:gap-x-3 tw:text-sm"
+            >
+              <span className="tw:font-mono tw:text-xs">{r.folio}</span>
+              <span className="tw:tabular-nums">{lempiras(r.liberado)}</span>
+              <span className="tw:text-xs tw:text-tinta-mid">{r.delegacion}</span>
+
+              {/* Nulo es sin partida, no cero: ese renglón no se puede imputar en SIAFI. */}
+              {r.objetoDelGasto !== null ? (
+                <span className="tw:font-mono tw:text-xs tw:text-tinta-mid">
+                  {r.objetoDelGasto}
+                </span>
+              ) : (
+                <Pastilla tono="aviso">Sin partida</Pastilla>
+              )}
+
+              {r.tuvoEjecucionParcial && (
+                <Pastilla tono="info">
+                  neto de {lempiras(r.ejecutado)} ejecutados
+                </Pastilla>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* El archivo de conciliación. Va como enlace y no como descarga por script: el
+            servidor ya lo entrega con nombre y codificación declarada. */}
+        <p className="tw:text-xs tw:text-tinta-mid">
+          <a
+            className="loki-foco tw:underline"
+            href={`${import.meta.env.VITE_API ?? ''}/cierre-de-ejercicio/${ejercicio}/reversion.csv`}
+          >
+            Descargar el archivo de conciliación
+          </a>
+          {' — '}⚠️ <b>no es el formato de SIAFI</b>: `RN-81` deja el mecanismo inicial en el
+          reporte con formato acordado, y los contratos de API siguen pendientes.
+        </p>
       </div>
     </Panel>
   );

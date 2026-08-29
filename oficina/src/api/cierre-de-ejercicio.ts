@@ -229,3 +229,59 @@ export const anularFolios = (
     method: 'POST',
     body: JSON.stringify({ persona, motivo, momento: new Date().toISOString() }),
   });
+
+/**
+ * `RN-96` punto 5 y `RN-81` — el reporte de reversión de compromisos para ARGOS y SIAFI.
+ *
+ * ── Reporta lo que se revirtió, no lo que se listó ──────────────────────────
+ * Sale de los folios que el acta listó **y que se anularon**. Uno listado y todavía sin anular
+ * no liberó nada, y reportarlo haría que SIAFI revirtiera un dinero que en SIGTI sigue
+ * comprometido.
+ */
+export interface CompromisoLiberado {
+  /** ⚠️ Hoy es el ULID de la misión: la clave de vinculación con ARGOS no existe como campo. */
+  claveDeVinculacion: string;
+  mision: string;
+  folio: string;
+  delegacion: string;
+  /** **Nulo es sin partida, no cero**: ese renglón no se puede imputar en SIAFI. */
+  objetoDelGasto: string | null;
+  fechaDelHecho: string;
+  fechaDeCaptura: string;
+  comprometido: number;
+  ejecutado: number;
+  /** **Neto.** El bruto haría que SIAFI revirtiera dinero ya gastado. */
+  liberado: number;
+  tuvoEjecucionParcial: boolean;
+  seConcilia: boolean;
+}
+
+export interface ReporteDeReversion {
+  ejercicio: string;
+  /** `RN-94` — el período del hecho que el reporte cubre. */
+  periodoDesde: string;
+  periodoHasta: string;
+  /** `RN-94` — hasta qué momento se miran los registros. Es lo que lo hace reproducible. */
+  corteDeConocimiento: string;
+  actaQueLoRespalda: string;
+  renglones: CompromisoLiberado[];
+  totalComprometido: number;
+  totalEjecutado: number;
+  totalLiberado: number;
+  /** El detalle que `RN-81` punto 4 pide para conciliar. */
+  porObjetoDelGasto: Record<string, number>;
+  sinObjetoDelGasto: number;
+  conEjecucionParcial: number;
+  advertencias: string[];
+}
+
+/** Nulo cuando no hay acta del ejercicio: sin acta no hay nada que conciliar. */
+export const reversionDeCompromisos = async (
+  ejercicio: string,
+): Promise<ReporteDeReversion | null> => {
+  try {
+    return await pedir<ReporteDeReversion>(`/cierre-de-ejercicio/${ejercicio}/reversion`);
+  } catch {
+    return null;
+  }
+};

@@ -544,8 +544,44 @@ que está** antes de mirar el resultado, para que no puedan volver a pasar por l
 Gerencia Administrativa y contra SIAFI — es el tipo de detalle que cada institución resuelve
 distinto»*. Hoy el ejercicio sale del año de la fecha del hecho, que es lo defendible sin norma.
 
-⚠️ **El reporte de reversión de compromisos para ARGOS y SIAFI no está** (`RN-96` punto 5,
-`RN-81`). El acta produce la cifra y la lista por delegación; **falta el archivo de conciliación**.
+#### El reporte de reversión de compromisos para ARGOS y SIAFI
+
+**RESUELTO** (`RN-96` punto 5, `RN-81`). La razón de que exista la da `RN-81` textual: *«`RN-48`
+prohíbe que SIGTI escriba en ARGOS, y hace bien. Pero de esa prohibición no se sigue que SIGTI
+pueda **callar**: si SIGTI anula un compromiso de combustible y no lo reporta, el descuadre
+aparece en SIAFI y nadie sabe de dónde vino»*.
+
+**Reporta lo que se revirtió, no lo que se listó.** Sale de los folios que el acta listó *y que se
+anularon*: uno listado y todavía sin anular no liberó nada, y reportarlo haría que SIAFI
+revirtiera un dinero que en SIGTI sigue comprometido — el descuadre simétrico.
+
+**El liberado va neto**, que es el caso límite que `RN-81` nombra: *«se expone el compromiso
+liberado **neto**, con el detalle de lo ejecutado, no el bruto. El detalle es lo que permite
+conciliar»*. Se calcula y no se recibe, para que nadie pueda escribir el bruto; y nunca es
+negativo — un vale sobreejecutado libera nada, no «menos que cero», porque SIAFI leería eso como
+un compromiso nuevo. Romperlo hace caer cuatro pruebas.
+
+**El renglón sin partida presupuestaria va marcado, no omitido.** `RN-26` deja registrar el fondo
+sin partida cuando el espejo de ARGOS no la tiene; ese renglón no se puede imputar en SIAFI, pero
+omitirlo haría que el total no cuadrara contra la anulación que sí ocurrió. Va con la columna
+**vacía y no en cero**: quien importe el archivo tiene que poder separarlo de una partida «0».
+
+**`RN-94` está cableada.** El reporte declara período del hecho y corte de conocimiento, y el
+corte entra como parámetro: el mismo período con un corte anterior a la anulación no la ve, con
+uno posterior sí, y volver a pedir el primero da lo mismo que la primera vez. Hay prueba de las
+tres cosas.
+
+⚠️ **El CSV no es el formato de SIAFI**, y lo dice en la pantalla. `RN-81` punto 3: sin contrato de
+API conocido —insumos #16 y #17— el mecanismo inicial es el reporte con formato acordado. Este es
+el mínimo que se concilia a mano, que es lo que la regla prevé para una institución sin ARGOS.
+Separador punto y coma porque el decimal local es la coma, montos con punto e invariante porque
+los lee otro sistema, y campos escapados igual: una delegación llamada «Choluteca; sur» partiría
+la fila.
+
+⚠️ **La clave de vinculación con ARGOS no existe como campo.** `RN-81` punto 1 la exige —se
+establece al crear la orden y no cambia en todo su ciclo— y el modelo de datos la nombra, pero el
+código no la tiene. Hoy va el ULID de la misión: sirve dentro de SIGTI y **ARGOS no lo va a
+reconocer**. Es el hueco que hay que cerrar antes de que este archivo sirva para lo que se hizo.
 
 ⚠️ **El combustible no se valora contra tabla paramétrica**, y el acta lo dice en vez de fingirlo:
 su monto sale del comprobante. El hecho sin comprobante queda **nombrado** como hueco. El peaje sí
