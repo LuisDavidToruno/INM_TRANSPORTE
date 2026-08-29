@@ -29,6 +29,7 @@ import {
 import type { Fondo } from '../../api/combustible';
 import { momentoCompleto, soloFecha } from '../M06_Autorizacion/formato';
 import CampoDeActor from './CampoDeActor';
+import PanelDeArqueo from './PanelDeArqueo';
 
 /**
  * El fondo de combustible del período — `RN-26`.
@@ -120,6 +121,13 @@ export default function Fondos(): ReactElement {
           ))}
         </div>
       )}
+
+      {/* El arqueo va **debajo del fondo y en la misma pantalla**, no en otra ruta. Lo que
+          está afuera es parte del saldo del período: separarlos deja el cuadre de Gerencia
+          Administrativa incompleto en la única vista donde se mira. */}
+      <div className="tw:mt-2 tw:border-t tw:border-borde tw:pt-5">
+        <PanelDeArqueo />
+      </div>
 
       {solicitando && <DialogoSolicitar onCerrar={() => setSolicitando(false)} />}
 

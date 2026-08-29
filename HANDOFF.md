@@ -405,6 +405,107 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+### El circuito de reintegro — `RN-86`
+
+**RESUELTA.** La obligación de reintegro existe como entidad con ciclo propio, el bloqueo de
+nueva asignación corre, y el arqueo por persona contesta la primera pregunta de un arqueo.
+
+**`RN-29` numeral 4 daba la entidad por existente y no existía.** La regla decía que el
+faltante *«genera automáticamente expediente de deducción de responsabilidad»*, y no había
+obligación de reintegro en ninguna regla ni en ninguna máquina de estados — así que, en
+palabras de `RN-86`, **el cobro se perdía cuando la misión cerraba**: el expediente se
+archiva, el hallazgo queda como marca, y el dinero no vuelve.
+
+Ahora la obligación vive **fuera del expediente de la misión**, con seis movimientos —`R-01`
+nominar, `R-02` notificar, `R-03` descargo, `R-04` resolver, `R-05` dejar sin efecto, `R-06`
+pagar— y su propio diario. La misión cierra por `T-22` y la obligación sigue viva.
+
+**No nace en la liquidación**, y eso es de `RN-86` punto 5 y de `RN-74`: quien liquida
+constata el hueco; nominar a una persona responsable de él es otro acto, de otro, con su
+competencia registrada.
+
+#### Las dos mitades del bloqueo, que no son la misma
+
+`RN-86` las enumera aparte y `HU-078` le da un escenario a cada una:
+
+| Qué bloquea | Qué es |
+|---|---|
+| Obligación abierta a cargo | Una deuda que **alguien determinó** |
+| Saldo **vencido** | Dinero que no volvió y que **todavía nadie determinó** |
+
+Bloquear sólo por la primera dejaría pasar todo el intervalo entre que el plazo vence y que
+alguien se sienta a nominar — que es, según `CE-26`, **justo donde nace el faltante**.
+
+El bloqueo entra por `AsignacionDeCombustible.Emitir`, igual que `RN-32` y `RN-26`: quien
+construya otra puerta de emisión lo hereda sin acordarse de llamarlo. Y el parámetro que lo
+alimenta es obligatorio, no opcional — **un endpoint nuevo que se olvide de pasarlo no
+compila**, en vez de emitir sin verificar. Verificado por mutación.
+
+#### Lo que deliberadamente NO bloquea
+
+- **El saldo dentro de plazo.** El motorista que volvió anoche tiene dinero afuera y está en
+  su derecho.
+- **La obligación a favor del servidor.** Negarle un vale a quien puso de su bolsillo sería
+  castigarlo por haber puesto. `CE-26`: *«un sistema que solo mide lo que el servidor le debe
+  a la institución no es un sistema de control: es un sistema de cobro»*.
+
+#### Pagar antes de que se resuelva salda, y no borra
+
+`CE-26` nombra la práctica: *«se le da tiempo al motorista para que lo reponga; si repone, no
+queda registro de que hubo faltante»*, y sentencia que **un control que se activa sólo cuando
+la persona no coopera no es un control**. Por eso `R-06` se admite desde cualquier estado
+vivo: pagar salda la deuda y el asiento de nominación sigue ahí con su causa.
+
+El **abono parcial baja el saldo y no avanza el ciclo** — el sistema nunca redondea ni ajusta
+para cuadrar. Y cobrar de más se rechaza: si la institución recibió un excedente, es otro
+hecho económico con su propio asiento.
+
+#### La válvula, y por qué es por misión
+
+Un bloqueo sin salida se esquiva por fuera del sistema —emitiendo a nombre de otro motorista—
+y entonces el registro **miente sobre quién recibió el dinero**, que es peor que no haber
+bloqueado. El levantamiento es acto de ACT-08 con motivo escrito, **atado a una orden**: uno
+por persona sin fecha de fin sería un permiso permanente que nadie se acuerda de revocar.
+Queda en el indicador que `RN-86` pide, no sepultado dentro del vale que lo usó.
+
+#### El plazo en días hábiles
+
+`CalendarioDeDiasHabiles.SumarDiasHabiles`. Hábiles y no corridos porque **la devolución es un
+acto presencial en horario de caja**: un plazo corrido vencería el sábado a alguien que no
+tiene a quién entregarle el dinero, y el bloqueo caería sobre quien no pudo cumplir. El día de
+partida no cuenta — el motorista que retorna el jueves a las 8:40 de la noche no tuvo el
+jueves. `[I]`, práctica común; el articulado es del insumo #32.
+
+⚠️ **`plazo_devolucion_saldo` no está definido — `[C]`, insumo #32.** Y nulo no es cero: con
+cero, todo saldo estaría vencido el mismo día del retorno y el bloqueo caería sobre la flota
+entera por un dato que nadie entregó. Mientras siga nulo, **el arqueo muestra quién tiene
+cuánto y desde cuándo** —que es la primera pregunta y hoy no la contesta nadie— pero **no
+bloquea por saldo**. La mitad de las obligaciones nominadas funciona sin el parámetro.
+
+⚠️ **`CE-26` §1 propone el estado `PENDIENTE_DE_DEVOLUCION` en la máquina de la asignación, y
+§10.1 —que es la autoridad— no lo tiene.** El saldo afuera se **calcula** en vez de agregarse
+al enum: la sustancia de `CE-26` es que el hueco sea visible, y eso lo da el arqueo. Agregarle
+un estado a la máquina autoridad desde el módulo que la consume sería resolver la
+contradicción en silencio. **Queda como hallazgo para el PO** — decidir si §10.1 lo incorpora
+o si `CE-26` se corrige.
+
+⚠️ **Que quien levanta el bloqueo sea ACT-08 no se verifica.** El mapa rol↔puesto es de la
+institución, `[C]` insumo #1. Se registra persona, puesto declarado, fecha y motivo — que es
+lo que después permite revisar quién los firmó. No se finge que el puesto se validó.
+
+⚠️ **El arqueo muestra el ULID del motorista, no su nombre.** El padrón lo tiene y el arqueo
+todavía no lo cruza. `HU-078` espera leer *«de la misión OM-2026-0491»*, y la orden de misión
+**tampoco tiene folio** (`RN-44` reserva rangos por delegación para eso). Se muestra lo que
+identifica sin ambigüedad en vez de inventar un correlativo.
+
+**Lo que queda fuera y es de otro:** el cobro por planilla es de Talento Humano y
+Administración (`HU-078`, fuera de alcance), y la tipificación completa del faltante al
+liquidar es `HU-089`. `CausaDelReintegro` sólo tiene las tres causas que `RN-86` declara
+generadoras más el peculio — tenerlo aparte impide que el día que crezca el catálogo de
+liquidación crezca con él la lista de cosas que nominan a una persona.
+
+---
+
 ### El remanente en tanque — `RN-83` punto 3 y `CE-07`
 
 **RESUELTA.** `ReglasDelRemanente` calcula lo que quedó en el tanque, y la conciliación lo

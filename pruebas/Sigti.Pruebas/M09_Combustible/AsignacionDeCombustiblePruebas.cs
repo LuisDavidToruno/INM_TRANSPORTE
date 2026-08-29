@@ -40,7 +40,8 @@ public class AsignacionDeCombustiblePruebas
             EstadoDeMision.Programada, Vehiculo, Conductor, Vehiculo, Conductor,
             combustibleDelVehiculo: "Diesel", tipoDeCombustible: "Diesel",
             monto: monto, galones: 50m, instrumento: "vale",
-            emite: Jefe, saldoDisponible: saldo, toleranciaSobregiro: 0m, momento: Momento);
+            emite: Jefe, saldoDisponible: saldo, toleranciaSobregiro: 0m, momento: Momento,
+            nombreDelReceptor: "Denis Fúnez", obligacionesDelReceptor: [], saldosDelReceptor: []);
 
     private static AsignacionDeCombustible Entregada(decimal monto = 2_500m)
     {
@@ -90,7 +91,8 @@ public class AsignacionDeCombustiblePruebas
         var fallo = Assert.Throws<BloqueoDuro>(() => AsignacionDeCombustible.Emitir(
             Ulid.NewUlid(), "  ", Fondo, Mision, EstadoDeMision.Programada,
             EstadoDeMision.Programada, Vehiculo, Conductor, Vehiculo, Conductor,
-            "Diesel", "Diesel", 2_500m, 50m, "vale", Jefe, 40_000m, 0m, Momento));
+            "Diesel", "Diesel", 2_500m, 50m, "vale", Jefe, 40_000m, 0m, Momento,
+            "Denis Fúnez", [], []));
 
         Assert.Equal("RN-27", fallo.Precondicion);
         Assert.Contains("no existe para la auditoría", fallo.Message);

@@ -50,6 +50,21 @@ public interface IParametrosDeLaInstitucion
     /// o ninguna lo sería, y las dos cosas son falsas.
     /// </summary>
     UmbralesDeDesviacion? UmbralesVigentesAl(DateOnly fecha);
+
+    /// <summary>
+    /// `RN-86` — <c>plazo_devolucion_saldo</c>, <b>en días hábiles</b>, contado desde la
+    /// fecha del hecho del retorno.
+    ///
+    /// <b>Nulo mientras la institución no lo defina</b> — `[C]`, insumo #32. Y nulo no es
+    /// cero: con cero, todo saldo estaría vencido el mismo día del retorno y el bloqueo de
+    /// nueva asignación caería sobre la flota entera por un dato que nadie entregó.
+    ///
+    /// Lo que cuesta no tenerlo lo dice la propia regla: <i>«sin plazo definido, el sistema
+    /// no puede decir si el dinero estuvo afuera dos días o dos meses, que es exactamente lo
+    /// que el arqueo necesita»</i>. El saldo se ve igual; lo que no se puede es declararlo
+    /// vencido.
+    /// </summary>
+    int? PlazoDeDevolucionDeSaldoEnDiasHabiles { get; }
 }
 
 /// <summary>
@@ -169,6 +184,18 @@ public sealed class ParametrosProvisionales : IParametrosDeLaInstitucion
     /// sobre el saldo bloquea, y la salida es la ampliación del fondo por el mismo circuito.
     /// </summary>
     public decimal ToleranciaDeSobregiro => 0m;
+
+    /// <summary>
+    /// ⚠️ <b>NULO, y es la respuesta honesta.</b> `RN-86` lo declara configurable con
+    /// vigencia y `HU-078` lo marca `[C]` — insumo #32, junto con la tolerancia de
+    /// liquidación.
+    ///
+    /// Mientras siga nulo, <b>el arqueo muestra quién tiene cuánto y desde cuándo</b> —que es
+    /// la primera pregunta y hoy no la contesta nadie— pero <b>no bloquea por saldo</b>,
+    /// porque no hay contra qué decir que se venció. La otra mitad del bloqueo, la de las
+    /// obligaciones nominadas, funciona sin este parámetro.
+    /// </summary>
+    public int? PlazoDeDevolucionDeSaldoEnDiasHabiles => null;
 
     /// <summary>
     /// ⚠️ <b>NULO, y esa es la respuesta honesta.</b> `RN-30` punto 1 lo declara `[C]`: <i>«la

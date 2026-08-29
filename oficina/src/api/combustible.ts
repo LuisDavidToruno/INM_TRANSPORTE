@@ -354,6 +354,95 @@ export interface Abastecimiento {
   descripcion: string;
 }
 
+// ── El circuito de reintegro — `RN-86` ──────────────────────────────────────
+
+/**
+ * Dinero público en poder de una persona, por un vale que sigue vivo.
+ *
+ * `vence` nulo es **«no se puede saber»**, nunca «no vence», y `explicacion` dice cuál de
+ * los dos motivos es: la misión no ha retornado, o el plazo no está definido.
+ */
+export interface SaldoAfuera {
+  vale: string;
+  mision: string;
+  monto: number;
+  desde: string | null;
+  vence: string | null;
+  vencido: boolean;
+  diasAfuera: number;
+  explicacion: string;
+}
+
+/**
+ * La obligación de reintegro — la entidad que **sobrevive al cierre de la misión**.
+ *
+ * Lleva `monto` y `saldo` por separado a propósito: `CE-26` exige que el reporte muestre el
+ * valor original, el reverso y el resultado, nunca sólo el resultado.
+ */
+export interface Obligacion {
+  id: string;
+  direccion: 'AFavorDeLaInstitucion' | 'AFavorDelServidor';
+  causa: string;
+  responsable: string;
+  estado: string;
+  monto: number;
+  pagado: number;
+  saldo: number;
+  abierta: boolean;
+  fechaDelHecho: string;
+  /** Desde el hecho original, no desde la nominación: es lo que `RN-97` arrastra. */
+  antiguedadEnDias: number;
+  mision: string | null;
+  asignacion: string | null;
+}
+
+/** Una fila del arqueo por persona — `RN-86` punto 6. */
+export interface LoQueDebe {
+  responsable: string;
+  /** Lo que esta persona le debe a la institución, ya determinado por alguien. */
+  aCargo: number;
+  /** Lo que la institución le debe a ella. Va en la misma fila, no en otro reporte. */
+  aFavor: number;
+  /** Dinero de vales vivos que no volvió ni se comprobó, vencido o no. */
+  sinComprobar: number;
+  vencido: boolean;
+  saldos: SaldoAfuera[];
+  obligaciones: Obligacion[];
+}
+
+export const arqueoDeReintegros = (): Promise<LoQueDebe[]> =>
+  pedir<LoQueDebe[]>('/reintegros/arqueo');
+
+export interface Levantamiento {
+  id: string;
+  mision: string;
+  responsable: string;
+  persona: string;
+  puesto: string;
+  momento: string;
+  motivo: string;
+}
+
+export const levantamientosDeBloqueo = (): Promise<Levantamiento[]> =>
+  pedir<Levantamiento[]>('/reintegros/levantamientos');
+
+/** Qué significa cada estado de la obligación, en el vocabulario del expediente. */
+export const TEXTO_DE_OBLIGACION: Record<string, string> = {
+  Determinada: 'Nominada, sin notificar al servidor',
+  Notificada: 'Notificada — el descargo está pendiente',
+  ConDescargo: 'El servidor presentó su descargo',
+  Resuelta: 'Resuelta y confirmada: sigue debiéndose',
+  Saldada: 'Pagada, con asiento reverso',
+  DejadaSinEfecto: 'Dejada sin efecto — no procedía',
+};
+
+export const TEXTO_DE_CAUSA: Record<string, string> = {
+  SinCausaIdentificada: 'faltante sin causa identificada',
+  AplicacionAFinDistinto: 'fondo aplicado a fin distinto',
+  Extravio: 'extravío',
+  PeculioPropio: 'peculio propio del servidor',
+};
+
 export const abastecimientosDeLaMision = (misionId: string): Promise<Abastecimiento[]> =>
   pedir<Abastecimiento[]>(`/abastecimientos/mision/${misionId}`);
 

@@ -144,6 +144,25 @@ public sealed class CombustibleDeLaInstitucion(SigtiDbContext contexto)
         return [.. filas.Select(AAsignacion)];
     }
 
+    /// <summary>
+    /// Los vales de una persona — la pregunta de `RN-86`: <b>¿qué tiene esta persona en la
+    /// mano?</b>
+    ///
+    /// Va por <see cref="FilaDeAsignacion.Receptor"/> y no por quién ejecutó `V-02`: el que
+    /// entrega es de la institución, y el que responde por el dinero es el que lo recibió
+    /// (`CE-26`: <i>«la persona que firmó la recepción, no el rol»</i>).
+    /// </summary>
+    public async Task<IReadOnlyList<AsignacionDeCombustible>> DelReceptorAsync(
+        Ulid receptor, CancellationToken cancelacion = default)
+    {
+        var filas = await contexto.AsignacionesDeCombustible
+            .Include(a => a.Transiciones)
+            .Where(a => a.Receptor == receptor)
+            .ToListAsync(cancelacion);
+
+        return [.. filas.Select(AAsignacion)];
+    }
+
     public async Task<IReadOnlyList<AsignacionDeCombustible>> AsignacionesDelFondoAsync(
         Ulid fondoId, CancellationToken cancelacion = default)
     {

@@ -195,7 +195,21 @@ public sealed class AsignacionDeCombustible
         IdPersona emite,
         decimal saldoDisponible,
         decimal toleranciaSobregiro,
-        DateTimeOffset momento)
+        DateTimeOffset momento,
+        // ── El bloqueo de `RN-86`, y por qué entra por acá ──────────────────────
+        // Igual que `RN-32` y `RN-26`: acá, no en el servicio. Quien construya otra puerta
+        // de emisión lo hereda sin tener que acordarse de llamarlo. `HU-078` describe el
+        // agujero que cierra: hoy nada impide seguir entregándole fondo a quien no devolvió
+        // el anterior, y el saldo se acumula sobre unas pocas personas hasta que alguien
+        // hace el arqueo del período, meses después.
+        //
+        // Listas vacías es el caso normal y no una omisión: la inmensa mayoría de los
+        // motoristas no debe nada. Lo que no puede pasar es que quien llama decida no
+        // consultarlas — por eso el servicio las arma siempre.
+        string nombreDelReceptor,
+        IReadOnlyList<ObligacionDeReintegro> obligacionesDelReceptor,
+        IReadOnlyList<SaldoAfuera> saldosDelReceptor,
+        LevantamientoDeBloqueo? levantamiento = null)
     {
         if (string.IsNullOrWhiteSpace(folio))
             throw new BloqueoDuro("RN-27",
@@ -211,6 +225,13 @@ public sealed class AsignacionDeCombustible
         ReglasDeEmisionDeCombustible.ExigirCombustibleCompatible(
             combustibleDelVehiculo, tipoDeCombustible);
         ReglasDelFondo.ExigirSaldoSuficiente(saldoDisponible, monto, toleranciaSobregiro);
+
+        // **Se juzga a la fecha del hecho** (P-4): un vale emitido con fecha de la semana
+        // pasada se evalúa contra los plazos que estaban vencidos entonces, no contra los
+        // de hoy. Capturarlo tarde no puede cambiar si el bloqueo correspondía.
+        ReglasDelReintegro.ExigirQueNoDebaReintegro(
+            nombreDelReceptor, mision, obligacionesDelReceptor, saldosDelReceptor,
+            DateOnly.FromDateTime(momento.Date), levantamiento);
 
         var asignacion = new AsignacionDeCombustible(
             id, folio, fondo, mision, vehiculoReceptor, motoristaReceptor,

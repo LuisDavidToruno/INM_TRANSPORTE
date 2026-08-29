@@ -11,6 +11,7 @@ using Sigti.Dominio.M08_Bitacora;
 using Sigti.Aplicacion.M07_ProgramacionYDespacho;
 using Sigti.Aplicacion.M09_Combustible;
 using Sigti.Dominio.M09_Combustible;
+using Sigti.Dominio.M01_Organizacion;
 using Sigti.Datos;
 using Sigti.Dominio.M02_Parametros;
 using Sigti.Dominio.M03_Flota;
@@ -51,6 +52,7 @@ constructor.Services.AddScoped<EstadoDeLaFlota>();
 constructor.Services.AddScoped<ServicioDeCombustible>();
 constructor.Services.AddScoped<ServicioDeConciliacion>();
 constructor.Services.AddScoped<ServicioDeAbastecimientos>();
+constructor.Services.AddScoped<ServicioDeReintegro>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -217,6 +219,28 @@ static FilaDeCustodia CustodiaDeDesarrollo(
     // nadie decidió.
     Hasta = null,
     Acta = acta,
+};
+
+/// <summary>
+/// El resumen de una obligación. <b>Lleva el saldo y el monto original</b>, no sólo el
+/// saldo: `CE-26` — el reporte muestra el valor original, el reverso y el resultado, nunca
+/// sólo el resultado.
+/// </summary>
+static object Resumir(ObligacionDeReintegro o) => new
+{
+    id = o.Id.ToString(),
+    direccion = o.Direccion.ToString(),
+    causa = o.Causa.ToString(),
+    responsable = o.Responsable.ToString(),
+    estado = o.Estado.ToString(),
+    monto = o.Monto,
+    pagado = o.Pagado,
+    saldo = o.Saldo,
+    abierta = o.EstaAbierta,
+    fechaDelHecho = o.FechaDelHecho,
+    antiguedadEnDias = o.AntiguedadEnDias(DateOnly.FromDateTime(DateTime.UtcNow)),
+    mision = o.Mision?.ToString(),
+    asignacion = o.Asignacion?.ToString(),
 };
 
 static FilaDeConductor ConductorDeDesarrollo(
@@ -647,6 +671,152 @@ app.MapGet("/abastecimientos/mision/{id}", async (
         descripcion = a.Descripcion,
     })));
 
+// ── `RN-86` — el circuito de reintegro ──────────────────────────────────────
+// Vive fuera de `/combustible` a propósito: la obligación **sobrevive al cierre de la
+// misión** y al del fondo, y colgarla del recurso que la originó daría a entender que se
+// archiva con él — que es exactamente el agujero que `RN-86` existe para tapar.
+var reintegros = app.MapGroup("/reintegros");
+
+/// El arqueo por persona: quién tiene cuánto dinero del Estado en la mano, desde cuándo.
+/// `RN-86` punto 6 — la primera pregunta de un arqueo, y hoy no la contesta nadie.
+reintegros.MapGet("/arqueo", async (ServicioDeReintegro servicio) =>
+{
+    var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+    var arqueo = await servicio.ArqueoPorPersonaAsync(hoy);
+
+    return Results.Ok(arqueo.Select(p => new
+    {
+        responsable = p.Responsable.ToString(),
+        aCargo = p.ACargo,
+        aFavor = p.AFavor,
+        sinComprobar = p.SinComprobar,
+        vencido = p.Vencido,
+
+        // Cada saldo con su explicación entera. Un monto sin la ventana de tiempo no
+        // demuestra si el dinero estuvo afuera dos días o dos meses.
+        saldos = p.Saldos.Select(s => new
+        {
+            vale = s.FolioDelVale,
+            mision = s.Mision.ToString(),
+            monto = s.Monto,
+            desde = s.Desde,
+            vence = s.Vence,
+            vencido = s.VencidoAl(hoy),
+            diasAfuera = s.DiasAfueraAl(hoy),
+            explicacion = s.Explicacion,
+        }),
+
+        obligaciones = p.Obligaciones.Select(Resumir),
+    }));
+});
+
+reintegros.MapGet("/", async (ServicioDeReintegro servicio) =>
+    Results.Ok((await servicio.TodasAsync()).Select(Resumir)));
+
+reintegros.MapGet("/{id}", async (string id, ServicioDeReintegro servicio) =>
+    await servicio.BuscarAsync(Ulid.Parse(id)) is { } o
+        ? Results.Ok(new
+        {
+            resumen = Resumir(o),
+
+            // El diario entero. Un expediente de reintegro que sólo muestra el saldo no
+            // sirve para nada: lo que el auditor pide es la notificación, el descargo y la
+            // resolución, con quién y con qué competencia.
+            diario = o.Diario.Select(m => new
+            {
+                movimiento = m.Id,
+                destino = m.Destino.ToString(),
+                persona = m.Autor.Persona.Valor,
+                puesto = m.Autor.Puesto.Valor,
+                momento = m.Momento,
+                motivo = m.Motivo,
+                pagado = m.Pagado,
+            }),
+        })
+        : Results.NotFound());
+
+/// `R-01` — nominar. Acto propio: `RN-86` punto 5 es explícito en que la obligación no nace
+/// en la liquidación, y `RN-74` reserva la determinación a quien corresponde.
+reintegros.MapPost("/", async (NominarReintegro peticion, ServicioDeReintegro servicio) =>
+{
+    var id = await servicio.NominarAsync(
+        Ulid.Parse(peticion.Id),
+        Enum.Parse<DireccionDelReintegro>(peticion.Direccion),
+        Enum.Parse<CausaDelReintegro>(peticion.Causa),
+        Ulid.Parse(peticion.IdResponsable),
+        peticion.Monto,
+        peticion.IdMision is { } m ? Ulid.Parse(m) : null,
+        peticion.IdAsignacion is { } a ? Ulid.Parse(a) : null,
+        peticion.FechaDelHecho,
+        Autoria.De(new IdPersona(peticion.Persona), new IdPuesto(peticion.Puesto),
+            peticion.FechaDelHecho),
+        peticion.Motivo,
+        peticion.Momento);
+
+    return Results.Created($"/reintegros/{id}", new { id = id.ToString() });
+});
+
+reintegros.MapPost("/{id}/movimiento", async (
+    string id, MoverReintegro peticion, ServicioDeReintegro servicio) =>
+{
+    var autor = Autoria.De(
+        new IdPersona(peticion.Persona), new IdPuesto(peticion.Puesto),
+        peticion.FechaDelHecho ?? DateOnly.FromDateTime(peticion.Momento.Date));
+
+    var estado = await servicio.MoverAsync(Ulid.Parse(id), o =>
+    {
+        switch (peticion.Movimiento)
+        {
+            case "R-02": o.Notificar(autor, peticion.Texto, peticion.Momento); break;
+            case "R-03": o.RegistrarDescargo(autor, peticion.Texto, peticion.Momento); break;
+            case "R-04": o.Resolver(autor, peticion.Texto, peticion.Momento); break;
+            case "R-05": o.DejarSinEfecto(autor, peticion.Texto, peticion.Momento); break;
+
+            // La fecha del hecho del pago es **cuándo entró el dinero a la caja**, no cuándo
+            // se capturó: `RN-86` punto 1 y `CE-26` §5 — capturarla distinta para que el
+            // plazo no aparezca vencido es falsificar un dato.
+            case "R-06": o.RegistrarPago(
+                autor, peticion.Monto ?? 0m,
+                peticion.FechaDelHecho ?? DateOnly.FromDateTime(peticion.Momento.Date),
+                peticion.Texto, peticion.Momento); break;
+
+            default: throw new BloqueoDuro("RN-86",
+                $"«{peticion.Movimiento}» no es un movimiento de la obligación. Son `R-02` a `R-06`.");
+        }
+    });
+
+    return Results.Ok(new { estado = estado.ToString() });
+});
+
+/// El levantamiento del bloqueo — acto de ACT-08, por misión y con motivo escrito.
+reintegros.MapPost("/levantamientos", async (
+    LevantarBloqueo peticion, ServicioDeReintegro servicio) =>
+{
+    var id = await servicio.LevantarBloqueoAsync(
+        Ulid.Parse(peticion.IdMision),
+        Ulid.Parse(peticion.IdResponsable),
+        Autoria.De(new IdPersona(peticion.Persona), new IdPuesto(peticion.Puesto),
+            DateOnly.FromDateTime(peticion.Momento.Date)),
+        peticion.Motivo,
+        peticion.Momento);
+
+    return Results.Created($"/reintegros/levantamientos/{id}", new { id = id.ToString() });
+});
+
+/// El indicador que `RN-86` pide: levantamientos por persona y por período.
+reintegros.MapGet("/levantamientos", async (ServicioDeReintegro servicio) =>
+    Results.Ok((await servicio.LevantamientosAsync()).Select(l => new
+    {
+        id = l.Id.ToString(),
+        mision = l.MisionId.ToString(),
+        responsable = l.Responsable.ToString(),
+        persona = l.Persona,
+        puesto = l.Puesto,
+        momento = new DateTimeOffset(l.MomentoUtc, TimeSpan.Zero)
+            .ToOffset(TimeSpan.FromMinutes(l.DesfaseMinutos)),
+        motivo = l.Motivo,
+    })));
+
 var vales = app.MapGroup("/combustible");
 
 // **La petición NO trae el vehículo.** `RN-32` manda que el sistema lo precargue de la
@@ -655,7 +825,7 @@ var vales = app.MapGroup("/combustible");
 // es contra ese valor que se valida.
 vales.MapPost("/", async (
     EmitirVale peticion, ServicioDeCombustible servicio,
-    IParametrosDeLaInstitucion parametros) =>
+    IParametrosDeLaInstitucion parametros, ServicioDeReintegro reintegro) =>
 {
     var id = await servicio.EmitirAsync(
         Ulid.Parse(peticion.Id), peticion.Folio, Ulid.Parse(peticion.IdFondo),
@@ -670,7 +840,12 @@ vales.MapPost("/", async (
 
         parametros.EstadoMinimoParaEmitirCombustible,
         parametros.ToleranciaDeSobregiro,
-        peticion.Momento);
+        peticion.Momento,
+
+        // `RN-86`: el bloqueo se arma acá y no lo decide el cliente. Que sea un parámetro
+        // obligatorio y no un opcional es deliberado — un endpoint nuevo que se olvide de
+        // pasarlo no compila, en vez de emitir sin verificar.
+        reintegro);
 
     return Results.Created($"/combustible/{id}", new { id = id.ToString() });
 });
@@ -1785,3 +1960,38 @@ internal sealed record AbastecimientoDelDispositivo(
     decimal? Monto = null,
     string? Comprobante = null,
     string? CausaSinComprobante = null);
+
+/// <summary>`R-01` — nominar una obligación de reintegro.</summary>
+internal sealed record NominarReintegro(
+    string Id,
+    string Direccion,
+    string Causa,
+    string IdResponsable,
+    decimal Monto,
+    string? IdMision,
+    string? IdAsignacion,
+    /// <summary>La del hecho original, no la de nominación: `RN-97` cuenta desde ahí.</summary>
+    DateOnly FechaDelHecho,
+    string Persona,
+    string Puesto,
+    string Motivo,
+    DateTimeOffset Momento);
+
+/// <summary>`R-02` a `R-06` sobre una obligación existente.</summary>
+internal sealed record MoverReintegro(
+    string Movimiento,
+    string Persona,
+    string Puesto,
+    string Texto,
+    decimal? Monto,
+    /// <summary>Sólo `R-06`: cuándo entró el dinero a la caja.</summary>
+    DateOnly? FechaDelHecho,
+    DateTimeOffset Momento);
+
+internal sealed record LevantarBloqueo(
+    string IdMision,
+    string IdResponsable,
+    string Persona,
+    string Puesto,
+    string Motivo,
+    DateTimeOffset Momento);

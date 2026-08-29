@@ -1,6 +1,7 @@
 using Sigti.Datos;
 using Sigti.Datos.Bitacora;
 using Sigti.Datos.M07_ProgramacionYDespacho;
+using Sigti.Aplicacion.M05_Motoristas;
 using Sigti.Datos.M09_Combustible;
 using Sigti.Aplicacion.M07_ProgramacionYDespacho;
 using Microsoft.EntityFrameworkCore;
@@ -25,6 +26,7 @@ namespace Sigti.Aplicacion.M09_Combustible;
 public sealed class ServicioDeCombustible(SigtiDbContext contexto)
 {
     private readonly CombustibleDeLaInstitucion _combustible = new(contexto);
+    private readonly ConsultaDeConductores _motoristas = new(contexto);
     private readonly ExpedientesDeMision _expedientes = new(contexto);
     private readonly EscritorDeBitacora _bitacora = new(contexto);
     private readonly AbastecimientosDeLaFlota _abastecimientos = new(contexto);
@@ -119,6 +121,11 @@ public sealed class ServicioDeCombustible(SigtiDbContext contexto)
         EstadoDeMision estadoMinimoConfigurado,
         decimal toleranciaSobregiro,
         DateTimeOffset momento,
+        // **El circuito de reintegro.** Se recibe y no se construye acá porque necesita los
+        // parámetros de la institución —el plazo, el calendario— y este servicio no los
+        // tiene. Nulo <b>no</b> significa «sin deudas»: significa que quien llama no lo
+        // consultó, y por eso se rechaza en vez de dejar pasar.
+        ServicioDeReintegro reintegro,
         CancellationToken cancelacion = default)
     {
         var expediente = await _expedientes.BuscarAsync(misionId, cancelacion)
@@ -157,6 +164,17 @@ public sealed class ServicioDeCombustible(SigtiDbContext contexto)
 
         var saldo = await _combustible.SaldoAsync(fondoId, cancelacion);
 
+        // ── `RN-86`, armado contra el receptor real ─────────────────────────────
+        // Contra `motoristaReceptor` y no contra el motorista de la orden: es a quien se le
+        // va a entregar el dinero, y `RN-32` ya se encarga de que sean el mismo. Evaluarlo
+        // contra el de la orden dejaría pasar al sustituto que sí debe.
+        var obligaciones = await reintegro.DeLaPersonaAsync(motoristaReceptor, cancelacion);
+        var saldosAfuera = await reintegro.SaldosAfueraDeAsync(motoristaReceptor, cancelacion);
+        var levantamiento = await reintegro.LevantamientoVigenteAsync(
+            misionId, motoristaReceptor, cancelacion);
+
+        var receptor = await _motoristas.PorIdAsync(motoristaReceptor, cancelacion);
+
         var asignacion = AsignacionDeCombustible.Emitir(
             id, folio, fondoId, misionId,
             expediente.Estado, estadoMinimoConfigurado,
@@ -170,7 +188,11 @@ public sealed class ServicioDeCombustible(SigtiDbContext contexto)
             vehiculoReceptor: recursos.Vehiculo,
             motoristaReceptor: motoristaReceptor,
             combustibleDelVehiculo, tipoDeCombustible,
-            monto, galones, instrumento, emite, saldo, toleranciaSobregiro, momento);
+            monto, galones, instrumento, emite, saldo, toleranciaSobregiro, momento,
+            nombreDelReceptor: receptor?.Nombre ?? motoristaReceptor.ToString(),
+            obligacionesDelReceptor: obligaciones,
+            saldosDelReceptor: saldosAfuera,
+            levantamiento: levantamiento);
 
         await ConfirmarAsignacionAsync(asignacion, momento, cancelacion);
         return asignacion.Id;

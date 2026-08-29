@@ -52,6 +52,46 @@ public sealed record CalendarioDeDiasHabiles(
         !DiasHabiles.Contains(fecha.DayOfWeek) || Feriados.Contains(fecha);
 
     /// <summary>
+    /// El vencimiento de un plazo en <b>días hábiles</b> contado desde una fecha del hecho.
+    ///
+    /// ── Por qué hábiles y no corridos ────────────────────────────────────────
+    /// `RN-86` cuenta el plazo de devolución del saldo <b>en días hábiles</b>, y no es un
+    /// tecnicismo: la devolución es un acto presencial en horario de caja. Un plazo corrido
+    /// vencería el sábado a un motorista que no tiene a quién entregarle el dinero, y el
+    /// bloqueo de nueva asignación se dispararía contra alguien que no pudo cumplir.
+    ///
+    /// ── El día de partida no cuenta ──────────────────────────────────────────
+    /// El motorista que retorna el jueves a las 8:40 de la noche no tuvo el jueves para
+    /// devolver: la caja cerró a las 4:00. El plazo empieza a correr el <b>siguiente</b> día
+    /// hábil, que es cómo se cuenta un plazo en el procedimiento administrativo. `[I]` — es
+    /// práctica común y no articulado extraído; el articulado es del insumo #32.
+    ///
+    /// ⚠️ <b>Con la lista de feriados vacía este cálculo subdeclara el plazo</b>: dará por
+    /// hábil el 15 de septiembre y vencerá antes de lo que corresponde. Es el mismo sesgo
+    /// que ya tiene <see cref="EsInhabil"/>, y va en la dirección de bloquear de más — que
+    /// acá es la dirección incómoda. Por eso el arqueo nombra siempre contra qué calendario
+    /// se juzgó.
+    /// </summary>
+    public DateOnly SumarDiasHabiles(DateOnly desde, int dias)
+    {
+        if (dias < 0)
+            throw new ArgumentOutOfRangeException(nameof(dias),
+                "Un plazo negativo vencería antes de empezar.");
+
+        var fecha = desde;
+
+        // Con plazo cero, el vencimiento es el mismo día del hecho. No se corre al siguiente
+        // hábil: cero significa «se devuelve en el acto», y adelantarlo un día lo negaría.
+        for (var contados = 0; contados < dias;)
+        {
+            fecha = fecha.AddDays(1);
+            if (!EsInhabil(fecha)) contados++;
+        }
+
+        return fecha;
+    }
+
+    /// <summary>
     /// Los días inhábiles que toca la ventana, <b>holgura incluida</b>.
     ///
     /// Incluye la holgura porque el vehículo sigue afuera durante ella: `BD-04` habla de

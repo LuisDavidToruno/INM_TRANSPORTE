@@ -26,6 +26,10 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     public DbSet<FilaDeCambioDeEstado> CambiosDeEstado => Set<FilaDeCambioDeEstado>();
     public DbSet<FilaDeFondo> Fondos => Set<FilaDeFondo>();
     public DbSet<FilaDeAsignacion> AsignacionesDeCombustible => Set<FilaDeAsignacion>();
+
+    public DbSet<FilaDeObligacion> ObligacionesDeReintegro => Set<FilaDeObligacion>();
+
+    public DbSet<FilaDeLevantamiento> LevantamientosDeBloqueo => Set<FilaDeLevantamiento>();
     public DbSet<FilaDeAbastecimiento> Abastecimientos => Set<FilaDeAbastecimiento>();
 
     /// <summary>
@@ -364,6 +368,70 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             transicion.HasIndex(t => t.IdDeCaptura)
                 .IsUnique()
                 .HasFilter("[IdDeCaptura] IS NOT NULL");
+        });
+
+        modelo.Entity<FilaDeObligacion>(obligacion =>
+        {
+            obligacion.ToTable("ObligacionDeReintegro", schema: "combustible");
+
+            obligacion.HasKey(o => o.Id);
+            obligacion.Property(o => o.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            obligacion.Property(o => o.Responsable).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            obligacion.Property(o => o.MisionId).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+            obligacion.Property(o => o.AsignacionId).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+            obligacion.Property(o => o.Direccion).HasConversion<string>().HasMaxLength(32).IsRequired();
+            obligacion.Property(o => o.Causa).HasConversion<string>().HasMaxLength(32).IsRequired();
+            obligacion.Property(o => o.Monto).HasColumnType("decimal(18,2)");
+
+            // **La pregunta del bloqueo se hace en cada emision de vale.** Sin este indice,
+            // `RN-86` cuesta un recorrido de tabla por cada V-01 -- y un control que se
+            // vuelve caro es un control que alguien termina proponiendo saltarse.
+            obligacion.HasIndex(o => o.Responsable);
+
+            // El arqueo y el saldo de apertura de `RN-97` ordenan por antiguedad del hecho.
+            obligacion.HasIndex(o => o.FechaDelHecho);
+
+            obligacion.HasMany(o => o.Movimientos)
+                .WithOne()
+                .HasForeignKey(m => m.ObligacionId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelo.Entity<FilaDeMovimientoDeObligacion>(movimiento =>
+        {
+            movimiento.ToTable("MovimientoDeObligacion", schema: "combustible");
+
+            movimiento.HasKey(m => m.Id);
+            movimiento.Property(m => m.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            movimiento.Property(m => m.ObligacionId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            movimiento.Property(m => m.Movimiento).HasMaxLength(8).IsRequired();
+            movimiento.Property(m => m.Destino).HasConversion<string>().HasMaxLength(32).IsRequired();
+            movimiento.Property(m => m.Persona).HasMaxLength(64).IsRequired();
+            movimiento.Property(m => m.Puesto).HasMaxLength(64).IsRequired();
+            movimiento.Property(m => m.Motivo).HasMaxLength(2000).IsRequired();
+            movimiento.Property(m => m.Pagado).HasColumnType("decimal(18,2)");
+
+            movimiento.HasIndex(m => new { m.ObligacionId, m.Orden }).IsUnique();
+        });
+
+        modelo.Entity<FilaDeLevantamiento>(levantamiento =>
+        {
+            levantamiento.ToTable("LevantamientoDeBloqueo", schema: "combustible");
+
+            levantamiento.HasKey(l => l.Id);
+            levantamiento.Property(l => l.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            levantamiento.Property(l => l.MisionId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            levantamiento.Property(l => l.Responsable).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            levantamiento.Property(l => l.Persona).HasMaxLength(64).IsRequired();
+            levantamiento.Property(l => l.Puesto).HasMaxLength(64).IsRequired();
+            levantamiento.Property(l => l.Motivo).HasMaxLength(2000).IsRequired();
+
+            // **Uno por mision y persona.** Levantar dos veces el mismo bloqueo no agrega
+            // nada y ensucia el indicador que `RN-86` pide: la excepcion es una, y si hace
+            // falta otra razon se escribe en el motivo de la que ya esta.
+            levantamiento.HasIndex(l => new { l.MisionId, l.Responsable }).IsUnique();
+
+            levantamiento.HasIndex(l => l.Responsable);
         });
 
         modelo.Entity<FilaDeAbastecimiento>(abastecimiento =>
