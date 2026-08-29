@@ -77,6 +77,15 @@ El 2026-08-26 bloqueó durante horas la carga de **cualquier binario .NET recié
 >
 > **Regla operativa: al terminar de verificar en pantalla, detener la API antes de correr la suite.**
 
+**Lo que se aprendió el 2026-08-29, y es lo mismo por tercera vez.** Volvió a pasar, se volvió
+a diagnosticar desde cero, y se llegó a recomendar **apagar SAC** —lo que esta misma sección
+desaconseja— sobre la teoría equivocada de que hacía falta reiniciar. Medido: el registro nunca
+cambió, el uptime nunca se reinició, y la suite pasó con **los mismos binarios** que antes
+fallaban.
+
+> **Antes de diagnosticar `0x800711C7`, leer esta sección.** Tres sesiones perdieron horas en
+> el mismo camino, y la tercera casi cuesta una decisión irreversible sobre la máquina.
+
 **Lo que se aprendió el 2026-08-27, y acota las salidas.** El bloqueo puede durar **toda una sesión**: más de ochenta intentos, limpiando `bin`/`obj`, en Debug y en Release, y con la salida fuera del repositorio. **La ruta no importa** — SAC decide por reputación del binario, y cada compilación produce un hash nuevo.
 
 Y no afecta solo a las pruebas: `dotnet run` de la API falla igual, con `Sigti.Datos.dll`. **Compilar sí funciona; lo que se bloquea es cargar el ensamblado.** O sea que con SAC en este estado se puede escribir y compilar, pero no ejecutar nada del proyecto — ni pruebas, ni API, ni verificación en pantalla.
@@ -453,15 +462,27 @@ aviso registra lo que pasó en ese momento, y reescribirlo diría que se avisó 
 Un puesto puede estar coocupado durante un traspaso. Una sola fila por tarea diría que se
 avisó cuando a una de las dos personas no le llegó.
 
-### ⚠️ Smart App Control: el cambio del PO **necesita reiniciar**
+### ⚠️ Smart App Control, y una corrección sobre lo que se dijo de él
 
-El registro sigue en `VerifiedAndReputablePolicyState = 1` y la máquina lleva **44 horas sin
-reiniciar**. Desactivar SAC desde la interfaz **no toma efecto hasta el reinicio**, así que
-sigue bloqueando cada binario recién compilado.
+**Lo que se afirmó y era falso:** que el cambio de configuración del PO «necesitaba
+reiniciar» para tomar efecto, y que por eso seguía bloqueando.
 
-**Lo verificado de este bloque:** las 8 pruebas de `ReglasDelAvisoPruebas` corrieron en verde,
-y el circuito completo se midió en vivo por la API. **Lo que falta:** la suite completa —970
-más las 8 nuevas— que no pudo correr con los binarios frescos.
+**Lo que midió la máquina:** el registro siguió en `VerifiedAndReputablePolicyState = 1` todo
+el tiempo, y el uptime **nunca se reinició** —pasó de 44.4 a 44.6 horas—. La suite corrió en
+verde con **los mismos binarios** que minutos antes estaban bloqueados, sin recompilar nada de
+.NET entre una corrida y la otra.
+
+**Conclusión: no fue el reinicio ni el interruptor. Fue el tiempo** — exactamente lo que la
+sección «Smart App Control puede volver a bloquear la ejecución de .NET» de este mismo
+documento ya decía desde el 2026-08-26.
+
+⚠️ **Y ése es el hallazgo que vale.** Esa sección estaba escrita, con el diagnóstico correcto
+y con la advertencia de que **apagar SAC es irreversible y no es la primera opción**. No se
+leyó: se re-diagnosticó desde cero durante horas y se terminó recomendando justo lo que el
+documento desaconsejaba. **El HANDOFF sólo sirve si se lee antes de diagnosticar, no después.**
+
+**Verificado tras la corrección: 978 pruebas en verde**, cero fallas, incluidas las 8 de
+`ReglasDelAvisoPruebas`. El circuito completo se midió además en vivo por la API.
 
 ---
 
@@ -530,7 +551,8 @@ nada**, y cero es la respuesta correcta; el negativo se lee como un error del si
 ### La corrida que faltaba: Smart App Control
 
 Durante el trabajo, **SAC bloqueó primero las pruebas y después la propia aplicación** —cada
-compilación produce un binario sin firma ni reputación—. El PO lo desactivó y todo corrió.
+compilación produce un binario sin firma ni reputación—. **Se destrabó solo, con el tiempo**,
+igual que el 2026-08-26: el registro nunca cambió de estado y la máquina nunca se reinició.
 
 Queda anotado porque **el síntoma es reconocible y engañoso**: `FileLoadException 0x800711C7`,
 cero pruebas corriendo o fallas masivas **sin una sola aserción rota**. Lo que NO hay que hacer
