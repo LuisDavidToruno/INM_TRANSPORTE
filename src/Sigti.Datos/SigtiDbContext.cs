@@ -51,6 +51,11 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
 
     public DbSet<FilaDePaso> PasosPorCaseta => Set<FilaDePaso>();
 
+    public DbSet<FilaDeRutaAutorizada> RutasAutorizadasDePeaje =>
+        Set<FilaDeRutaAutorizada>();
+
+    public DbSet<FilaDeDesvio> DesviosDeclarados => Set<FilaDeDesvio>();
+
     public DbSet<FilaDeMovimientoDeExistencias> MovimientosDeExistencias =>
         Set<FilaDeMovimientoDeExistencias>();
     public DbSet<FilaDeAbastecimiento> Abastecimientos => Set<FilaDeAbastecimiento>();
@@ -469,6 +474,11 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             punto.Property(p => p.Operador).HasMaxLength(120).IsRequired();
             punto.Property(p => p.Carretera).HasMaxLength(120).IsRequired();
             punto.Property(p => p.SentidoDeCobro).HasMaxLength(60);
+            punto.Property(p => p.Corredor).HasMaxLength(60);
+
+            // El orden geografico de `RN-37` se resuelve por (corredor, kilometro): las
+            // casetas intermedias de un tramo se buscan por ahi en cada liquidacion.
+            punto.HasIndex(p => new { p.Corredor, p.Kilometro });
 
             // La exoneracion por operador se resuelve contra esta columna: es como se
             // otorgan, un acuerdo con un concesionario y no caseta por caseta.
@@ -585,6 +595,44 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             // que le contesten. Un paso duplicado infla el gasto de la mision y produce una
             // discrepancia inventada por el propio sistema.
             paso.HasIndex(p => p.IdDeCaptura)
+                .IsUnique()
+                .HasFilter("[IdDeCaptura] IS NOT NULL");
+        });
+
+        modelo.Entity<FilaDeRutaAutorizada>(ruta =>
+        {
+            ruta.ToTable("RutaAutorizada", schema: "peajes");
+
+            ruta.HasKey(r => r.Id);
+            ruta.Property(r => r.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            ruta.Property(r => r.MisionId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            ruta.Property(r => r.PuntoId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            ruta.Property(r => r.TarifaId).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+            ruta.Property(r => r.Subtotal).HasColumnType("decimal(12,2)");
+            ruta.Property(r => r.Congela).HasMaxLength(64).IsRequired();
+
+            // **Un punto por mision.** El estimado congelado es uno: congelarlo dos veces
+            // dejaria dos rutas autorizadas y la pregunta de `RN-37` sin respuesta unica.
+            ruta.HasIndex(r => new { r.MisionId, r.PuntoId }).IsUnique();
+        });
+
+        modelo.Entity<FilaDeDesvio>(desvio =>
+        {
+            desvio.ToTable("DesvioDeclarado", schema: "peajes");
+
+            desvio.HasKey(d => d.Id);
+            desvio.Property(d => d.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            desvio.Property(d => d.MisionId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            desvio.Property(d => d.VehiculoId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            desvio.Property(d => d.IdDeCaptura).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+            desvio.Property(d => d.Motivo).HasMaxLength(1000).IsRequired();
+            desvio.Property(d => d.Declara).HasMaxLength(64).IsRequired();
+
+            desvio.HasIndex(d => d.MisionId);
+
+            // El desvio se declara desde el campo sin conectividad, y el reintento duplicaria
+            // la justificacion -- que es peor que duplicar un dato: justificaria de mas.
+            desvio.HasIndex(d => d.IdDeCaptura)
                 .IsUnique()
                 .HasFilter("[IdDeCaptura] IS NOT NULL");
         });

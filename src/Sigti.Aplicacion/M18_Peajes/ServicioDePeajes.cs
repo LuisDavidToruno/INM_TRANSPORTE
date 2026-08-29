@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Sigti.Aplicacion.M03_Flota;
 using Sigti.Datos;
+using Sigti.Datos.M07_ProgramacionYDespacho;
 using Sigti.Datos.M18_Peajes;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
 using Sigti.Dominio.M18_Peajes;
@@ -27,6 +28,7 @@ public sealed class ServicioDePeajes(SigtiDbContext contexto)
 {
     private readonly PeajesDelPais _peajes = new(contexto);
     private readonly ConsultaDeFlota _flota = new(contexto);
+    private readonly ExpedientesDeMision _expedientes = new(contexto);
 
     // ── La categoría del vehículo ───────────────────────────────────────────
 
@@ -192,6 +194,197 @@ public sealed class ServicioDePeajes(SigtiDbContext contexto)
     public Task<IReadOnlyList<PasoPorCaseta>> DiscrepanciasAsync(
         CancellationToken cancelacion = default) => _peajes.DiscrepanciasAsync(cancelacion);
 
+    // ── `RN-37` — la coherencia de la secuencia ─────────────────────────────
+
+    /// <summary>
+    /// Congela el estimado al aprobar — `RN-35` punto 4 y `RN-41`.
+    ///
+    /// <b>Es lo que el autorizador autorizó.</b> Recalcularlo después haría que la pregunta de
+    /// `RN-37` —«¿esta caseta estaba en la ruta aprobada?»— se contestara contra la ruta de
+    /// hoy, y entonces un cambio de destino posterior borraría el desvío en vez de mostrarlo.
+    /// </summary>
+    public async Task CongelarEstimadoAsync(
+        Ulid mision, Estimacion estimacion, IdPersona congela, DateTimeOffset momento,
+        CancellationToken cancelacion = default)
+    {
+        var yaEsta = await contexto.RutasAutorizadasDePeaje
+            .AnyAsync(r => r.MisionId == mision, cancelacion);
+
+        if (yaEsta)
+            throw new BloqueoDuro("RN-41",
+                "Esta misión ya tiene el estimado de peajes congelado. Congelarlo dos veces " +
+                "dejaría dos rutas autorizadas, y la pregunta de `RN-37` se quedaría sin " +
+                "respuesta única. Un cambio de ruta se resuelve con una nueva autorización.");
+
+        foreach (var linea in estimacion.Lineas)
+        {
+            contexto.RutasAutorizadasDePeaje.Add(new FilaDeRutaAutorizada
+            {
+                Id = Ulid.NewUlid(),
+                MisionId = mision,
+                PuntoId = linea.Punto,
+                Cruces = linea.Cruces,
+                Subtotal = linea.Subtotal,
+                TarifaId = linea.IdDeLaTarifa,
+                CongeladoUtc = momento.UtcDateTime,
+                DesfaseMinutos = (int)momento.Offset.TotalMinutes,
+                Congela = congela.Valor,
+            });
+        }
+
+        await contexto.SaveChangesAsync(cancelacion);
+    }
+
+    /// <summary>
+    /// Declara un desvío desde el campo — el mínimo que `RN-37` necesita de `RN-76`.
+    ///
+    /// Sin esto la regla <i>«produciría hallazgos falsos en masa»</i>: Honduras tiene derrumbes
+    /// y cierres de carretera con regularidad, y un control que grita todos los días es un
+    /// control que nadie mira.
+    /// </summary>
+    public async Task<Ulid> DeclararDesvioAsync(
+        Ulid mision, Ulid vehiculo, DateTimeOffset desde, DateTimeOffset? hasta,
+        string motivo, IdPersona declara, Ulid? idDeCaptura = null,
+        CancellationToken cancelacion = default)
+    {
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new BloqueoDuro("RN-37",
+                "El desvío exige motivo. Es lo que después explica una incoherencia de ruta, " +
+                "y un desvío sin motivo justificaría cualquier cosa.");
+
+        if (hasta is { } fin && fin < desde)
+            throw new BloqueoDuro("RN-37",
+                "El desvío termina antes de empezar. Con ese rango no cubriría ningún paso.");
+
+        if (idDeCaptura is { } captura)
+        {
+            var yaEsta = await contexto.DesviosDeclarados
+                .SingleOrDefaultAsync(d => d.IdDeCaptura == captura, cancelacion);
+
+            if (yaEsta is not null) return yaEsta.Id;
+        }
+
+        var id = Ulid.NewUlid();
+
+        contexto.DesviosDeclarados.Add(new FilaDeDesvio
+        {
+            Id = id,
+            MisionId = mision,
+            VehiculoId = vehiculo,
+            DesdeUtc = desde.UtcDateTime,
+            DesfaseDesde = (int)desde.Offset.TotalMinutes,
+            HastaUtc = hasta?.UtcDateTime,
+            DesfaseHasta = hasta is { } h ? (int)h.Offset.TotalMinutes : null,
+            Motivo = motivo.Trim(),
+            Declara = declara.Valor,
+            IdDeCaptura = idDeCaptura,
+        });
+
+        await contexto.SaveChangesAsync(cancelacion);
+        return id;
+    }
+
+    /// <summary>
+    /// El cruce de `RN-37`: <b>peaje × kilometraje × ruta autorizada</b>.
+    ///
+    /// ── Un dictamen por vehículo, no por misión ─────────────────────────────
+    /// La regla lo exige: en una sustitución en ruta, dos vehículos pueden pasar por la misma
+    /// caseta a horas distintas legítimamente. Meterlos en la misma secuencia fabricaría
+    /// intervalos imposibles a partir de dos viajes correctos.
+    /// </summary>
+    public async Task<IReadOnlyList<CoherenciaDeUnVehiculo>> EvaluarCoherenciaAsync(
+        Ulid mision, int? velocidadMediaMaximaKmH, bool relojConfiable = true,
+        CancellationToken cancelacion = default)
+    {
+        var pasos = await _peajes.PasosDeLaMisionAsync(mision, cancelacion);
+        if (pasos.Count == 0) return [];
+
+        var puntos = (await _peajes.PuntosAsync(cancelacion)).ToDictionary(p => p.Id);
+
+        // La ruta autorizada sale del estimado congelado. **Nula cuando no lo hay**, y la
+        // tercera dimensión queda sin evaluar en vez de marcar toda caseta como fuera de ruta.
+        var autorizados = await contexto.RutasAutorizadasDePeaje
+            .Where(r => r.MisionId == mision)
+            .Select(r => r.PuntoId)
+            .ToListAsync(cancelacion);
+
+        IReadOnlySet<Ulid>? ruta = autorizados.Count == 0 ? null : autorizados.ToHashSet();
+
+        var desvios = await DesviosDeAsync(mision, cancelacion);
+        var expediente = await _expedientes.BuscarAsync(mision, cancelacion);
+
+        // `T-18` menos `T-14`, igual que `RN-30`. Nulo mientras la misión no haya retornado.
+        var salida = expediente?.Diario.LastOrDefault(t => t.Id == "T-14")?.Odometro;
+        var retorno = expediente?.Diario.LastOrDefault(t => t.Id == "T-18")?.Odometro;
+        int? kilometros = salida is { } a && retorno is { } b && b >= a ? b - a : null;
+
+        var dictamenes = new List<CoherenciaDeUnVehiculo>();
+
+        foreach (var grupo in pasos.GroupBy(p => p.Vehiculo))
+        {
+            var paraCruzar = grupo
+                .Select(p => new PasoParaCruzar(
+                    p.Id, p.Punto,
+                    puntos.TryGetValue(p.Punto, out var punto) ? punto.Nombre : "sin catalogar",
+                    punto?.Corredor, punto?.Kilometro,
+                    p.Vehiculo, p.OcurridoEn, p.Odometro))
+                .ToList();
+
+            // **Sólo las casetas que cobraban ese día.** `RN-37`: el estado del punto con
+            // vigencia evita marcar como omisión un peaje que nadie cobró.
+            var activas = await CasetasActivasAsync(
+                DateOnly.FromDateTime(paraCruzar.Min(p => p.OcurridoEn).Date), cancelacion);
+
+            dictamenes.Add(new CoherenciaDeUnVehiculo(
+                grupo.Key,
+                ReglasDeCoherenciaDeSecuencia.Evaluar(
+                    paraCruzar, ruta, kilometros, velocidadMediaMaximaKmH,
+                    relojConfiable,
+                    [.. desvios.Where(d => d.Vehiculo == grupo.Key)],
+                    activas)));
+        }
+
+        return dictamenes;
+    }
+
+    public async Task<IReadOnlyList<DesvioDeclarado>> DesviosDeAsync(
+        Ulid mision, CancellationToken cancelacion = default) =>
+        [.. (await contexto.DesviosDeclarados
+                .Where(d => d.MisionId == mision)
+                .ToListAsync(cancelacion))
+            .Select(d => new DesvioDeclarado(
+                d.Id, d.MisionId, d.VehiculoId,
+                new DateTimeOffset(d.DesdeUtc, TimeSpan.Zero)
+                    .ToOffset(TimeSpan.FromMinutes(d.DesfaseDesde)),
+                d.HastaUtc is { } h
+                    ? new DateTimeOffset(h, TimeSpan.Zero)
+                        .ToOffset(TimeSpan.FromMinutes(d.DesfaseHasta ?? 0))
+                    : null,
+                d.Motivo))];
+
+    /// <summary>
+    /// Las casetas que cobraban a una fecha, con corredor y kilómetro. <b>Las que no declaran
+    /// los dos quedan fuera</b>: una caseta sin kilómetro no se puede echar de menos, y
+    /// contarla como saltada sería inventar el hallazgo.
+    /// </summary>
+    private async Task<IReadOnlyList<CasetaEnElCorredor>> CasetasActivasAsync(
+        DateOnly fecha, CancellationToken cancelacion)
+    {
+        var puntos = await _peajes.PuntosAsync(cancelacion);
+        var vigencias = await _peajes.VigenciasAsync(cancelacion);
+        var ahora = DateTimeOffset.UtcNow;
+
+        return
+        [
+            .. puntos
+                .Where(p => p.Corredor is not null && p.Kilometro is not null)
+                .Where(p => ReglasDeTarifaDePeaje.EstadoA(vigencias, p.Id, fecha, ahora)
+                    is { Estado: EstadoDelPunto.Activo })
+                .Select(p => new CasetaEnElCorredor(
+                    p.Id, p.Nombre, p.Corredor!, p.Kilometro!.Value)),
+        ];
+    }
+
     // ── La carga del catálogo ───────────────────────────────────────────────
 
     /// <summary>
@@ -204,6 +397,7 @@ public sealed class ServicioDePeajes(SigtiDbContext contexto)
     public async Task<Ulid> AbrirPuntoAsync(
         Ulid id, string nombre, string operador, string carretera, string? sentidoDeCobro,
         EstadoDelPunto estado, string fundamento, DateOnly vigenteDesde,
+        string? corredor = null, int? kilometro = null,
         CancellationToken cancelacion = default)
     {
         if (string.IsNullOrWhiteSpace(nombre) || string.IsNullOrWhiteSpace(operador))
@@ -220,6 +414,7 @@ public sealed class ServicioDePeajes(SigtiDbContext contexto)
         {
             Id = id, Nombre = nombre.Trim(), Operador = operador.Trim(),
             Carretera = carretera.Trim(), SentidoDeCobro = sentidoDeCobro?.Trim(),
+            Corredor = corredor?.Trim(), Kilometro = kilometro,
         });
 
         contexto.VigenciasDePunto.Add(new FilaDeVigenciaDelPunto
@@ -378,3 +573,12 @@ public sealed class ServicioDePeajes(SigtiDbContext contexto)
     public Task<IReadOnlyList<VigenciaDelPunto>> VigenciasAsync(
         CancellationToken cancelacion = default) => _peajes.VigenciasAsync(cancelacion);
 }
+
+/// <summary>
+/// El dictamen de `RN-37` para <b>un vehículo</b> de la misión.
+///
+/// Van separados porque la regla lo exige: en una sustitución en ruta, dos vehículos pueden
+/// pasar por la misma caseta a horas distintas legítimamente, y meterlos en la misma secuencia
+/// fabricaría intervalos imposibles a partir de dos viajes correctos.
+/// </summary>
+public sealed record CoherenciaDeUnVehiculo(Ulid Vehiculo, DictamenDeCoherencia Dictamen);

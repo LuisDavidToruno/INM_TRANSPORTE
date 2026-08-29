@@ -22,6 +22,20 @@ public sealed class FilaDePunto
     /// <summary>Nulo cuando cobra en ambos sentidos, que es la condición normal.</summary>
     public string? SentidoDeCobro { get; init; }
 
+    /// <summary>
+    /// A qué corredor pertenece. <b>Es lo que hace comparable el kilómetro</b>: el km 60 de la
+    /// CA-5 y el km 60 de la CA-1 no están cerca.
+    /// </summary>
+    public string? Corredor { get; set; }
+
+    /// <summary>
+    /// El kilómetro dentro del corredor — lo que permite ordenar geográficamente (`RN-37`).
+    ///
+    /// ⚠️ Nulo deja la dimensión geográfica sin evaluar. <b>El orden no se deduce del orden de
+    /// captura</b>: eso invertiría la respuesta en toda misión de retorno.
+    /// </summary>
+    public int? Kilometro { get; set; }
+
     public List<FilaDeVigenciaDelPunto> Vigencias { get; } = [];
 }
 

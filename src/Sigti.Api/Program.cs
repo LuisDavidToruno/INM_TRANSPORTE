@@ -775,7 +775,11 @@ peajes.MapPost("/puntos", async (AbrirPunto peticion, ServicioDePeajes servicio)
 {
     var id = await servicio.AbrirPuntoAsync(
         Ulid.Parse(peticion.Id), peticion.Nombre, peticion.Operador, peticion.Carretera,
-        peticion.SentidoDeCobro, peticion.Estado, peticion.Fundamento, peticion.VigenteDesde);
+        peticion.SentidoDeCobro, peticion.Estado, peticion.Fundamento, peticion.VigenteDesde,
+
+        // El corredor y el kilometro son lo que permite ordenar geograficamente (`RN-37`).
+        // Nulos dejan esa dimension sin evaluar en vez de deducir el orden del de captura.
+        peticion.Corredor, peticion.Kilometro);
 
     return Results.Created($"/peajes/puntos/{id}", new { id = id.ToString() });
 });
@@ -939,6 +943,82 @@ peajes.MapGet("/pasos/mision/{id}", async (string id, ServicioDePeajes servicio)
 /// **Dónde nos están cobrando mal** — el insumo del expediente de reclamo ante la SAPP.
 peajes.MapGet("/discrepancias", async (ServicioDePeajes servicio) =>
     Results.Ok((await servicio.DiscrepanciasAsync()).Select(ResumirPaso)));
+
+/// `RN-35` punto 4 y `RN-41` — congela el estimado al aprobar. Es lo que el autorizador
+/// autorizó, y lo único contra lo que `RN-37` puede juzgar si una caseta estaba en la ruta.
+peajes.MapPost("/estimacion/congelar", async (
+    CongelarEstimado peticion, ServicioDePeajes servicio) =>
+{
+    var estimacion = await servicio.EstimarAsync(
+        [.. peticion.Cruces.Select(c => (Ulid.Parse(c.IdPunto), c.Cruces))],
+        peticion.IdVehiculo is null ? null : Ulid.Parse(peticion.IdVehiculo),
+        peticion.CategoriaDelTipo is null
+            ? null
+            : new CategoriaDePeaje(peticion.CategoriaDelTipo, peticion.CategoriaDelTipo),
+        peticion.TipoDeVehiculo ?? "",
+        peticion.FechaPrevista);
+
+    await servicio.CongelarEstimadoAsync(
+        Ulid.Parse(peticion.IdMision), estimacion,
+        new IdPersona(peticion.Congela), peticion.Momento);
+
+    return Results.Ok(new { total = estimacion.Total, lineas = estimacion.Lineas.Count });
+});
+
+/// El desvío declarado desde el campo — el mínimo que `RN-37` necesita de `RN-76`. Sin él la
+/// regla produciría hallazgos falsos en masa: Honduras tiene derrumbes con regularidad.
+peajes.MapPost("/desvios", async (DeclararDesvio peticion, ServicioDePeajes servicio) =>
+{
+    var id = await servicio.DeclararDesvioAsync(
+        Ulid.Parse(peticion.IdMision), Ulid.Parse(peticion.IdVehiculo),
+        peticion.Desde, peticion.Hasta, peticion.Motivo,
+        new IdPersona(peticion.Declara),
+        peticion.IdDeCaptura is null ? null : Ulid.Parse(peticion.IdDeCaptura));
+
+    return Results.Created($"/peajes/desvios/{id}", new { id = id.ToString() });
+});
+
+/// **El cruce de `RN-37`**: peaje × kilometraje × ruta autorizada. Un dictamen por vehículo,
+/// porque en una sustitución en ruta dos vehículos pasan por la misma caseta legítimamente.
+peajes.MapGet("/coherencia/{idMision}", async (
+    string idMision, ServicioDePeajes servicio, IParametrosDeLaInstitucion parametros) =>
+{
+    var dictamenes = await servicio.EvaluarCoherenciaAsync(
+        Ulid.Parse(idMision), parametros.VelocidadMediaMaximaKmH);
+
+    return Results.Ok(dictamenes.Select(d => new
+    {
+        vehiculo = d.Vehiculo.ToString(),
+        pasosEvaluados = d.Dictamen.PasosEvaluados,
+
+        // **Sin hallazgos NO es lo mismo que coherente.** Un dictamen que no pudo mirar nada
+        // no es conformidad: es silencio, y `RN-37` manda que eso se vea.
+        coherente = d.Dictamen.Coherente,
+
+        dimensiones = new
+        {
+            geografica = d.Dictamen.Dimensiones.Geografica,
+            temporal = d.Dictamen.Dimensiones.Temporal,
+            contraLaRutaAutorizada = d.Dictamen.Dimensiones.ContraLaRutaAutorizada,
+            contraElKilometraje = d.Dictamen.Dimensiones.ContraElKilometraje,
+            todas = d.Dictamen.Dimensiones.Todas,
+            porQueNo = d.Dictamen.Dimensiones.PorQueNo,
+        },
+
+        // Todas, no sólo los hallazgos: una incoherencia justificada o no concluyente sigue
+        // siendo parte del expediente, y el auditor pregunta por ella.
+        incoherencias = d.Dictamen.Incoherencias.Select(i => new
+        {
+            tipo = i.Tipo.ToString(),
+            explicacion = i.Explicacion,
+            pasos = i.Pasos.Select(x => x.ToString()),
+            concluyente = i.Concluyente,
+            justificada = i.Justificada,
+            justificacion = i.Justificacion,
+            esHallazgo = i.EsHallazgo,
+        }),
+    }));
+});
 
 // ── `RN-83` punto 5 — el libro de existencias del tanque institucional ──────
 var tanques = app.MapGroup("/tanques");
@@ -2464,7 +2544,9 @@ internal sealed record RegistrarPaso(
 
 internal sealed record AbrirPunto(
     string Id, string Nombre, string Operador, string Carretera,
-    string? SentidoDeCobro, EstadoDelPunto Estado, string Fundamento, DateOnly VigenteDesde);
+    string? SentidoDeCobro, EstadoDelPunto Estado, string Fundamento, DateOnly VigenteDesde,
+    /// <summary>El corredor y el kilómetro: lo que permite ordenar geográficamente.</summary>
+    string? Corredor = null, int? Kilometro = null);
 
 internal sealed record CambiarEstadoDelPunto(
     EstadoDelPunto Estado, string Fundamento, DateOnly VigenteDesde);
@@ -2487,3 +2569,23 @@ internal sealed record CargarRegla(
 internal sealed record CargarExoneracion(
     string IdVehiculo, string? IdPunto, string? Operador, string Fundamento,
     DateOnly VigenteDesde, DateOnly? VigenteHasta);
+
+internal sealed record CongelarEstimado(
+    string IdMision,
+    IReadOnlyList<CruceDeclarado> Cruces,
+    string? IdVehiculo,
+    string? CategoriaDelTipo,
+    string? TipoDeVehiculo,
+    DateOnly FechaPrevista,
+    string Congela,
+    DateTimeOffset Momento);
+
+internal sealed record DeclararDesvio(
+    string IdMision,
+    string IdVehiculo,
+    /// <summary>La fecha del hecho: el derrumbe ocurrió a una hora, no cuando hubo señal.</summary>
+    DateTimeOffset Desde,
+    DateTimeOffset? Hasta,
+    string Motivo,
+    string Declara,
+    string? IdDeCaptura = null);

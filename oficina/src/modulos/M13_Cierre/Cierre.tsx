@@ -11,6 +11,7 @@ import { ROTULO_ESTADO } from '../../dominio/mision';
 
 import PanelDeVales from '../M09_Combustible/PanelDeVales';
 import PanelDeAbastecimientos from '../M09_Combustible/PanelDeAbastecimientos';
+import PanelDeCoherencia from '../M18_Peajes/PanelDeCoherencia';
 import { valesDeLaMision } from '../../api/combustible';
 import type { Vale } from '../../api/combustible';
 import { soloFecha } from '../M06_Autorizacion/formato';
@@ -163,6 +164,12 @@ export default function Cierre(): ReactElement {
         }
       />
 
+      {/* El cruce de `RN-37` va antes del dictamen de cierre porque es insumo suyo: un peaje
+          fuera de la ruta autorizada es un hallazgo que quien cierra tiene que haber visto
+          antes de decidir. `NRM-10`: es lo que busca el auditor del TSC -- correlacion, no
+          comprobantes archivados. */}
+      <PanelDeCoherencia mision={id} />
+
       <Panel titulo={hayHallazgo ? 'Este expediente cierra con hallazgo' : 'Este expediente cierra limpio'}>
         <div className="tw:flex tw:flex-col tw:gap-5">
           {hayHallazgo ? (
@@ -219,10 +226,12 @@ export default function Cierre(): ReactElement {
                     verificaciones —umbral, ruta, fondo y trazabilidad— y ninguna existía:
                     un expediente cerrado sobre esa frase parecería revisado y no lo estaba. */}
                 <p className="tw:text-xs">
-                  <b>Todavía no se evalúan</b> la coherencia de la ruta contra los peajes
-                  (<code className="tw:font-mono">M-18</code>) ni la cadena de trazabilidad
-                  completa (<code className="tw:font-mono">M-14</code>). Cerrar limpio
-                  significa que no se detectó ningún criterio <i>de los que hoy se detectan</i>.
+                  La coherencia de la ruta contra los peajes <b>sí se evalúa</b>
+                  (<code className="tw:font-mono">RN-37</code>) y su dictamen está arriba, con
+                  las dimensiones que no se pudieron mirar. <b>Todavía no se evalúa</b> la cadena
+                  de trazabilidad completa (<code className="tw:font-mono">M-14</code>). Cerrar
+                  limpio significa que no se detectó ningún criterio <i>de los que hoy se
+                  detectan</i>.
                 </p>
               </div>
             </Nota>

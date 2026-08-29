@@ -65,6 +65,18 @@ public interface IParametrosDeLaInstitucion
     /// vencido.
     /// </summary>
     int? PlazoDeDevolucionDeSaldoEnDiasHabiles { get; }
+
+    /// <summary>
+    /// `RN-37` — <c>velocidad_media_maxima_por_tipo_vehiculo</c>, en km/h.
+    ///
+    /// Es lo que decide si el intervalo entre dos casetas es viable. <b>Nula mientras la
+    /// institución no la fije</b>: sin velocidad declarada, cualquier intervalo se podría
+    /// llamar imposible y ninguno se podría defender.
+    ///
+    /// ⚠️ La regla la quiere <b>por tipo de vehículo</b> —un bus y una moto no van igual—, y
+    /// esto todavía es una sola cifra. Se dice acá en vez de fingir que ya está resuelto.
+    /// </summary>
+    int? VelocidadMediaMaximaKmH { get; }
 }
 
 /// <summary>
@@ -196,6 +208,16 @@ public sealed class ParametrosProvisionales : IParametrosDeLaInstitucion
     /// obligaciones nominadas, funciona sin este parámetro.
     /// </summary>
     public int? PlazoDeDevolucionDeSaldoEnDiasHabiles => null;
+
+    /// <summary>
+    /// ⚠️ <b>NULA, y es la respuesta honesta.</b> `RN-37` la declara configurable por tipo de
+    /// vehículo y la institución no la ha fijado.
+    ///
+    /// Mientras siga nula, las otras tres dimensiones de `RN-37` se evalúan igual y el
+    /// dictamen <b>dice</b> que la temporal no. Poner un número razonable produciría
+    /// intervalos «imposibles» que nadie podría defender contra una cifra que nadie declaró.
+    /// </summary>
+    public int? VelocidadMediaMaximaKmH => null;
 
     /// <summary>
     /// ⚠️ <b>NULO, y esa es la respuesta honesta.</b> `RN-30` punto 1 lo declara `[C]`: <i>«la

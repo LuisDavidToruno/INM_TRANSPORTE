@@ -159,7 +159,7 @@ public sealed class PeajesDelPais(SigtiDbContext contexto)
     }
 
     private static PuntoDePeaje A(FilaDePunto f) =>
-        new(f.Id, f.Nombre, f.Operador, f.Carretera, f.SentidoDeCobro);
+        new(f.Id, f.Nombre, f.Operador, f.Carretera, f.SentidoDeCobro, f.Corredor, f.Kilometro);
 
     private static PasoPorCaseta A(FilaDePaso f, IReadOnlyDictionary<string, string> nombres)
     {

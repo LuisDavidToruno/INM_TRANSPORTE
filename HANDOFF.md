@@ -405,6 +405,99 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+### `RN-37` — la coherencia de la secuencia de casetas
+
+**RESUELTA. M-18 queda completo**: las seis reglas del módulo corren.
+
+`NRM-10` lo pide textual: *«El sistema debe correlacionar peaje × kilometraje × ruta
+autorizada. Un peaje de Yojoa en una misión autorizada a Choluteca es un hallazgo, y **el
+sistema tiene que producirlo solo**. Esto es exactamente lo que busca el auditor del TSC:
+correlación, no comprobantes archivados»*.
+
+Verificado contra la base de desarrollo: ruta congelada hasta Comayagua, paso registrado en
+Siguatepeque → hallazgo, con el mensaje que nombra las dos lecturas posibles.
+
+#### Cuatro dimensiones, y el dictamen dice cuáles pudo mirar
+
+| Dimensión | Qué cruza | Cuándo no se evalúa |
+|---|---|---|
+| Geográfica | Salto sobre una caseta activa intermedia | Algún punto sin corredor y kilómetro |
+| Temporal | Velocidad implícita entre casetas contiguas | Sin `velocidad_media_maxima` `[C]`, o reloj no confiable |
+| Contra la ruta autorizada | Peaje en punto no congelado al aprobar | Sin estimado congelado — ruta abierta |
+| Contra el kilometraje | El piso de km que la secuencia obliga vs. `T-18 − T-14` | Sin los dos odómetros |
+
+**«Sin hallazgos» no es «coherente».** `Coherente` exige las dos cosas: cero hallazgos **y**
+las cuatro dimensiones evaluadas. `RN-37` lo pide para la ruta abierta y vale para todas: *«se
+marca así explícitamente para que la ausencia de hallazgos no se lea como conformidad»*. Un
+dictamen que no pudo mirar nada no es conformidad: es silencio. Verificado por mutación.
+
+#### El defecto que la primera versión tenía
+
+**Marcaba como incoherente todo viaje de ida y vuelta.** La dimensión geográfica contaba
+*cambios de sentido*, y un retorno tiene uno — así que la regla habría producido un hallazgo
+en cada misión del año, que es literalmente lo que ella misma advierte.
+
+Lo detectó la prueba `Un_viaje_de_ida_y_vuelta_por_las_mismas_casetas_es_COHERENTE`, escrita
+antes de mirar el resultado. Reescrita: lo imposible **no es cambiar de sentido** —eso es el
+retorno, y dos veces es `CE-08`— sino **saltar sobre una caseta que había que cruzar**. Esa
+lectura además encuentra la omisión, que es la otra mitad de lo que el auditor busca.
+
+#### Sin poder declarar un desvío, la regla no se podía encender
+
+`RN-37`, casos límite: Honduras tiene derrumbes y cierres de carretera con regularidad, y sin
+la capacidad de declararlos la regla *«produciría hallazgos falsos en masa»*. Un control que
+grita todos los días muere en tres meses, igual que el rendimiento inventado de `RN-30`.
+
+Por eso entra `POST /peajes/desvios` — **el mínimo que `RN-37` necesita de `RN-76`**, no
+`RN-76` completo. Un desvío que cubre todos los pasos de una incoherencia la marca justificada
+y **no la borra**: que existió y que alguien la explicó son dos hechos, y el auditor pregunta
+por los dos. Verificado por mutación.
+
+#### Lo que hubo que construir para poder cruzar
+
+- **`Corredor` y `Kilometro` en el punto** — `RN-37` punto 1: es lo que permite ordenar
+  geográficamente. Nulos dejan la dimensión sin evaluar; deducir el orden del **orden de
+  captura** invertiría la respuesta en toda misión de retorno.
+- **El estimado congelado** (`RN-35` punto 4, `RN-41`) — es lo único contra lo que la tercera
+  dimensión puede juzgar. Se congela una sola vez: dos rutas autorizadas dejarían la pregunta
+  sin respuesta única.
+- **Un dictamen por vehículo, no por misión** — en una sustitución en ruta, dos vehículos
+  pasan por la misma caseta a horas distintas legítimamente. Meterlos en la misma secuencia
+  fabricaría intervalos imposibles a partir de dos viajes correctos.
+
+**Y el orden es por fecha del hecho, no por captura** (`RN-46`): el motorista que anota todos
+los pasos al final del día no cometió una incoherencia de secuencia.
+
+#### Un texto que había quedado mintiendo
+
+La pantalla de cierre decía *«todavía no se evalúan la coherencia de la ruta contra los peajes
+(M-18)»* — justo debajo del panel que acababa de evaluarla y de mostrar un hallazgo. Corregido:
+ahora dice que `RN-37` sí se evalúa y que lo que falta es la cadena de trazabilidad de `M-14`.
+
+⚠️ **`velocidad_media_maxima_por_tipo_vehiculo` no está definida — `[C]`.** La regla la quiere
+**por tipo de vehículo** —un bus y una moto no van igual— y el parámetro es hoy una sola cifra
+nula. Las otras tres dimensiones se evalúan igual y el dictamen dice que la temporal no.
+
+⚠️ **`RN-76` completo sigue pendiente.** El estado en ruta declarado por el motorista incluye
+el estado del vehículo, las esperas en sitio y el seguimiento de `M-19`. Acá está sólo el
+hecho que la liquidación consume.
+
+⚠️ **La tipificación «peaje pagado sin paso registrado» no se puede producir todavía.** Sale
+del estado de cuenta del tag CoviPass, que es conciliación contra fuente externa (`RN-95`) y
+no existe. `RN-37` la nombra como el hallazgo grave —uso del vehículo fuera de misión—, y hoy
+el sistema no lo puede ver.
+
+⚠️ **El reporte de peajes por vehículo, motorista, dependencia y período** (`RN-37` punto 4)
+no está. El dictamen es por misión; el agregado listo para entregar al TSC es otra vista.
+
+⚠️ **El hallazgo de `RN-37` no bloquea el cierre limpio.** La regla es «advertencia con
+hallazgo» y los criterios de cierre de la misión son `H-01`…`H-11` de §7.2 — **la autoridad es
+la máquina de estados**, y agregarle un criterio desde M-18 sería resolver en silencio algo
+que le toca decidir al PO. El dictamen se muestra junto al cierre para que quien cierra lo vea
+antes de decidir.
+
+---
+
 ### M-18 Peajes — `RN-33` a `RN-36` y `RN-38`
 
 **RESUELTAS cinco de las seis reglas del módulo.** Catálogo con vigencias, derivación de

@@ -59,12 +59,27 @@ public enum EstadoDelPunto
 /// condición normal, y los puntos que sólo cobran en un sentido la declaran. Importa para
 /// contar cruces: un punto de sentido único no se cruza dos veces en un viaje de ida y vuelta.
 /// </param>
+/// <param name="Corredor">
+/// A qué corredor pertenece. <b>Es lo que hace comparable el kilómetro</b>: el km 60 de la
+/// CA-5 y el km 60 de la CA-1 no están cerca. Nulo deja la dimensión geográfica de `RN-37`
+/// sin evaluar en vez de comparar kilómetros de carreteras distintas.
+/// </param>
+/// <param name="Kilometro">
+/// El kilómetro del punto dentro de su corredor — `RN-37` punto 1: <i>«el catálogo de puntos
+/// incluye ubicación, corredor, kilómetro y sentido de cobro, <b>lo que permite ordenar
+/// geográficamente</b>»</i>.
+///
+/// ⚠️ Nulo cuando no se ha cargado, y entonces el orden geográfico <b>no se deduce del orden
+/// de captura</b>: eso invertiría la respuesta en toda misión de retorno.
+/// </param>
 public sealed record PuntoDePeaje(
     Ulid Id,
     string Nombre,
     string Operador,
     string Carretera,
-    string? SentidoDeCobro = null)
+    string? SentidoDeCobro = null,
+    string? Corredor = null,
+    int? Kilometro = null)
 {
     public bool CobraEnAmbosSentidos => SentidoDeCobro is null;
 }
