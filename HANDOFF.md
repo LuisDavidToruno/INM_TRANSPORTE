@@ -405,6 +405,87 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## Las 63 que se pueden hacer — bloque 1: los dos expedientes (M-03 y M-05)
+
+**Seis entregadas: `PT-073`, `PT-075`, `PT-076`, `PT-082`, `PT-084`, `PT-085`.** El mapa se
+movió solo: 63 → 57 pendientes, 21 construidas.
+
+### Antes de escribir nada, el filtro que decide qué puede ser real
+
+Se clasificaron las 63 contra la API que existe hoy. **Sólo unas 18 tienen datos detrás.** El
+resto necesita backend que no está escrito: `M-01` no tiene usuarios ni puestos, `M-16` sólo
+tiene `POST /sincronizacion` sin lectura, `M-17` no tiene manifiestos, `M-19` no tiene
+posición, y no hay endpoint de auditoría ni de verificación por QR.
+
+**Construir las otras 45 sería construir fachadas.** Una pantalla que muestra datos que no
+existen es peor que la ficha «en desarrollo» que ya tenían, porque la ficha dice la verdad.
+
+### El expediente del vehículo — `PT-073`, `PT-075`, `PT-076`
+
+*«SIGTI cuida de todo lo referente a los vehículos»*. Acá converge lo que vivía repartido:
+estado operativo con su **historial entero**, títulos de tenencia, préstamos, incidentes,
+vencimientos y ficha técnica. Contesta lo que ninguna lista contestaba: **¿qué le ha pasado a
+esta unidad?**
+
+La ficha técnica no lista características: **dice qué decide cada campo** —el peso separa `B`
+de `C1` y de `C`, la capacidad separa `D1` de `D`, el remolque exige categoría con `E`—, con la
+advertencia de `CLAUDE.md` en su lugar: *«el remolque no es articulado»*.
+
+`PT-075` y `PT-076` van dentro y no aparte: separarlas obligaría a abrir tres páginas para
+contestar «¿qué es este vehículo?».
+
+**Y declara los dos capítulos que le faltan.** Mantenimiento (`M-11`) y el detalle de
+siniestros de `M-12` no tienen historias —§7.1 del inventario—, así que no hay datos. Un
+expediente con esas secciones vacías diría que la unidad nunca entró a taller, que es distinto
+de que nadie lo haya registrado.
+
+### El padrón de motoristas — `PT-082` y `PT-085`
+
+Las dos en una pantalla: un padrón que no dice cuándo vence cada licencia obliga a abrir uno
+por uno para saber con quién se puede contar, que es justo lo que existe para evitar.
+
+**Lo que no muestra es tan importante como lo que muestra.** `RN-52`: quien despacha ve *que*
+hay restricción, **no el diagnóstico**. La columna dice «tiene, sin detallar» y el dato clínico
+no sale del expediente de Talento Humano.
+
+Y «fuera del padrón» **no es irregular**: `RN-57` verifica sobre quien efectivamente conduce.
+Se dice en la fila para que no se lea como un hueco.
+
+### `PT-084` — y el fixture que mintió
+
+La matriz licencia↔vehículo sostiene `BD-02`, que traslada responsabilidad legal directa a quien
+autoriza, así que **el cliente no la deriva**: se agregó `GET /matriz-de-licencias` y la
+pantalla pinta lo que el servidor resolvió.
+
+⚠️ **La primera versión del endpoint mintió, y vale registrar cómo.** Evaluaba la matriz contra
+fichas técnicas de muestra escritas en el propio endpoint, y publicó que **`B1` y `C1` no
+habilitaban nada**. Las dos tienen entrada en la matriz: lo que faltaba era un triciclo y un
+camión liviano entre los ejemplos. Un catálogo normativo que depende de qué casos se le
+ocurrieron a quien lo escribió no es un catálogo.
+
+Se rehízo **contra la flota real**, que además contesta la pregunta que de verdad se hace:
+*«con una licencia B, ¿cuáles de nuestras unidades puedo conducir?»*. Y la fila vacía se
+explica, porque **«no tenemos autobuses» y «el umbral no alcanza» piden cosas distintas**:
+
+| | |
+|---|---|
+| `B1` | ninguna — *la flota no tiene triciclos ni cuadriciclos* |
+| `C1` | ninguna — *sí hay camiones, lo que no alcanza es el umbral de 7,500 kg* |
+
+Medido en vivo, y confirma la regla de `CLAUDE.md`: **`INS-P-021` —pick-up con plataforma
+enganchada— aparece bajo `BE` y nunca bajo `B`.**
+
+### Lo que queda, y por qué no se hizo de un tirón
+
+**57 pendientes, de las cuales ~12 más tienen API y ~45 necesitan backend primero.** Las que
+siguen siendo hacederas hoy: `PT-006` mis solicitudes, `PT-071` hallazgo posterior —API
+completa—, `PT-089` rastro del expediente, `PT-058`/`PT-059` seguimiento en ruta, `PT-065`
+conciliación del fondo, `PT-009` estimado de peajes, `PT-033` sustitución en `DESPACHADA`.
+
+Las otras no son trabajo de frontend: son módulos sin escribir.
+
+---
+
 ## Las 138 pantallas, navegables — mapa y fichas «en desarrollo»
 
 **El inventario ya no es sólo un documento.** Las 138 pantallas de

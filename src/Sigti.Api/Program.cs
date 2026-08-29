@@ -912,6 +912,57 @@ app.MapGet("/conductores", async (ConsultaDeConductores padron) => Results.Ok(
         },
     })));
 
+/// `PT-084` — **qué habilita cada categoría de licencia, sobre la flota real**.
+///
+/// ── Por qué esto vive en el servidor ────────────────────────────────────────
+/// La matriz licencia↔vehículo es la que sostiene `BD-02`, y `BD-02` traslada responsabilidad
+/// legal directa a quien autoriza. Que el cliente la derive por su cuenta —aunque sea «sólo para
+/// mostrar»— produce **dos implementaciones de la misma precondición**, y la que se ve en pantalla
+/// sería la que nadie verifica. El comentario de `flota.ts` ya lo dice para la evaluación: acá
+/// vale igual para el catálogo.
+///
+/// ── Por qué contra la flota y no contra vehículos de muestra ────────────────
+/// La primera versión evaluaba la matriz contra fichas técnicas inventadas acá, y **mintió**:
+/// declaró que `B1` y `C1` no habilitaban nada, cuando las dos tienen entrada en la matriz —
+/// lo que faltaba era un triciclo y un camión liviano entre las muestras. Un catálogo que
+/// depende de qué ejemplos se le ocurrieron a quien lo escribió no es un catálogo.
+///
+/// Contra la flota la respuesta es la que se necesita de verdad: *«con una licencia B, ¿cuáles de
+/// nuestras unidades puedo conducir?»*. Y cuando la institución no tiene ningún vehículo de una
+/// clase, se dice eso —no «la categoría no habilita nada», que es falso.
+///
+/// **Se evalúa a una fecha**, como todo acá: la matriz es parámetro con vigencia, y preguntar qué
+/// habilita la B sin decir cuándo no tiene una sola respuesta.
+app.MapGet("/matriz-de-licencias", async (
+    IParametrosDeLaInstitucion parametros, ConsultaDeFlota flota, DateOnly? fecha) =>
+{
+    var alDia = fecha ?? DateOnly.FromDateTime(DateTime.UtcNow);
+    var matriz = parametros.MatrizVigenteAl(alDia);
+    var ahora = DateTimeOffset.UtcNow;
+    var vehiculos = await flota.TodosAsync();
+
+    return Results.Ok(new
+    {
+        fecha = alDia,
+        version = matriz.Version,
+
+        // Las nueve categorías del Artículo 4. **BE es B enganchada a remolque, y no existe
+        // ninguna DE**: el enum es la autoridad y no se recorta acá.
+        categorias = Enum.GetValues<CategoriaDeLicencia>().Select(c => new
+        {
+            categoria = c.ToString(),
+            habilita = vehiculos
+                .Where(v => matriz.Habilita(c, v.Ficha(), alDia, ahora))
+                .Select(v => new { id = v.Id.ToString(), siglas = v.Siglas, tipo = v.TipoDeVehiculo }),
+        }),
+
+        // Para poder decir «ningún vehículo de la flota es de esa clase» en vez de dejar que se
+        // lea como «la categoría no habilita nada».
+        clasesEnLaFlota = vehiculos.Select(v => v.Clase.ToString()).Distinct(),
+        vehiculosEnLaFlota = vehiculos.Count,
+    });
+});
+
 // `HU-009` — la bandeja de autorización muestra **desde cuándo no se confirma el
 // espejo**, porque una jefatura que va a firmar sobre un organigrama de hace nueve días
 // tiene derecho a saberlo ANTES de firmar.

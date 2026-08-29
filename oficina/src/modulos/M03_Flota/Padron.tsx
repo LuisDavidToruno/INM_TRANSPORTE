@@ -1,6 +1,7 @@
 import type { ReactElement, ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router';
 import { CircleAlert, Truck } from 'lucide-react';
 
 import {
@@ -177,7 +178,14 @@ const COLUMNAS = (
     ancho: 130,
     celda: (v) => (
       <div className="tw:flex tw:flex-col">
-        <span className="tw:font-mono tw:text-[13px]">{v.siglas}</span>
+        {/* Las siglas son la entrada al expediente: es lo que se busca al mirar una fila, y
+            un padrón sin puerta al detalle obliga a copiar el identificador a mano. */}
+        <Link
+          to={`/flota/${v.id}`}
+          className="loki-foco tw:font-mono tw:text-[13px] tw:underline-offset-2 tw:hover:underline"
+        >
+          {v.siglas}
+        </Link>
         {/* Sin placa metálica es estado VÁLIDO: hay desabastecimiento nacional. Se dice, no
             se deja en blanco como si faltara el dato. */}
         <span className="tw:text-xs tw:text-tinta-mid">

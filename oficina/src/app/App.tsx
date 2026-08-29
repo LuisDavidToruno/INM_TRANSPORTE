@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText, LayoutList } from 'lucide-react';
+import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText, LayoutList, IdCard, Scale } from 'lucide-react';
 
 import { Avisos, Nota, Shell, avisar } from '../ui';
 import type { GrupoNav, Miga } from '../ui';
@@ -20,6 +20,9 @@ import Tablero from '../modulos/M07_Programacion/Tablero';
 import Padron from '../modulos/M03_Flota/Padron';
 import PrestamosPantalla from '../modulos/M03_Flota/Prestamos';
 import Titulos from '../modulos/M03_Flota/Titulos';
+import ExpedienteDeVehiculo from '../modulos/M03_Flota/Expediente';
+import PadronDeMotoristas from '../modulos/M05_Motoristas/Padron';
+import MatrizDeLicencias from '../modulos/M05_Motoristas/Matriz';
 import Mapa from '../pantallas/Mapa';
 import EnDesarrollo from '../pantallas/EnDesarrollo';
 import Fondos from '../modulos/M09_Combustible/Fondos';
@@ -100,6 +103,15 @@ function Interior(): ReactElement {
         // cuelga cuál de los dos terminales ofrece el propio padrón al dar de baja.
         { texto: 'Títulos de tenencia', icono: <ScrollText />, href: '/titulos' },
         { texto: 'Préstamos', icono: <HandCoins />, href: '/prestamos' },
+      ],
+    },
+    {
+      // `M-05` va pegado a `M-03`: son los dos expedientes que la asignación cruza, y quien
+      // programa mira el uno para decidir sobre el otro.
+      titulo: 'M-05 Motoristas',
+      items: [
+        { texto: 'Padrón de motoristas', icono: <IdCard />, href: '/motoristas' },
+        { texto: 'Matriz de licencias', icono: <Scale />, href: '/motoristas/matriz' },
       ],
     },
     {
@@ -197,6 +209,11 @@ function Interior(): ReactElement {
         <Route path="/autorizacion/:id" element={<Expediente />} />
         <Route path="/flota" element={<Padron />} />
         <Route path="/titulos" element={<Titulos />} />
+        <Route path="/flota/:id" element={<ExpedienteDeVehiculo />} />
+        {/* La matriz va ANTES que el detalle: si no, `/motoristas/matriz` entraría por
+            `:id` y buscaría un motorista llamado «matriz». */}
+        <Route path="/motoristas/matriz" element={<MatrizDeLicencias />} />
+        <Route path="/motoristas" element={<PadronDeMotoristas />} />
         {/* Las 138 del inventario. La que existe abre su ruta real desde el mapa; la que no,
             cae acá y dice POR QUÉ no está. Ninguna queda sin destino. */}
         <Route path="/pantallas" element={<Mapa />} />
@@ -237,6 +254,9 @@ function migasDe(ruta: string): Miga[] {
   if (ruta === '/programacion') return ['Programación'];
   if (ruta === '/despacho') return ['Despacho'];
   if (ruta === '/flota') return ['Flota'];
+  if (ruta.startsWith('/flota/')) return [{ texto: 'Flota', href: '/flota' }, 'Expediente del vehículo'];
+  if (ruta === '/motoristas') return ['Motoristas'];
+  if (ruta === '/motoristas/matriz') return [{ texto: 'Motoristas', href: '/motoristas' }, 'Matriz de licencias'];
   if (ruta === '/titulos') return ['Flota', 'Títulos de tenencia'];
   if (ruta.startsWith('/pantallas/')) {
     return [{ texto: 'Pantallas', href: '/pantallas' }, ruta.slice('/pantallas/'.length).toUpperCase()];

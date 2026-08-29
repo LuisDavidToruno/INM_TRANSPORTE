@@ -124,6 +124,25 @@ export const CONSTRUIDAS: Readonly<Record<string, Construida>> = {
       'con odómetro, que es el formato en papel del insumo #2.',
   },
 
+  'PT-073': { ruta: '/flota/:id', archivo: 'M03_Flota/Expediente.tsx' },
+  'PT-075': {
+    ruta: '/flota/:id',
+    archivo: 'M03_Flota/Expediente.tsx',
+    incompleta:
+      'Muestra la placa y declara que su ausencia es estado válido. La identificación del ' +
+      'Estado —franjas, leyenda, correlativo— no se captura: es PT-124, del cliente de campo.',
+  },
+  'PT-076': { ruta: '/flota/:id', archivo: 'M03_Flota/Expediente.tsx' },
+
+  // ── M-05 Motoristas y habilitación ────────────────────────────────────────
+  'PT-082': { ruta: '/motoristas', archivo: 'M05_Motoristas/Padron.tsx' },
+  'PT-084': { ruta: '/motoristas/matriz', archivo: 'M05_Motoristas/Matriz.tsx' },
+  'PT-085': {
+    ruta: '/motoristas',
+    archivo: 'M05_Motoristas/Padron.tsx',
+    incompleta: 'Alerta en la pantalla. La alerta dirigida al puesto necesita M-01.',
+  },
+
   // ── M-19 Seguimiento en ruta ──────────────────────────────────────────────
   'PT-061': {
     ruta: '/incidentes',
