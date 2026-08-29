@@ -14,10 +14,12 @@ using Sigti.Dominio.M09_Combustible;
 using Sigti.Aplicacion.M18_Peajes;
 using Sigti.Datos.M18_Peajes;
 using Sigti.Aplicacion.M03_Flota;
+using Sigti.Aplicacion.M11_Mantenimiento;
 using Sigti.Aplicacion.M12_Incidentes;
 using Sigti.Aplicacion.M14_Auditoria;
 using Sigti.Datos.M14_Auditoria;
 using Sigti.Dominio.M03_Flota;
+using Sigti.Dominio.M11_Mantenimiento;
 using Sigti.Dominio.M12_Incidentes;
 using Sigti.Dominio.M14_Auditoria;
 using Sigti.Dominio.M20_Integraciones;
@@ -72,6 +74,7 @@ constructor.Services.AddScoped<ServicioDeSaldoDeApertura>();
 constructor.Services.AddScoped<ServicioDeCierreDeEjercicio>();
 constructor.Services.AddScoped<ServicioDeIncidentes>();
 constructor.Services.AddScoped<ServicioDePrestamos>();
+constructor.Services.AddScoped<ServicioDeIndisponibilidad>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -297,6 +300,65 @@ static object ResumirRenglon(RenglonDelSaldo r, DateOnly corte) => new
     monto = r.Monto,
     impideCerrar = r.ImpideCerrarElPeriodo,
 };
+
+/// <summary>Una reserva afectada, tal como se le presento a quien acusa — `RN-60` punto 1.</summary>
+static object ResumirReserva(ReservaAfectada r) => new
+{
+    mision = r.Mision.ToString(),
+    referencia = r.Referencia,
+    dependencia = r.Dependencia,
+    salida = r.Salida,
+    retorno = r.Retorno,
+    motorista = r.Motorista,
+    objetoDelTraslado = r.ObjetoDelTraslado,
+    estadoAlAcusar = r.EstadoAlAcusar.ToString(),
+};
+
+/// <summary>
+/// La indisponibilidad sobrevenida — `RN-60`.
+///
+/// La lista de reservas va **tal como se conservo**, no reconstruida: quien acuso lo hizo sobre
+/// esa lista, y mostrarla como estan hoy haria que el acuse cubriera otra cosa.
+/// </summary>
+static object ResumirIndisponibilidad(IndisponibilidadDelVehiculo i)
+{
+    var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+
+    return new
+    {
+        id = i.Id.ToString(),
+        vehiculo = i.VehiculoId.ToString(),
+        estado = i.Estado.ToString(),
+        causa = i.Causa,
+        desde = i.Desde,
+        finEstimado = i.FinEstimado,
+        ejecuta = i.Ejecuta,
+        momentoDelAcuse = i.MomentoDelAcuse,
+        estaVigente = i.EstaVigente,
+        excedeLoEstimado = i.ExcedeLoEstimado(hoy),
+
+        reservas = i.Reservas.Select(ResumirReserva),
+
+        // No expiran en silencio: sin desenlace registrado siguen aca aunque su ventana pasara.
+        sinDesenlace = i.SinDesenlace.Select(ResumirReserva),
+
+        resoluciones = i.Resoluciones.Select(r => new
+        {
+            mision = r.Mision.ToString(),
+            desenlace = r.Desenlace.ToString(),
+            ejecuta = r.Ejecuta,
+            momento = r.Momento,
+            motivo = r.Motivo,
+        }),
+
+        finReal = i.FinReal,
+        ordenDeTrabajo = i.OrdenDeTrabajo,
+        odometroDeSalida = i.OdometroDeSalida,
+
+        // `RN-60` punto 6 — indicador de la gestion del taller. Nulo mientras no vuelva.
+        desviacionEnDias = i.DesviacionEnDias,
+    };
+}
 
 /// <summary>
 /// Un expediente de préstamo — `RN-63`.
@@ -1443,6 +1505,62 @@ saldos.MapPost("/renglones/{id}/resolver", async (
         Ulid.Parse(id), peticion.ComoSeResolvio, peticion.Fecha);
 
     return Results.Ok(new { resuelto = true });
+});
+
+// ── RN-60 · Indisponibilidad sobrevenida del vehiculo ───────────────────────
+//
+// **El acuse es lo que convierte el hecho en una decision.** Sin el, el conflicto sobre las
+// reservas aparece despues y nadie lo decidio.
+var indisponibilidades = app.MapGroup("/indisponibilidades");
+
+/// Lo que se le muestra a quien va a acusar — `RN-60` punto 1: folio, dependencia, ventana,
+/// motorista y objeto de cada mision afectada.
+indisponibilidades.MapGet("/reservas-afectadas/{vehiculo}/{desde}/{hasta}", async (
+    string vehiculo, string desde, string hasta, ServicioDeIndisponibilidad servicio) =>
+    Results.Ok((await servicio.ReservasAfectadasAsync(
+            Ulid.Parse(vehiculo), DateOnly.Parse(desde), DateOnly.Parse(hasta)))
+        .Select(ResumirReserva)));
+
+/// Declara la indisponibilidad con su acuse. **La lista se congela aca** y no se reconstruye.
+indisponibilidades.MapPost("/", async (
+    DeclararIndisponibilidad peticion, ServicioDeIndisponibilidad servicio) =>
+{
+    var id = await servicio.DeclararAsync(
+        Ulid.Parse(peticion.Id),
+        Ulid.Parse(peticion.IdVehiculo),
+        peticion.Estado,
+        peticion.Causa,
+        peticion.Desde,
+        peticion.FinEstimado,
+        peticion.Ejecuta,
+        peticion.MomentoDelAcuse);
+
+    return Results.Created($"/indisponibilidades/{id}", new { id = id.ToString() });
+});
+
+indisponibilidades.MapGet("/", async (ServicioDeIndisponibilidad servicio) =>
+    Results.Ok((await servicio.TodasAsync()).Select(ResumirIndisponibilidad)));
+
+/// El desenlace de una reserva en conflicto — `RN-60` punto 4. **No expira en silencio.**
+indisponibilidades.MapPost("/{id}/reservas/{mision}/resolver", async (
+    string id, string mision, ResolverReserva peticion,
+    ServicioDeIndisponibilidad servicio) =>
+{
+    await servicio.ResolverReservaAsync(
+        Ulid.Parse(id), Ulid.Parse(mision), peticion.Desenlace, peticion.Ejecuta,
+        peticion.Motivo, peticion.Momento);
+
+    return Results.Ok(new { resuelta = true });
+});
+
+/// El alta — `RN-60` punto 6: fecha real, orden de trabajo cerrada y odometro de salida.
+indisponibilidades.MapPost("/{id}/alta", async (
+    string id, DarDeAlta peticion, ServicioDeIndisponibilidad servicio) =>
+{
+    await servicio.DarDeAltaAsync(
+        Ulid.Parse(id), peticion.FinReal, peticion.OrdenDeTrabajo, peticion.OdometroDeSalida);
+
+    return Results.Ok(new { dadoDeAlta = true });
 });
 
 // ── RN-63 · El préstamo como expediente del bien ────────────────────────────
@@ -2850,16 +2968,16 @@ misiones.MapPost("/{id}/anular-programada", async (
 // reservado y volver a tomar ahí duplicaría la reserva sin liberar la anterior.
 // `BD-11` sólo la evalúa `T-08`: es la que toma. `T-12` despacha sobre lo ya reservado,
 // y volver a comprobar el solape ahí chocaría contra la reserva de la propia misión.
-ConAsignacion("programar", (e, quien, a, m, p, cuando, recursos, reservas, _, __, ___, operativo) =>
+ConAsignacion("programar", (e, quien, a, m, p, cuando, recursos, reservas, _, __, ___, operativo, ____) =>
     e.Programar(quien, a, m, p, cuando, recursos, reservas, operativo));
-ConAsignacion("despachar", (e, quien, a, m, p, cuando, _, __, ___, custodias, circulacion, ____) =>
-    e.Despachar(quien, a, m, p, cuando, custodias, circulacion));
+ConAsignacion("despachar", (e, quien, a, m, p, cuando, _, __, ___, custodias, circulacion, ____, conflicto) =>
+    e.Despachar(quien, a, m, p, cuando, custodias, circulacion, conflicto));
 
 // `T-10` — cambiar el vehículo o quien conduce SIN soltar la misión. Comparte la
 // resolución de recursos con programar y despachar: es la misma verificación de que el
 // identificador existe y la misma construcción de la asignación contra la que se evalúan
 // `BD-02` y `BD-03`. Lo único propio es el motivo, y por eso viaja en la misma petición.
-ConAsignacion("reasignar", (e, quien, a, m, p, cuando, recursos, reservas, peticion, _, __, ___) =>
+ConAsignacion("reasignar", (e, quien, a, m, p, cuando, recursos, reservas, peticion, _, __, ___, ____) =>
     e.Reasignar(quien, a, peticion.Motivo, peticion.Comentario, m, p, cuando, recursos, reservas));
 
 // M-16 — Donde aterriza lo que el dispositivo capturó sin red.
@@ -3037,7 +3155,7 @@ return;
 
 void ConAsignacion(
     string ruta,
-    Action<OrdenDeMision, IdPersona, AsignacionDeMision, MatrizDeLicencias, PoliticaDeDocumentacion, DateTimeOffset, RecursosTomados?, IReadOnlyList<ReservaDeRecurso>?, AsignarYTransicionar, CustodiaAlDespachar, CirculacionEnDiaInhabil, EstadoOperativo?> aplicar) =>
+    Action<OrdenDeMision, IdPersona, AsignacionDeMision, MatrizDeLicencias, PoliticaDeDocumentacion, DateTimeOffset, RecursosTomados?, IReadOnlyList<ReservaDeRecurso>?, AsignarYTransicionar, CustodiaAlDespachar, CirculacionEnDiaInhabil, EstadoOperativo?, ConflictoPorIndisponibilidad> aplicar) =>
     misiones.MapPost($"/{{id}}/{ruta}", async (
         string id,
         AsignarYTransicionar peticion,
@@ -3049,6 +3167,7 @@ void ConAsignacion(
         ConsultaDelOrganigrama organigrama,
         ConsultaDePermisos permisos,
         EstadoDeLaFlota estadoDeLaFlota,
+        ServicioDeIndisponibilidad indisponibilidad,
         IParametrosDeLaInstitucion parametros) =>
     {
         // El cliente manda IDENTIFICADORES, no la ficha técnica. Si mandara la ficha,
@@ -3097,6 +3216,12 @@ void ConAsignacion(
         // el dominio lo dice en el diario en vez de darlo por disponible.
         var estadoDelVehiculo = await estadoDeLaFlota.ActualAsync(idVehiculo);
 
+        // `RN-60`: si esta reserva quedo marcada en conflicto por una indisponibilidad del
+        // vehiculo y nadie le registro desenlace, el despacho se bloquea. Se consulta SIEMPRE
+        // --como la custodia-- porque el dominio exige la respuesta: un llamador que no
+        // preguntara apagaria el bloqueo sin darse cuenta.
+        var conflicto = await indisponibilidad.ConflictoDeAsync(ulid);
+
         var estado = await servicio.TransicionarAsync(
             ulid,
             expediente =>
@@ -3115,7 +3240,8 @@ void ConAsignacion(
                             idVehiculo, idConductor,
                             vehiculo.Excepcion(),
                             permisosDelExpediente),
-                        estadoDelVehiculo);
+                        estadoDelVehiculo,
+                        conflicto);
             },
             peticion.Momento);
 
@@ -3953,3 +4079,25 @@ internal sealed record DevolverVehiculo(
     string? Novedades,
     /// <summary>**No puede ser quien recibió**: el acta sería una autodeclaración.</summary>
     string QuienFirmaLaDevolucion);
+
+// ── RN-60 · Indisponibilidad ────────────────────────────────────────────────
+
+internal sealed record DeclararIndisponibilidad(
+    string Id,
+    string IdVehiculo,
+    /// <summary>`EnTaller` o `NoDisponible`: los dos que no habilitan asignación.</summary>
+    EstadoOperativo Estado,
+    /// <summary>Del catálogo `causa_indisponibilidad`, configurable según `RN-60`.</summary>
+    string Causa,
+    DateOnly Desde,
+    /// <summary>Con fecha de fin, siempre: es contra ella que se contrasta la real.</summary>
+    DateOnly FinEstimado,
+    string Ejecuta,
+    /// <summary>Cuándo acusó sobre la lista de reservas afectadas.</summary>
+    DateTimeOffset MomentoDelAcuse);
+
+internal sealed record ResolverReserva(
+    DesenlaceDeLaReserva Desenlace, string Ejecuta, string Motivo, DateTimeOffset Momento);
+
+internal sealed record DarDeAlta(
+    DateOnly FinReal, string OrdenDeTrabajo, int OdometroDeSalida);

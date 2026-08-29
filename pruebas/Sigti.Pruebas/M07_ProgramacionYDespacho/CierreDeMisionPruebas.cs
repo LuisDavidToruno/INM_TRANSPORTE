@@ -1,3 +1,4 @@
+using Sigti.Dominio.M11_Mantenimiento;
 using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
 using Sigti.Dominio.Organizacion;
@@ -41,7 +42,7 @@ public class CierreDeMisionPruebas
         expediente.Programar(Transporte, Asignacion.Valida(),
             Asignacion.Matriz, PoliticaDeDocumentacion.PorDefecto, Momento);
         expediente.Despachar(new IdPersona("P-DESPACHO"), Asignacion.Valida(),
-            Asignacion.Matriz, PoliticaDeDocumentacion.PorDefecto, Momento, Asignacion.Custodiado, Asignacion.SinDiasInhabiles());
+            Asignacion.Matriz, PoliticaDeDocumentacion.PorDefecto, Momento, Asignacion.Custodiado, Asignacion.SinDiasInhabiles(), ConflictoPorIndisponibilidad.Ninguno);
         expediente.IniciarRuta(new IdPersona("P-MOTORISTA"), Momento, Asignacion.Sale);
         expediente.Retornar(new IdPersona("P-MOTORISTA"), Momento, Asignacion.Vuelve);
         expediente.Liquidar(Transporte, Momento);

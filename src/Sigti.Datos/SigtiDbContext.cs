@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Sigti.Datos.M07_ProgramacionYDespacho;
 using Sigti.Datos.M09_Combustible;
 using Sigti.Datos.M03_Flota;
+using Sigti.Datos.M11_Mantenimiento;
 using Sigti.Datos.M12_Incidentes;
 using Sigti.Datos.M14_Auditoria;
 using Sigti.Datos.M18_Peajes;
@@ -78,6 +79,9 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     public DbSet<FilaDeIncidente> Incidentes => Set<FilaDeIncidente>();
 
     public DbSet<FilaDePrestamo> Prestamos => Set<FilaDePrestamo>();
+
+    public DbSet<FilaDeIndisponibilidad> Indisponibilidades =>
+        Set<FilaDeIndisponibilidad>();
 
     public DbSet<FilaDeMovimientoDeExistencias> MovimientosDeExistencias =>
         Set<FilaDeMovimientoDeExistencias>();
@@ -756,6 +760,81 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             // **Un vale una sola vez por acta.** Listarlo dos veces duplicaria el monto del
             // reporte de reversion de compromisos.
             folio.HasIndex(f => new { f.ActaId, f.AsignacionId }).IsUnique();
+        });
+
+        // ── M-11 · Indisponibilidad sobrevenida ─────────────────────────────
+
+        modelo.Entity<FilaDeIndisponibilidad>(baja =>
+        {
+            baja.ToTable("Indisponibilidad", schema: "mantenimiento");
+
+            baja.HasKey(i => i.Id);
+            baja.Property(i => i.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            baja.Property(i => i.VehiculoId)
+                .HasConversion(UlidABinario).HasColumnType("binary(16)");
+            baja.Property(i => i.Estado).HasConversion<string>().HasMaxLength(30).IsRequired();
+            baja.Property(i => i.Causa).HasMaxLength(120).IsRequired();
+            baja.Property(i => i.Ejecuta).HasMaxLength(64).IsRequired();
+            baja.Property(i => i.OrdenDeTrabajo).HasMaxLength(64);
+
+            // La consulta del despacho: si este vehiculo esta indisponible ahora. Corre en
+            // cada `T-12`, asi que va indexada por vehiculo y por si sigue vigente.
+            baja.HasIndex(i => new { i.VehiculoId, i.FinReal });
+
+            baja.HasMany(i => i.Reservas)
+                .WithOne()
+                .HasForeignKey(r => r.IndisponibilidadId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            baja.HasMany(i => i.Resoluciones)
+                .WithOne()
+                .HasForeignKey(r => r.IndisponibilidadId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelo.Entity<FilaDeReservaAfectada>(reserva =>
+        {
+            reserva.ToTable("ReservaAfectada", schema: "mantenimiento");
+
+            reserva.HasKey(r => r.Id);
+            reserva.Property(r => r.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            reserva.Property(r => r.IndisponibilidadId)
+                .HasConversion(UlidABinario).HasColumnType("binary(16)");
+            reserva.Property(r => r.MisionId)
+                .HasConversion(UlidABinario).HasColumnType("binary(16)");
+            reserva.Property(r => r.Referencia).HasMaxLength(64).IsRequired();
+            reserva.Property(r => r.Dependencia).HasMaxLength(160).IsRequired();
+            reserva.Property(r => r.Motorista).HasMaxLength(64).IsRequired();
+            reserva.Property(r => r.ObjetoDelTraslado).HasMaxLength(500).IsRequired();
+            reserva.Property(r => r.EstadoAlAcusar)
+                .HasConversion<string>().HasMaxLength(30).IsRequired();
+
+            // Una mision una sola vez por indisponibilidad: la lista se conserva como se
+            // presento, y duplicarla haria que el acuse cubriera dos veces lo mismo.
+            reserva.HasIndex(r => new { r.IndisponibilidadId, r.MisionId }).IsUnique();
+
+            // El despacho pregunta por la mision, no por la indisponibilidad.
+            reserva.HasIndex(r => r.MisionId);
+        });
+
+        modelo.Entity<FilaDeResolucionDeReserva>(resolucion =>
+        {
+            resolucion.ToTable("ResolucionDeReserva", schema: "mantenimiento");
+
+            resolucion.HasKey(r => r.Id);
+            resolucion.Property(r => r.Id)
+                .HasConversion(UlidABinario).HasColumnType("binary(16)");
+            resolucion.Property(r => r.IndisponibilidadId)
+                .HasConversion(UlidABinario).HasColumnType("binary(16)");
+            resolucion.Property(r => r.MisionId)
+                .HasConversion(UlidABinario).HasColumnType("binary(16)");
+            resolucion.Property(r => r.Desenlace)
+                .HasConversion<string>().HasMaxLength(40).IsRequired();
+            resolucion.Property(r => r.Ejecuta).HasMaxLength(64).IsRequired();
+            resolucion.Property(r => r.Motivo).HasMaxLength(1000).IsRequired();
+
+            // **Un desenlace por reserva.** Reescribirlo borraria el que constaba.
+            resolucion.HasIndex(r => new { r.IndisponibilidadId, r.MisionId }).IsUnique();
         });
 
         // ── RN-63 · El prestamo como expediente del bien ────────────────────

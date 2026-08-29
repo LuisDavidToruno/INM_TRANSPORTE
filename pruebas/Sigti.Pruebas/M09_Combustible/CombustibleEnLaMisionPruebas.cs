@@ -1,3 +1,4 @@
+using Sigti.Dominio.M11_Mantenimiento;
 using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
 using Sigti.Dominio.M09_Combustible;
@@ -44,7 +45,7 @@ public class CombustibleEnLaMisionPruebas
             Asignacion.Matriz, PoliticaDeDocumentacion.PorDefecto, Momento);
         e.Despachar(Despacho, Asignacion.Valida(), Asignacion.Matriz,
             PoliticaDeDocumentacion.PorDefecto, Momento, Asignacion.Custodiado,
-            Asignacion.SinDiasInhabiles(),
+            Asignacion.SinDiasInhabiles(), ConflictoPorIndisponibilidad.Ninguno,
             // `INV-17`: el acta de entrega lleva odómetro, y es contra ésta que `T-15` y `T-16`
             // prueban que el vehículo nunca salió.
             odometroDeEntrega: 10_000);

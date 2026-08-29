@@ -405,6 +405,73 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## `RN-60` — la indisponibilidad sobrevenida y sus reservas en conflicto (M-11)
+
+**RESUELTA.** Es el corazón de M-11 y **cierra el hueco que M-12 y `RN-63` dejaron dos veces**:
+hasta ahora, un vehículo podía irse al taller con misiones programadas encima y el despacho
+seguía saliendo.
+
+### El acuse es lo que convierte el hecho en una decisión
+
+*«Antes de confirmar la indisponibilidad, el sistema muestra las Órdenes de Misión afectadas:
+folio, dependencia solicitante, ventana, motorista y objeto. **Quien ejecuta acusa**»*. Sin ese
+paso, el conflicto aparece después y nadie lo decidió.
+
+**Y la lista se congela.** `RN-60` punto 2: *«se conserva exactamente como se presentó, con su
+marca de tiempo. **No se reconstruye después**»*. Hay prueba: se reasigna la misión a otro
+vehículo después del acuse y la reserva **sigue en el expediente con el estado que tenía al
+acusar**. Si se recalculara, habría desaparecido — y quien acusó habría acusado sobre una lista
+que ya no consta.
+
+### La marca impide el despacho, de verdad
+
+Verificado de punta a punta: misión programada → vehículo a taller con acuse → **`T-12`
+bloqueado** → desenlace registrado → despacho sale. *«Una reserva en conflicto no expira en
+silencio ni se resuelve por el paso del tiempo»*.
+
+El bloqueo entra a `Despachar` como **parámetro obligatorio y sin omisión**, siguiendo el
+argumento que la propia máquina de estados usa para la custodia: *«es la diferencia entre "no
+hay custodio" y "nadie preguntó", y en un bloqueo duro las dos no pueden verse igual»*. Un
+`bool` por omisión dejaría que un llamador nuevo despachara sin consultar, y el bloqueo se
+apagaría solo. Diecisiete pruebas existentes tuvieron que declarar que consultaron — que es
+exactamente el efecto buscado.
+
+### El alta mide la gestión del taller
+
+`RN-60` punto 6 — fecha real, **orden de trabajo cerrada y odómetro de salida**, contrastados
+contra la ventana estimada: *«la desviación sistemática entre estimado y real es indicador de la
+gestión del taller»*. La desviación va **nula** mientras el vehículo no vuelva: suponerla haría
+que el indicador midiera estimaciones contra sí mismas.
+
+⚠️ **`ConflictoDeReserva` ya existía en M-07** con otro significado —el solape de `BD-11`—, así
+que el de esta regla se llama `ConflictoPorIndisponibilidad`. Son dos conflictos distintos: uno
+es que dos misiones quieren el mismo recurso, el otro que el recurso no está.
+
+⚠️ **El bloqueo del despacho no tiene identificador `BD-xx`.** La máquina de estados es la
+autoridad sobre los bloqueos duros del despacho y no lo cataloga; `RN-60` sí lo declara. Se
+implementó citando la regla, y **queda como hallazgo para que la autoridad lo incorpore** — es
+el mismo patrón que la nota abierta de `RN-63` sobre `actores-y-roles.md`.
+
+⚠️ **La indisponibilidad no mueve el estado operativo del vehículo.** Registra la ventana, el
+acuse y las reservas, pero el asiento en el diario de estado operativo lo tiene que poner quien
+la declara. Es el mismo hueco de las transiciones `W-xx` que M-12 y `RN-63` dejaron: sigue sin
+cerrarse, y ahora tres reglas lo esperan.
+
+⚠️ **`horizonte_reservas_afectadas` no está declarado.** `RN-60` lo declara configurable; hoy el
+horizonte **es la ventana estimada de la indisponibilidad**, que es lo defendible sin inventarlo
+— las reservas que caen dentro son exactamente las que quedan en el aire.
+
+⚠️ **No hay notificación a ACT-04 ni a la dependencia solicitante** (`RN-60` punto 3), ni el
+reporte de misiones sobre vehículos con preventivo por vencer (punto 7). El primero es el mismo
+pendiente de notificaciones que arrastran otras reglas; el segundo necesita el plan de
+mantenimiento, que es el resto de M-11.
+
+⚠️ **`causa_indisponibilidad` es texto validado, no catálogo** — `RN-60` lo declara
+configurable. Tercer catálogo en la misma situación, con `causa_interrupcion` (#96) y
+`motivo_de_prestamo` (#98).
+
+---
+
 ## `RN-63` — el préstamo de vehículo como expediente del bien
 
 **RESUELTA.** Y con ella **el bloqueo del cierre del período queda completo**: era la última de

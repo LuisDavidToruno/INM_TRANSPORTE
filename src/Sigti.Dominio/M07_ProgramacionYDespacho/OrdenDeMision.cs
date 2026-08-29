@@ -2,6 +2,7 @@ using Sigti.Dominio.M02_Parametros;
 using Sigti.Dominio.M06_Solicitudes;
 using Sigti.Dominio.M08_Bitacora;
 using Sigti.Dominio.M09_Combustible;
+using Sigti.Dominio.M11_Mantenimiento;
 using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M05_Motoristas;
 using Sigti.Dominio.Organizacion;
@@ -604,6 +605,15 @@ public sealed class OrdenDeMision
     /// Lo que hace falta para juzgar `BD-04`: el calendario vigente, la excepción del
     /// vehículo si la tiene, y los permisos emitidos. También obligatorio, y por lo mismo.
     /// </param>
+    /// <param name="conflicto">
+    /// Si la reserva está en conflicto por indisponibilidad del vehículo — `RN-60`.
+    /// <b>Obligatorio y sin omisión</b>, por la misma razón que la custodia: un booleano por
+    /// omisión dejaría que un llamador nuevo despachara sin haber consultado, y el bloqueo se
+    /// apagaría solo.
+    ///
+    /// ⚠️ <b>No tiene identificador `BD-xx`.</b> La máquina de estados no lo cataloga y `RN-60`
+    /// sí lo declara; queda como hallazgo para que la autoridad lo incorpore.
+    /// </param>
     public void Despachar(
         IdPersona ejecuta,
         AsignacionDeMision asignacion,
@@ -612,9 +622,13 @@ public sealed class OrdenDeMision
         DateTimeOffset momento,
         CustodiaAlDespachar custodias,
         CirculacionEnDiaInhabil circulacion,
+        ConflictoPorIndisponibilidad conflicto,
         int? odometroDeEntrega = null)
     {
         ExigirEstado(EstadoDeMision.Programada, "T-12");
+
+        // `RN-60` — la marca de conflicto impide el despacho, y no expira en silencio.
+        ReglasDeLaIndisponibilidad.ExigirSinConflicto(conflicto);
         var evidencia = ExigirHabilitacionYDocumentacion(asignacion, matriz, politica, momento);
         var custodia = ExigirCustodiaVigente(custodias.Historial, momento)
                        + AdvertirSiLaCustodiaEstaVacante(custodias, momento);

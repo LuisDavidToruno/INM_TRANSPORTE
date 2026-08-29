@@ -1,3 +1,4 @@
+using Sigti.Dominio.M11_Mantenimiento;
 using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
 using Sigti.Dominio.Organizacion;
@@ -179,7 +180,7 @@ public class OrdenDeMisionPruebas
                                        // Con custodia vigente: lo que se prueba acá es que
                                        // el ESTADO impide despachar, y una custodia faltante
                                        // haría pasar la prueba por el motivo equivocado.
-                                       Asignacion.Custodiado, Asignacion.SinDiasInhabiles()));
+                                       Asignacion.Custodiado, Asignacion.SinDiasInhabiles(), ConflictoPorIndisponibilidad.Ninguno));
 
         Assert.Equal(EstadoDeMision.Programada, fallo.EstadoRequerido);
         Assert.Equal(EstadoDeMision.Aprobada, expediente.Estado);
@@ -246,7 +247,7 @@ public class OrdenDeMisionPruebas
         expediente.Programar(Transporte, Asignacion.Valida(), Asignacion.Matriz,
                              PoliticaDeDocumentacion.PorDefecto, Momento);
         expediente.Despachar(Encargado, Asignacion.Valida(), Asignacion.Matriz,
-                             PoliticaDeDocumentacion.PorDefecto, Momento, Asignacion.Custodiado, Asignacion.SinDiasInhabiles());
+                             PoliticaDeDocumentacion.PorDefecto, Momento, Asignacion.Custodiado, Asignacion.SinDiasInhabiles(), ConflictoPorIndisponibilidad.Ninguno);
         expediente.IniciarRuta(Motorista, Momento, Asignacion.Sale);
         expediente.Retornar(Motorista, Momento, Asignacion.Vuelve);
         expediente.Liquidar(Transporte, Momento);

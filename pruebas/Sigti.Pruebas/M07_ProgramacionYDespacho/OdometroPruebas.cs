@@ -1,3 +1,4 @@
+using Sigti.Dominio.M11_Mantenimiento;
 using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
 using Sigti.Dominio.M08_Bitacora;
@@ -182,7 +183,7 @@ public class OdometroPruebas
                              new RecursosTomados(Ulid.NewUlid(), Ulid.NewUlid()), []);
         expediente.Despachar(Encargado, Asignacion.Valida(), Asignacion.Matriz,
                              PoliticaDeDocumentacion.PorDefecto, Momento,
-                             Asignacion.Custodiado, Asignacion.SinDiasInhabiles());
+                             Asignacion.Custodiado, Asignacion.SinDiasInhabiles(), ConflictoPorIndisponibilidad.Ninguno);
         return expediente;
     }
 }

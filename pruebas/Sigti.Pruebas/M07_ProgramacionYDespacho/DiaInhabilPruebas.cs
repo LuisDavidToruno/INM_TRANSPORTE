@@ -1,3 +1,4 @@
+using Sigti.Dominio.M11_Mantenimiento;
 using Sigti.Dominio.M02_Parametros;
 using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
@@ -131,7 +132,7 @@ public class DiaInhabilPruebas
         var bloqueo = Assert.Throws<BloqueoDuro>(() => expediente.Despachar(
             Encargado, Asignacion.Valida(), Asignacion.Matriz,
             PoliticaDeDocumentacion.PorDefecto, Momento, Asignacion.Custodiado,
-            new CirculacionEnDiaInhabil(Calendario, Vehiculo, relevo, null, [Permiso()])));
+            new CirculacionEnDiaInhabil(Calendario, Vehiculo, relevo, null, [Permiso()]), ConflictoPorIndisponibilidad.Ninguno));
 
         Assert.Equal("BD-04", bloqueo.Precondicion);
         // Y el mensaje distingue este caso del de no tener ninguno: son dos arreglos
@@ -206,7 +207,7 @@ public class DiaInhabilPruebas
         var bloqueo = Assert.Throws<BloqueoDuro>(() => expediente.Despachar(
             Encargado, Asignacion.Valida(), Asignacion.Matriz,
             PoliticaDeDocumentacion.PorDefecto, Momento, Asignacion.Custodiado,
-            new CirculacionEnDiaInhabil(conFeriado, Vehiculo, Motorista, null, [])));
+            new CirculacionEnDiaInhabil(conFeriado, Vehiculo, Motorista, null, []), ConflictoPorIndisponibilidad.Ninguno));
 
         Assert.Equal("BD-04", bloqueo.Precondicion);
         Assert.Contains("2026-03-17", bloqueo.Message);
@@ -228,7 +229,7 @@ public class DiaInhabilPruebas
         OrdenDeMision expediente, VentanaDeMision _, CirculacionEnDiaInhabil circulacion) =>
         expediente.Despachar(Encargado, Asignacion.Valida(), Asignacion.Matriz,
                              PoliticaDeDocumentacion.PorDefecto, Momento,
-                             Asignacion.Custodiado, circulacion);
+                             Asignacion.Custodiado, circulacion, ConflictoPorIndisponibilidad.Ninguno);
 
     private static OrdenDeMision Programada(VentanaDeMision ventana)
     {

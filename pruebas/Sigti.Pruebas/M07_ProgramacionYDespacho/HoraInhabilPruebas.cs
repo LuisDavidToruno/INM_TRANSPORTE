@@ -1,3 +1,4 @@
+using Sigti.Dominio.M11_Mantenimiento;
 using Sigti.Dominio.M02_Parametros;
 using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
@@ -177,7 +178,8 @@ public class HoraInhabilPruebas
                              Asignacion.Custodiado,
                              new CirculacionEnDiaInhabil(
                                  calendario, Vehiculo, Motorista, null,
-                                 permiso is null ? [] : [permiso]));
+                                 permiso is null ? [] : [permiso]),
+                             ConflictoPorIndisponibilidad.Ninguno);
 
     /// <summary>Del lunes 16 al miércoles 18 de marzo de 2026 — sin ningún día inhábil.</summary>
     private static OrdenDeMision Programada(TimeOnly? horaDeSalida, TimeOnly? horaDeRetorno)

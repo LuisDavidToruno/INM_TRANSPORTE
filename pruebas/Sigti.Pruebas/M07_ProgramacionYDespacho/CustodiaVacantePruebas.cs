@@ -1,3 +1,4 @@
+using Sigti.Dominio.M11_Mantenimiento;
 using Sigti.Dominio.M01_Organizacion;
 using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
@@ -141,7 +142,7 @@ public class CustodiaVacantePruebas
     private static void Despachar(OrdenDeMision expediente, CustodiaAlDespachar custodias) =>
         expediente.Despachar(Encargado, Asignacion.Valida(), Asignacion.Matriz,
                              PoliticaDeDocumentacion.PorDefecto, Momento,
-                             custodias, Asignacion.SinDiasInhabiles());
+                             custodias, Asignacion.SinDiasInhabiles(), ConflictoPorIndisponibilidad.Ninguno);
 
     private static OrdenDeMision Programada()
     {

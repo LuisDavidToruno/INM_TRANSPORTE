@@ -1,3 +1,4 @@
+using Sigti.Dominio.M11_Mantenimiento;
 using Sigti.Dominio.M01_Organizacion;
 using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
@@ -146,7 +147,7 @@ public class CustodiaAlDespacharPruebas
         expediente.Despachar(Encargado, Asignacion.Valida(), Asignacion.Matriz,
                              PoliticaDeDocumentacion.PorDefecto, Momento,
                              new CustodiaAlDespachar(custodias, new Organigrama([])),
-                             Asignacion.SinDiasInhabiles());
+                             Asignacion.SinDiasInhabiles(), ConflictoPorIndisponibilidad.Ninguno);
 
     private static OrdenDeMision Programada()
     {

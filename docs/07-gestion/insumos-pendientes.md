@@ -188,6 +188,7 @@ Detectados al corregir los 46 hallazgos de las revisiones de los Bloques 3 y 4. 
 | 96 | **Catálogo `causa_interrupcion`** — qué causas reconoce la institución para el evento de interrupción en ruta | `RN-70` lo declara configurable. El expediente de M-12 ya lo exige, pero hoy es **texto validado contra no-vacío**: cablear una lista obligaría a un despliegue cada vez que aparezca una causa que nadie previó. Mismo estado que `tipo_de_hallazgo_posterior` de `RN-93` | `RN-70` |
 | 97 | **Catálogo `causa_de_no_disponibilidad_del_bien`** | `RN-75` lo declara configurable, y es el que tipifica por qué un vehículo pasa a `NO_DISPONIBLE` desde la hora del hecho. Sin él, el estado operativo no se puede mover con la causa que la máquina de estados §10.2 exige | `RN-75`, `RN-60` |
 | 98 | **Catálogo `motivo_de_prestamo`** y umbrales de escalamiento por mora | `RN-63` los declara configurables. El expediente ya exige el motivo, pero es **texto validado**; y el escalamiento diario por mora no tiene umbrales contra los cuales escalar | `RN-63` |
+| 99 | **Catálogo `causa_indisponibilidad`** y **`horizonte_reservas_afectadas`** | `RN-60` los declara configurables. La causa es hoy **texto validado**, y el horizonte es la ventana estimada de la propia indisponibilidad — lo defendible sin inventarlo, pero no lo que la regla pide. Tercer catálogo pendiente junto al #96 y el #98 | `RN-60` |
 
 ## Resueltos en la revisión del 2026-08-06
 
