@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Sigti.Datos.M07_ProgramacionYDespacho;
 using Sigti.Datos.M09_Combustible;
+using Sigti.Datos.M03_Flota;
 using Sigti.Datos.M12_Incidentes;
 using Sigti.Datos.M14_Auditoria;
 using Sigti.Datos.M18_Peajes;
@@ -75,6 +76,8 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     public DbSet<FilaDeActaDeCierre> ActasDeCierre => Set<FilaDeActaDeCierre>();
 
     public DbSet<FilaDeIncidente> Incidentes => Set<FilaDeIncidente>();
+
+    public DbSet<FilaDePrestamo> Prestamos => Set<FilaDePrestamo>();
 
     public DbSet<FilaDeMovimientoDeExistencias> MovimientosDeExistencias =>
         Set<FilaDeMovimientoDeExistencias>();
@@ -753,6 +756,58 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             // **Un vale una sola vez por acta.** Listarlo dos veces duplicaria el monto del
             // reporte de reversion de compromisos.
             folio.HasIndex(f => new { f.ActaId, f.AsignacionId }).IsUnique();
+        });
+
+        // ── RN-63 · El prestamo como expediente del bien ────────────────────
+
+        modelo.Entity<FilaDePrestamo>(prestamo =>
+        {
+            prestamo.ToTable("Prestamo", schema: "flota");
+
+            prestamo.HasKey(p => p.Id);
+            prestamo.Property(p => p.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            prestamo.Property(p => p.VehiculoId)
+                .HasConversion(UlidABinario).HasColumnType("binary(16)");
+
+            prestamo.Property(p => p.ActoFolio).HasMaxLength(32).IsRequired();
+            prestamo.Property(p => p.ActoFirmante).HasMaxLength(64).IsRequired();
+            prestamo.Property(p => p.ActoAdjunto).HasMaxLength(500);
+            prestamo.Property(p => p.Autoriza).HasMaxLength(64).IsRequired();
+
+            prestamo.Property(p => p.ReceptorPersona).HasMaxLength(120).IsRequired();
+            prestamo.Property(p => p.ReceptorCargo).HasMaxLength(120).IsRequired();
+            prestamo.Property(p => p.ReceptorInstitucion).HasMaxLength(160).IsRequired();
+            prestamo.Property(p => p.ReceptorConstancia).HasMaxLength(500).IsRequired();
+
+            prestamo.Property(p => p.Motivo).HasMaxLength(120).IsRequired();
+
+            prestamo.Property(p => p.EntregaFirma).HasMaxLength(64).IsRequired();
+            prestamo.Property(p => p.EntregaCombustible).HasMaxLength(60);
+            prestamo.Property(p => p.EntregaAccesorios).HasMaxLength(1000);
+            prestamo.Property(p => p.EntregaDocumentos).HasMaxLength(1000);
+            prestamo.Property(p => p.EntregaNovedades).HasMaxLength(1000);
+
+            prestamo.Property(p => p.RubroCombustible).HasMaxLength(160);
+            prestamo.Property(p => p.RubroPeajes).HasMaxLength(160);
+            prestamo.Property(p => p.RubroMantenimiento).HasMaxLength(160);
+            prestamo.Property(p => p.RubroMultas).HasMaxLength(160);
+            prestamo.Property(p => p.RubroDanios).HasMaxLength(160);
+
+            prestamo.Property(p => p.DevolucionFirma).HasMaxLength(64);
+            prestamo.Property(p => p.DevolucionCombustible).HasMaxLength(60);
+            prestamo.Property(p => p.DevolucionNovedades).HasMaxLength(1000);
+            prestamo.Property(p => p.QuienFirmaLaDevolucion).HasMaxLength(64);
+
+            // El acto autorizante es unico: dos prestamos citando el mismo folio dejarian sin
+            // decidir cual autorizo que salida.
+            prestamo.HasIndex(p => p.ActoFolio).IsUnique();
+
+            // La consulta que `RN-63` punto 7 llama el entregable de la regla: quien respondia
+            // por la unidad en una fecha. Se resuelve por vehiculo y ventana.
+            prestamo.HasIndex(p => new { p.VehiculoId, p.Desde });
+
+            // Los vencidos, que `RN-97` punto 4 usa para bloquear el cierre del periodo.
+            prestamo.HasIndex(p => new { p.DevolucionFecha, p.DevolucionComprometida });
         });
 
         // ── M-12 Incidentes, siniestros y sanciones ─────────────────────────

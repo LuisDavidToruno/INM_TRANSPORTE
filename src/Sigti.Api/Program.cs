@@ -13,9 +13,11 @@ using Sigti.Aplicacion.M09_Combustible;
 using Sigti.Dominio.M09_Combustible;
 using Sigti.Aplicacion.M18_Peajes;
 using Sigti.Datos.M18_Peajes;
+using Sigti.Aplicacion.M03_Flota;
 using Sigti.Aplicacion.M12_Incidentes;
 using Sigti.Aplicacion.M14_Auditoria;
 using Sigti.Datos.M14_Auditoria;
+using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M12_Incidentes;
 using Sigti.Dominio.M14_Auditoria;
 using Sigti.Dominio.M20_Integraciones;
@@ -69,6 +71,7 @@ constructor.Services.AddScoped<ServicioDeHallazgosPosteriores>();
 constructor.Services.AddScoped<ServicioDeSaldoDeApertura>();
 constructor.Services.AddScoped<ServicioDeCierreDeEjercicio>();
 constructor.Services.AddScoped<ServicioDeIncidentes>();
+constructor.Services.AddScoped<ServicioDePrestamos>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -294,6 +297,56 @@ static object ResumirRenglon(RenglonDelSaldo r, DateOnly corte) => new
     monto = r.Monto,
     impideCerrar = r.ImpideCerrarElPeriodo,
 };
+
+/// <summary>
+/// Un expediente de préstamo — `RN-63`.
+/// </summary>
+static object ResumirPrestamo(ExpedienteDePrestamo p)
+{
+    var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+
+    return new
+    {
+        id = p.Id.ToString(),
+        vehiculo = p.VehiculoId.ToString(),
+        acto = new { folio = p.Acto.Folio, firmante = p.Acto.Firmante, fecha = p.Acto.Fecha },
+        autoriza = p.Autoriza,
+        receptor = new
+        {
+            persona = p.Receptor.Persona,
+            cargo = p.Receptor.Cargo,
+            institucion = p.Receptor.Institucion,
+        },
+        motivo = p.MotivoDelPrestamo,
+        desde = p.Desde,
+        devolucionComprometida = p.DevolucionComprometida,
+        estaVigente = p.EstaVigente,
+
+        // `RN-63` punto 4 — escalamiento diario mientras dure, y `RN-97` punto 4 le da poder
+        // de bloqueo sobre el cierre del período.
+        diasDeMora = p.DiasDeMora(hoy),
+        estaVencido = p.EstaVencido(hoy),
+
+        // `RN-63` punto 3 — NO entran en la conciliación galonaje-kilometraje: no hubo consumo
+        // nuestro contra esos kilómetros. Nulo mientras no haya acta de devolución.
+        kilometrosBajoTenenciaAjena = p.KilometrosBajoTenenciaAjena,
+
+        // Hallazgo frecuente de auditoría, y por eso se reconstata al devolver.
+        volvioSinRotulacion = p.VolvioSinRotulacion,
+
+        // Un rubro sin pactar es el que aparece cuando llega la multa.
+        rubrosSinPactar = p.Rubros.SinPactar,
+
+        devolucion = p.Devolucion is null ? null : new
+        {
+            fecha = p.Devolucion.Fecha,
+            odometro = p.Devolucion.Odometro,
+            rotulacionConstatada = p.Devolucion.RotulacionConstatada,
+            novedades = p.Devolucion.NovedadesODanios,
+            firma = p.QuienFirmaLaDevolucion,
+        },
+    };
+}
 
 /// <summary>
 /// Un expediente de incidente — M-12.
@@ -1390,6 +1443,84 @@ saldos.MapPost("/renglones/{id}/resolver", async (
         Ulid.Parse(id), peticion.ComoSeResolvio, peticion.Fecha);
 
     return Results.Ok(new { resuelto = true });
+});
+
+// ── RN-63 · El préstamo como expediente del bien ────────────────────────────
+//
+// **Nunca una Orden de Misión.** Cedido con motorista propio, la tenencia no se cedió: eso es
+// una misión con motivo «apoyo institucional», y el endpoint lo bloquea.
+var prestamos = app.MapGroup("/prestamos");
+
+prestamos.MapPost("/", async (PrestarVehiculo peticion, ServicioDePrestamos servicio) =>
+{
+    var id = await servicio.PrestarAsync(
+        Ulid.Parse(peticion.Id),
+        Ulid.Parse(peticion.IdVehiculo),
+        new ActoAutorizante(
+            peticion.ActoFolio, peticion.ActoFirmante, peticion.ActoFecha, peticion.ActoAdjunto),
+        peticion.Autoriza,
+        new ResponsableReceptor(
+            peticion.ReceptorPersona, peticion.ReceptorCargo, peticion.ReceptorInstitucion,
+            peticion.ReceptorConstancia),
+        peticion.Motivo,
+        peticion.Desde,
+        peticion.DevolucionComprometida,
+        new ActaDeTenencia(
+            peticion.Desde, peticion.EntregaOdometro, peticion.EntregaFirma,
+            peticion.EntregaCombustible, peticion.EntregaAccesorios, peticion.EntregaDocumentos,
+            peticion.EntregaRotulacion, peticion.EntregaNovedades),
+        new RubrosPactados(
+            peticion.RubroCombustible, peticion.RubroPeajes, peticion.RubroMantenimiento,
+            peticion.RubroMultas, peticion.RubroDanios),
+        peticion.ConMotoristaPropio);
+
+    return Results.Created($"/prestamos/{id}", new { id = id.ToString() });
+});
+
+/// El acta de devolución. **El vehículo no vuelve a `DISPONIBLE` sin ella** (`RN-63`).
+prestamos.MapPost("/{id}/devolver", async (
+    string id, DevolverVehiculo peticion, ServicioDePrestamos servicio) =>
+{
+    await servicio.DevolverAsync(
+        Ulid.Parse(id),
+        new ActaDeTenencia(
+            peticion.Fecha, peticion.Odometro, peticion.Firma, peticion.NivelDeCombustible,
+            null, null, peticion.RotulacionConstatada, peticion.Novedades),
+        peticion.QuienFirmaLaDevolucion);
+
+    return Results.Ok(new { devuelto = true });
+});
+
+prestamos.MapGet("/", async (ServicioDePrestamos servicio) =>
+    Results.Ok((await servicio.TodosAsync()).Select(ResumirPrestamo)));
+
+/// Los vencidos al corte — `RN-97` punto 4, la fuente que faltaba para que el bloqueo del cierre
+/// quedara completo.
+prestamos.MapGet("/vencidos/{corte}", async (string corte, ServicioDePrestamos servicio) =>
+    Results.Ok((await servicio.VencidosAsync(DateOnly.Parse(corte))).Select(ResumirPrestamo)));
+
+/// **El entregable de `RN-63`** punto 7: quién respondía por la unidad en una fecha.
+///
+/// Se resuelve por la fecha y no por el estado de hoy: un vehículo que hoy está disponible pudo
+/// estar prestado el día que se cometió la infracción.
+prestamos.MapGet("/quien-respondia/{vehiculo}/{fecha}", async (
+    string vehiculo, string fecha, ServicioDePrestamos servicio) =>
+{
+    var quien = await servicio.QuienRespondiaPorAsync(
+        Ulid.Parse(vehiculo), DateOnly.Parse(fecha));
+
+    return Results.Ok(new
+    {
+        fecha = quien.Fecha,
+
+        // Falso significa que respondía la institución propietaria por su custodio ordinario.
+        esTenenciaAjena = quien.EsTenenciaAjena,
+
+        persona = quien.Persona,
+        cargo = quien.Cargo,
+        institucion = quien.Institucion,
+        prestamo = quien.Prestamo?.ToString(),
+    });
 });
 
 // ── M-12 · Incidentes, siniestros y sanciones ───────────────────────────────
@@ -3774,3 +3905,51 @@ internal sealed record ResolverIncidente(
     DateTimeOffset Momento,
     /// <summary>Por qué se cierra con bienes todavía afuera — `RN-75`.</summary>
     string? DeclaracionDeBienes);
+
+// ── RN-63 · El préstamo ─────────────────────────────────────────────────────
+
+/// <param name="ConMotoristaPropio">
+/// Si el vehículo se cede con motorista de la institución propietaria. **Bloquea**: eso no es un
+/// préstamo, es una Orden de Misión con motivo «apoyo institucional».
+/// </param>
+internal sealed record PrestarVehiculo(
+    string Id,
+    string IdVehiculo,
+    string ActoFolio,
+    string ActoFirmante,
+    DateOnly ActoFecha,
+    string? ActoAdjunto,
+    /// <summary>Quien autoriza. **No puede ser el receptor** — `RN-63` punto 2.</summary>
+    string Autoriza,
+    string ReceptorPersona,
+    string ReceptorCargo,
+    string ReceptorInstitucion,
+    string ReceptorConstancia,
+    string Motivo,
+    DateOnly Desde,
+    /// <summary>La fecha pactada. Vencerla pone el préstamo en mora y bloquea el cierre.</summary>
+    DateOnly DevolucionComprometida,
+    int EntregaOdometro,
+    string EntregaFirma,
+    string? EntregaCombustible,
+    string? EntregaAccesorios,
+    string? EntregaDocumentos,
+    bool EntregaRotulacion,
+    string? EntregaNovedades,
+    string? RubroCombustible,
+    string? RubroPeajes,
+    string? RubroMantenimiento,
+    string? RubroMultas,
+    string? RubroDanios,
+    bool ConMotoristaPropio);
+
+internal sealed record DevolverVehiculo(
+    DateOnly Fecha,
+    int Odometro,
+    string Firma,
+    string? NivelDeCombustible,
+    /// <summary>La **reconstatación** de `RN-63` punto 6.</summary>
+    bool RotulacionConstatada,
+    string? Novedades,
+    /// <summary>**No puede ser quien recibió**: el acta sería una autodeclaración.</summary>
+    string QuienFirmaLaDevolucion);

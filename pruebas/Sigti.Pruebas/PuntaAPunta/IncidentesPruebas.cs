@@ -167,7 +167,7 @@ public class IncidentesPruebas(BaseDePruebas baseDePruebas)
         Assert.Contains("InterrupcionSinDesenlace", mensaje);
         Assert.Contains("no se cierra con", mensaje);
 
-        // ── Con desenlace registrado, el saldo se produce ────────────────────
+        // ── Con desenlace registrado, esta fuente deja de bloquear ───────────
         await Post(cliente, $"/incidentes/{id}/desenlace", new
         {
             Desenlace = "RetornoAnticipado",
@@ -176,7 +176,20 @@ public class IncidentesPruebas(BaseDePruebas baseDePruebas)
             Momento = new DateTimeOffset(anio, 11, 19, 9, 0, 0, TimeSpan.FromHours(-6)),
         });
 
-        await Post(cliente, "/saldo-de-apertura", Saldo(anio, corte));
+        // **Se verifica sobre su propia fuente, no sobre el resultado del POST.** Desde que
+        // `RN-63` existe, los préstamos vencidos de otras pruebas también bloquean este corte —
+        // correctamente. Lo que esta prueba afirma es que **esta interrupción** dejó de
+        // impedirlo, y eso se lee en el inventario sin depender de que nada más bloquee.
+        var despues = await Leer(cliente, $"/saldo-de-apertura/inventario/{corte:yyyy-MM-dd}");
+
+        var renglon = Assert.Single(despues.GetProperty("renglones").EnumerateArray(),
+            r => r.GetProperty("referencia").GetString() == id);
+
+        // **Sigue en el inventario, pero ya no bloquea.** El desenlace resolvió la interrupción;
+        // el expediente sigue abierto y pasa de `InterrupcionSinDesenlace` a
+        // `ExpedienteDeIncidente`, que `RN-97` cuenta pero no le da poder de bloqueo.
+        Assert.Equal("ExpedienteDeIncidente", renglon.GetProperty("tipo").GetString());
+        Assert.False(renglon.GetProperty("impideCerrar").GetBoolean());
     }
 
     /// <summary>

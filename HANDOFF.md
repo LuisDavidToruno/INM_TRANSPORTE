@@ -405,6 +405,74 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## `RN-63` — el préstamo de vehículo como expediente del bien
+
+**RESUELTA.** Y con ella **el bloqueo del cierre del período queda completo**: era la última de
+las dos fuentes que `RN-97` punto 4 declaraba con poder de bloqueo y que no podía disparar.
+
+| | Antes de M-12 | Con M-12 | Con `RN-63` |
+|---|---|---|---|
+| Fuentes consultables del saldo | 5 de 10 | 7 de 10 | **8 de 10** |
+| Fuentes bloqueantes que disparan | 0 de 2 | 1 de 2 | **2 de 2** |
+
+### Nunca una Orden de Misión, y la diferencia es la tenencia
+
+*«Cuando el vehículo se cede **con motorista de la institución propietaria**, sí es una Orden de
+Misión con motivo apoyo institucional: ahí no se cedió la tenencia, se prestó un servicio»*. El
+endpoint lo bloquea: modelarlo como préstamo diría que la unidad salió del alcance de la
+institución cuando su propio motorista iba al volante.
+
+### El entregable de la regla
+
+`RN-63` punto 7 lo llama así: *«en cualquier fecha del período, el sistema responde **quién
+respondía por la unidad**»*. Se resuelve **por la fecha, no por el estado de hoy** — cuando llega
+una multa de agosto la pregunta no es quién tiene el vehículo hoy, es quién lo tenía ese día.
+
+Medido en vivo: el 20 de abril responde *«Ana Discua, Jefe de Transporte de la Secretaría de
+Salud»*; el 1 de abril, antes del préstamo, responde la institución propietaria.
+
+### La segregación, con la nota de hallazgo que la propia regla deja abierta
+
+Quien autoriza **no puede** ser el receptor —sería la misma persona decidiendo entregarse a sí
+misma un vehículo del Estado— y quien firma la devolución **no puede** ser quien recibió: el acta
+dejaría de ser constatación para volverse autodeclaración de que devolvió en orden. La
+comparación ignora mayúsculas y espacios, para que el rodeo no pueda ser tipográfico.
+
+⚠️ **El par no está en `actores-y-roles.md`**, que es la autoridad sobre incompatibilidades. La
+propia `RN-63` punto 2 lo dice: *«su lugar propio es `actores-y-roles.md` y desde `CE-14` se
+propuso como par `I-c`. **Nota de hallazgo abierta** hasta que se incorpore allí»*. Se implementó
+acá porque la regla es bloqueo duro y no puede quedar sin efecto esperando al documento — pero
+mientras el par no esté en la autoridad, esta comprobación es lo único que lo sostiene.
+
+### Lo que el expediente calcula
+
+**Los kilómetros bajo tenencia ajena no entran en la conciliación galonaje–kilometraje** (`RN-30`,
+`RN-63` punto 3): no hubo consumo nuestro contra esos kilómetros. Salen de las dos lecturas de
+odómetro, y son **nulos** mientras no haya acta de devolución: con una sola lectura no hay
+recorrido que medir.
+
+**La rotulación se reconstata al devolver.** La identificación del vehículo del Estado es
+hallazgo frecuente de auditoría, y uno que vuelve sin ella volvió distinto de como salió.
+
+**Los rubros sin pactar van nombrados**, no supuestos: un rubro sin pactar es el que aparece
+cuando llega la multa, con el vehículo ya devuelto.
+
+⚠️ **El préstamo no cambia el estado operativo del vehículo.** `RN-63` punto 1 manda pasarlo a un
+estado que no habilita asignación, con el circuito de reservas afectadas de `RN-60`. Es el mismo
+hueco que dejó M-12: las transiciones `W-xx` no están identificadas en código.
+
+⚠️ **`RN-63` punto 6 —el salvoconducto si la ventana comprende día inhábil— no está.** La regla
+exige el permiso de `RN-23` o la constancia de que el préstamo se limitó a días hábiles.
+
+⚠️ **El escalamiento diario por mora no notifica.** Los días de mora se calculan y se ven en la
+pantalla y en el saldo, pero `RN-63` punto 4 pide alerta con escalamiento, y no hay quién la
+emita: es el mismo pendiente de notificaciones que arrastran otras reglas.
+
+⚠️ **`motivo_de_prestamo` es texto validado, no catálogo** — `RN-63` lo declara configurable.
+Mismo estado que `causa_interrupcion` (insumo #96).
+
+---
+
 ## M-12 — Incidentes, siniestros y sanciones
 
 **RESUELTO el núcleo.** Era el módulo funcional entero más grande sin construir: once reglas de
@@ -733,11 +801,11 @@ Se pueden **declarar explícitamente** con motivo, que no es lo mismo que ignora
 endpoint nuevo que se olvidara de filtrar habría dejado el bloqueo sin efecto, o habría
 detenido el cierre por cualquier pendiente. Ahora **el filtro vive dentro de la regla**.
 
-✅ **El bloqueo del cierre ya dispara — a medias.** Era *«la consecuencia más importante de este
-turno y no está resuelta»*. Al construirse **M-12**, `RN-70` dejó de ser una fuente declarada y
-vacía: una interrupción sin desenlace ahora **impide producir el saldo de apertura**, verificado
-con un 409 contra la base de desarrollo. Falta `RN-63` (préstamos vencidos), que es la otra
-mitad. Ver [M-12](#m-12--incidentes-siniestros-y-sanciones).
+✅ **El bloqueo del cierre ya dispara, entero.** Era *«la consecuencia más importante de este
+turno y no está resuelta»*. Sus dos fuentes estuvieron declaradas y vacías durante varios turnos:
+**M-12** trajo las interrupciones sin desenlace y **`RN-63`** los préstamos vencidos. Las dos
+verificadas con un 409 contra la base de desarrollo. Las fuentes consultables del saldo pasaron
+de **5 de 10 a 8 de 10**.
 
 ✅ **`RN-96` ya corre esa comprobación.** El acta de cierre cuadra el inventario contra el saldo
 congelado renglón por renglón, y declara **el folio del saldo que cita** — nulo cuando no hay

@@ -3,6 +3,7 @@ using Sigti.Datos;
 using Sigti.Dominio.M01_Organizacion;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
 using Sigti.Dominio.M09_Combustible;
+using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M12_Incidentes;
 using Sigti.Dominio.M14_Auditoria;
 
@@ -18,15 +19,15 @@ namespace Sigti.Aplicacion.M14_Auditoria;
 /// aparecer en ninguna pantalla. <b>Nadie decidió abandonarlos: se abandonaron solos</b>»</i>.
 ///
 /// ── Y lo que este servicio NO puede contar todavía ──────────────────────────
-/// Tres de las diez fuentes que `RN-97` enumera no existen como registro: préstamos vencidos
-/// (`RN-63`), reclamos de peaje (`RN-92`) y bitácoras pendientes de digitación. <b>Se declaran
-/// igual, como fuentes no consultadas</b>, porque un saldo que las omite en silencio es el mismo
-/// abandono con formato de reporte.
+/// Dos de las diez fuentes que `RN-97` enumera no existen como registro: los reclamos de peaje
+/// (`RN-92`) y las bitácoras pendientes de digitación. <b>Se declaran igual, como fuentes no
+/// consultadas</b>, porque un saldo que las omite en silencio es el mismo abandono con formato de
+/// reporte.
 ///
-/// ── El bloqueo del cierre ya puede disparar, a medias ───────────────────────
+/// ── El bloqueo del cierre ya dispara, entero ────────────────────────────────
 /// `RN-97` punto 4 le da poder de bloqueo a dos fuentes: préstamos vencidos e interrupciones sin
-/// desenlace. <b>La segunda existe desde que M-12 se construyó</b>; la primera sigue esperando a
-/// `RN-63`, y hasta entonces la mitad del bloqueo sigue sin poder disparar.
+/// desenlace. Las dos estuvieron declaradas y vacías durante varios turnos —el bloqueo escrito y
+/// sin poder disparar—. <b>`RN-63` trajo la primera y M-12 la segunda.</b>
 /// </summary>
 public sealed class ServicioDeSaldoDeApertura(SigtiDbContext contexto)
 {
@@ -67,17 +68,13 @@ public sealed class ServicioDeSaldoDeApertura(SigtiDbContext contexto)
         fuentes.Add(new FuenteDelSaldo(
             TipoDeRenglon.ImputacionExternaNoResuelta, true, diferencias.Count));
 
-        // ── Las que la regla exige y el sistema todavía no puede contar ──────
-        // Van declaradas, no omitidas. `RN-97` describe exactamente lo que pasa cuando algo
-        // deja de aparecer en pantalla: se abandona solo.
-        fuentes.Add(new FuenteDelSaldo(TipoDeRenglon.PrestamoVencido, false, 0,
-            "`RN-63` no está construida: el expediente de préstamo del vehículo no existe como " +
-            "registro. ⚠️ `RN-97` punto 4 le da poder de BLOQUEO del cierre, así que ese " +
-            "bloqueo hoy no puede disparar."));
-
-        // ── Las dos que M-12 desbloqueó ─────────────────────────────────────
-        // `RN-97` punto 4 le da poder de BLOQUEO del cierre a las interrupciones sin desenlace.
-        // Hasta que M-12 existió no había de dónde sacarlas, y ese bloqueo no podía disparar.
+        // ── Las dos fuentes con poder de bloqueo, ya completas ──────────────
+        // `RN-97` punto 4 se lo da a los préstamos vencidos y a las interrupciones sin
+        // desenlace. Las dos estuvieron declaradas y vacías: el bloqueo escrito y sin poder
+        // disparar. `RN-63` trajo la primera y M-12 la segunda.
+        var prestamos = await PrestamosVencidosAsync(corte, cancelacion);
+        renglones.AddRange(prestamos);
+        fuentes.Add(new FuenteDelSaldo(TipoDeRenglon.PrestamoVencido, true, prestamos.Count));
         var interrupciones = await InterrupcionesSinDesenlaceAsync(corte, cancelacion);
         renglones.AddRange(interrupciones);
         fuentes.Add(new FuenteDelSaldo(
@@ -296,6 +293,46 @@ public sealed class ServicioDeSaldoDeApertura(SigtiDbContext contexto)
         }
 
         return renglones;
+    }
+
+    /// <summary>
+    /// `RN-63` — los préstamos vencidos al corte.
+    ///
+    /// ── La otra mitad del bloqueo del cierre ────────────────────────────────
+    /// <i>«Vencida la fecha de devolución comprometida, el préstamo alerta con escalamiento
+    /// diario y entra al reporte de auditoría con los días de mora. No puede cerrarse el período
+    /// con préstamos vencidos»</i>.
+    ///
+    /// La antigüedad se cuenta desde <b>la fecha comprometida</b>, no desde el inicio del
+    /// préstamo: lo que está vencido es la devolución, y un préstamo de tres años en plazo no
+    /// tiene mora.
+    /// </summary>
+    private async Task<IReadOnlyList<RenglonDelSaldo>> PrestamosVencidosAsync(
+        DateOnly corte, CancellationToken cancelacion)
+    {
+        var filas = await contexto.Prestamos
+            .Where(p => p.DevolucionComprometida < corte
+                && (p.DevolucionFecha == null || p.DevolucionFecha > corte))
+            .ToListAsync(cancelacion);
+
+        return
+        [
+            .. filas.Select(p => new RenglonDelSaldo(
+                TipoDeRenglon.PrestamoVencido,
+                p.Id.ToString(),
+                $"Vehículo prestado a {p.ReceptorPersona} ({p.ReceptorInstitucion}) por " +
+                $"{p.Motivo}, con acto {p.ActoFolio}",
+
+                // Desde la fecha comprometida: es la que venció.
+                p.DevolucionComprometida,
+
+                // El bien está fuera del alcance de la institución y depende de que otra parte
+                // lo devuelva — la misma causa que `RN-75` da a lo sustraído o retenido.
+                CausaDelRenglon.BienNoRecuperado,
+
+                p.Autoriza,
+                $"{(corte.DayNumber - p.DevolucionComprometida.DayNumber)} días de mora")),
+        ];
     }
 
     /// <summary>

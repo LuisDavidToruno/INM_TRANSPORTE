@@ -50,13 +50,24 @@ public class SaldoDeAperturaPruebas(BaseDePruebas baseDePruebas)
         Assert.Equal(10, fuentes.Count);
         Assert.False(inv.GetProperty("completo").GetBoolean());
 
-        var prestamos = fuentes.Single(f =>
-            f.GetProperty("tipo").GetString() == "PrestamoVencido");
+        // ── Las dos con poder de bloqueo YA se consultan ─────────────────────
+        // Estuvieron declaradas y vacías durante varios turnos, con el bloqueo del cierre
+        // escrito y sin poder disparar. `RN-63` trajo los préstamos vencidos y M-12 las
+        // interrupciones sin desenlace. **Esta prueba antes verificaba lo contrario**, y
+        // cambiarla es la forma de dejar constancia de que el hueco se cerró.
+        foreach (var tipo in new[] { "PrestamoVencido", "InterrupcionSinDesenlace" })
+            Assert.True(
+                fuentes.Single(f => f.GetProperty("tipo").GetString() == tipo)
+                    .GetProperty("sePudoConsultar").GetBoolean(),
+                $"La fuente {tipo} tiene poder de bloqueo del cierre y debe ser consultable.");
 
-        Assert.False(prestamos.GetProperty("sePudoConsultar").GetBoolean());
+        // ── Y las que siguen sin poder contarse van declaradas, no omitidas ──
+        // Un saldo que las omite en silencio es el abandono que la regla existe para impedir,
+        // con formato de reporte.
+        var peaje = fuentes.Single(f => f.GetProperty("tipo").GetString() == "ReclamoDePeaje");
 
-        // Y dice lo que más importa: que su bloqueo del cierre hoy no puede disparar.
-        Assert.Contains("no puede disparar", prestamos.GetProperty("porQueNo").GetString());
+        Assert.False(peaje.GetProperty("sePudoConsultar").GetBoolean());
+        Assert.Contains("`RN-92` no está construida", peaje.GetProperty("porQueNo").GetString());
     }
 
     [Fact]
