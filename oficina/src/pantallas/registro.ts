@@ -151,6 +151,20 @@ export const CONSTRUIDAS: Readonly<Record<string, Construida>> = {
   // siguiente bloque, mirando el inventario en vez de la lista de pendientes.
   'PT-003': { ruta: '/tareas', archivo: 'M01_Organizacion/Bandeja.tsx' },
 
+  // ── M-19 Seguimiento en Ruta ──────────────────────────────────────────────
+  //
+  // Sin cliente de campo todavía: los reportes entran por la API. Las dos pantallas ya
+  // muestran lo que llegue, y **declaran que no hay dato** cuando no lo hay — que es
+  // exactamente lo que `HU-057` pide que no se disimule.
+  'PT-058': {
+    ruta: '/seguimiento',
+    archivo: 'M19_Seguimiento/Tablero.tsx',
+    incompleta:
+      'Muestra la antigüedad de cada dato, pero no puede degradarlo: el umbral de ' +
+      'RN-50 no está fijado (insumo #68). El mapa lo aporta ARGOS — DP-001.',
+  },
+  'PT-059': { ruta: '/seguimiento/:id', archivo: 'M19_Seguimiento/EnRuta.tsx' },
+
   // ── M-14 Auditoría ────────────────────────────────────────────────────────
   'PT-088': {
     ruta: '/pista',

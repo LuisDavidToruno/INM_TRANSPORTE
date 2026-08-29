@@ -7,6 +7,7 @@ using Sigti.Datos.M11_Mantenimiento;
 using Sigti.Datos.M12_Incidentes;
 using Sigti.Datos.M14_Auditoria;
 using Sigti.Datos.M18_Peajes;
+using Sigti.Datos.M19_Seguimiento;
 using Sigti.Dominio.Bitacora;
 using Sigti.Dominio.M02_Parametros;
 using Sigti.Dominio.Organizacion;
@@ -124,6 +125,9 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     public DbSet<FilaDeMovimientoDeExistencias> MovimientosDeExistencias =>
         Set<FilaDeMovimientoDeExistencias>();
     public DbSet<FilaDeAbastecimiento> Abastecimientos => Set<FilaDeAbastecimiento>();
+
+    /// <summary>Lo que el motorista declara desde la ruta — M-19, `RN-76`.</summary>
+    public DbSet<FilaDeReporteDeCampo> ReportesDeCampo => Set<FilaDeReporteDeCampo>();
 
     /// <summary>
     /// ULID en binary(16) y no en texto: 16 bytes contra 26, y conserva la monotonía que
@@ -1452,6 +1456,32 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             abastecimiento.HasIndex(a => a.IdDeCaptura)
                 .IsUnique()
                 .HasFilter("[IdDeCaptura] IS NOT NULL");
+        });
+
+        modelo.Entity<FilaDeReporteDeCampo>(reporte =>
+        {
+            reporte.ToTable("ReporteDeCampo", schema: "seguimiento");
+
+            reporte.HasKey(r => r.Id);
+            reporte.Property(r => r.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            reporte.Property(r => r.MisionId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            reporte.Property(r => r.Tipo).HasConversion<string>().HasMaxLength(24).IsRequired();
+            reporte.Property(r => r.Estado).HasMaxLength(60);
+            reporte.Property(r => r.Destino).HasMaxLength(120);
+            reporte.Property(r => r.CausaDeEspera).HasMaxLength(120);
+            reporte.Property(r => r.SeAtribuyeA).HasMaxLength(120);
+            reporte.Property(r => r.Declara).HasMaxLength(64).IsRequired();
+
+            // Siete decimales son ~1 cm. Menos redondearia el punto a una manzana, y el dato
+            // se guarda justamente para poder decir DONDE estaba.
+            reporte.Property(r => r.Latitud).HasColumnType("decimal(9,7)");
+            reporte.Property(r => r.Longitud).HasColumnType("decimal(10,7)");
+
+            // La consulta del tablero y la del detalle son la misma: los reportes de una mision
+            // ORDENADOS POR LA HORA DEL HECHO. El indice lo dice explicito porque el orden no es
+            // una preferencia de presentacion: ordenar por captura produce estadias negativas
+            // cuando un dispositivo sube cuatro dias de golpe.
+            reporte.HasIndex(r => new { r.MisionId, r.MomentoDelHechoUtc });
         });
 
         modelo.Entity<FilaDePermisoDeCirculacion>(permiso =>

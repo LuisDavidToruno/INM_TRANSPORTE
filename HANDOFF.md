@@ -414,6 +414,98 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## Bloque 3 de las 63: el seguimiento en ruta (M-19)
+
+**`PT-058` y `PT-059`, con el módulo entero detrás**: no había `M19` en el dominio, ni
+grupo `/seguimiento` en la API, ni tabla. El requisito estaba completo en el título de la
+historia — *«mostrar la última posición conocida con su antigüedad, **nunca como si fuera
+actual**»* — y eso es lo que gobernó el diseño.
+
+### La antigüedad viaja con el dato, no la pone la pantalla
+
+«Última posición conocida hace 10 h 40 min» y «última posición conocida» llevan al Jefe de
+Transporte a decisiones distintas, y **la segunda afirma algo falso sin decir ninguna
+mentira**. Por eso `ReglasDeLaFrescura` está en el dominio y no en el componente: si el
+formato lo decidiera cada pantalla, tarde o temprano una lo omitiría.
+
+**Cinco grados, y tres de ellos son formas distintas de no tener el dato:**
+
+| Grado | Qué dice |
+|---|---|
+| `Fresco` | Dentro del umbral que la institución fijó |
+| `Degradado` | Fuera del umbral. **No es una alarma** — el silencio es lo esperado |
+| `NoSeClasifica` | Hay dato y no hay umbral. La antigüedad se muestra igual |
+| `RelojAdelantado` | El hecho está fechado en el futuro |
+| `NuncaHuboDato` | Ninguna declaración. **Distinto de una muy vieja** |
+
+⚠️ **La antigüedad negativa no se aplasta a cero.** `Math.Max(0, ahora - hecho)` es la salida
+cómoda y hace el peor daño posible: el dispositivo con el reloj roto aparecería como **el dato
+más fresco del tablero** — justo el menos confiable, presentado como el mejor.
+
+### Dos defectos que sólo aparecieron con datos reales
+
+⚠️ **El tablero filtraba por la fecha planificada de salida.** El filtro venía copiado del
+tablero del día de despacho, donde es correcto —aquel organiza el día por lo planificado—; acá
+la pregunta es otra: *«¿qué vehículos están afuera AHORA?»*, y eso lo dice el diario (`P-1`).
+La misión de prueba **tenía asiento `T-14`** y salida planificada para el 1 de septiembre: el
+vehículo estaba circulando y el tablero lo escondía. El corte que sí corresponde es haber
+salido alguna vez.
+
+⚠️ **El tablero decía «sin estado declarado» cuando el motorista sí había declarado.** Tomaba
+el último reporte por hora del hecho, y ése era un *arribo* —que no lleva estado—, aunque una
+hora antes se hubiera declarado «en espera». **Son dos preguntas y hacían falta dos datos:**
+
+| Pregunta | La contesta |
+|---|---|
+| ¿Cuándo supimos de él por última vez? | Cualquier reporte — un arribo es señal de vida |
+| ¿Qué es lo último que declaró? | Sólo un reporte que traiga estado, **con la hora de ése** |
+
+El detalle ya lo resolvía bien, así que las dos pantallas se contradecían. Y el efecto era
+exactamente lo que `RN-76` existe para impedir: **afirmar que el motorista no declaró**.
+
+### El tiempo en sitio se deriva, y dice cómo lo supo
+
+`RN-76` prohíbe pedirle al motorista que lo cronometre. Un tiempo digitado es un tiempo
+redondeado a la media hora, siempre a favor de quien lo digita, y no serviría para atribuirle
+un costo a nadie — que es para lo que se mide. Tres modos de cerrar una estadía:
+
+- `Declarada` — el motorista declaró la salida
+- `DerivadaDelSiguienteEvento` — no la declaró y se dedujo. **Va marcada**: un tiempo deducido
+  no puede leerse con la misma confianza que uno declarado
+- `SinCerrar` — sigue en el sitio. El reloj corre, pero la salida es nula
+
+Y una **salida sin arribo es un hueco visible**: rellenarla con la hora de la salida produciría
+una estadía de cero minutos que se leería como «no esperó nada», lo contrario de «no sabemos
+cuánto esperó».
+
+### Espera ≠ espera improductiva, y `null` ≠ productiva
+
+`EsImproductiva` es **`bool?`**. Nulo cuando no hay causa declarada, o cuando el catálogo no
+está poblado. Colapsarlo a falso reportaría **cero horas improductivas** cuando lo que pasa es
+que nadie las tipificó — la cifra más tranquilizadora posible, y falsa. Por eso `SinTipificar`
+va **siempre al lado del total**.
+
+`[C]` **Insumo #103**: cuáles causas cuentan como improductivas es decisión de la institución,
+no del equipo — la clasificación asigna responsabilidad a una dependencia.
+
+### Lo que el grupo NO hace
+
+**No infiere nada del silencio.** No cierra misiones por inactividad, no marca interrupciones,
+no deduce que un vehículo se detuvo, y **no hay ningún indicador de «en línea»** — `HU-057` lo
+prohíbe en un escenario aparte. Con la cobertura que hay en el país, un punto verde
+parpadeando convertiría la falta de señal en una alarma, y **las alarmas que suenan siempre se
+dejan de mirar**.
+
+El desfase entre el hecho y la captura tampoco es un error: **mide cuánto estuvo el
+dispositivo sin cobertura** (`RN-43`), y la pantalla lo dice cuando pasa de una hora. En la
+verificación en vivo los cinco hitos llegaron con 50 a 56 horas de desfase — el caso real.
+
+**1038 pruebas en verde** (51 nuevas), verificado contra la base con una misión de dos
+destinos: bloqueos de catálogo, de ventana, de `(0, 0)` y de destino faltante, los cuatro
+disparando con su mensaje.
+
+---
+
 ## Bloque 2 de las 63: la auditoría de `ACT-12` (M-14)
 
 **Cuatro pantallas: `PT-003`, `PT-088`, `PT-089` y `PT-092`.** La primera ya estaba construida

@@ -24,6 +24,8 @@ using Sigti.Dominio.M12_Incidentes;
 using Sigti.Dominio.M14_Auditoria;
 using Sigti.Dominio.M20_Integraciones;
 using Sigti.Dominio.M18_Peajes;
+using Sigti.Aplicacion.M19_Seguimiento;
+using Sigti.Dominio.M19_Seguimiento;
 using Sigti.Dominio.M01_Organizacion;
 using Sigti.Datos;
 using Sigti.Dominio.M02_Parametros;
@@ -79,6 +81,7 @@ constructor.Services.AddScoped<ServicioDeTitulos>();
 constructor.Services.AddScoped<ServicioDeCompetencias>();
 constructor.Services.AddScoped<ServicioDeTareas>();
 constructor.Services.AddScoped<ServicioDeSegregacion>();
+constructor.Services.AddScoped<ServicioDeSeguimiento>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -3158,6 +3161,177 @@ peajes.MapGet("/coherencia/{idMision}", async (
 });
 
 // ── `RN-83` punto 5 — el libro de existencias del tanque institucional ──────
+
+// ═══ M-19 Seguimiento en Ruta ═══════════════════════════════════════════════
+//
+// **Este grupo no infiere nada.** No cierra misiones por inactividad, no marca
+// interrupciones, no deduce que un vehiculo se detuvo. `RN-76` lo prohibe, y la razon es
+// operativa antes que normativa: el silencio es la condicion ESPERADA en buena parte del
+// pais, asi que toda inferencia sobre el seria falsa la mayoria de las veces.
+var seguimiento = app.MapGroup("/seguimiento");
+
+/// `PT-058` — el tablero, **con la antiguedad de cada dato a la vista**.
+///
+/// La antiguedad no es un adorno de la pantalla: viaja con el dato porque «ultima posicion
+/// conocida hace 10 h 40 min» y «ultima posicion conocida» llevan a decisiones distintas, y la
+/// segunda afirma algo falso sin decir ninguna mentira.
+seguimiento.MapGet("/", async (ServicioDeSeguimiento servicio) =>
+{
+    var tablero = await servicio.TableroAsync(DateTimeOffset.UtcNow);
+
+    return Results.Ok(new
+    {
+        ahora = tablero.Ahora,
+
+        // **Nulo cuando la institucion no fijo el umbral** — insumo #68. La pantalla lo dice
+        // en vez de mostrar un tablero que degrada segun un numero que nadie decidio.
+        umbralHoras = tablero.Umbral?.TotalHours,
+
+        misiones = tablero.Misiones.Select(m => new
+        {
+            mision = m.Mision,
+            folio = m.Folio,
+            dependencia = m.Dependencia,
+            destino = m.Destino,
+            objetoDelTraslado = m.ObjetoDelTraslado,
+            vehiculo = m.Vehiculo,
+            motorista = m.Motorista,
+            retorno = m.Retorno,
+
+            // Lo DECLARADO por el motorista, con LA HORA DE ESE REPORTE. Nulo es que no
+            // declaro nada, y no se rellena con nada calculado.
+            ultimoEstado = m.UltimoEstado,
+            declaradoEl = m.DeclaradoEl,
+
+            // La ultima senal de vida, del tipo que sea: sobre esta se mide la antiguedad.
+            ultimoHecho = m.UltimoHecho,
+
+            posicion = m.UltimaPosicion is { } pos
+                ? new { latitud = pos.Latitud, longitud = pos.Longitud, precisionMetros = pos.PrecisionMetros }
+                : null,
+
+            frescura = new
+            {
+                grado = m.Frescura.Grado.ToString(),
+                // Nula cuando nunca hubo dato, y NEGATIVA cuando el reloj del dispositivo va
+                // adelantado. Las dos se muestran como son.
+                minutos = m.Frescura.Antiguedad?.TotalMinutes,
+                porQue = m.Frescura.PorQue,
+            },
+        }),
+    });
+});
+
+/// `PT-059` — el detalle de la mision en ruta con sus hitos.
+seguimiento.MapGet("/{id}", async (string id, ServicioDeSeguimiento servicio) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    var d = await servicio.DetalleAsync(ulid, DateTimeOffset.UtcNow);
+
+    if (d is null)
+        return Results.NotFound(new { mensaje = $"No existe el expediente {id}." });
+
+    return Results.Ok(new
+    {
+        mision = d.Mision,
+        folio = d.Folio,
+        estado = d.Estado,
+        dependencia = d.Dependencia,
+        destino = d.Destino,
+        objetoDelTraslado = d.ObjetoDelTraslado,
+
+        ultimoEstadoDeclarado = d.UltimoEstadoDeclarado,
+        declaradoEl = d.DeclaradoEl,
+
+        frescura = new
+        {
+            grado = d.Frescura.Grado.ToString(),
+            minutos = d.Frescura.Antiguedad?.TotalMinutes,
+            porQue = d.Frescura.PorQue,
+        },
+
+        hitos = d.Hitos.Select(h => new
+        {
+            id = h.Id.ToString(),
+            tipo = h.Tipo.ToString(),
+            estado = h.Estado,
+            destino = h.Destino,
+            momentoDelHecho = h.MomentoDelHecho,
+            momentoDeCaptura = h.MomentoDeCaptura,
+
+            // El desfase NO es un error: mide cuanto estuvo el dispositivo sin cobertura
+            // (`RN-43`). Va como dato para que la pantalla pueda decirlo.
+            desfaseMinutos = ReglasDelSeguimiento.DesfaseDeCaptura(h).TotalMinutes,
+
+            posicion = h.Posicion is { } pos
+                ? new { latitud = pos.Latitud, longitud = pos.Longitud, precisionMetros = pos.PrecisionMetros }
+                : null,
+
+            causaDeEspera = h.CausaDeEspera,
+            seAtribuyeA = h.SeAtribuyeA,
+            motorEncendido = h.MotorEncendido,
+            declara = h.Declara.Valor,
+        }),
+
+        estadias = d.Estadias.Estadias.Select(e => new
+        {
+            destino = e.Destino,
+            arribo = e.Arribo,
+            // Nula mientras siga en el sitio: el reloj corre, pero no se da por cerrada.
+            salida = e.Salida,
+            como = e.Como.ToString(),
+            minutos = e.Duracion.TotalMinutes,
+            causa = e.Causa,
+            seAtribuyeA = e.SeAtribuyeA,
+            motorEncendido = e.MotorEncendido,
+            // **Nulo es «no se pudo clasificar»**, nunca falso.
+            esImproductiva = e.EsImproductiva,
+        }),
+
+        // Huecos visibles: una salida sin arribo no se rellena con una estadia de cero.
+        salidasSinArribo = d.Estadias.SalidasSinArribo.Select(x => new
+        {
+            destino = x.Destino,
+            momento = x.Momento,
+        }),
+
+        improductivoMinutos = d.Estadias.Improductivo.TotalMinutes,
+
+        // Van SIEMPRE al lado del total: «4 horas improductivas» y «4 horas improductivas,
+        // con 3 estadias sin tipificar» sostienen conclusiones distintas.
+        sinTipificar = d.Estadias.SinTipificar,
+        sinCatalogoDeCausas = d.Estadias.SinCatalogoDeCausas,
+    });
+});
+
+/// El ingreso del cliente de campo. **Acepta reportes atrasados**: se juzga contra el diario a
+/// la fecha del hecho, no contra el estado de hoy, porque un lote que sube cuatro dias tarde
+/// encuentra la mision ya liquidada y rechazarlo perderia justo lo que hay que conservar.
+seguimiento.MapPost("/{id}/reportes", async (
+    string id, ReporteEntrante cuerpo, ServicioDeSeguimiento servicio) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    if (!Enum.TryParse<TipoDeReporte>(cuerpo.Tipo, ignoreCase: true, out var tipo))
+        return Results.BadRequest(new
+        {
+            mensaje = $"«{cuerpo.Tipo}» no es un tipo de reporte. Los validos son: " +
+                      string.Join(", ", Enum.GetNames<TipoDeReporte>()) + ".",
+        });
+
+    var posicion = cuerpo is { Latitud: not null, Longitud: not null }
+        ? new Posicion(cuerpo.Latitud.Value, cuerpo.Longitud.Value, cuerpo.PrecisionMetros)
+        : (Posicion?)null;
+
+    var nuevo = await servicio.RegistrarAsync(
+        ulid, tipo, cuerpo.MomentoDelHecho, new IdPersona(cuerpo.Declara),
+        cuerpo.Estado, cuerpo.Destino, posicion,
+        cuerpo.CausaDeEspera, cuerpo.SeAtribuyeA, cuerpo.MotorEncendido);
+
+    return Results.Created($"/seguimiento/{id}", new { id = nuevo.ToString() });
+});
+
 var tanques = app.MapGroup("/tanques");
 
 tanques.MapGet("/", async (ServicioDeTanques servicio) =>
@@ -5133,3 +5307,18 @@ internal sealed record RegistrarTitulo(
     QuienAsume Peajes,
     QuienAsume Multas,
     QuienAsume Danios);
+
+/// Lo que sube el cliente de campo. <b>La posicion es opcional</b>: exigirla haria que el
+/// motorista no pudiera declarar su estado donde mas importa — donde no hay senal.
+public sealed record ReporteEntrante(
+    string Tipo,
+    DateTimeOffset MomentoDelHecho,
+    string Declara,
+    string? Estado = null,
+    string? Destino = null,
+    decimal? Latitud = null,
+    decimal? Longitud = null,
+    int? PrecisionMetros = null,
+    string? CausaDeEspera = null,
+    string? SeAtribuyeA = null,
+    bool? MotorEncendido = null);
