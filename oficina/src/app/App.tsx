@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive } from 'lucide-react';
+import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert } from 'lucide-react';
 
 import { Avisos, Nota, Shell, avisar } from '../ui';
 import type { GrupoNav, Miga } from '../ui';
@@ -23,6 +23,7 @@ import Peajes from '../modulos/M18_Peajes/Peajes';
 import Conciliacion from '../modulos/M14_Auditoria/Conciliacion';
 import SaldoDeAperturaPantalla from '../modulos/M14_Auditoria/SaldoDeApertura';
 import CierreDeEjercicioPantalla from '../modulos/M14_Auditoria/CierreDeEjercicio';
+import IncidentesPantalla from '../modulos/M12_Incidentes/Incidentes';
 import ColaDeCierre from '../modulos/M13_Cierre/Cola';
 import Cierre from '../modulos/M13_Cierre/Cierre';
 import { bandejaDeAutorizacion, origenDeDatos } from '../api/misiones';
@@ -122,6 +123,15 @@ function Interior(): ReactElement {
       ],
     },
     {
+      // M-12 va antes del cierre: el incidente abierto es lo que impide cerrar limpio, y quien
+      // liquida necesita verlo primero. `RN-70` y `RN-75` lo vuelven precondición del cierre,
+      // no contexto: una interrupción sin desenlace impide producir el saldo de apertura.
+      titulo: 'M-12 Incidentes',
+      items: [
+        { texto: 'Expedientes', icono: <TriangleAlert />, href: '/incidentes' },
+      ],
+    },
+    {
       titulo: 'M-13 Liquidación y cierre',
       items: [
         { texto: 'Cola de cierre', icono: <FileCheck2 />, href: '/cierre' },
@@ -175,6 +185,7 @@ function Interior(): ReactElement {
         <Route path="/conciliacion" element={<Conciliacion />} />
         <Route path="/saldo-de-apertura" element={<SaldoDeAperturaPantalla />} />
         <Route path="/cierre-de-ejercicio" element={<CierreDeEjercicioPantalla />} />
+        <Route path="/incidentes" element={<IncidentesPantalla />} />
         <Route path="/despacho" element={<Tablero />} />
         <Route path="/programacion" element={<Cola />} />
         
@@ -208,6 +219,7 @@ function migasDe(ruta: string): Miga[] {
   if (ruta === '/conciliacion') return ['Auditoría', 'Fuentes externas'];
   if (ruta === '/saldo-de-apertura') return ['Auditoría', 'Saldo de apertura'];
   if (ruta === '/cierre-de-ejercicio') return ['Auditoría', 'Cierre de ejercicio'];
+  if (ruta === '/incidentes') return ['Incidentes'];
   if (ruta.startsWith('/cierre/')) return [{ texto: 'Cierre', href: '/cierre' }, 'Expediente'];
   if (ruta === '/cierre') return ['Cierre'];
   if (ruta === '/sistema-diseno') return ["Sistema de diseño"];

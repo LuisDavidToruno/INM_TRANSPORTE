@@ -728,6 +728,16 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
             Persona = "P-AUDITORIA",
             Puesto = "PU-AUDITORIA",
             Momento = new DateTimeOffset(anio + 1, 1, 5, 9, 0, 0, TimeSpan.FromHours(-6)),
+
+            // ── Declarados, porque desde M-12 el bloqueo dispara ─────────────
+            // Esta prueba producía el saldo sin declarar nada, y pasaba porque las
+            // interrupciones sin desenlace no existían como registro. Al construirse M-12
+            // empezó a fallar **con razón**: `RN-97` punto 4 no deja cerrar el período con
+            // ellas vivas. Declararlas con motivo es lo que la regla prevé, y es además lo
+            // realista: en una institución siempre hay algo abierto al corte.
+            DeclaracionDeBloqueantes =
+                "Producido para verificar el cuadre contra el acta de cierre; los pendientes " +
+                "vivos al corte se declaran y siguen su curso.",
         });
 
         var vista = await VistaPrevia(cliente, anio);

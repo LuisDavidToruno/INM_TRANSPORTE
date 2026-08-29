@@ -13,8 +13,10 @@ using Sigti.Aplicacion.M09_Combustible;
 using Sigti.Dominio.M09_Combustible;
 using Sigti.Aplicacion.M18_Peajes;
 using Sigti.Datos.M18_Peajes;
+using Sigti.Aplicacion.M12_Incidentes;
 using Sigti.Aplicacion.M14_Auditoria;
 using Sigti.Datos.M14_Auditoria;
+using Sigti.Dominio.M12_Incidentes;
 using Sigti.Dominio.M14_Auditoria;
 using Sigti.Dominio.M20_Integraciones;
 using Sigti.Dominio.M18_Peajes;
@@ -66,6 +68,7 @@ constructor.Services.AddScoped<ServicioDeConciliacionExterna>();
 constructor.Services.AddScoped<ServicioDeHallazgosPosteriores>();
 constructor.Services.AddScoped<ServicioDeSaldoDeApertura>();
 constructor.Services.AddScoped<ServicioDeCierreDeEjercicio>();
+constructor.Services.AddScoped<ServicioDeIncidentes>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -290,6 +293,106 @@ static object ResumirRenglon(RenglonDelSaldo r, DateOnly corte) => new
 
     monto = r.Monto,
     impideCerrar = r.ImpideCerrarElPeriodo,
+};
+
+/// <summary>
+/// Un expediente de incidente — M-12.
+///
+/// ── No lleva un solo campo de responsabilidad ───────────────────────────────
+/// `RN-74`. Lo más cercano es <c>determinacion</c>, que es el <b>acto de otra instancia</b>
+/// adjuntado al expediente, con su número y su emisor.
+/// </summary>
+static object ResumirIncidente(ExpedienteDeIncidente i) => new
+{
+    id = i.Id.ToString(),
+    tipo = i.Tipo.ToString(),
+    causa = i.Causa,
+
+    // Las dos fechas, siempre (`RN-46`): `RN-70` admite captura sin conectividad, y un
+    // incidente capturado cinco días después no es un incidente de ese día.
+    fechaDelHecho = i.FechaDelHecho,
+    momentoDelHecho = i.MomentoDelHecho,
+    momentoDeCaptura = i.MomentoDeCaptura,
+    diasEntreElHechoYLaCaptura = i.DiasEntreElHechoYLaCaptura,
+
+    descripcion = i.Descripcion,
+    registra = i.Registra,
+    mision = i.MisionId?.ToString(),
+    vehiculo = i.VehiculoId?.ToString(),
+    ubicacion = i.Ubicacion,
+
+    // Nulo es **no leído**, no cero: un odómetro en cero sería una lectura falsa.
+    odometro = i.Odometro,
+
+    // `RN-70` — marca la misión como interrumpida y **no le cambia el estado**.
+    interrumpe = i.Interrumpe,
+    desenlace = i.Desenlace?.ToString(),
+    detalleDelDesenlace = i.DetalleDelDesenlace,
+
+    // La propiedad que le da poder de bloqueo al cierre del período (`RN-97` punto 4).
+    esInterrupcionSinDesenlace = i.EsInterrupcionSinDesenlace,
+
+    responsableDeSeguimiento = i.ResponsableDeSeguimiento,
+    plazo = i.Plazo,
+
+    constancia = i.Constancia is null ? null : new
+    {
+        numero = i.Constancia.Numero,
+        autoridad = i.Constancia.AutoridadReceptora,
+        fecha = i.Constancia.Fecha,
+    },
+
+    // Su ausencia no impide registrar el evento, pero genera obligación con plazo (`RN-75`).
+    debeConstancia = i.DebeConstancia,
+
+    // `RN-75` — el bien permanece en el registro hasta su recuperación o su descargo formal.
+    bienes = i.Bienes.Select(b => new
+    {
+        id = b.Id.ToString(),
+        descripcion = b.Descripcion,
+        esElVehiculo = b.EsElVehiculo,
+        estado = b.Estado.ToString(),
+        fechaDelHecho = b.FechaDelHecho,
+        diasFuera = b.DiasFuera(DateOnly.FromDateTime(DateTime.UtcNow)),
+        ubicacionConocida = b.UbicacionConocida,
+        autoridadCustodia = b.AutoridadCustodia,
+        numeroDeExpedienteExterno = b.NumeroDeExpedienteExterno,
+        descargo = b.Descargo is null ? null : new
+        {
+            numero = b.Descargo.Numero,
+            autoridad = b.Descargo.Autoridad,
+            fecha = b.Descargo.Fecha,
+        },
+    }),
+
+    gestiones = i.Gestiones.Select(g => new
+    {
+        fecha = g.Fecha,
+        descripcion = g.Descripcion,
+        responsable = g.Responsable,
+        plazo = g.Plazo,
+    }),
+
+    // **El acto de otra instancia**, no un campo que alguien llenó (`RN-74`).
+    determinacion = i.Determinacion is null ? null : new
+    {
+        numero = i.Determinacion.Numero,
+        instancia = i.Determinacion.InstanciaQueLaEmite,
+        fecha = i.Determinacion.Fecha,
+        resolucion = i.Determinacion.Resolucion,
+    },
+
+    movimientos = i.Movimientos.Select(m => new
+    {
+        movimiento = m.Movimiento,
+        momento = m.Momento,
+        ejecuta = m.Ejecuta,
+        detalle = m.Detalle,
+    }),
+
+    resueltoEn = i.ResueltoEn,
+    comoSeResolvio = i.ComoSeResolvio,
+    estaAbierto = i.EstaAbierto,
 };
 
 /// <summary>
@@ -1285,6 +1388,155 @@ saldos.MapPost("/renglones/{id}/resolver", async (
 {
     await servicio.ResolverRenglonAsync(
         Ulid.Parse(id), peticion.ComoSeResolvio, peticion.Fecha);
+
+    return Results.Ok(new { resuelto = true });
+});
+
+// ── M-12 · Incidentes, siniestros y sanciones ───────────────────────────────
+//
+// **Ninguna ruta de acá captura responsabilidad.** `RN-74`: la responsabilidad se determina en
+// el expediente, por la instancia que corresponde. Lo más cerca es
+// `POST /incidentes/{id}/determinacion`, que adjunta el acto de OTRA instancia con su número y
+// su emisor — SIGTI lo registra, no lo produce.
+var incidentes = app.MapGroup("/incidentes");
+
+/// `I-01` — registrar el hecho. Abre expediente con responsable de seguimiento y plazo.
+incidentes.MapPost("/", async (RegistrarIncidente peticion, ServicioDeIncidentes servicio) =>
+{
+    var id = await servicio.RegistrarAsync(
+        Ulid.Parse(peticion.Id),
+        peticion.Tipo,
+        peticion.Causa,
+        peticion.MomentoDelHecho,
+        peticion.MomentoDeCaptura,
+        peticion.Descripcion,
+        peticion.Registra,
+        peticion.ResponsableDeSeguimiento,
+        peticion.Plazo,
+        peticion.Interrumpe,
+        peticion.IdMision is null ? null : Ulid.Parse(peticion.IdMision),
+        peticion.IdVehiculo is null ? null : Ulid.Parse(peticion.IdVehiculo),
+        peticion.Ubicacion,
+        peticion.Odometro,
+        [.. (peticion.Bienes ?? []).Select(b => (b.Descripcion, b.EsElVehiculo))]);
+
+    return Results.Created($"/incidentes/{id}", new { id = id.ToString() });
+});
+
+incidentes.MapGet("/", async (ServicioDeIncidentes servicio) =>
+    Results.Ok((await servicio.TodosAsync()).Select(ResumirIncidente)));
+
+incidentes.MapGet("/{id}", async (string id, ServicioDeIncidentes servicio) =>
+    await servicio.BuscarAsync(Ulid.Parse(id)) is { } expediente
+        ? Results.Ok(ResumirIncidente(expediente))
+        : Results.NotFound());
+
+/// Las interrupciones sin desenlace al corte — `RN-70`, la fuente que le da poder de bloqueo al
+/// cierre del período (`RN-97` punto 4) y que hasta M-12 no podía disparar.
+incidentes.MapGet("/interrupciones-sin-desenlace/{corte}", async (
+    string corte, ServicioDeIncidentes servicio) =>
+    Results.Ok((await servicio.InterrupcionesSinDesenlaceAsync(DateOnly.Parse(corte)))
+        .Select(ResumirIncidente)));
+
+/// Los bienes que siguen fuera del alcance de la institución — `RN-75`.
+incidentes.MapGet("/bienes-no-recuperados", async (ServicioDeIncidentes servicio) =>
+{
+    var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+
+    return Results.Ok((await servicio.BienesNoRecuperadosAsync()).Select(x => new
+    {
+        incidente = x.Expediente.Id.ToString(),
+        tipo = x.Expediente.Tipo.ToString(),
+        responsable = x.Expediente.ResponsableDeSeguimiento,
+        bien = x.Bien.Id.ToString(),
+        descripcion = x.Bien.Descripcion,
+        esElVehiculo = x.Bien.EsElVehiculo,
+        fechaDelHecho = x.Bien.FechaDelHecho,
+
+        // Desde el hecho, como toda antigüedad de este sistema: un bien que lleva tres años
+        // sustraído no se presenta como reciente.
+        diasFuera = x.Bien.DiasFuera(hoy),
+
+        ubicacionConocida = x.Bien.UbicacionConocida,
+        autoridadCustodia = x.Bien.AutoridadCustodia,
+        numeroDeExpedienteExterno = x.Bien.NumeroDeExpedienteExterno,
+    }));
+});
+
+incidentes.MapPost("/{id}/constancia", async (
+    string id, AdjuntarConstancia peticion, ServicioDeIncidentes servicio) =>
+{
+    await servicio.AdjuntarConstanciaAsync(
+        Ulid.Parse(id),
+        new ConstanciaAnteAutoridad(peticion.Numero, peticion.Autoridad, peticion.Fecha),
+        peticion.Ejecuta, peticion.Momento);
+
+    return Results.Ok(new { adjuntada = true });
+});
+
+/// `I-03` — el desenlace de la interrupción. **No le cambia el estado a la misión** (`RN-70`).
+incidentes.MapPost("/{id}/desenlace", async (
+    string id, RegistrarDesenlace peticion, ServicioDeIncidentes servicio) =>
+{
+    await servicio.RegistrarDesenlaceAsync(
+        Ulid.Parse(id), peticion.Desenlace, peticion.Detalle, peticion.Ejecuta, peticion.Momento);
+
+    return Results.Ok(new { resuelta = true });
+});
+
+incidentes.MapPost("/{id}/gestiones", async (
+    string id, RegistrarGestion peticion, ServicioDeIncidentes servicio) =>
+{
+    await servicio.RegistrarGestionAsync(
+        Ulid.Parse(id),
+        new GestionDeRecuperacion(
+            peticion.Fecha, peticion.Descripcion, peticion.Responsable, peticion.Plazo),
+        peticion.Ejecuta, peticion.Momento);
+
+    return Results.Ok(new { registrada = true });
+});
+
+incidentes.MapPost("/{id}/bienes/{bien}/recuperar", async (
+    string id, string bien, RecuperarBien peticion, ServicioDeIncidentes servicio) =>
+{
+    await servicio.RecuperarBienAsync(
+        Ulid.Parse(id), Ulid.Parse(bien), peticion.Ejecuta, peticion.Momento, peticion.Donde);
+
+    return Results.Ok(new { recuperado = true });
+});
+
+/// `I-06` — el descargo formal, la única salida del registro que no es la recuperación.
+incidentes.MapPost("/{id}/bienes/{bien}/descargar", async (
+    string id, string bien, DescargarBien peticion, ServicioDeIncidentes servicio) =>
+{
+    await servicio.DescargarBienAsync(
+        Ulid.Parse(id), Ulid.Parse(bien),
+        new ConstanciaDeDescargo(peticion.Numero, peticion.Autoridad, peticion.Fecha),
+        peticion.Ejecuta, peticion.Momento);
+
+    return Results.Ok(new { descargado = true });
+});
+
+/// `I-07` — adjuntar el acto de determinación de responsabilidad de la instancia competente.
+/// **SIGTI lo registra; no lo produce** (`RN-74`).
+incidentes.MapPost("/{id}/determinacion", async (
+    string id, AdjuntarDeterminacion peticion, ServicioDeIncidentes servicio) =>
+{
+    await servicio.AdjuntarDeterminacionAsync(
+        Ulid.Parse(id),
+        new DeterminacionDeResponsabilidad(
+            peticion.Numero, peticion.Instancia, peticion.Fecha, peticion.Resolucion),
+        peticion.Ejecuta, peticion.Momento);
+
+    return Results.Ok(new { adjuntada = true });
+});
+
+incidentes.MapPost("/{id}/resolver", async (
+    string id, ResolverIncidente peticion, ServicioDeIncidentes servicio) =>
+{
+    await servicio.ResolverAsync(
+        Ulid.Parse(id), peticion.ComoSeResolvio, peticion.Fecha, peticion.Ejecuta,
+        peticion.Momento, peticion.DeclaracionDeBienes);
 
     return Results.Ok(new { resuelto = true });
 });
@@ -3458,3 +3710,67 @@ internal sealed record ProducirActaDeCierre(
 /// El motivo es lo que distingue el acta de anulación de un borrado en bloque.
 /// </summary>
 internal sealed record AnularFolios(string Persona, string Motivo, DateTimeOffset Momento);
+
+// ── M-12 · Incidentes ───────────────────────────────────────────────────────
+//
+// **Ninguno de estos contratos tiene un campo de responsabilidad, culpa o dolo.** `RN-74`: el
+// formulario de campo captura hechos observables, y la responsabilidad la determina la instancia
+// competente en su propio acto.
+
+/// <param name="Interrumpe">
+/// Si impidió continuar la misión. Lo declara quien registra: una avería leve no interrumpe y
+/// una que dejó el vehículo en la carretera sí.
+/// </param>
+internal sealed record RegistrarIncidente(
+    string Id,
+    TipoDeIncidente Tipo,
+    /// <summary>Del catálogo `causa_interrupcion`, configurable según `RN-70`.</summary>
+    string Causa,
+    /// <summary>Cuándo pasó.</summary>
+    DateTimeOffset MomentoDelHecho,
+    /// <summary>Cuándo se capturó. `RN-70` admite captura sin ninguna conectividad.</summary>
+    DateTimeOffset MomentoDeCaptura,
+    string Descripcion,
+    string Registra,
+    string ResponsableDeSeguimiento,
+    DateOnly Plazo,
+    bool Interrumpe,
+    string? IdMision,
+    string? IdVehiculo,
+    string? Ubicacion,
+    int? Odometro,
+    IReadOnlyList<BienDelIncidente>? Bienes);
+
+internal sealed record BienDelIncidente(string Descripcion, bool EsElVehiculo);
+
+internal sealed record AdjuntarConstancia(
+    string Numero, string Autoridad, DateOnly Fecha, string Ejecuta, DateTimeOffset Momento);
+
+internal sealed record RegistrarDesenlace(
+    DesenlaceDeLaInterrupcion Desenlace,
+    /// <summary>Quién lo autorizó y contra qué acto. `RN-70` lo exige en los cuatro desenlaces.</summary>
+    string Detalle,
+    string Ejecuta,
+    DateTimeOffset Momento);
+
+internal sealed record RegistrarGestion(
+    DateOnly Fecha, string Descripcion, string Responsable, DateOnly Plazo,
+    string Ejecuta, DateTimeOffset Momento);
+
+internal sealed record RecuperarBien(string Donde, string Ejecuta, DateTimeOffset Momento);
+
+internal sealed record DescargarBien(
+    string Numero, string Autoridad, DateOnly Fecha, string Ejecuta, DateTimeOffset Momento);
+
+/// <summary>El acto de OTRA instancia. SIGTI lo registra, no lo produce (`RN-74`).</summary>
+internal sealed record AdjuntarDeterminacion(
+    string Numero, string Instancia, DateOnly Fecha, string Resolucion,
+    string Ejecuta, DateTimeOffset Momento);
+
+internal sealed record ResolverIncidente(
+    string ComoSeResolvio,
+    DateOnly Fecha,
+    string Ejecuta,
+    DateTimeOffset Momento,
+    /// <summary>Por qué se cierra con bienes todavía afuera — `RN-75`.</summary>
+    string? DeclaracionDeBienes);

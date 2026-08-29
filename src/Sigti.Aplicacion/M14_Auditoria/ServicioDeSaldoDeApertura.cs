@@ -3,6 +3,7 @@ using Sigti.Datos;
 using Sigti.Dominio.M01_Organizacion;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
 using Sigti.Dominio.M09_Combustible;
+using Sigti.Dominio.M12_Incidentes;
 using Sigti.Dominio.M14_Auditoria;
 
 namespace Sigti.Aplicacion.M14_Auditoria;
@@ -17,13 +18,15 @@ namespace Sigti.Aplicacion.M14_Auditoria;
 /// aparecer en ninguna pantalla. <b>Nadie decidió abandonarlos: se abandonaron solos</b>»</i>.
 ///
 /// ── Y lo que este servicio NO puede contar todavía ──────────────────────────
-/// Cuatro de las diez fuentes que `RN-97` enumera no existen como registro: préstamos vencidos
-/// (`RN-63`), interrupciones sin desenlace (`RN-70`), reclamos de peaje (`RN-92`) y expedientes
-/// de M-12. <b>Se declaran igual, como fuentes no consultadas</b>, porque un saldo que las omite
-/// en silencio es el mismo abandono con formato de reporte.
+/// Tres de las diez fuentes que `RN-97` enumera no existen como registro: préstamos vencidos
+/// (`RN-63`), reclamos de peaje (`RN-92`) y bitácoras pendientes de digitación. <b>Se declaran
+/// igual, como fuentes no consultadas</b>, porque un saldo que las omite en silencio es el mismo
+/// abandono con formato de reporte.
 ///
-/// Las dos primeras además <b>bloquean el cierre del período</b> (`RN-97` punto 4), así que ese
-/// bloqueo <b>hoy no puede disparar</b> — y el documento lo dice.
+/// ── El bloqueo del cierre ya puede disparar, a medias ───────────────────────
+/// `RN-97` punto 4 le da poder de bloqueo a dos fuentes: préstamos vencidos e interrupciones sin
+/// desenlace. <b>La segunda existe desde que M-12 se construyó</b>; la primera sigue esperando a
+/// `RN-63`, y hasta entonces la mitad del bloqueo sigue sin poder disparar.
 /// </summary>
 public sealed class ServicioDeSaldoDeApertura(SigtiDbContext contexto)
 {
@@ -72,17 +75,22 @@ public sealed class ServicioDeSaldoDeApertura(SigtiDbContext contexto)
             "registro. ⚠️ `RN-97` punto 4 le da poder de BLOQUEO del cierre, así que ese " +
             "bloqueo hoy no puede disparar."));
 
-        fuentes.Add(new FuenteDelSaldo(TipoDeRenglon.InterrupcionSinDesenlace, false, 0,
-            "`RN-70` no está construida: la interrupción en ruta con desenlace obligatorio no " +
-            "se registra. ⚠️ También bloquea el cierre según `RN-97` punto 4, y tampoco puede " +
-            "disparar."));
+        // ── Las dos que M-12 desbloqueó ─────────────────────────────────────
+        // `RN-97` punto 4 le da poder de BLOQUEO del cierre a las interrupciones sin desenlace.
+        // Hasta que M-12 existió no había de dónde sacarlas, y ese bloqueo no podía disparar.
+        var interrupciones = await InterrupcionesSinDesenlaceAsync(corte, cancelacion);
+        renglones.AddRange(interrupciones);
+        fuentes.Add(new FuenteDelSaldo(
+            TipoDeRenglon.InterrupcionSinDesenlace, true, interrupciones.Count));
+
+        var incidentes = await IncidentesAbiertosAsync(corte, cancelacion);
+        renglones.AddRange(incidentes);
+        fuentes.Add(new FuenteDelSaldo(
+            TipoDeRenglon.ExpedienteDeIncidente, true, incidentes.Count));
 
         fuentes.Add(new FuenteDelSaldo(TipoDeRenglon.ReclamoDePeaje, false, 0,
             "`RN-92` no está construida: las discrepancias de clasificación se detectan " +
             "(`RN-36`) pero el expediente de reclamo ante la SAPP no existe."));
-
-        fuentes.Add(new FuenteDelSaldo(TipoDeRenglon.ExpedienteDeIncidente, false, 0,
-            "M-12 no está construido: no hay expedientes de incidente, siniestro ni sanción."));
 
         fuentes.Add(new FuenteDelSaldo(TipoDeRenglon.BitacoraPendienteDeDigitacion, false, 0,
             "No hay forma de distinguir una bitácora que nunca se digitó de una misión que " +
@@ -288,6 +296,79 @@ public sealed class ServicioDeSaldoDeApertura(SigtiDbContext contexto)
         }
 
         return renglones;
+    }
+
+    /// <summary>
+    /// `RN-70` — las interrupciones en ruta sin desenlace, abiertas al corte.
+    ///
+    /// ── La fuente que le da poder de bloqueo al cierre ──────────────────────
+    /// `RN-70`: <i>«ninguna misión con marca de interrupción sin desenlace puede quedar viva al
+    /// cierre del período»</i>. `RN-97` punto 4 la usa para bloquear, y hasta que M-12 existió
+    /// esta consulta devolvía la nada — con el bloqueo declarado y sin poder disparar.
+    /// </summary>
+    private async Task<IReadOnlyList<RenglonDelSaldo>> InterrupcionesSinDesenlaceAsync(
+        DateOnly corte, CancellationToken cancelacion)
+    {
+        var filas = await contexto.Incidentes
+            .Where(i => i.Interrumpe
+                && i.Desenlace == null
+                && i.FechaDelHecho <= corte
+                && (i.ResueltoEn == null || i.ResueltoEn > corte))
+            .ToListAsync(cancelacion);
+
+        return
+        [
+            .. filas.Select(i => new RenglonDelSaldo(
+                TipoDeRenglon.InterrupcionSinDesenlace,
+                i.Id.ToString(),
+                $"{i.Tipo} en ruta sin desenlace: {i.Causa}",
+
+                // Desde el hecho, no desde la captura ni desde el corte. Es la disciplina de
+                // `RN-97` punto 3: la antigüedad no se reinicia.
+                i.FechaDelHecho,
+                CausaDelRenglon.PendienteDeGestionInterna,
+                i.ResponsableDeSeguimiento,
+                "Sin desenlace")),
+        ];
+    }
+
+    /// <summary>
+    /// M-12 — los expedientes de incidente abiertos al corte.
+    ///
+    /// <b>Sin las interrupciones sin desenlace</b>, que van por su propia fuente: contarlas dos
+    /// veces inflaría el inventario que `RN-96` punto 2 manda cuadrar renglón por renglón.
+    /// </summary>
+    private async Task<IReadOnlyList<RenglonDelSaldo>> IncidentesAbiertosAsync(
+        DateOnly corte, CancellationToken cancelacion)
+    {
+        var filas = await contexto.Incidentes
+            .Include(i => i.Bienes)
+            .Where(i => i.ResueltoEn == null
+                && i.FechaDelHecho <= corte
+                && !(i.Interrumpe && i.Desenlace == null))
+            .ToListAsync(cancelacion);
+
+        return
+        [
+            .. filas.Select(i => new RenglonDelSaldo(
+                TipoDeRenglon.ExpedienteDeIncidente,
+                i.Id.ToString(),
+                $"{i.Tipo}: {i.Causa}" +
+                    (i.Bienes.Any(b => b.Estado == EstadoDelBien.NoRecuperado)
+                        ? $" · {i.Bienes.Count(b => b.Estado == EstadoDelBien.NoRecuperado)} " +
+                          "bien(es) sin recuperar"
+                        : ""),
+                i.FechaDelHecho,
+
+                // `RN-75` — el bien sustraído o retenido tiene su propia causa en el saldo, y
+                // no es «pendiente de gestión»: permanece hasta su recuperación o su descargo.
+                i.Bienes.Any(b => b.Estado == EstadoDelBien.NoRecuperado)
+                    ? CausaDelRenglon.BienNoRecuperado
+                    : CausaDelRenglon.PendienteDeGestionInterna,
+
+                i.ResponsableDeSeguimiento,
+                "Abierto")),
+        ];
     }
 
     private async Task<IReadOnlyList<RenglonDelSaldo>> HallazgosAbiertosAsync(

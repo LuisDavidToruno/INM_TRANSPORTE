@@ -1,6 +1,6 @@
 # Estado del trabajo
 
-**Última actualización: 2026-08-28.**
+**Última actualización: 2026-08-29.**
 
 Punto único de entrada para saber en qué va el proyecto. Si algo figura acá como abierto, está abierto; si se cierra, se saca de la lista el mismo día.
 
@@ -405,6 +405,101 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## M-12 — Incidentes, siniestros y sanciones
+
+**RESUELTO el núcleo.** Era el módulo funcional entero más grande sin construir: once reglas de
+negocio escritas y cero líneas de código. Se construyeron las tres que lo definen — `RN-70`,
+`RN-74` y `RN-75` — con su expediente, su diario `I-01`..`I-08`, sus bienes y sus gestiones.
+
+### El bloqueo del cierre por fin dispara
+
+**Es lo que este módulo paga.** `RN-97` punto 4 le da poder de bloqueo del cierre del período a
+dos fuentes, y el saldo de apertura las declaraba *«no consultables»* porque no existían como
+registro: el bloqueo estaba escrito y no podía disparar.
+
+Medido contra la base de desarrollo, con una sustracción sembrada:
+
+| | Antes de M-12 | Después |
+|---|---|---|
+| Fuentes consultables del saldo | 5 de 10 | **7 de 10** |
+| Producir el saldo con una interrupción viva | 201 | **409** |
+
+Y el circuito completo cierra: registrar el desenlace desde la pantalla levanta la marca, y el
+saldo se produce. **Pero el expediente sigue en el inventario** con causa `BienNoRecuperado`,
+porque `RN-75` conserva los bienes hasta su recuperación o su descargo. Las dos reglas actuando
+juntas.
+
+### `RN-74` — el módulo que no pregunta de quién fue la culpa
+
+No hay **un solo campo** de responsabilidad, culpa o dolo: ni en el dominio, ni en la fila, ni en
+el contrato de la API, ni en la pantalla. La regla explica por qué: *«un motorista que acaba de
+tener un accidente, a la orilla de la carretera, con un tercero gritándole, no está en
+condiciones de calificar jurídicamente lo que pasó — y no le corresponde»*.
+
+Y el argumento que decide: *«si registrar el hecho implica autoinculparse, **el hecho no se
+registra**. Y un accidente no registrado es peor que cualquier atribución mal hecha»*.
+
+Lo más cerca que el módulo llega es `I-07`, que **adjunta el acto de otra instancia** con su
+número y su emisor. Sin los dos, bloquea: sin ellos no es un acto, es una atribución hecha por
+quien no tiene competencia. Y no se puede reemplazar — un acto posterior que lo revoque se
+adjunta como hecho nuevo (`RN-42`).
+
+### `RN-70` — la interrupción marca y no cambia el estado
+
+*«El evento marca la misión como interrumpida y **no le cambia el estado**. La Orden de Misión
+sigue `EN_RUTA`: el vehículo salió y hubo consumo real de recursos públicos»*. Ningún método del
+servicio toca la máquina de estados de la misión.
+
+El desenlace se registra **una sola vez y con constancia**: los cuatro tipos de la regla, ni uno
+más. Un quinto «otro» dejaría la mitad de las interrupciones resueltas sin decir cómo.
+
+**`Interrumpe` lo declara quien registra**, no se deduce del tipo: una avería leve que se
+resolvió en la orilla no interrumpió, y una que dejó el vehículo en la carretera sí. Deducirlo
+exigiría desenlace a expedientes que no lo necesitan.
+
+### `RN-75` — el bien no sale del registro
+
+*«Permanece en el registro patrimonial hasta su recuperación o su descargo formal. **Nunca se
+elimina**»*. Las dos salidas son cambios de estado, no bajas, y el descargo exige **acto formal**
+con número y autoridad: sin él sería una baja sin respaldo sobre un bien del Estado (`NRM-02`).
+
+Cerrar el expediente con bienes afuera **no se puede sin declararlo**. Declararlo queda escrito;
+ignorarlos los haría desaparecer de la vista sin que la recuperación ni el descargo hubieran
+ocurrido — el mismo abandono silencioso que `RN-97` persigue.
+
+**La custodia se exige donde se sabe.** De una retención por autoridad se conoce quién tiene el
+bien y bajo qué expediente —el acta lo dice— y no declararlo bloquea. De una **sustracción puede
+no saberse nada**, y exigir la ubicación impediría registrar el robo: el peor resultado posible.
+
+### Una prueba que empezó a fallar con razón
+
+`El_acta_declara_el_saldo_que_cita_y_sus_diferencias` producía el saldo sin declarar bloqueantes,
+y pasaba **porque las interrupciones no existían**. Al construirse M-12 empezó a fallar con un
+409 legítimo. El arreglo fue declararlos con motivo, que es lo que `RN-97` punto 4 prevé — y es
+además lo realista: en una institución siempre hay algo abierto al corte.
+
+⚠️ **`causa_interrupcion` es texto validado, no catálogo.** `RN-70` lo declara configurable y la
+institución no ha declarado sus causas. Cablear una lista obligaría a un despliegue cada vez que
+aparezca una que nadie previó. Mismo estado que `tipo_de_hallazgo_posterior` de `RN-93`.
+
+⚠️ **El incidente no cambia el estado operativo del vehículo.** `RN-70` punto 3 y `RN-75` punto 3
+mandan pasarlo a `NO_DISPONIBLE` **desde la hora del hecho**, por `W-07` o `W-08`. El estado
+operativo existe (`M03_Flota`) pero las transiciones `W-xx` no están identificadas en código, y
+acoplarlo a ciegas movería flota sin la precondición que la máquina de estados exige.
+
+⚠️ **Falta el circuito de folios a bordo.** `RN-75` manda pasarlos a `SUSTRAIDO` —distinto de
+anulado—, que su verificación por QR responda eso, y que todo uso posterior sea alerta
+automática. Hoy los bienes se registran a mano; **la lista no se produce desde la asignación**.
+
+⚠️ **`RN-63` sigue sin construir**, y es la otra mitad del bloqueo del cierre. Es la fuente
+`PrestamoVencido`, la única que queda con poder de bloqueo declarado y sin poder disparar.
+
+⚠️ **Ocho de las once reglas de M-12 ya estaban.** `RN-43`, `RN-66`, `RN-69`, `RN-86`, `RN-93`,
+`RN-95` y `RN-97` se construyeron en turnos anteriores desde otros módulos. Lo que faltaba era el
+expediente mismo, que es lo que se hizo.
+
+---
+
 ### `RN-96` — el cierre de ejercicio como corte de imputación
 
 **RESUELTA.** Y lo que se construyó es, sobre todo, **lo que el cierre no hace**: *«no ejecuta
@@ -638,10 +733,11 @@ Se pueden **declarar explícitamente** con motivo, que no es lo mismo que ignora
 endpoint nuevo que se olvidara de filtrar habría dejado el bloqueo sin efecto, o habría
 detenido el cierre por cualquier pendiente. Ahora **el filtro vive dentro de la regla**.
 
-⚠️ **El bloqueo del cierre hoy no puede disparar.** Sus dos fuentes —`RN-63` y `RN-70`— no
-existen como registro. El sistema lo dice en el documento y en la pantalla: *«2 de ellas
-deberían impedir cerrar el período — así que ese bloqueo hoy no puede disparar»*. **Es la
-consecuencia más importante de este turno y no está resuelta.**
+✅ **El bloqueo del cierre ya dispara — a medias.** Era *«la consecuencia más importante de este
+turno y no está resuelta»*. Al construirse **M-12**, `RN-70` dejó de ser una fuente declarada y
+vacía: una interrupción sin desenlace ahora **impide producir el saldo de apertura**, verificado
+con un 409 contra la base de desarrollo. Falta `RN-63` (préstamos vencidos), que es la otra
+mitad. Ver [M-12](#m-12--incidentes-siniestros-y-sanciones).
 
 ✅ **`RN-96` ya corre esa comprobación.** El acta de cierre cuadra el inventario contra el saldo
 congelado renglón por renglón, y declara **el folio del saldo que cita** — nulo cuando no hay

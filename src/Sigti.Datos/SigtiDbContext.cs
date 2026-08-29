@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Sigti.Datos.M07_ProgramacionYDespacho;
 using Sigti.Datos.M09_Combustible;
+using Sigti.Datos.M12_Incidentes;
 using Sigti.Datos.M14_Auditoria;
 using Sigti.Datos.M18_Peajes;
 using Sigti.Dominio.Bitacora;
@@ -72,6 +73,8 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     public DbSet<FilaDeSaldo> SaldosDeApertura => Set<FilaDeSaldo>();
 
     public DbSet<FilaDeActaDeCierre> ActasDeCierre => Set<FilaDeActaDeCierre>();
+
+    public DbSet<FilaDeIncidente> Incidentes => Set<FilaDeIncidente>();
 
     public DbSet<FilaDeMovimientoDeExistencias> MovimientosDeExistencias =>
         Set<FilaDeMovimientoDeExistencias>();
@@ -750,6 +753,113 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             // **Un vale una sola vez por acta.** Listarlo dos veces duplicaria el monto del
             // reporte de reversion de compromisos.
             folio.HasIndex(f => new { f.ActaId, f.AsignacionId }).IsUnique();
+        });
+
+        // ── M-12 Incidentes, siniestros y sanciones ─────────────────────────
+
+        modelo.Entity<FilaDeIncidente>(incidente =>
+        {
+            incidente.ToTable("Incidente", schema: "incidentes");
+
+            incidente.HasKey(i => i.Id);
+            incidente.Property(i => i.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            incidente.Property(i => i.Tipo).HasConversion<string>().HasMaxLength(40).IsRequired();
+            incidente.Property(i => i.Causa).HasMaxLength(120).IsRequired();
+            incidente.Property(i => i.Descripcion).HasMaxLength(2000).IsRequired();
+            incidente.Property(i => i.Registra).HasMaxLength(64).IsRequired();
+            incidente.Property(i => i.Ubicacion).HasMaxLength(200);
+            incidente.Property(i => i.ResponsableDeSeguimiento).HasMaxLength(64).IsRequired();
+
+            incidente.Property(i => i.MisionId)
+                .HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+            incidente.Property(i => i.VehiculoId)
+                .HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+
+            incidente.Property(i => i.ConstanciaNumero).HasMaxLength(64);
+            incidente.Property(i => i.ConstanciaAutoridad).HasMaxLength(120);
+
+            incidente.Property(i => i.Desenlace).HasConversion<string>().HasMaxLength(40);
+            incidente.Property(i => i.DetalleDelDesenlace).HasMaxLength(1000);
+
+            incidente.Property(i => i.DeterminacionNumero).HasMaxLength(64);
+            incidente.Property(i => i.DeterminacionInstancia).HasMaxLength(120);
+            incidente.Property(i => i.DeterminacionResolucion).HasMaxLength(2000);
+
+            incidente.Property(i => i.ComoSeResolvio).HasMaxLength(1000);
+            incidente.Property(i => i.DeclaracionDeBienes).HasMaxLength(1000);
+
+            // La consulta de `RN-97`: las interrupciones sin desenlace que siguen abiertas. Es
+            // la que le da poder de bloqueo al cierre del periodo, y corre en cada saldo.
+            incidente.HasIndex(i => new { i.Interrumpe, i.ResueltoEn });
+
+            // El expediente de una mision se busca desde su liquidacion.
+            incidente.HasIndex(i => i.MisionId);
+
+            incidente.HasIndex(i => i.FechaDelHecho);
+
+            incidente.HasMany(i => i.Movimientos)
+                .WithOne()
+                .HasForeignKey(m => m.IncidenteId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            incidente.HasMany(i => i.Bienes)
+                .WithOne()
+                .HasForeignKey(b => b.IncidenteId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            incidente.HasMany(i => i.Gestiones)
+                .WithOne()
+                .HasForeignKey(g => g.IncidenteId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelo.Entity<FilaDeMovimientoDelIncidente>(movimiento =>
+        {
+            movimiento.ToTable("MovimientoDelIncidente", schema: "incidentes");
+
+            movimiento.HasKey(m => m.Id);
+            movimiento.Property(m => m.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            movimiento.Property(m => m.IncidenteId)
+                .HasConversion(UlidABinario).HasColumnType("binary(16)");
+            movimiento.Property(m => m.Movimiento).HasMaxLength(8).IsRequired();
+            movimiento.Property(m => m.Ejecuta).HasMaxLength(64).IsRequired();
+            movimiento.Property(m => m.Detalle).HasMaxLength(2000);
+
+            // El orden del diario es parte del dato, no del azar de la consulta.
+            movimiento.HasIndex(m => new { m.IncidenteId, m.Orden }).IsUnique();
+        });
+
+        modelo.Entity<FilaDeBienAfectado>(bien =>
+        {
+            bien.ToTable("BienAfectado", schema: "incidentes");
+
+            bien.HasKey(b => b.Id);
+            bien.Property(b => b.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            bien.Property(b => b.IncidenteId)
+                .HasConversion(UlidABinario).HasColumnType("binary(16)");
+            bien.Property(b => b.Descripcion).HasMaxLength(500).IsRequired();
+            bien.Property(b => b.Estado).HasConversion<string>().HasMaxLength(20).IsRequired();
+            bien.Property(b => b.UbicacionConocida).HasMaxLength(200);
+            bien.Property(b => b.AutoridadCustodia).HasMaxLength(120);
+            bien.Property(b => b.NumeroDeExpedienteExterno).HasMaxLength(64);
+            bien.Property(b => b.DescargoNumero).HasMaxLength(64);
+            bien.Property(b => b.DescargoAutoridad).HasMaxLength(120);
+
+            // Los bienes que siguen fuera del alcance de la institucion. `RN-75` los conserva
+            // hasta la recuperacion o el descargo, y esta consulta es la que los hace visibles.
+            bien.HasIndex(b => b.Estado);
+        });
+
+        modelo.Entity<FilaDeGestionDeRecuperacion>(gestion =>
+        {
+            gestion.ToTable("GestionDeRecuperacion", schema: "incidentes");
+
+            gestion.HasKey(g => g.Id);
+            gestion.Property(g => g.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            gestion.Property(g => g.IncidenteId)
+                .HasConversion(UlidABinario).HasColumnType("binary(16)");
+            gestion.Property(g => g.Descripcion).HasMaxLength(1000).IsRequired();
+            gestion.Property(g => g.Responsable).HasMaxLength(64).IsRequired();
         });
 
         // ── M-18 Peajes ─────────────────────────────────────────────────────
