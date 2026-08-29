@@ -182,6 +182,7 @@ Detectados al corregir los 46 hallazgos de las revisiones de los Bloques 3 y 4. 
 | 90 | **Plazo de aprobación de un parámetro cargado**, con alerta al vencerse | Un parámetro cargado y nunca aprobado no se aplica, y hoy nada avisa | `HU-145` |
 | 91 | **¿Qué hacer cuando informática y Gerencia Administrativa recaen en la misma persona?** `I-13` es núcleo irreductible y en una institución chica no se puede cumplir por aritmética | Mismo problema que el #26, en otro par. Requiere pronunciamiento | `HU-146` |
 | 92 | **Actor no catalogado: el Oficial de Información Pública.** Lo necesitan cuatro historias de M-17 y tres pantallas | Hoy cuelgan del auditor, que es **solo lectura** — y una de ellas rectifica. Es una contradicción con `I-12` | `HB34-66`, `HU-121`–`HU-123` |
+| 93 | **Cuántos días antes del corte legal empieza la ventana de cierre** — `cierre.ventana_de_cierre_dias` | Sin este parámetro **no se evalúan los motivos de cierre compartidos (`RN-96` punto 3) ni el indicador de cierre apurado.** El código ya lo lee del catálogo con vigencia y declara su ausencia en el acta, pero mientras nadie lo cargue esos dos controles están apagados. **No tiene valor por omisión a propósito**: la ficha no fija ninguno, y suponer uno mediría el cierre en bloque contra un número que nadie declaró. Va junto al #86, que es su hermano | `RN-96` |
 
 ## Resueltos en la revisión del 2026-08-06
 

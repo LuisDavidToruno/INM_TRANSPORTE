@@ -369,9 +369,30 @@ static object ResumirActa(ActaDeCierreDeEjercicio a) => new
         ventanaEnMinutos = (int)m.Ventana.TotalMinutes,
     }),
 
+    // `RN-96` — la ventana es **parámetro con vigencia**, resuelta a la fecha del corte legal.
+    // Nula cuando la institución no la fijó, y entonces los dos reportes que dependen de ella
+    // salieron sin medir, no en cero.
+    ventana = a.Ventana is null ? null : new
+    {
+        desde = a.Ventana.Desde,
+        hasta = a.Ventana.Hasta,
+        dias = a.Ventana.Dias,
+
+        // De qué versión salió. Un indicador que no dice contra qué ventana se midió no se
+        // puede reproducir ni discutir.
+        origen = a.Ventana.Origen,
+    },
+
+    sinVentana = a.SinVentana is null ? null : new
+    {
+        clave = a.SinVentana.Clave,
+        porQueNo = a.SinVentana.PorQueNo,
+    },
+
     // El indicador que expone el cierre apurado. `Veces` va nulo cuando no hay con qué
-    // comparar: decir «infinito» sería inventar el hallazgo.
-    apuro = new
+    // comparar: decir «infinito» sería inventar el hallazgo. Y el indicador **entero** va nulo
+    // cuando no hay ventana contra la que medirlo.
+    apuro = a.Apuro is null ? null : new
     {
         cerradasEnLaVentana = a.Apuro.CerradasEnLaVentana,
         cerradasEnElAnio = a.Apuro.CerradasEnElAnio,

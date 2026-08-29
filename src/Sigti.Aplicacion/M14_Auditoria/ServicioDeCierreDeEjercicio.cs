@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Sigti.Datos;
 using Sigti.Datos.M07_ProgramacionYDespacho;
+using Sigti.Datos.M02_Parametros;
 using Sigti.Datos.M14_Auditoria;
 using Sigti.Dominio.M01_Organizacion;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
@@ -29,6 +30,14 @@ namespace Sigti.Aplicacion.M14_Auditoria;
 public sealed class ServicioDeCierreDeEjercicio(
     SigtiDbContext contexto, ServicioDeSaldoDeApertura saldos)
 {
+    /// <summary>
+    /// El catálogo bitemporal, construido sobre el mismo contexto — igual que
+    /// <c>ServicioDeParametros</c>. Es un repositorio con intención (`ADR-009`), no un servicio
+    /// con estado: registrarlo en el contenedor solo para esto agregaría una pieza que nadie
+    /// más pide.
+    /// </summary>
+    private readonly ParametrosNormativos _parametros = new(contexto);
+
     /// <summary>
     /// Arma el acta sin congelarla. Es lo que la pantalla muestra antes de producir.
     ///
@@ -60,6 +69,12 @@ public sealed class ServicioDeCierreDeEjercicio(
             ? []
             : ReglasDelSaldoDeApertura.DiferenciasContraElInventario(saldo.Renglones, inventario);
 
+        // ── La ventana se resuelve UNA vez y se pasa a lo que la usa ────────
+        // Resolverla dentro de cada reporte dejaría que uno la leyera parametrizada y otro no,
+        // y el acta mostraría dos secciones medidas contra ventanas distintas sin decirlo.
+        var (ventana, sinVentana) = await VentanaAsync(
+            corteLegal, corteOperativo, momento, cancelacion);
+
         return new ActaDeCierreDeEjercicio(
             Ulid.NewUlid(),
             "(vista previa)",
@@ -71,11 +86,55 @@ public sealed class ServicioDeCierreDeEjercicio(
             inventario,
             await MisionesQueCruzanAsync(corteLegal, corteOperativo, cancelacion),
             await FoliosPorAnularAsync(corteOperativo, cancelacion),
-            await CambiosDeParametrosAsync(corteLegal, corteOperativo, cancelacion),
-            await MotivosCompartidosAsync(corteLegal, corteOperativo, cancelacion),
-            await ApuroAsync(ejercicio, corteLegal, corteOperativo, cancelacion),
+
+            // El registro de cambios de parámetros **sí necesita la ventana**, y por eso sale
+            // vacío cuando no la hay: buscar cambios «en la ventana» sin ventana devolvería el
+            // año entero, que es otra pregunta.
+            ventana is null
+                ? []
+                : await CambiosDeParametrosAsync(ventana, cancelacion),
+
+            ventana is null
+                ? []
+                : await MotivosCompartidosAsync(ventana, cancelacion),
+
+            ventana is null
+                ? null
+                : await ApuroAsync(ejercicio, ventana, cancelacion),
+
             diferencias,
-            saldo?.Folio);
+            saldo?.Folio,
+            ventana,
+            sinVentana);
+    }
+
+    /// <summary>
+    /// La ventana de cierre — `RN-96`, <b>parámetro con vigencia</b>.
+    ///
+    /// ── Resuelta a la fecha del corte legal, no a hoy ───────────────────────
+    /// `RN-40`: reevaluar el cierre de 2026 tiene que usar la ventana que regía entonces. Y el
+    /// eje de transacción va al <c>momento</c> del acta, no a <c>UtcNow</c>: reabrir un acta
+    /// producida en enero reproduce lo que se vio ese día, en vez de recalcularlo con lo que se
+    /// cargó después.
+    ///
+    /// ── El parámetro que se mide a sí mismo ─────────────────────────────────
+    /// La ventana es un parámetro como cualquier otro, así que <b>moverla dentro de la ventana
+    /// aparece en el reporte de `RN-96` punto 6</b>. Es deseable: ensanchar la ventana en
+    /// diciembre cambia qué cierres se miran, y eso tiene que quedar a la vista igual que
+    /// aflojar un umbral.
+    /// </summary>
+    private async Task<(VentanaDeCierre? Ventana, VentanaSinResolver? Sin)> VentanaAsync(
+        DateOnly corteLegal, DateOnly corteOperativo, DateTimeOffset momento,
+        CancellationToken cancelacion)
+    {
+        var catalogo = await _parametros.CatalogoDeAsync(
+            ReglasDelCierreDeEjercicio.ClaveDeLaVentana, cancelacion);
+
+        var resuelto = catalogo.ResolverSiHay(
+            ReglasDelCierreDeEjercicio.ClaveDeLaVentana, corteLegal, momento);
+
+        return ReglasDelCierreDeEjercicio.VentanaDe(
+            resuelto?.Valor, resuelto?.VigenteDesde, corteLegal, corteOperativo);
     }
 
     /// <summary>
@@ -399,14 +458,13 @@ public sealed class ServicioDeCierreDeEjercicio(
     /// `ADR-006` es lo que hace posible esta consulta.
     /// </summary>
     private async Task<IReadOnlyList<CambioDeParametro>> CambiosDeParametrosAsync(
-        DateOnly corteLegal, DateOnly corteOperativo, CancellationToken cancelacion)
+        VentanaDeCierre ventana, CancellationToken cancelacion)
     {
         var desde = new DateTimeOffset(
-            corteLegal.AddDays(-VentanaDeCierreEnDias).ToDateTime(TimeOnly.MinValue),
-            TimeSpan.Zero);
+            ventana.Desde.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
 
         var hasta = new DateTimeOffset(
-            corteOperativo.ToDateTime(TimeOnly.MaxValue), TimeSpan.Zero);
+            ventana.Hasta.ToDateTime(TimeOnly.MaxValue), TimeSpan.Zero);
 
         var enLaVentana = await contexto.Parametros
             .Where(p => p.RegistradoDesde >= desde && p.RegistradoDesde <= hasta)
@@ -448,10 +506,10 @@ public sealed class ServicioDeCierreDeEjercicio(
     /// semana del cierre es un cierre en bloque.
     /// </summary>
     private async Task<IReadOnlyList<MotivoCompartido>> MotivosCompartidosAsync(
-        DateOnly corteLegal, DateOnly corteOperativo, CancellationToken cancelacion)
+        VentanaDeCierre ventana, CancellationToken cancelacion)
     {
-        var desde = corteLegal.AddDays(-VentanaDeCierreEnDias).ToDateTime(TimeOnly.MinValue);
-        var hasta = corteOperativo.ToDateTime(TimeOnly.MaxValue);
+        var desde = ventana.Desde.ToDateTime(TimeOnly.MinValue);
+        var hasta = ventana.Hasta.ToDateTime(TimeOnly.MaxValue);
 
         var cierres = await contexto.Set<FilaDeTransicion>()
             .Where(t => t.MomentoUtc >= desde && t.MomentoUtc <= hasta
@@ -473,8 +531,7 @@ public sealed class ServicioDeCierreDeEjercicio(
     /// hace visible»</i>.
     /// </summary>
     private async Task<CierreApurado> ApuroAsync(
-        string ejercicio, DateOnly corteLegal, DateOnly corteOperativo,
-        CancellationToken cancelacion)
+        string ejercicio, VentanaDeCierre ventana, CancellationToken cancelacion)
     {
         if (!int.TryParse(ejercicio, out var anio))
             return new CierreApurado(0, 0, 0, null);
@@ -490,20 +547,8 @@ public sealed class ServicioDeCierreDeEjercicio(
             .ToListAsync(cancelacion);
 
         return ReglasDelCierreDeEjercicio.Apuro(
-            [.. cierres.Select(DateOnly.FromDateTime)],
-            corteLegal.AddDays(-VentanaDeCierreEnDias),
-            corteOperativo);
+            [.. cierres.Select(DateOnly.FromDateTime)], ventana.Desde, ventana.Hasta);
     }
-
-    /// <summary>
-    /// Cuántos días antes del corte legal empieza la ventana de cierre.
-    ///
-    /// ⚠️ <b>Constante y no parámetro con vigencia</b>, que es lo que `RN-96` pide para las
-    /// fechas de corte. Queda así hasta que exista la pantalla de parámetros: fijarlo acá es
-    /// visible; leerlo de una clave que nadie puede editar sería peor, porque parecería
-    /// configurado.
-    /// </summary>
-    private const int VentanaDeCierreEnDias = 15;
 
     private static string Truncar(string texto, int largo) =>
         texto.Length <= largo ? texto : texto[..largo];

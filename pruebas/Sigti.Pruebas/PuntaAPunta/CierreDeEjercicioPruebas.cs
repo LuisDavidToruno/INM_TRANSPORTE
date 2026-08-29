@@ -97,6 +97,8 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         const int anio = 2033;
         const string motivo = "Cierre de ejercicio fiscal, sin observaciones";
 
+        await SembrarVentanaAsync(anio, dias: 15);
+
         await SembrarMisionAsync(anio, EstadoDeMision.Cerrada, motivo,
             cierre: new DateTime(anio, 12, 30, 16, 40, 0));
 
@@ -129,6 +131,8 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
     {
         const int anio = 2034;
 
+        await SembrarVentanaAsync(anio, dias: 15);
+
         await SembrarMisionAsync(anio, EstadoDeMision.Cerrada,
             "Bitácora conciliada: 412 km, 11.4 gal, desviación 1.8% dentro de tolerancia",
             cierre: new DateTime(anio, 12, 29, 10, 0, 0));
@@ -142,7 +146,81 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
 
         var acta = await VistaPrevia(cliente, anio);
 
+        // **Primero: que la ventana esté.** Sin este aserto la prueba pasaría igual con el
+        // parámetro sin cargar, y estaría verificando «no se buscaron motivos» en vez de «se
+        // buscaron y no había». Son cosas distintas y solo una es la regla.
+        Assert.False(acta.GetProperty("ventana").ValueKind is JsonValueKind.Null);
+
         Assert.Empty(acta.GetProperty("motivosCompartidos").EnumerateArray());
+    }
+
+    // ── La ventana de cierre es parámetro con vigencia ──────────────────────
+
+    /// <summary>
+    /// `RN-96` la declara configurable con vigencia, y la ventana <b>dice de qué versión
+    /// salió</b>. Un indicador que no declara contra qué ventana se midió no se puede reproducir
+    /// ni discutir años después.
+    /// </summary>
+    [Fact]
+    public async Task La_ventana_sale_del_parametro_y_el_acta_declara_su_origen()
+    {
+        const int anio = 2040;
+        await SembrarVentanaAsync(anio, dias: 40);
+
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        var acta = await VistaPrevia(cliente, anio);
+        var ventana = acta.GetProperty("ventana");
+
+        Assert.Equal($"{anio}-11-21", ventana.GetProperty("desde").GetString());
+        Assert.Equal(40 + 15 + 1, ventana.GetProperty("dias").GetInt32());
+        Assert.Contains("40 días", ventana.GetProperty("origen").GetString());
+
+        Assert.True(acta.GetProperty("sinVentana").ValueKind is JsonValueKind.Null);
+    }
+
+    /// <summary>
+    /// <b>Sin el parámetro cargado no hay ventana por omisión</b>, y los dos reportes que
+    /// dependen de ella salen <b>sin medir</b> — que no es lo mismo que salir limpios.
+    ///
+    /// Es la disciplina que este sistema aplica al rendimiento esperado y al horario hábil:
+    /// <i>«suponer uno produciría hallazgos falsos que en tres meses nadie miraría — que es como
+    /// muere un control»</i>. Acá el riesgo es el simétrico y peor: un cierre en bloque que no
+    /// aparece porque nadie configuró contra qué buscarlo.
+    /// </summary>
+    [Fact]
+    public async Task Sin_el_parametro_los_reportes_de_la_ventana_salen_SIN_MEDIR()
+    {
+        // Un ejercicio que ninguna prueba siembra. Las siembras cierran su vigencia al 31 de
+        // diciembre de su año, así que ninguna alcanza a éste.
+        const int anio = 2030;
+        const string motivo = "Cierre de ejercicio fiscal, sin observaciones";
+
+        await SembrarMisionAsync(anio, EstadoDeMision.Cerrada, motivo,
+            cierre: new DateTime(anio, 12, 30, 16, 40, 0));
+
+        await SembrarMisionAsync(anio, EstadoDeMision.Cerrada, motivo,
+            cierre: new DateTime(anio, 12, 30, 16, 41, 0));
+
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        var acta = await VistaPrevia(cliente, anio);
+
+        Assert.True(acta.GetProperty("ventana").ValueKind is JsonValueKind.Null);
+        Assert.True(acta.GetProperty("apuro").ValueKind is JsonValueKind.Null);
+
+        var sin = acta.GetProperty("sinVentana");
+        Assert.Equal("cierre.ventana_de_cierre_dias", sin.GetProperty("clave").GetString());
+        Assert.Contains("no hay versión aprobada", sin.GetProperty("porQueNo").GetString());
+
+        // **Hay dos misiones con el mismo motivo, y la lista sale vacía.** El acta no puede
+        // dejar que eso se lea como que no hubo hallazgo.
+        Assert.Empty(acta.GetProperty("motivosCompartidos").EnumerateArray());
+
+        Assert.Contains(acta.GetProperty("observaciones").EnumerateArray(),
+            o => o.GetString()!.Contains("están sin medir, no en cero"));
     }
 
     // ── El folio reservado y no consumido ───────────────────────────────────
@@ -232,6 +310,8 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         const int anio = 2036;
         const string clave = "cierre.tolerancia-de-galonaje-2036";
 
+        await SembrarVentanaAsync(anio, dias: 15);
+
         await using (var contexto = baseDePruebas.Contexto())
         {
             // El valor que regía desde enero, cargado en enero.
@@ -252,6 +332,10 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
 
         var acta = await VistaPrevia(cliente, anio);
 
+        // La ventana tiene que estar: sin ella el reporte sale vacio por falta de parametro y
+        // la prueba pasaria --o fallaria-- por una razon que no es la regla.
+        Assert.False(acta.GetProperty("ventana").ValueKind is JsonValueKind.Null);
+
         var cambio = Assert.Single(acta.GetProperty("cambiosDeParametros").EnumerateArray(), c => c.GetProperty("clave").GetString() == clave);
 
         // **Las dos mitades.** «Se cargó 15» sin decir que venía de 5 no es evidencia de nada.
@@ -270,6 +354,8 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         const int anio = 2037;
         const string clave = "cierre.plazo-de-liquidacion-2037";
 
+        await SembrarVentanaAsync(anio, dias: 15);
+
         await using (var contexto = baseDePruebas.Contexto())
         {
             contexto.Parametros.Add(Version(clave, "10",
@@ -283,6 +369,8 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         using var cliente = aplicacion.CreateClient();
 
         var acta = await VistaPrevia(cliente, anio);
+
+        Assert.False(acta.GetProperty("ventana").ValueKind is JsonValueKind.Null);
 
         Assert.DoesNotContain(acta.GetProperty("cambiosDeParametros").EnumerateArray(),
             c => c.GetProperty("clave").GetString() == clave);
@@ -346,6 +434,54 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
             Respaldo = new RespaldoDocumental(
                 Ulid.NewUlid(), "Acuerdo interno de prueba", new DateOnly(2026, 1, 1)),
         };
+
+    /// <summary>
+    /// Carga la ventana de cierre del ejercicio — `RN-96`, <b>parámetro con vigencia</b>.
+    ///
+    /// ── Hay que sembrarla, y eso es el punto ────────────────────────────────
+    /// Sin este parámetro, ni los motivos compartidos ni el ritmo de cierre se evalúan. Que las
+    /// pruebas tengan que cargarlo es la prueba de que no hay valor por omisión escondido: si lo
+    /// hubiera, todas pasarían sin sembrar nada.
+    ///
+    /// Se carga con vigencia desde el 1 de enero <b>del ejercicio</b>, que es contra lo que se
+    /// resuelve — no contra hoy.
+    ///
+    /// ── Y se cierra al 31 de diciembre del mismo ejercicio ──────────────────
+    /// En producción la ventana rige hasta que alguien la cambie. Acá se acota <b>para que los
+    /// años que ninguna prueba siembra queden de verdad sin ventana</b>: con vigencia abierta,
+    /// la siembra de una prueba resolvería el cierre de todas las de años posteriores, y la que
+    /// comprueba la ausencia pasaría o fallaría según el orden de ejecución.
+    ///
+    /// ── Cargada por anticipado, y los dos ejes explican por qué ─────────────
+    /// La vigencia normativa empieza el 1 de enero del ejercicio, pero el <b>registro</b> va en
+    /// 2020: es cuándo se supo, y tiene que ser anterior al instante desde el que se mira. La
+    /// vista previa mira desde hoy, y una versión registrada en 2040 todavía no se conoce hoy —
+    /// no por un defecto, sino porque eso es exactamente lo que el eje de transacción significa.
+    /// Salió al correr estas pruebas contra ejercicios futuros.
+    ///
+    /// Y de paso lo deja fuera de la ventana de cierre, donde contaminaría el reporte de
+    /// `RN-96` punto 6 de la propia prueba.
+    /// </summary>
+    private async Task SembrarVentanaAsync(int anio, int dias)
+    {
+        await using var contexto = baseDePruebas.Contexto();
+
+        contexto.Parametros.Add(new VersionDeParametro(
+            "cierre.ventana_de_cierre_dias",
+            $"{dias}",
+            new DateOnly(anio, 1, 1),
+            new DateOnly(anio, 12, 31),
+            new DateTimeOffset(2020, 1, 2, 8, 0, 0, TimeSpan.Zero),
+            null,
+            new IdPersona("P-ADMIN"),
+            new IdPersona("P-GERENCIA"))
+        {
+            Respaldo = new RespaldoDocumental(
+                Ulid.NewUlid(), "Acuerdo interno de prueba", new DateOnly(2020, 1, 2)),
+        });
+
+        await contexto.SaveChangesAsync();
+    }
 
     /// <summary>
     /// Un expediente con su diario, sembrado directo. Lo que estas pruebas juzgan es el acta,

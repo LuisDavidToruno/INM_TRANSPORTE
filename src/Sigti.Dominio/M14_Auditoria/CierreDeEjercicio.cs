@@ -114,6 +114,40 @@ public sealed record MotivoCompartido(
 }
 
 /// <summary>
+/// La ventana de cierre — `RN-96`, <b>parámetro con vigencia</b>.
+///
+/// ── Por qué no es una constante, y por qué tampoco tiene omisión ────────────
+/// Cuánto dura «la ventana de cierre» es una decisión de cada institución: una que cierra
+/// contablemente el 31 y opera hasta el 15 de enero no tiene la misma que otra que corta el
+/// 20 de diciembre. `RN-96` la declara configurable con vigencia, y por eso se resuelve
+/// <b>a la fecha del corte legal</b> (`RN-40`): reevaluar un cierre de 2026 tiene que usar la
+/// ventana que regía entonces, no la de hoy.
+///
+/// Y no tiene valor por omisión. Un «15 días razonable» convertiría los dos reportes que
+/// dependen de ella —motivos compartidos y ritmo de cierre— en cifras calculadas contra un
+/// número que nadie declaró. La regla de este sistema es la misma que para el rendimiento
+/// esperado: <i>«suponer uno produciría hallazgos falsos que en tres meses nadie miraría —
+/// que es como muere un control»</i>.
+/// </summary>
+/// <param name="Origen">
+/// De qué versión del parámetro salió, con su vigencia. Va al acta: un indicador que no dice
+/// contra qué ventana se midió no se puede reproducir ni discutir.
+/// </param>
+public sealed record VentanaDeCierre(
+    DateOnly Desde,
+    DateOnly Hasta,
+    int Dias,
+    string Origen);
+
+/// <summary>
+/// Por qué la ventana de cierre no se pudo resolver — `RN-96`.
+///
+/// <b>Se declara, no se sustituye.</b> Los reportes que dependen de ella salen marcados como
+/// no evaluados, que no es lo mismo que salir en cero.
+/// </summary>
+public sealed record VentanaSinResolver(string Clave, string PorQueNo);
+
+/// <summary>
 /// Cuántas misiones se cerraron en la ventana de cierre, contra el resto del año.
 ///
 /// `RN-96` casos límite, sobre la presión por cerrar todo antes del 31: <i>«el sistema no la
@@ -179,7 +213,12 @@ public sealed record ActaDeCierreDeEjercicio(
     IReadOnlyList<FolioPorAnular> FoliosPorAnular,
     IReadOnlyList<CambioDeParametro> CambiosDeParametros,
     IReadOnlyList<MotivoCompartido> MotivosCompartidos,
-    CierreApurado Apuro,
+
+    /// <summary>
+    /// El ritmo de cierre en la ventana. <b>Nulo cuando la ventana no está parametrizada</b>, y
+    /// entonces el indicador se declara no evaluado — que no es lo mismo que cero.
+    /// </summary>
+    CierreApurado? Apuro,
     IReadOnlyList<string> DiferenciasConElSaldo,
 
     /// <summary>
@@ -191,7 +230,17 @@ public sealed record ActaDeCierreDeEjercicio(
     /// misma mentira que `RN-97` persigue cuando un inventario se ve completo estando
     /// incompleto. Salió al abrir la pantalla contra un ejercicio sin saldo.
     /// </summary>
-    string? SaldoDeAperturaFolio = null)
+    string? SaldoDeAperturaFolio = null,
+
+    /// <summary>
+    /// La ventana contra la que se midieron los motivos compartidos y el ritmo de cierre.
+    /// <b>Nula cuando la institución no fijó el parámetro</b>, y entonces esos dos reportes no
+    /// se calcularon.
+    /// </summary>
+    VentanaDeCierre? Ventana = null,
+
+    /// <summary>Por qué no se pudo resolver. Presente exactamente cuando la ventana es nula.</summary>
+    VentanaSinResolver? SinVentana = null)
 {
     /// <summary>
     /// El valor de los folios que <b>sí se pueden anular</b>. Es la cifra del reporte de
@@ -251,11 +300,21 @@ public sealed record ActaDeCierreDeEjercicio(
                     "entregado no se anula. El camino es la devolución con acta o la obligación " +
                     "de reintegro (`RN-86`), y ninguno ocurre por efecto de una fecha.");
 
-            if (Apuro.Veces is { } veces && veces > 2)
+            if (Apuro?.Veces is { } veces && veces > 2)
                 observaciones.Add(
                     $"En la ventana de cierre se cerraron misiones a {veces:N1} veces el ritmo " +
                     "del año. El sistema no resuelve la presión por cerrar antes del 31: la " +
                     "hace visible.");
+
+            // **Va de últimas y con nombre propio.** Sin ventana, los dos reportes de arriba
+            // salieron vacíos por falta de parámetro y no por falta de hallazgos, y el acta
+            // tiene que decir cuál de las dos cosas fue.
+            if (SinVentana is { } sin)
+                observaciones.Add(
+                    $"La ventana de cierre no está parametrizada: {sin.PorQueNo} Ni los motivos " +
+                    "de cierre compartidos (`RN-96` punto 3) ni el ritmo de cierre se " +
+                    $"evaluaron — están sin medir, no en cero. Se carga en «{sin.Clave}», con " +
+                    "vigencia y doble control.");
 
             return observaciones;
         }
@@ -334,6 +393,53 @@ public static class ReglasDelCierreDeEjercicio
     private static string Normalizar(string motivo) =>
         string.Join(' ', motivo.Split(' ', StringSplitOptions.RemoveEmptyEntries))
             .ToUpperInvariant();
+
+    /// <summary>
+    /// La clave del parámetro que fija cuántos días antes del corte legal empieza la ventana de
+    /// cierre — `RN-96`, configurable con vigencia.
+    /// </summary>
+    public const string ClaveDeLaVentana = "cierre.ventana_de_cierre_dias";
+
+    /// <summary>
+    /// Arma la ventana de cierre a partir del valor cargado — `RN-96`.
+    ///
+    /// ── Devuelve nulo con razón, y nunca un valor de reemplazo ──────────────
+    /// Ni cuando falta el parámetro ni cuando viene mal cargado. Un valor de reemplazo haría
+    /// que los dos reportes que dependen de la ventana salieran calculados contra un número que
+    /// nadie declaró, y un lector no podría distinguirlos de los que sí se midieron.
+    /// </summary>
+    /// <param name="valor">
+    /// Lo que dice la versión vigente del parámetro. <b>Nulo es que no hay ninguna</b>.
+    /// </param>
+    /// <param name="vigenteDesde">Desde cuándo rige esa versión. Va al origen, para reproducir.</param>
+    public static (VentanaDeCierre? Ventana, VentanaSinResolver? Sin) VentanaDe(
+        string? valor, DateOnly? vigenteDesde, DateOnly corteLegal, DateOnly corteOperativo)
+    {
+        if (valor is null)
+            return (null, new VentanaSinResolver(ClaveDeLaVentana,
+                $"no hay versión aprobada que rigiera al {corteLegal:dd/MM/yyyy}."));
+
+        if (!int.TryParse(valor, out var dias))
+            return (null, new VentanaSinResolver(ClaveDeLaVentana,
+                $"la versión vigente dice «{valor}», que no es un número de días."));
+
+        // **Cero no es una ventana corta: es ninguna ventana.** Con cero días el indicador de
+        // apuro nunca podría disparar y los motivos compartidos no se buscarían en ningún lado,
+        // y las dos cosas se leerían como «no hubo hallazgos».
+        if (dias <= 0)
+            return (null, new VentanaSinResolver(ClaveDeLaVentana,
+                $"la versión vigente dice «{dias}» días. Una ventana de cero o menos no deja " +
+                "dónde buscar, y los dos reportes saldrían vacíos como si no hubiera hallazgos."));
+
+        var desde = corteLegal.AddDays(-dias);
+
+        return (
+            new VentanaDeCierre(desde, corteOperativo,
+                corteOperativo.DayNumber - desde.DayNumber + 1,
+                $"{ClaveDeLaVentana} = {dias} días, versión vigente desde el " +
+                $"{vigenteDesde:dd/MM/yyyy}"),
+            null);
+    }
 
     /// <summary>
     /// `RN-96` casos límite — el indicador que expone el cierre apurado.

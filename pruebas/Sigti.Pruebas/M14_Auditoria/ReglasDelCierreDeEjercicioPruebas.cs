@@ -207,6 +207,108 @@ public class ReglasDelCierreDeEjercicioPruebas
         Assert.Empty(compartidos);
     }
 
+    // ── La ventana de cierre es parámetro con vigencia ──────────────────────
+
+    /// <summary>
+    /// `RN-96` la declara configurable. La ventana va del corte legal menos los días cargados
+    /// hasta el corte operativo, y <b>dice de qué versión salió</b>: un indicador que no declara
+    /// contra qué ventana se midió no se puede reproducir ni discutir.
+    /// </summary>
+    [Fact]
+    public void La_ventana_sale_del_parametro_y_declara_su_origen()
+    {
+        var (ventana, sin) = ReglasDelCierreDeEjercicio.VentanaDe(
+            "15", new DateOnly(2024, 1, 1), CorteLegal, CorteOperativo);
+
+        Assert.Null(sin);
+        Assert.NotNull(ventana);
+        Assert.Equal(new DateOnly(2026, 12, 16), ventana!.Desde);
+        Assert.Equal(CorteOperativo, ventana.Hasta);
+        Assert.Equal(31, ventana.Dias);
+        Assert.Contains("15 días", ventana.Origen);
+        Assert.Contains("01/01/2024", ventana.Origen);
+    }
+
+    /// <summary>
+    /// Otra institución, otra ventana. Es el punto de que sea parámetro: una que corta el 20 de
+    /// diciembre no mide lo mismo que otra que opera hasta el 15 de enero.
+    /// </summary>
+    [Fact]
+    public void Otro_valor_cargado_da_otra_ventana()
+    {
+        var (ventana, _) = ReglasDelCierreDeEjercicio.VentanaDe(
+            "45", new DateOnly(2024, 1, 1), CorteLegal, CorteOperativo);
+
+        Assert.Equal(new DateOnly(2026, 11, 16), ventana!.Desde);
+        Assert.Equal(61, ventana.Dias);
+    }
+
+    /// <summary>
+    /// <b>Sin parámetro no hay ventana, y no hay ventana por omisión.</b>
+    ///
+    /// Un «15 días razonable» haría que los dos reportes que dependen de ella salieran
+    /// calculados contra un número que nadie declaró, y un lector no podría distinguirlos de los
+    /// que sí se midieron. Es la misma disciplina del rendimiento esperado: <i>«suponer uno
+    /// produciría hallazgos falsos que en tres meses nadie miraría»</i>.
+    /// </summary>
+    [Fact]
+    public void Sin_parametro_cargado_NO_hay_ventana_por_omision()
+    {
+        var (ventana, sin) = ReglasDelCierreDeEjercicio.VentanaDe(
+            null, null, CorteLegal, CorteOperativo);
+
+        Assert.Null(ventana);
+        Assert.NotNull(sin);
+        Assert.Equal("cierre.ventana_de_cierre_dias", sin!.Clave);
+        Assert.Contains("no hay versión aprobada", sin.PorQueNo);
+    }
+
+    /// <summary>
+    /// Un valor mal cargado <b>tampoco</b> se reemplaza por uno bueno: se dice qué decía.
+    /// </summary>
+    [Fact]
+    public void Un_valor_que_no_es_numero_se_declara_con_lo_que_decia()
+    {
+        var (ventana, sin) = ReglasDelCierreDeEjercicio.VentanaDe(
+            "quince", null, CorteLegal, CorteOperativo);
+
+        Assert.Null(ventana);
+        Assert.Contains("«quince»", sin!.PorQueNo);
+    }
+
+    /// <summary>
+    /// <b>Cero no es una ventana corta: es ninguna ventana.</b> Con cero días el indicador de
+    /// apuro nunca podría disparar y los motivos compartidos no se buscarían en ningún lado — y
+    /// las dos cosas se leerían como «no hubo hallazgos».
+    /// </summary>
+    [Theory]
+    [InlineData("0")]
+    [InlineData("-5")]
+    public void Una_ventana_de_cero_o_menos_no_resuelve(string valor)
+    {
+        var (ventana, sin) = ReglasDelCierreDeEjercicio.VentanaDe(
+            valor, null, CorteLegal, CorteOperativo);
+
+        Assert.Null(ventana);
+        Assert.Contains("no deja dónde buscar", sin!.PorQueNo);
+    }
+
+    /// <summary>
+    /// Sin ventana, el acta dice que los dos reportes <b>no se evaluaron</b> — no que salieron
+    /// limpios. Es la diferencia entre «no hubo motivos compartidos» y «no se buscaron».
+    /// </summary>
+    [Fact]
+    public void Sin_ventana_el_acta_declara_que_los_reportes_NO_se_evaluaron()
+    {
+        var acta = Acta(
+            saldo: "SA-2026-001",
+            sinVentana: new VentanaSinResolver(
+                "cierre.ventana_de_cierre_dias", "no hay versión aprobada."));
+
+        Assert.Contains(acta.Observaciones,
+            o => o.Contains("están sin medir, no en cero"));
+    }
+
     // ── El indicador de cierre apurado ──────────────────────────────────────
 
     /// <summary>
@@ -357,15 +459,28 @@ public class ReglasDelCierreDeEjercicioPruebas
     public void Un_cierre_limpio_no_produce_observaciones() =>
         Assert.Empty(Acta(saldo: "SA-2026-001").Observaciones);
 
+    /// <summary>
+    /// <b>La ventana y su ausencia son excluyentes</b>, y el andamio lo impone: pasar
+    /// <c>sinVentana</c> apaga la ventana y el indicador de apuro, que es exactamente lo que
+    /// hace el servicio. Un andamio que dejara construir un acta con ventana nula y sin razón
+    /// permitiría probar un estado que el sistema no produce.
+    /// </summary>
     private static ActaDeCierreDeEjercicio Acta(
         IReadOnlyList<FolioPorAnular>? folios = null,
         IReadOnlyList<MotivoCompartido>? motivos = null,
         IReadOnlyList<string>? diferencias = null,
         IReadOnlyList<MisionQueCruza>? cruzan = null,
         CierreApurado? apuro = null,
-        string? saldo = "SA-2026-001") =>
+        string? saldo = "SA-2026-001",
+        VentanaSinResolver? sinVentana = null) =>
         new(Ulid.NewUlid(), "AC-2026-001", "2026", CorteLegal, CorteOperativo,
             Autoria.De(new IdPersona("P-ADMIN"), new IdPuesto("PU-GERENCIA"), CorteLegal),
             El(31, 17), [], cruzan ?? [], folios ?? [], [], motivos ?? [],
-            apuro ?? new CierreApurado(0, 0, 5, null), diferencias ?? [], saldo);
+            sinVentana is null ? apuro ?? new CierreApurado(0, 0, 5, null) : null,
+            diferencias ?? [], saldo,
+            sinVentana is null
+                ? new VentanaDeCierre(
+                    new DateOnly(2026, 12, 16), CorteOperativo, 31, "andamio de prueba")
+                : null,
+            sinVentana);
 }

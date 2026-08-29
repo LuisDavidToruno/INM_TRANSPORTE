@@ -18,6 +18,8 @@ import type {
   FolioPorAnular,
   MisionQueCruza,
   MotivoCompartido,
+  VentanaDeCierre,
+  VentanaSinResolver,
 } from '../../api/cierre-de-ejercicio';
 import { soloFecha } from '../M06_Autorizacion/formato';
 
@@ -163,7 +165,11 @@ export default function CierreDeEjercicioPantalla(): ReactElement {
           {/* Las observaciones NO van en un bloque aparte arriba: cada una tiene su panel, y
               repetirlas duplicaria el mismo hallazgo dos veces en la misma pantalla. Van al
               acta congelada, que es donde el documento las necesita. */}
-          <PanelDelApuro apuro={vista.data.apuro} />
+          <PanelDelApuro
+            apuro={vista.data.apuro}
+            ventana={vista.data.ventana}
+            sinVentana={vista.data.sinVentana}
+          />
 
           {vista.data.motivosCompartidos.length > 0 && (
             <PanelDeMotivos motivos={vista.data.motivosCompartidos} />
@@ -229,7 +235,40 @@ export default function CierreDeEjercicioPantalla(): ReactElement {
  * *«El sistema no la resuelve; **la hace visible**. El indicador de misiones cerradas en la
  * ventana de cierre, contra el promedio del año, es el dato que expone el cierre apurado»*.
  */
-function PanelDelApuro({ apuro }: { apuro: CierreApurado }): ReactElement {
+function PanelDelApuro({
+  apuro,
+  ventana,
+  sinVentana,
+}: {
+  apuro: CierreApurado | null;
+  ventana: VentanaDeCierre | null;
+  sinVentana: VentanaSinResolver | null;
+}): ReactElement {
+  // ── Sin ventana no hay cero: no hay medición ──────────────────────────────
+  // `RN-96` la declara configurable con vigencia, y no tiene valor por omisión. Mostrar un
+  // «0 cerradas» acá haría creer que se buscó y no había, cuando nadie configuró dónde buscar.
+  if (apuro === null || ventana === null) {
+    return (
+      <Panel titulo="Ritmo de cierre en la ventana">
+        <div className="tw:flex tw:flex-col tw:gap-2">
+          <Nota tono="aviso" icono={<ShieldAlert />}>
+            <b>La ventana de cierre no está parametrizada.</b> Ni el ritmo de cierre ni los
+            motivos compartidos se evaluaron — están <b>sin medir, no en cero</b>.
+          </Nota>
+
+          {sinVentana !== null && (
+            <p className="tw:text-xs tw:text-tinta-mid">
+              {sinVentana.porQueNo} Se carga en{' '}
+              <span className="tw:font-mono">{sinVentana.clave}</span>, con vigencia y doble
+              control. Cuánto dura la ventana lo decide cada institución: no hay un valor por
+              omisión que este sistema pueda suponer sin inventar el hallazgo.
+            </p>
+          )}
+        </div>
+      </Panel>
+    );
+  }
+
   return (
     <Panel titulo="Ritmo de cierre en la ventana">
       <div className="tw:flex tw:flex-col tw:gap-2">
@@ -262,6 +301,13 @@ function PanelDelApuro({ apuro }: { apuro: CierreApurado }): ReactElement {
             misma.
           </p>
         )}
+
+        {/* De dónde salió la ventana. Un indicador que no dice contra qué se midió no se
+            puede reproducir ni discutir años después. */}
+        <p className="tw:text-xs tw:text-tinta-mid">
+          Del {soloFecha(ventana.desde)} al {soloFecha(ventana.hasta)} —{' '}
+          <span className="tw:font-mono">{ventana.origen}</span>
+        </p>
       </div>
     </Panel>
   );

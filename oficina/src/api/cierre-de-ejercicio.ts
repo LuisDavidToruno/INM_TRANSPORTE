@@ -80,6 +80,26 @@ export interface MotivoCompartido {
   ventanaEnMinutos: number;
 }
 
+/**
+ * La ventana de cierre — `RN-96`, **parámetro con vigencia**.
+ *
+ * Resuelta a la fecha del corte legal, no a hoy: reevaluar el cierre de 2026 usa la ventana que
+ * regía entonces.
+ */
+export interface VentanaDeCierre {
+  desde: string;
+  hasta: string;
+  dias: number;
+  /** De qué versión del parámetro salió, con su vigencia. Sin esto no se puede reproducir. */
+  origen: string;
+}
+
+/** Por qué no se pudo resolver. **Se declara, no se sustituye por un valor razonable.** */
+export interface VentanaSinResolver {
+  clave: string;
+  porQueNo: string;
+}
+
 export interface CierreApurado {
   cerradasEnLaVentana: number;
   cerradasEnElAnio: number;
@@ -106,7 +126,12 @@ export interface ActaDeCierre {
   montoPorAnular: number;
   cambiosDeParametros: CambioDeParametro[];
   motivosCompartidos: MotivoCompartido[];
-  apuro: CierreApurado;
+  /** La ventana contra la que se midieron los motivos compartidos y el ritmo de cierre. */
+  ventana: VentanaDeCierre | null;
+  /** Presente exactamente cuando `ventana` es nula. */
+  sinVentana: VentanaSinResolver | null;
+  /** **Nulo cuando no hay ventana**: el indicador no se evaluó, que no es lo mismo que cero. */
+  apuro: CierreApurado | null;
   /** El saldo que el acta cita. **Nulo es que no hay saldo producido**, no que cuadró. */
   saldoDeAperturaFolio: string | null;
   observaciones: string[];

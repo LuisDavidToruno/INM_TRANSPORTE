@@ -477,9 +477,38 @@ no lo alcanza. Va en la lista **marcado**, fuera del monto por anular, con su ca
 devolución con acta u obligación de reintegro (`RN-86`). Contarlo en el monto diría que ese dinero
 vuelve al fondo por efecto del acta, que es falso.
 
-⚠️ **La ventana de cierre es una constante de 15 días, no un parámetro con vigencia.** `RN-96`
-declara configurables las fechas de corte. Queda fija en el código y **visible ahí**: leerla de una
-clave que ninguna pantalla puede editar sería peor, porque parecería configurada.
+#### La ventana de cierre es parámetro con vigencia, y sin valor por omisión
+
+Era una constante de 15 días. Ahora sale de `cierre.ventana_de_cierre_dias`, resuelta **a la fecha
+del corte legal** (`RN-40`) y con el eje de transacción en el **momento del acta**: reabrir una
+producida en enero reproduce lo que se vio ese día, no lo que se cargó después.
+
+El acta declara **de qué versión salió**: *«cierre.ventana_de_cierre_dias = 45 días, versión vigente
+desde el 01/01/2026»*. Un indicador que no dice contra qué ventana se midió no se puede reproducir
+ni discutir años después. Medido en vivo: cerrar la versión de 15 y abrir una de 45 mueve la ventana
+de 31 a 61 días sin tocar una línea.
+
+**No tiene valor por omisión, y es deliberado.** Un «15 razonable» calcularía los motivos
+compartidos y el ritmo de cierre contra un número que nadie declaró, y un lector no podría
+distinguirlos de los que sí se midieron. Sin el parámetro, esos dos reportes salen **sin medir**, no
+en cero, y el acta y la pantalla lo dicen con esas palabras. Cero y negativos tampoco resuelven: una
+ventana de cero no deja dónde buscar, y saldría como «no hubo hallazgos».
+
+`CatalogoDeParametros` ganó `ResolverSiHay`: **bloquea lo que decide un número que alguien va a
+cobrar; devuelve nulo lo que decide si un reporte se puede evaluar.** El que bloquea sigue
+bloqueando.
+
+⚠️ **Insumo #93: nadie ha cargado la ventana.** Mientras tanto los dos controles están apagados —
+declarados, pero apagados. La ficha no fija ningún número, así que no se inventa.
+
+⚠️ **Las fechas de corte legal y operativa siguen viniendo del cliente**, no de parámetros. `RN-96`
+las declara configurables con vigencia (insumo #86) y hoy cualquiera puede pedir cualquier corte en
+la vista previa. Es editable a propósito mientras se ajusta, pero el valor por omisión debería salir
+del catálogo igual que la ventana.
+
+**Tres pruebas de punta a punta cambiaron de significado al cablear esto:** pasaban con listas
+vacías por falta de parámetro, no por ausencia de hallazgos. Ahora siembran la ventana y **asertan
+que está** antes de mirar el resultado, para que no puedan volver a pasar por la razón equivocada.
 
 ⚠️ **El criterio de imputación entre ejercicios sigue `[C]`.** La ficha lo dice: *«confirmar con la
 Gerencia Administrativa y contra SIAFI — es el tipo de detalle que cada institución resuelve
