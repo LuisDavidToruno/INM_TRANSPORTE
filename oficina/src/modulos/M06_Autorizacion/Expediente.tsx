@@ -64,7 +64,7 @@ export default function Expediente(): ReactElement {
     },
     onError: (e) => {
       if (e instanceof BloqueoDuro) {
-        avisar.error(`${e.precondicion} — ${e.message}`);
+        avisar.error(e.paraMostrar);
         return;
       }
       avisar.error('No se pudo autorizar. El expediente quedó como estaba.');
@@ -335,7 +335,7 @@ function PronunciamientoNegativo({
     },
     onError: (e) => {
       if (e instanceof BloqueoDuro) {
-        avisar.error(`${e.precondicion} — ${e.message}`);
+        avisar.error(e.paraMostrar);
         return;
       }
       avisar.error('No se pudo. El expediente quedó como estaba.');

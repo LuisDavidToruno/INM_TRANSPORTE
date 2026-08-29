@@ -24,6 +24,42 @@ export class BloqueoDuro extends Error {
     super(mensaje);
     this.name = 'BloqueoDuro';
   }
+
+  /**
+   * El rechazo listo para mostrar.
+   *
+   * **El identificador se antepone sólo si el mensaje no lo dice ya.** Un `BD-xx` no aparece
+   * en su propio texto y sin el prefijo el usuario no tiene cómo citarlo; una transición sí
+   * —«La transición T-06 exige el estado Solicitada»—, y anteponerlo producía «T-06 — La
+   * transición T-06 exige…», que se lee como una falla del sistema.
+   */
+  get paraMostrar(): string {
+    if (this.precondicion === 'desconocida' || this.message.includes(this.precondicion)) {
+      return this.message;
+    }
+
+    return `${this.precondicion} — ${this.message}`;
+  }
+}
+
+/**
+ * Las formas que tiene un 409 en esta API.
+ *
+ * Son varias a propósito: el nombre del campo dice de qué familia es el rechazo, y por lo
+ * tanto por dónde se sale de él. Ver el `switch` de excepciones en `Program.cs`.
+ */
+interface RechazoDelServidor {
+  readonly mensaje?: string;
+  /** Un `BD-xx` o una `RN-xx`. */
+  readonly precondicion?: string;
+  /** Un `T-xx` de la Orden de Misión o del vale: el expediente no está en el estado que exige. */
+  readonly transicion?: string;
+  /** El fondo de combustible no admite el movimiento en su estado actual. */
+  readonly movimiento?: string;
+  /** Una carga rechazada por el motor de sincronización. */
+  readonly motivo?: string;
+  /** La aprobación venció: la salida no es cambiar de vehículo sino anular con motivo. */
+  readonly caducada?: boolean;
 }
 
 export async function pedir<T>(ruta: string, opciones?: RequestInit): Promise<T> {
@@ -33,9 +69,16 @@ export async function pedir<T>(ruta: string, opciones?: RequestInit): Promise<T>
   });
 
   if (respuesta.status === 409) {
-    const cuerpo = (await respuesta.json()) as { precondicion?: string; mensaje?: string };
+    const cuerpo = (await respuesta.json()) as RechazoDelServidor;
+
     throw new BloqueoDuro(
-      cuerpo.precondicion ?? 'desconocida',
+      // **El 409 no siempre se llama `precondicion`.** La API nombra el rechazo según de qué
+      // familia sea —una transición inválida trae `transicion`, el fondo trae `movimiento`,
+      // una carga rechazada trae `motivo`— y cada nombre está elegido para que la salida se
+      // busque donde corresponde. Leer sólo `precondicion` dejaba a las otras tres como
+      // «desconocida», que es la palabra que aparecía impresa en la pantalla.
+      cuerpo.precondicion ?? cuerpo.transicion ?? cuerpo.movimiento ?? cuerpo.motivo ??
+        (cuerpo.caducada === true ? 'aprobación caducada' : 'desconocida'),
       cuerpo.mensaje ?? 'La operación no cumple una precondición.',
     );
   }

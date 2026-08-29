@@ -405,6 +405,62 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## Las seis pantallas que tenían el bloqueo invisible
+
+**RESUELTAS.** El arreglo de la capa de avisos era central, así que las seis quedaron
+cubiertas por él. Lo que faltaba era **comprobarlo una por una**, y comprobar reveló que en
+dos de ellas el motivo del rechazo no llegaba al aviso ni siquiera con el aviso visible.
+
+### `Cola` se tragaba el motivo antes de mostrarlo
+
+⚠️ Los dos manejadores de la cola de programación —desprogramar y anular— eran
+`onError: () => avisar.error('No se pudo…')`: **descartaban el error sin mirarlo**. Con la capa
+arreglada el aviso ya se veía, y lo que se veía era «No se pudo desprogramar», que no se puede
+accionar.
+
+Medido en vivo, ahora dice: *«La transición T-11 exige el estado Programada, y el expediente
+está en Aprobada»*. Eran **los dos únicos `onError` de todo el frontend que no reciben el
+error**; el resto ya lo pasaba.
+
+### El 409 no siempre se llama `precondicion`
+
+⚠️ El adaptador leía sólo `cuerpo.precondicion` y caía en `'desconocida'`. Pero la API nombra
+el rechazo según de qué familia sea, **y a propósito**: una transición inválida trae
+`transicion`, el fondo trae `movimiento`, una carga rechazada trae `motivo`, la aprobación
+vencida trae `caducada`. Cada nombre dice por dónde se sale del rechazo.
+
+Resultado: `Expediente`, que antepone el identificador, imprimía **«desconocida — La transición
+T-06 exige…»** en pantalla. Corregido en `pedir`, que ahora recorre las cinco formas.
+
+Y al corregirlo apareció lo contrario: **«T-06 — La transición T-06 exige…»**. El prefijo ahora
+vive en `BloqueoDuro.paraMostrar` y se antepone **sólo si el mensaje no lo dice ya**: un `BD-xx`
+no aparece en su propio texto y sin prefijo no hay cómo citarlo; una transición sí.
+
+### Qué se verificó en vivo, y qué no
+
+| Pantalla | Bloqueo provocado | Resultado |
+|---|---|---|
+| `Padron` | Terminal con misiones sin cerrar | ✅ *«tiene 3 misión(es) sin cerrar»* |
+| `Cola` | Carrera: desprogramada por detrás | ✅ *«T-11 exige el estado Programada»* |
+| `Expediente` | Carrera: aprobada por detrás | ✅ *«T-06 exige el estado Solicitada»* |
+| `Fondos` | Segregación: aprobar lo que uno pidió | ✅ *«quien pide y quien autoriza tienen que ser dos personas distintas»* |
+| `PanelDeVales` | — | ⚠️ **sólo por auditoría de código** |
+| `PanelDeAbastecimientos` | — | ⚠️ **sólo por auditoría de código** |
+
+Los dos últimos no se pudieron provocar: **la emisión del vale bloquea antes de enviar**. La
+precondición del fondo aprobado y vigente se evalúa en el cliente y el botón queda inhabilitado
+con el motivo escrito en el propio diálogo, así que la petición nunca sale. Sus manejadores ya
+pasaban `e.message` —igual que los cuatro verificados— y la visibilidad del aviso no depende de
+la pantalla, pero **eso es un argumento, no una medición**, y queda dicho como tal.
+
+### Estado de desarrollo tocado al probar
+
+Las carreras se provocaron contra la base de desarrollo: `PROV-B22434` quedó `Aprobada` en vez
+de `Programada`, hay un fondo de septiembre de más en `Solicitado`, y una misión de prueba
+`PROV-3ZD7R2`. Sin datos reales y sin nada en producción.
+
+---
+
 ## El panel de títulos de tenencia, y un defecto del sistema de diseño
 
 **RESUELTO.** `RN-62` ya se puede cargar y mirar desde la oficina: `/titulos`, dentro de M-03,

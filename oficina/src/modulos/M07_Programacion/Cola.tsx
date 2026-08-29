@@ -18,6 +18,7 @@ import {
 } from '../../ui';
 import type { ColumnaDef } from '../../ui';
 import {
+  BloqueoDuro,
   MOTIVOS_DE_ANULACION,
   anular,
   anularProgramada,
@@ -317,7 +318,17 @@ function DialogoDeDesprogramacion({
       await cliente.invalidateQueries({ queryKey: ['cola-programacion'] });
       onCerrar();
     },
-    onError: () => avisar.error('No se pudo desprogramar. El expediente quedó como estaba.'),
+    // El servidor rechaza con el motivo —`T-11` exige la misión PROGRAMADA, y exige motivo
+    // porque la dependencia pierde un vehículo que ya tenía— y ese motivo es lo único que dice
+    // qué hacer. Descartarlo dejaba «no se pudo» a secas, que no se puede accionar.
+    onError: (e) => {
+      if (e instanceof BloqueoDuro) {
+        avisar.error(e.message);
+        return;
+      }
+
+      avisar.error('No se pudo desprogramar. El expediente quedó como estaba.');
+    },
   });
 
   return (
@@ -425,7 +436,16 @@ function DialogoDeAnulacion({
       await cliente.invalidateQueries({ queryKey: ['cola-programadas'] });
       onCerrar();
     },
-    onError: () => avisar.error('No se pudo anular. El expediente quedó como estaba.'),
+    // Mismo criterio: `T-12` y `T-13` exigen estados distintos, y cuál de los dos falló es
+    // justamente lo que hay que leer.
+    onError: (e) => {
+      if (e instanceof BloqueoDuro) {
+        avisar.error(e.message);
+        return;
+      }
+
+      avisar.error('No se pudo anular. El expediente quedó como estaba.');
+    },
   });
 
   return (
