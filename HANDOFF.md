@@ -405,6 +405,78 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## `RN-62` — el título de tenencia (M-03)
+
+**RESUELTA.** Era el insumo #100, y era lo que le faltaba a la corrección `HB3-17` para operar:
+hasta ahora **siempre advertía en vez de juzgar**, porque el régimen de tenencia no existía en
+ninguna parte del sistema.
+
+### El título es una serie, no una columna del vehículo
+
+Un vehículo que pasa de comodato a propiedad **conserva el título anterior**. Las misiones de ese
+período se hicieron bajo comodato y sus rubros los cubría el cedente; reescribir el régimen
+borraría el contexto contable de todo lo ya ejecutado. De la serie manda **el que regía a la
+fecha del hecho** (`P-4`), no el vigente hoy.
+
+Dos títulos vigentes a la vez se bloquean al registrar: el vehículo estaría en dos regímenes al
+mismo tiempo y **la pregunta de si el bien es del Estado no tendría respuesta**. Lo que cambia el
+régimen es cerrar el anterior y abrir el nuevo.
+
+### Lo que el título decide
+
+| Control | Qué impone |
+|---|---|
+| **Habilitación** | Sin título vigente el vehículo no se habilita: no consta bajo qué régimen lo tenemos |
+| **Programación** | La ventana de la misión tiene que caber **entera** dentro de la vigencia |
+| **Terminal correcto** (`HB3-17`) | El descargo es de bienes propios; el retiro de flota, de ajenos |
+| **Imputación** | El rubro que cubre el titular **no se carga a nuestro presupuesto** |
+
+La programación sigue el patrón de `RN-10` con la licencia: **no alcanza con que el título esté
+vigente el día de la salida**. Medido en vivo: *«La ventana de la misión (28/12/2026 al
+05/01/2027) excede la vigencia del título de tenencia, que rige del 01/01/2026 al 31/12/2026
+(Comodato, Secretaría de Salud) […] tiene que cubrir todo el rango, o el vehículo dejaría de ser
+nuestro para usarlo a mitad de la misión»*.
+
+### `HB3-17` ya juzga — medido en vivo
+
+| Caso | Antes | Ahora |
+|---|---|---|
+| Comodato → `DadoDeBaja` | pasaba | **409** *«sería un asiento falso sobre un bien ajeno […] Lo que corresponde es RETIRADO_DE_FLOTA»* |
+| Comodato → `RetiradoDeFlota` | pasaba | 200 |
+| Propiedad → `RetiradoDeFlota` | pasaba | **409** *«sale del registro por DESCARGO»* |
+| **Sin título** → cualquier terminal | pasaba mudo | 200 **con advertencia nombrada** |
+
+Ese último es deliberado y es el mismo criterio de `BD-07`: **sin título se advierte, no se
+bloquea**. Frenar el descargo de toda la flota por un dato de alta que nadie llenó sería peor que
+el asiento que se quiere evitar. Pero la advertencia **dice cuál mitad no se evaluó**, no calla.
+
+### «Sin pactar» no es «la institución»
+
+Los siete rubros —combustible, mantenimiento, llantas, seguro, peajes, multas, daños— tienen tres
+valores, no dos. `SinPactar` **responde nulo**, no «la institución»: es el rubro que aparece
+cuando llega la factura y empieza la discusión con el contrato en la mano, y suponer que lo
+pagamos nosotros es exactamente la conclusión que hay que dejar en manos de quien pregunte. La
+ficha los lista aparte de los del titular.
+
+### Dos decisiones del dominio que vale nombrar
+
+**La propiedad es el único régimen sin fecha de fin.** Ponerle una haría que el vehículo se
+inhabilitara solo el día que alguien eligió sin que ninguna norma lo mandara. Y los demás **sí la
+exigen**: un comodato que no vence es una apropiación.
+
+**Sólo la propiedad hace propio el bien.** `DonacionEnTramite` todavía no lo es: hasta que el
+traspaso se perfeccione, darlo de baja del registro sería anticipar un título que no está.
+
+### ⚠️ Una nota vencida en la propia regla
+
+`RN-62` dice en sus casos límite que el estado terminal `RETIRADO_DE_FLOTA` es *«inexistente»* y
+que la regla *«no lo crea: describe el comportamiento que debe tener cuando exista»*. **Ya
+existe** — está en §10.2 y en el enum `EstadoOperativo` desde las transiciones `W-xx`. La nota de
+hallazgo abierta que la regla declara **ya no aplica**, y conviene cerrarla en el documento para
+que nadie vuelva a diseñar alrededor de una carencia que no está.
+
+---
+
 ## `W-01`..`W-19` — la tabla de transiciones del estado operativo
 
 **RESUELTA.** Era el cuello de botella que tres reglas esperaban: M-12, `RN-63` y `RN-60`

@@ -80,6 +80,8 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
 
     public DbSet<FilaDePrestamo> Prestamos => Set<FilaDePrestamo>();
 
+    public DbSet<FilaDeTitulo> TitulosDeTenencia => Set<FilaDeTitulo>();
+
     public DbSet<FilaDeIndisponibilidad> Indisponibilidades =>
         Set<FilaDeIndisponibilidad>();
 
@@ -836,6 +838,29 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
 
             // **Un desenlace por reserva.** Reescribirlo borraria el que constaba.
             resolucion.HasIndex(r => new { r.IndisponibilidadId, r.MisionId }).IsUnique();
+        });
+
+        // ── RN-62 · El titulo de tenencia ───────────────────────────────────
+
+        modelo.Entity<FilaDeTitulo>(titulo =>
+        {
+            titulo.ToTable("TituloDeTenencia", schema: "flota");
+
+            titulo.HasKey(t => t.Id);
+            titulo.Property(t => t.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            titulo.Property(t => t.VehiculoId)
+                .HasConversion(UlidABinario).HasColumnType("binary(16)");
+            titulo.Property(t => t.Regimen).HasConversion<string>().HasMaxLength(40).IsRequired();
+            titulo.Property(t => t.Titular).HasMaxLength(160).IsRequired();
+            titulo.Property(t => t.Documento).HasMaxLength(500).IsRequired();
+
+            foreach (var rubro in new[]
+                { "Combustible", "Mantenimiento", "Llantas", "Seguro", "Peajes", "Multas", "Danios" })
+                titulo.Property(rubro).HasConversion<string>().HasMaxLength(20).IsRequired();
+
+            // La consulta de cada programacion y de cada despacho: el titulo vigente del
+            // vehiculo a una fecha. Es una serie, no un campo, asi que se busca por ventana.
+            titulo.HasIndex(t => new { t.VehiculoId, t.Desde });
         });
 
         // ── RN-63 · El prestamo como expediente del bien ────────────────────

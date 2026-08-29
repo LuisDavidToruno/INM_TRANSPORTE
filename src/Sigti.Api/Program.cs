@@ -75,6 +75,7 @@ constructor.Services.AddScoped<ServicioDeCierreDeEjercicio>();
 constructor.Services.AddScoped<ServicioDeIncidentes>();
 constructor.Services.AddScoped<ServicioDePrestamos>();
 constructor.Services.AddScoped<ServicioDeIndisponibilidad>();
+constructor.Services.AddScoped<ServicioDeTitulos>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -357,6 +358,35 @@ static object ResumirIndisponibilidad(IndisponibilidadDelVehiculo i)
 
         // `RN-60` punto 6 — indicador de la gestion del taller. Nulo mientras no vuelva.
         desviacionEnDias = i.DesviacionEnDias,
+    };
+}
+
+/// <summary>El titulo de tenencia — `RN-62`.</summary>
+static object ResumirTitulo(TituloDeTenencia t)
+{
+    var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+
+    return new
+    {
+        id = t.Id.ToString(),
+        vehiculo = t.VehiculoId.ToString(),
+        regimen = t.Regimen.ToString(),
+        titular = t.Titular,
+        documento = t.Documento,
+        desde = t.Desde,
+
+        // Nula en propiedad: el bien es del Estado y no vence.
+        hasta = t.Hasta,
+        diasRestantes = t.DiasRestantes(hoy),
+        vigente = t.VigenteAl(hoy),
+
+        // Lo que decide cual de los dos terminales corresponde (`HB3-17`).
+        esBienPropio = t.EsBienPropio,
+
+        // La matriz de `RN-62`. Lo que cubre el titular NO se imputa a nuestro presupuesto.
+        rubros = t.Rubros.Todos.Select(r => new { rubro = r.Rubro, quien = r.Quien.ToString() }),
+        rubrosDelTitular = t.Rubros.DelTitular,
+        rubrosSinPactar = t.Rubros.SinPactar,
     };
 }
 
@@ -912,7 +942,8 @@ app.MapGet("/organigrama/antiguedad", async (ConsultaDelOrganigrama organigrama)
 // transición de la Orden de Misión, y declararlos a mano abriría la puerta a un vehículo
 // «en misión» sin misión que lo respalde.
 app.MapPost("/flota/{id}/estado", async (
-    string id, DeclararEstado peticion, EstadoDeLaFlota flota, ConsultaDeFlota padron) =>
+    string id, DeclararEstado peticion, EstadoDeLaFlota flota, ConsultaDeFlota padron,
+    ServicioDeTitulos titulos) =>
 {
     if (!Identificador.Valido(id, out var idVehiculo, out var error)) return error;
 
@@ -944,13 +975,22 @@ app.MapPost("/flota/{id}/estado", async (
                       "acta para el préstamo y los estados terminales.",
         });
 
-    await flota.AnotarAsync(idVehiculo, new CambioDeEstadoOperativo(
-        peticion.Estado, peticion.Momento, peticion.Ejecuta, peticion.Motivo,
-        Automatico: false));
+    // `RN-62` + `HB3-17` — si el bien es del Estado decide cual de los dos terminales
+    // corresponde: el descargo extingue un bien propio, el retiro devuelve uno ajeno. Nulo es
+    // «el vehiculo no tiene titulo registrado», y entonces se advierte en vez de juzgar.
+    var esBienPropio = await titulos.EsBienPropioAsync(
+        idVehiculo, DateOnly.FromDateTime(peticion.Momento.UtcDateTime));
+
+    var advertencia = await flota.AnotarAsync(
+        idVehiculo,
+        new CambioDeEstadoOperativo(
+            peticion.Estado, peticion.Momento, peticion.Ejecuta, peticion.Motivo,
+            Automatico: false),
+        esBienPropio);
 
     await flota.ConfirmarAsync();
 
-    return Results.Ok(new { id, estado = peticion.Estado.ToString() });
+    return Results.Ok(new { id, estado = peticion.Estado.ToString(), advertencia });
 });
 
 // El estado actual y su historial. El historial va entero porque la pregunta que se hace la
@@ -1506,6 +1546,37 @@ saldos.MapPost("/renglones/{id}/resolver", async (
 
     return Results.Ok(new { resuelto = true });
 });
+
+// ── RN-62 · El titulo de tenencia ───────────────────────────────────────────
+//
+// **Sin titulo vigente el vehiculo no se habilita**, y ninguna mision se programa si su ventana
+// excede la vigencia. Y es lo que decide cual de los dos terminales corresponde (`HB3-17`).
+var titulosDeTenencia = app.MapGroup("/titulos");
+
+titulosDeTenencia.MapPost("/", async (
+    RegistrarTitulo peticion, ServicioDeTitulos servicio) =>
+{
+    var id = await servicio.RegistrarAsync(
+        Ulid.Parse(peticion.Id),
+        Ulid.Parse(peticion.IdVehiculo),
+        peticion.Regimen,
+        peticion.Titular,
+        peticion.Documento,
+        peticion.Desde,
+        peticion.Hasta,
+        new RubrosDelTitulo(
+            peticion.Combustible, peticion.Mantenimiento, peticion.Llantas, peticion.Seguro,
+            peticion.Peajes, peticion.Multas, peticion.Danios));
+
+    return Results.Created($"/titulos/{id}", new { id = id.ToString() });
+});
+
+/// La serie de titulos del vehiculo. **Es una serie y no un campo**: un vehiculo que pasa de
+/// comodato a propiedad conserva el anterior, porque las misiones de ese periodo se hicieron bajo
+/// comodato y sus rubros los cubria el cedente.
+titulosDeTenencia.MapGet("/{vehiculo}", async (
+    string vehiculo, ServicioDeTitulos servicio) =>
+    Results.Ok((await servicio.DelVehiculoAsync(Ulid.Parse(vehiculo))).Select(ResumirTitulo)));
 
 // ── RN-60 · Indisponibilidad sobrevenida del vehiculo ───────────────────────
 //
@@ -2968,16 +3039,16 @@ misiones.MapPost("/{id}/anular-programada", async (
 // reservado y volver a tomar ahí duplicaría la reserva sin liberar la anterior.
 // `BD-11` sólo la evalúa `T-08`: es la que toma. `T-12` despacha sobre lo ya reservado,
 // y volver a comprobar el solape ahí chocaría contra la reserva de la propia misión.
-ConAsignacion("programar", (e, quien, a, m, p, cuando, recursos, reservas, _, __, ___, operativo, ____) =>
-    e.Programar(quien, a, m, p, cuando, recursos, reservas, operativo));
-ConAsignacion("despachar", (e, quien, a, m, p, cuando, _, __, ___, custodias, circulacion, ____, conflicto) =>
+ConAsignacion("programar", (e, quien, a, m, p, cuando, recursos, reservas, _, __, ___, operativo, ____, titulo) =>
+    e.Programar(quien, a, m, p, cuando, recursos, reservas, operativo, titulo));
+ConAsignacion("despachar", (e, quien, a, m, p, cuando, _, __, ___, custodias, circulacion, ____, conflicto, _____) =>
     e.Despachar(quien, a, m, p, cuando, custodias, circulacion, conflicto));
 
 // `T-10` — cambiar el vehículo o quien conduce SIN soltar la misión. Comparte la
 // resolución de recursos con programar y despachar: es la misma verificación de que el
 // identificador existe y la misma construcción de la asignación contra la que se evalúan
 // `BD-02` y `BD-03`. Lo único propio es el motivo, y por eso viaja en la misma petición.
-ConAsignacion("reasignar", (e, quien, a, m, p, cuando, recursos, reservas, peticion, _, __, ___, ____) =>
+ConAsignacion("reasignar", (e, quien, a, m, p, cuando, recursos, reservas, peticion, _, __, ___, ____, _____) =>
     e.Reasignar(quien, a, peticion.Motivo, peticion.Comentario, m, p, cuando, recursos, reservas));
 
 // M-16 — Donde aterriza lo que el dispositivo capturó sin red.
@@ -3155,7 +3226,7 @@ return;
 
 void ConAsignacion(
     string ruta,
-    Action<OrdenDeMision, IdPersona, AsignacionDeMision, MatrizDeLicencias, PoliticaDeDocumentacion, DateTimeOffset, RecursosTomados?, IReadOnlyList<ReservaDeRecurso>?, AsignarYTransicionar, CustodiaAlDespachar, CirculacionEnDiaInhabil, EstadoOperativo?, ConflictoPorIndisponibilidad> aplicar) =>
+    Action<OrdenDeMision, IdPersona, AsignacionDeMision, MatrizDeLicencias, PoliticaDeDocumentacion, DateTimeOffset, RecursosTomados?, IReadOnlyList<ReservaDeRecurso>?, AsignarYTransicionar, CustodiaAlDespachar, CirculacionEnDiaInhabil, EstadoOperativo?, ConflictoPorIndisponibilidad, TituloAlProgramar> aplicar) =>
     misiones.MapPost($"/{{id}}/{ruta}", async (
         string id,
         AsignarYTransicionar peticion,
@@ -3168,6 +3239,7 @@ void ConAsignacion(
         ConsultaDePermisos permisos,
         EstadoDeLaFlota estadoDeLaFlota,
         ServicioDeIndisponibilidad indisponibilidad,
+        ServicioDeTitulos titulos,
         IParametrosDeLaInstitucion parametros) =>
     {
         // El cliente manda IDENTIFICADORES, no la ficha técnica. Si mandara la ficha,
@@ -3222,6 +3294,10 @@ void ConAsignacion(
         // preguntara apagaria el bloqueo sin darse cuenta.
         var conflicto = await indisponibilidad.ConflictoDeAsync(ulid);
 
+        // Los titulos del vehiculo, SIN filtrar por fecha: cual regia lo decide el dominio
+        // contra la ventana de la solicitud, igual que las reservas de `BD-11`.
+        var titulo = await titulos.AlProgramarAsync(idVehiculo);
+
         var estado = await servicio.TransicionarAsync(
             ulid,
             expediente =>
@@ -3241,7 +3317,12 @@ void ConAsignacion(
                             vehiculo.Excepcion(),
                             permisosDelExpediente),
                         estadoDelVehiculo,
-                        conflicto);
+                        conflicto,
+
+                        // `RN-62` — el titulo se resuelve a la fecha de SALIDA de la mision, que
+                        // es la fecha del hecho (P-4). Consultarlo a hoy diria si lo tenemos
+                        // ahora, no si lo teniamos cuando la mision sale.
+                        titulo);
             },
             peticion.Momento);
 
@@ -4101,3 +4182,27 @@ internal sealed record ResolverReserva(
 
 internal sealed record DarDeAlta(
     DateOnly FinReal, string OrdenDeTrabajo, int OdometroDeSalida);
+
+// ── RN-62 · El título de tenencia ───────────────────────────────────────────
+
+/// <param name="Hasta">
+/// **Nula sólo en propiedad**, que es el único régimen que no vence. En los demás su ausencia
+/// haría que el título no venciera nunca — y un comodato que no vence es una apropiación.
+/// </param>
+internal sealed record RegistrarTitulo(
+    string Id,
+    string IdVehiculo,
+    RegimenDeTenencia Regimen,
+    /// <summary>Quién es el propietario o cedente.</summary>
+    string Titular,
+    /// <summary>Convenio, contrato, acta o resolución. Una prórroga verbal no existe.</summary>
+    string Documento,
+    DateOnly Desde,
+    DateOnly? Hasta,
+    QuienAsume Combustible,
+    QuienAsume Mantenimiento,
+    QuienAsume Llantas,
+    QuienAsume Seguro,
+    QuienAsume Peajes,
+    QuienAsume Multas,
+    QuienAsume Danios);

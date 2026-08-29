@@ -155,7 +155,8 @@ public sealed class OrdenDeMision
         DateTimeOffset momento,
         RecursosTomados? recursos = null,
         IReadOnlyList<ReservaDeRecurso>? reservas = null,
-        EstadoOperativo? estadoDelVehiculo = null)
+        EstadoOperativo? estadoDelVehiculo = null,
+        TituloAlProgramar? titulo = null)
     {
         ExigirEstado(EstadoDeMision.Aprobada, "T-08");
         ExigirAprobacionVigente(DateOnly.FromDateTime(momento.Date));
@@ -163,8 +164,16 @@ public sealed class OrdenDeMision
         var evidencia = ExigirHabilitacionYDocumentacion(asignacion, matriz, politica, momento);
         var sinSolape = ExigirSinSolapamiento(reservas);
 
+        // `RN-62` — la ventana no puede exceder la vigencia del título de tenencia. Mismo
+        // patrón que `RN-10` con la licencia: no alcanza con que esté vigente el día de la
+        // salida, tiene que cubrir todo el rango.
+        var tenencia = titulo is null
+            ? " · RN-62 NO evaluada: no se consultó el título de tenencia"
+            : ReglasDelTitulo.ExigirVigenciaEnTodoElRango(
+                titulo, Solicitud.Ventana.Salida, Solicitud.Ventana.Retorno);
+
         Registrar("T-08", EstadoDeMision.Programada, ejecuta, momento,
-            evidencia + sinSolape + operativo, recursos: recursos);
+            evidencia + sinSolape + operativo + tenencia, recursos: recursos);
     }
 
     /// <summary>
