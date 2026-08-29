@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText, LayoutList, IdCard, Scale, Users, ShieldAlert, Inbox } from 'lucide-react';
+import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText, LayoutList, IdCard, Scale, Users, ShieldAlert, Inbox, Route as RutaIcono, SlidersHorizontal } from 'lucide-react';
 
 import { Avisos, Nota, Shell, avisar } from '../ui';
 import type { GrupoNav, Miga } from '../ui';
@@ -23,6 +23,9 @@ import Titulos from '../modulos/M03_Flota/Titulos';
 import Puestos from '../modulos/M01_Organizacion/Puestos';
 import BandejaDeTareas from '../modulos/M01_Organizacion/Bandeja';
 import IntentosBloqueados from '../modulos/M14_Auditoria/IntentosBloqueados';
+import Pista from '../modulos/M14_Auditoria/Pista';
+import RastroDelExpediente from '../modulos/M14_Auditoria/RastroDelExpediente';
+import ParametrosNormativos from '../modulos/M14_Auditoria/ParametrosNormativos';
 import ExpedienteDeVehiculo from '../modulos/M03_Flota/Expediente';
 import PadronDeMotoristas from '../modulos/M05_Motoristas/Padron';
 import MatrizDeLicencias from '../modulos/M05_Motoristas/Matriz';
@@ -192,7 +195,12 @@ function Interior(): ReactElement {
       items: [
         // Va primero del grupo: es lo que Auditoría Interna abre para ver si el control
         // opera, y una pista de intentos escondida al final es una pista que no se mira.
+        // El orden es el de la ficha de `ACT-12`: primero la cadena de un expediente, que es
+        // lo que revisa, y después lo transversal.
+        { texto: 'Rastro del expediente', icono: <RutaIcono />, href: '/rastro' },
+        { texto: 'Pista de auditoría', icono: <FileSearch />, href: '/pista' },
         { texto: 'Intentos bloqueados', icono: <ShieldAlert />, href: '/intentos-bloqueados' },
+        { texto: 'Parámetros normativos', icono: <SlidersHorizontal />, href: '/parametros-normativos' },
         { texto: 'Fuentes externas', icono: <FileSearch />, href: '/conciliacion' },
         { texto: 'Saldo de apertura', icono: <Archive />, href: '/saldo-de-apertura' },
         // El cierre de ejercicio va al final del grupo: es lo que se produce DESPUES de que
@@ -253,6 +261,9 @@ function Interior(): ReactElement {
         <Route path="/prestamos" element={<PrestamosPantalla />} />
         <Route path="/combustible" element={<Fondos />} />
         <Route path="/peajes" element={<Peajes />} />
+        <Route path="/rastro" element={<RastroDelExpediente />} />
+        <Route path="/pista" element={<Pista />} />
+        <Route path="/parametros-normativos" element={<ParametrosNormativos />} />
         <Route path="/intentos-bloqueados" element={<IntentosBloqueados />} />
         <Route path="/conciliacion" element={<Conciliacion />} />
         <Route path="/saldo-de-apertura" element={<SaldoDeAperturaPantalla />} />
@@ -299,6 +310,9 @@ function migasDe(ruta: string): Miga[] {
   if (ruta === '/pantallas') return ['Pantallas'];
   if (ruta === '/prestamos') return ['Flota', 'Préstamos'];
   if (ruta === '/combustible') return ['Combustible'];
+  if (ruta === '/rastro') return ['Auditoría', 'Rastro del expediente'];
+  if (ruta === '/pista') return ['Auditoría', 'Pista de auditoría'];
+  if (ruta === '/parametros-normativos') return ['Auditoría', 'Parámetros normativos'];
   if (ruta === '/intentos-bloqueados') return ['Auditoría', 'Intentos bloqueados'];
   if (ruta === '/conciliacion') return ['Auditoría', 'Fuentes externas'];
   if (ruta === '/saldo-de-apertura') return ['Auditoría', 'Saldo de apertura'];

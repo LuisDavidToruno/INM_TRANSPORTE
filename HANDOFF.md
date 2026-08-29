@@ -414,6 +414,78 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## Bloque 2 de las 63: la auditoría de `ACT-12` (M-14)
+
+**Cuatro pantallas: `PT-003`, `PT-088`, `PT-089` y `PT-092`.** La primera ya estaba construida
+sin que nadie lo supiera.
+
+### ⚠️ `PT-003` ya existía, y se descubrió mirando el inventario
+
+La bandeja de tareas escaladas de §5.3.B.3 **es** «Bandeja de tareas escaladas por segregación
+de funciones» — el nombre del inventario, palabra por palabra. Se construyó desde la
+especificación sin cruzarla con el inventario, y quedó sin registrar.
+
+**Es el mismo patrón que el mapa de pantallas ya había destapado:** trece pantallas
+construidas sin citar su `PT`. Mirar el inventario antes de construir, y no sólo después,
+evita duplicar o dejar huérfano lo que ya está.
+
+### `PT-089` — el rastro «con sus huecos visibles»
+
+Esa frase del inventario **es todo el requisito**. Un rastro que sólo muestra lo que está no
+sirve para auditar: lo que el TSC busca es dónde se cortó la cadena.
+
+**Cuatro estados, no dos.** «Falta», «no correspondía» y «todavía no toca» se ven iguales en
+una casilla vacía y no son lo mismo. Juntarlos produce los dos daños a la vez:
+
+| Estado | Qué dice |
+|---|---|
+| `Presente` | Hay asiento, con autor y fecha |
+| `Ausente` | **El hallazgo.** Correspondía, se pasó por la etapa, y no hay asiento |
+| `NoAplica` | No correspondía — una misión sin fondo no tiene vale |
+| `Pendiente` | Todavía no toca. La misión sigue su curso |
+
+*«Completa»* exige **no tener huecos y no tener pendientes**: dar por completa una cadena con
+eslabones pendientes cerraría un expediente vivo en el reporte.
+
+### ⚠️ Dos defectos que sólo aparecieron con datos reales
+
+La primera corrida contra la base los destapó de inmediato, y los dos eran **falsos positivos
+en una pista de auditoría** — que es lo que hace que se deje de mirar:
+
+| Defecto | Efecto |
+|---|---|
+| **Liquidar es `T-19`, no `T-20`** | Una misión `LIQUIDADA` salía con la liquidación marcada como hueco. El estado decía una cosa y la cadena lo contradecía |
+| La bitácora se juzgaba contra el **despacho** | Toda misión `DESPACHADA` aparecía como hallazgo. La bitácora se abre en `T-14` al iniciar la ruta, no al despachar: se juzga contra el retorno |
+
+⚠️ **Y el primero no estaba sólo ahí.** `ActosDeLaMision` —el mapa transición→función de la
+segregación— tenía el mismo `T-20`. El efecto no se veía desde el bloqueo de liquidar, porque
+ahí la función pretendida se pasa explícita; **se veía del otro lado**: quien ya había
+liquidado no contaba como acto previo, y podía autorizar o despachar la misma misión **sin que
+`I-07` ni `I-09` dispararan**. Un hueco de segregación que sólo se destapó porque otra
+pantalla mostró la misma tabla desde otro ángulo.
+
+**Van cinco errores en mapas de identificadores** —cuatro en el puente rol→función, uno acá—.
+Es el punto más frágil del sistema y conviene tratarlo así: **el mapa se verifica contra el
+código que emite los identificadores, no contra la memoria**.
+
+### `PT-088` declara lo que le falta
+
+La ficha de `ACT-12` enumera cinco fuentes y hoy existen tres. **Una pista que muestra tres sin
+decir que faltan dos se lee como completa**, y quien audite concluiría que no hubo actos en
+régimen de excepción cuando lo que pasa es que nadie los registra. La pantalla las nombra.
+
+### `PT-092` — las dos parejas de fechas, completas
+
+El eje **normativo** dice desde cuándo regía; el de **transacción**, desde cuándo lo supimos
+(`ADR-006`). Mostrar sólo el primero impediría explicar por qué una liquidación de marzo usó
+otro número. Y las versiones **sin aprobar se muestran** diciendo que no rigen: ocultarlas
+haría que quien audite no viera lo que espera firma.
+
+**987 pruebas en verde**, y el grupo `/auditoria` **no tiene un solo `MapPost`** — el límite
+absoluto de `ACT-12` es sólo lectura y exportación.
+
+---
+
 ## El canal de aviso — §5.3.B.3 completo
 
 **Elegir el canal es cargar un parámetro, no tocar código.** Insumo #102 pasa de «no se puede

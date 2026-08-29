@@ -144,7 +144,23 @@ export const CONSTRUIDAS: Readonly<Record<string, Construida>> = {
   },
   'PT-097': { ruta: '/organizacion', archivo: 'M01_Organizacion/Puestos.tsx' },
 
+  // ── M-01, la bandeja ──────────────────────────────────────────────────────
+  //
+  // `PT-003` ya estaba construida sin saberlo: la bandeja de tareas escaladas de §5.3.B.3 **es**
+  // «Bandeja de tareas escaladas por segregación de funciones». Se descubrió al buscar el
+  // siguiente bloque, mirando el inventario en vez de la lista de pendientes.
+  'PT-003': { ruta: '/tareas', archivo: 'M01_Organizacion/Bandeja.tsx' },
+
   // ── M-14 Auditoría ────────────────────────────────────────────────────────
+  'PT-088': {
+    ruta: '/pista',
+    archivo: 'M14_Auditoria/Pista.tsx',
+    incompleta:
+      'Junta las tres fuentes que hoy existen y declara las dos que faltan: los actos en ' +
+      'régimen de excepción no se registran, y no hay vista transversal de transiciones.',
+  },
+  'PT-089': { ruta: '/rastro', archivo: 'M14_Auditoria/RastroDelExpediente.tsx' },
+  'PT-092': { ruta: '/parametros-normativos', archivo: 'M14_Auditoria/ParametrosNormativos.tsx' },
   'PT-091': {
     ruta: '/intentos-bloqueados',
     archivo: 'M14_Auditoria/IntentosBloqueados.tsx',

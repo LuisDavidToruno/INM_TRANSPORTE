@@ -44,8 +44,16 @@ public static class ActosDeLaMision
             // `T-12` — el acto físico de entrega del vehículo.
             ["T-12"] = Funcion.Despacha,
 
-            // `T-20` — el descargo conciliado.
-            ["T-20"] = Funcion.Liquida,
+            // `T-19` — el descargo conciliado.
+            //
+            // ⚠️ **Decía `T-20`, que no existe.** El efecto no era visible desde el bloqueo de
+            // liquidar —ahí la función pretendida se pasa explícita— pero **sí desde el otro
+            // lado**: quien ya había liquidado no contaba como acto previo, y podía autorizar o
+            // despachar la misma misión sin que `I-07` ni `I-09` dispararan.
+            //
+            // Lo destapó `PT-089`, que mostró una misión LIQUIDADA con la liquidación marcada
+            // como hueco.
+            ["T-19"] = Funcion.Liquida,
         };
 
     /// <summary>

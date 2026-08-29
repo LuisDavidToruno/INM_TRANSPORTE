@@ -1178,6 +1178,178 @@ app.MapGet("/matriz-de-licencias", async (
     });
 });
 
+// ── M-14 · La auditoria de ACT-12 ───────────────────────────────────────────
+//
+// Su ficha: *«Verificar. Nada mas y nada menos. Revisar la cadena solicitud → autorizacion →
+// orden de mision → bitacora → vale → comprobante → liquidacion»*. Y su limite absoluto: **solo
+// lectura y exportacion**, sin excepciones — por eso este grupo no tiene ningun `MapPost`.
+var auditoria = app.MapGroup("/auditoria");
+
+/// `PT-089` — el rastro de un expediente **con sus huecos visibles**.
+///
+/// Un rastro que solo muestra lo que esta no sirve para auditar: lo que el TSC busca es **donde
+/// se corto la cadena**. Y distingue cuatro estados, no dos: «falta» y «no correspondia» se ven
+/// iguales en una casilla vacia y son opuestos.
+auditoria.MapGet("/expediente/{id}", async (
+    string id, ServicioDeMisiones misiones, ServicioDeCombustible combustible) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    var expediente = await misiones.BuscarAsync(ulid);
+
+    if (expediente is null)
+        return Results.NotFound(new { mensaje = $"No existe el expediente {id}." });
+
+    var vales = await combustible.DeLaMisionAsync(ulid);
+    var cadena = ArmadoDeLaCadena.De(expediente, id, vales);
+
+    return Results.Ok(new
+    {
+        expediente = cadena.Expediente,
+        folio = cadena.Folio,
+        estado = expediente.Estado.ToString(),
+
+        // **Completa exige que no haya huecos Y que no quede nada pendiente**: una mision en
+        // curso no tiene huecos y tampoco esta completa.
+        completa = cadena.Completa,
+        huecos = cadena.Huecos.Count,
+        noAplican = cadena.NoAplican,
+
+        eslabones = cadena.Eslabones.Select(e => new
+        {
+            eslabon = e.Eslabon.ToString(),
+            estado = e.Estado.ToString(),
+
+            // Nulos cuando el eslabon no esta: inventar un autor para algo que no ocurrio es la
+            // peor forma de llenar un reporte de auditoria.
+            referencia = e.Referencia,
+            quien = e.Quien?.Valor,
+            fecha = e.Fecha,
+
+            // Nulo cuando esta presente: un motivo ahi seria ruido.
+            porQue = e.PorQue,
+        }),
+    });
+});
+
+/// `PT-088` — la pista de auditoria transversal.
+///
+/// **No es el diario de un expediente**: es qué paso en la institucion. Por eso junta las tres
+/// fuentes que hoy existen y **declara las que no**, en vez de mostrar una lista incompleta que
+/// se lea como completa.
+auditoria.MapGet("/", async (SigtiDbContext contexto, DateOnly? desde, DateOnly? hasta) =>
+{
+    var inicio = desde ?? DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-30).Date);
+    var fin = hasta ?? DateOnly.FromDateTime(DateTime.UtcNow.Date);
+
+    if (fin < inicio)
+    {
+        return Results.BadRequest(new
+        {
+            mensaje = "El rango esta invertido. Devolver cero asientos lo haria pasar por «no " +
+                      "hubo actividad», que es lo contrario de lo que una pista tiene que decir.",
+        });
+    }
+
+    var d = inicio.ToDateTime(TimeOnly.MinValue);
+    var h = fin.ToDateTime(TimeOnly.MaxValue);
+
+    var intentos = await contexto.IntentosBloqueados.AsNoTracking()
+        .Where(i => i.MomentoUtc >= d && i.MomentoUtc <= h).ToListAsync();
+
+    var tareas = await contexto.Tareas.AsNoTracking()
+        .Where(t => t.MomentoUtc >= d && t.MomentoUtc <= h).ToListAsync();
+
+    var parametros = await contexto.Parametros.AsNoTracking()
+        .Where(v => v.RegistradoDesde >= new DateTimeOffset(d, TimeSpan.Zero)
+                 && v.RegistradoDesde <= new DateTimeOffset(h, TimeSpan.Zero))
+        .ToListAsync();
+
+    return Results.Ok(new
+    {
+        desde = inicio,
+        hasta = fin,
+
+        // Las tres fuentes que la ficha de `ACT-12` enumera y que **hoy existen**.
+        intentosBloqueados = intentos.Count,
+        tareasEscaladas = tareas.Count,
+        cambiosDeParametros = parametros.Count,
+
+        // **Y las que NO.** Una pista que enumera tres fuentes sin decir que faltan dos se lee
+        // como completa, y `ACT-12` concluiria que no hubo actos en regimen de excepcion cuando
+        // lo que pasa es que nadie los registra.
+        fuentesQueFaltan = new[]
+        {
+            "Los actos ejecutados en régimen de excepción: DP-002 suspendió el Nivel 2 y no hay " +
+            "registro de régimen en el sistema.",
+            "El diario de cada expediente por separado — se consulta por expediente en PT-089, " +
+            "no hay vista transversal de transiciones.",
+        },
+
+        asientos = intentos
+            .Select(i => new
+            {
+                momento = i.MomentoUtc,
+                tipo = "Intento bloqueado",
+                quien = i.Quien,
+                detalle = $"{i.Par}: quiso {i.Pretendia} sobre {i.Expediente}",
+            })
+            .Concat(tareas.Select(t => new
+            {
+                momento = t.MomentoUtc,
+                tipo = "Tarea escalada",
+                quien = t.QuienLaOrigino,
+                detalle = t.Asunto,
+            }))
+            .Concat(parametros.Select(v => new
+            {
+                momento = v.RegistradoDesde.UtcDateTime,
+                tipo = "Cambio de parámetro",
+                quien = v.CargadoPor.Valor,
+                detalle = $"{v.Clave} = {v.Valor}, vigente desde {v.VigenteDesde:dd/MM/yyyy}",
+            }))
+            .OrderByDescending(a => a.momento),
+    });
+});
+
+/// `PT-092` — el historico de parametros normativos **con su vigencia**.
+///
+/// Las dos parejas de fechas de `ADR-006` van completas: la normativa dice **desde cuando
+/// regia**, y la de transaccion **desde cuando lo supimos**. Mostrar solo la primera impediria
+/// explicar por que una liquidacion vieja uso otro numero.
+auditoria.MapGet("/parametros", async (SigtiDbContext contexto, string? clave) =>
+{
+    var versiones = await contexto.Parametros.AsNoTracking()
+        .Where(v => clave == null || v.Clave == clave)
+        .OrderBy(v => v.Clave).ThenByDescending(v => v.VigenteDesde)
+        .ToListAsync();
+
+    return Results.Ok(versiones.Select(v => new
+    {
+        id = v.Id.ToString(),
+        clave = v.Clave,
+        valor = v.Valor,
+
+        // Eje NORMATIVO: desde cuándo regía.
+        vigenteDesde = v.VigenteDesde,
+        vigenteHasta = v.VigenteHasta,
+
+        // Eje de TRANSACCION: desde cuándo lo supimos. **Nulo en registradoHasta es «sigue
+        // siendo lo que creemos»**, no «se dejó de creer».
+        registradoDesde = v.RegistradoDesde,
+        registradoHasta = v.RegistradoHasta,
+
+        cargadoPor = v.CargadoPor.Valor,
+
+        // **Nulo es «sin aprobar», y una versión sin aprobar no resuelve**: el doble control de
+        // `HU-145` sería decorativo si el valor rigiera igual.
+        aprobadoPor = v.AprobadoPor == null ? null : v.AprobadoPor.Value.Valor,
+        estaAprobada = v.AprobadoPor != null,
+
+        respaldo = new { fuente = v.Respaldo.Fuente, verificadoEl = v.Respaldo.FechaDeVerificacion },
+    }));
+});
+
 // ── M-01 · La bandeja de tareas pendientes ──────────────────────────────────
 //
 // §5.3.B.3: *«el sistema encola la accion como pendiente de resolucion»*, y la mision *«queda
