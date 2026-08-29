@@ -312,6 +312,17 @@ public sealed class ServicioDeCombustible(SigtiDbContext contexto)
         return asignacion.Estado;
     }
 
+    /// <summary>
+    /// Un vale por su identificador.
+    ///
+    /// Existe por el control bloqueante de §5.3.B: **el vale sabe de que mision es y la mision
+    /// no sabe del vale**, asi que entregar el fondo tiene que entrar por aca para poder
+    /// comparar contra los actos del expediente.
+    /// </summary>
+    public Task<AsignacionDeCombustible?> BuscarValeAsync(
+        Ulid id, CancellationToken cancelacion = default) =>
+        _combustible.BuscarAsignacionAsync(id, cancelacion);
+
     public Task<IReadOnlyList<AsignacionDeCombustible>> DeLaMisionAsync(
         Ulid misionId, CancellationToken cancelacion = default) =>
         _combustible.DeLaMisionAsync(misionId, cancelacion);

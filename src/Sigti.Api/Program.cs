@@ -3122,11 +3122,48 @@ vales.MapGet("/mision/{id}", async (string id, ServicioDeCombustible servicio) =
         }),
     })));
 
+/// `V-02` — entregar el fondo contra firma, **con el control bloqueante de §5.3.B**.
+///
+/// ── Lo que `BD-06` ya cubría, y lo que no ───────────────────────────────────
+/// `BD-06` exige que quien entrega no sea quien emitió: es segregación **dentro del vale**.
+/// Los pares que cruzan el vale con la misión —`I-03` solicita, `I-06` autoriza, `I-08`
+/// despacha, `I-11` conduce— **no los veía nadie**, porque el vale no conoce el expediente y el
+/// expediente no conoce el vale.
 vales.MapPost("/{id}/entregar", async (
-    string id, EntregarVale peticion, ServicioDeCombustible servicio) =>
+    string id, EntregarVale peticion, HttpContext http,
+    ServicioDeCombustible servicio, ServicioDeMisiones misionesDelVale,
+    ServicioDeSegregacion segregacion, ConsultaDeConductores padron) =>
 {
+    var vale = Ulid.Parse(id);
+
+    // El vale sabe de qué misión es; la misión no sabe del vale. Por eso se entra por acá.
+    if (await servicio.BuscarValeAsync(vale) is { } encontrada)
+    {
+        var expediente = await misionesDelVale.BuscarAsync(encontrada.Mision)
+            ?? throw new ExpedienteNoEncontrado(encontrada.Mision);
+
+        var recursos = expediente.Diario.LastOrDefault(t => t.Recursos is not null)?.Recursos;
+
+        IdPersona? quienConduce = null;
+
+        if (recursos is not null &&
+            (await padron.TodosAsync()).FirstOrDefault(c => c.Id == recursos.Conductor) is { } c)
+        {
+            quienConduce = new IdPersona(c.Nombre);
+        }
+
+        await segregacion.ExigirAsync(
+            new IdPersona(peticion.Ejecuta),
+            Funcion.EntregaFondo,
+            ActosDeLaMision.De(
+                expediente, encontrada.Mision.ToString(), quienConduce, entregoElFondo: null),
+            encontrada.Mision.ToString(),
+            peticion.Momento,
+            origen: http.Connection.RemoteIpAddress?.ToString());
+    }
+
     var estado = await servicio.EntregarAsync(
-        Ulid.Parse(id), new IdPersona(peticion.Ejecuta), peticion.Constancia, peticion.Momento);
+        vale, new IdPersona(peticion.Ejecuta), peticion.Constancia, peticion.Momento);
 
     return Results.Ok(new { estado = estado.ToString() });
 });
@@ -3489,16 +3526,23 @@ misiones.MapPost("/{id}/anular-programada", async (
 // reservado y volver a tomar ahí duplicaría la reserva sin liberar la anterior.
 // `BD-11` sólo la evalúa `T-08`: es la que toma. `T-12` despacha sobre lo ya reservado,
 // y volver a comprobar el solape ahí chocaría contra la reserva de la propia misión.
-ConAsignacion("programar", (e, quien, a, m, p, cuando, recursos, reservas, _, __, ___, operativo, ____, titulo) =>
+// `T-08` — programar es **emitir la Orden de Misión**, que es de `ACT-04`. Hoy sólo cruza con
+// `I-14`, que está apagado; se declara igual para que encender `I-14` sea un parámetro y no un
+// cambio de código.
+ConAsignacion("programar", Funcion.EmiteOrdenDeMision, (e, quien, a, m, p, cuando, recursos, reservas, _, __, ___, operativo, ____, titulo) =>
     e.Programar(quien, a, m, p, cuando, recursos, reservas, operativo, titulo));
-ConAsignacion("despachar", (e, quien, a, m, p, cuando, _, __, ___, custodias, circulacion, ____, conflicto, _____) =>
+// `T-12` — el acto físico de entrega. Convergen `I-02`, `I-05`, `I-08`, `I-09` e `I-11`, y
+// hasta ahora **ninguno bloqueaba acá**.
+ConAsignacion("despachar", Funcion.Despacha, (e, quien, a, m, p, cuando, _, __, ___, custodias, circulacion, ____, conflicto, _____) =>
     e.Despachar(quien, a, m, p, cuando, custodias, circulacion, conflicto));
 
 // `T-10` — cambiar el vehículo o quien conduce SIN soltar la misión. Comparte la
 // resolución de recursos con programar y despachar: es la misma verificación de que el
 // identificador existe y la misma construcción de la asignación contra la que se evalúan
 // `BD-02` y `BD-03`. Lo único propio es el motivo, y por eso viaja en la misma petición.
-ConAsignacion("reasignar", (e, quien, a, m, p, cuando, recursos, reservas, peticion, _, __, ___, ____, _____) =>
+// `T-10` — **no es ninguna de las cinco funciones**: cambia el recurso de una misión ya
+// programada. Nulo dice eso, y no «se olvidó evaluarla».
+ConAsignacion("reasignar", null, (e, quien, a, m, p, cuando, recursos, reservas, peticion, _, __, ___, ____, _____) =>
     e.Reasignar(quien, a, peticion.Motivo, peticion.Comentario, m, p, cuando, recursos, reservas));
 
 // M-16 — Donde aterriza lo que el dispositivo capturó sin red.
@@ -3674,13 +3718,24 @@ misiones.MapPost("/{id}/cerrar", async (
 app.Run();
 return;
 
+/// <param name="funcion">
+/// Cuál de las funciones que el MARCI separa ejerce esta transición — §5.3.B.
+///
+/// <b>Nulo es «ninguna de las cinco»</b>, no «no se evalúa por descuido». Reasignar no es
+/// ninguna: cambia el recurso de una misión ya programada, y no es solicitar, autorizar,
+/// despachar, entregar el fondo ni liquidar.
+/// </param>
 void ConAsignacion(
     string ruta,
+    Funcion? funcion,
     Action<OrdenDeMision, IdPersona, AsignacionDeMision, MatrizDeLicencias, PoliticaDeDocumentacion, DateTimeOffset, RecursosTomados?, IReadOnlyList<ReservaDeRecurso>?, AsignarYTransicionar, CustodiaAlDespachar, CirculacionEnDiaInhabil, EstadoOperativo?, ConflictoPorIndisponibilidad, TituloAlProgramar> aplicar) =>
     misiones.MapPost($"/{{id}}/{ruta}", async (
         string id,
         AsignarYTransicionar peticion,
+        HttpContext http,
         ServicioDeMisiones servicio,
+        ServicioDeSegregacion segregacion,
+        ServicioDeCombustible combustible,
         ConsultaDeConductores padron,
         ConsultaDeFlota flota,
         ConsultaDeOcupacion ocupacion,
@@ -3747,6 +3802,31 @@ void ConAsignacion(
         // Los titulos del vehiculo, SIN filtrar por fecha: cual regia lo decide el dominio
         // contra la ventana de la solicitud, igual que las reservas de `BD-11`.
         var titulo = await titulos.AlProgramarAsync(idVehiculo);
+
+        // §5.3.B — **el control bloqueante**. Va ANTES de la transición porque el acto no se
+        // consuma: no se guarda nada, y lo único que queda es el asiento del intento.
+        if (funcion is { } pretendida)
+        {
+            var expedienteAhora = await servicio.BuscarAsync(ulid)
+                ?? throw new ExpedienteNoEncontrado(ulid);
+
+            // Quien va a conducir es el de ESTA petición, no el del diario: en el despacho
+            // todavía se está decidiendo, y `I-11` compara contra quien efectivamente conduce.
+            var quienConduce = new IdPersona(conductor.Nombre);
+
+            // Quien entregó el fondo vive en `M-09`. `V-02` es la entrega.
+            var entregoElFondo = (await combustible.DeLaMisionAsync(ulid))
+                .Select(v => v.QuienHizo("V-02"))
+                .FirstOrDefault(e => e is not null);
+
+            await segregacion.ExigirAsync(
+                new IdPersona(peticion.Ejecuta),
+                pretendida,
+                ActosDeLaMision.De(expedienteAhora, id, quienConduce, entregoElFondo),
+                id,
+                peticion.Momento,
+                origen: http.Connection.RemoteIpAddress?.ToString());
+        }
 
         var estado = await servicio.TransicionarAsync(
             ulid,

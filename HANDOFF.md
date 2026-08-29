@@ -405,6 +405,64 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## §5.3.B cableado en despachar y entregar el fondo
+
+**Ocho de los diecinueve pares disparan hoy sobre expedientes reales.** Ayer eran tres.
+
+### `T-12` despachar
+
+Medido en vivo sobre una misión creada, aprobada, programada y despachada de punta a punta:
+
+| Quién despacha | Ya había hecho | |
+|---|---|---|
+| `P-ASISTENTE` | la solicitud | **409 `I-02`** |
+| `P-JEFATURA` | la autorización | **409 `I-05`** |
+| José Ramón Cruz | **es quien va a conducir** | **409 `I-11`** · núcleo irreductible |
+| `P-ENCARGADO` | nada | **200** |
+
+**El caso del motorista es el que más valía cerrar.** Quien se despacha a sí mismo controla
+los dos extremos del acto físico: entrega las llaves y las recibe. Y la comparación es contra
+**quien va a conducir según esta petición**, no contra el diario: en el despacho todavía se
+está decidiendo.
+
+### `V-02` entregar el fondo
+
+| Quién entrega | Ya había hecho | |
+|---|---|---|
+| `P-ASISTENTE` | la solicitud | **409 `I-03`** |
+| `P-ENCARGADO` | el despacho | **409 `I-08`** |
+| Wilmer Alvarado | **es quien conduce** | **409 `I-11`** · núcleo irreductible |
+| `P-COMBUSTIBLE` | nada | **200** |
+
+⚠️ **Lo que `BD-06` cubría, y lo que no.** `BD-06` exige que quien entrega no sea quien
+emitió: es segregación **dentro del vale**. Los pares que **cruzan el vale con la misión** no
+los veía nadie, *porque el vale no conoce el expediente y el expediente no conoce el vale*. El
+endpoint entra por el vale, resuelve su misión y compara contra los actos de ésta.
+
+### El helper declara qué función ejerce cada transición
+
+`ConAsignacion` recibe ahora un `Funcion?`. Programar declara `EmiteOrdenDeMision` —hoy sólo
+cruza con `I-14`, que está apagado, y se declara igual para que **encenderlo sea un parámetro
+y no un cambio de código**—. Reasignar declara **nulo**, y eso dice «ninguna de las cinco», no
+«se olvidó evaluarla»: cambiar el recurso de una misión ya programada no es solicitar,
+autorizar, despachar, entregar el fondo ni liquidar.
+
+### La pista, después de las pruebas
+
+**9 intentos, 8 pares distintos**, y la reincidencia visible: `P-ASISTENTE` ×3,
+`P-ENCARGADO` ×2, `P-JEFATURA` ×2. Es exactamente lo que §5.3.B.2 dice que Auditoría quiere
+ver, y hasta ayer no existía.
+
+### Lo que sigue faltando
+
+- **Aprobar el fondo** (`I-19`, solicita el fondo × aprueba el fondo). Hoy lo cubre una
+  comparación por nombre dentro de `M-09`; conectarlo al motor lo dejaría con pista y mensaje
+  preciso como los demás.
+- **El escalamiento sigue sin encolar.** Los dos primeros saltos exigen la jerarquía de
+  puestos, que el espejo de ARGOS no trae.
+
+---
+
 ## §5.3.B — el control bloqueante, y `PT-091`
 
 **El otro momento del control.** El preventivo mira la acumulación de roles al otorgarlos y
