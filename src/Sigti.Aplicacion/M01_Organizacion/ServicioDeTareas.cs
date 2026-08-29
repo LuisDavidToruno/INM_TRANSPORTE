@@ -3,6 +3,7 @@ using Sigti.Datos;
 using Sigti.Dominio.M01_Organizacion;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
 using Sigti.Dominio.Organizacion;
+using Sigti.Aplicacion.M02_Parametros;
 
 namespace Sigti.Aplicacion.M01_Organizacion;
 
@@ -18,7 +19,7 @@ namespace Sigti.Aplicacion.M01_Organizacion;
 /// el dato</b>, no se disimula: <c>NotificadoUtc</c> nulo significa «no se avisó», y la pantalla
 /// lo dice. Una bandeja llena sin esa marca se lee como gente que ignora su trabajo.
 /// </summary>
-public sealed class ServicioDeTareas(SigtiDbContext contexto)
+public sealed class ServicioDeTareas(SigtiDbContext contexto, ServicioDeParametros parametros)
 {
     /// <summary>
     /// Encola una tarea. <b>Idempotente por expediente, tipo y persona</b>: quince intentos de
@@ -47,7 +48,7 @@ public sealed class ServicioDeTareas(SigtiDbContext contexto)
 
         var id = Ulid.NewUlid();
 
-        contexto.Tareas.Add(new FilaDeTarea
+        var tarea = new FilaDeTarea
         {
             Id = id,
             Tipo = tipo,
@@ -63,7 +64,41 @@ public sealed class ServicioDeTareas(SigtiDbContext contexto)
             // **Nulo a propósito.** No hay canal de notificación; fingir que se avisó sería la
             // peor forma de fallar acá, porque nadie iría a mirar la bandeja.
             NotificadoUtc = null,
-        });
+        };
+
+        contexto.Tareas.Add(tarea);
+
+        // §5.3.B.3 — **notifica al destinatario**. Se intenta por el canal que la institución
+        // fijó, y **el intento se guarda salga o no**: sin eso, un aviso perfecto y uno que
+        // nunca se intentó se ven exactamente igual.
+        var canal = ReglasDelAviso.CanalVigente(
+            await parametros.CatalogoDeAsync(ReglasDelAviso.ClaveDelCanal, cancelacion),
+            DateOnly.FromDateTime(momento.Date),
+            momento);
+
+        // Un aviso **por destinatario**, no por tarea: un puesto puede estar coocupado durante
+        // un traspaso, y una sola fila diría que se avisó cuando a uno no le llegó.
+        foreach (var destinatario in personasDestino)
+        {
+            var aviso = ReglasDelAviso.Resolver(
+                Ulid.NewUlid(), id, destinatario, canal,
+                ReglasDelAviso.Implementados, momento);
+
+            contexto.Avisos.Add(new FilaDeAviso
+            {
+                Id = aviso.Id,
+                Tarea = aviso.Tarea,
+                Destinatario = aviso.Destinatario.Valor,
+                Canal = aviso.Canal?.ToString(),
+                Resultado = aviso.Resultado.ToString(),
+                MomentoUtc = aviso.Momento.UtcDateTime,
+                Detalle = aviso.Detalle,
+            });
+
+            // La marca de la tarea sólo se pone si **llegó de verdad**. Ponerla siempre haría
+            // que la bandeja dijera «se avisó» sobre un canal que nadie configuró.
+            if (aviso.LlegoAlDestinatario) tarea.NotificadoUtc = momento.UtcDateTime;
+        }
 
         await contexto.SaveChangesAsync(cancelacion);
         return id;

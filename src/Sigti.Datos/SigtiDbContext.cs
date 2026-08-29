@@ -56,6 +56,12 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     /// aunque no haya red ni correo, que es lo que un despliegue on-premise no puede suponer.
     /// </summary>
     public DbSet<FilaDeTarea> Tareas => Set<FilaDeTarea>();
+
+    /// <summary>
+    /// Los intentos de avisar. <b>Se guarda el intento, no sólo el éxito</b>: sin eso, un aviso
+    /// perfecto y uno que nunca se intentó se ven igual.
+    /// </summary>
+    public DbSet<FilaDeAviso> Avisos => Set<FilaDeAviso>();
     public DbSet<FilaDeCustodia> Custodias => Set<FilaDeCustodia>();
     public DbSet<FilaDePermisoDeCirculacion> Permisos => Set<FilaDePermisoDeCirculacion>();
     public DbSet<FilaDeCambioDeEstado> CambiosDeEstado => Set<FilaDeCambioDeEstado>();
@@ -373,6 +379,22 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             // expediente. La primera es la bandeja; la segunda, el expediente.
             tarea.HasIndex(t => t.PuestoDestino);
             tarea.HasIndex(t => t.Expediente);
+        });
+
+        modelo.Entity<FilaDeAviso>(aviso =>
+        {
+            aviso.ToTable("Aviso", schema: "organizacion");
+
+            aviso.HasKey(a => a.Id);
+            aviso.Property(a => a.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            aviso.Property(a => a.Tarea).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            aviso.Property(a => a.Destinatario).HasMaxLength(64).IsRequired();
+            aviso.Property(a => a.Canal).HasMaxLength(40);
+            aviso.Property(a => a.Resultado).HasMaxLength(40).IsRequired();
+            aviso.Property(a => a.Detalle).HasMaxLength(400);
+
+            // La pregunta que se hace: se le aviso a esta tarea, y a quien.
+            aviso.HasIndex(a => a.Tarea);
         });
 
         modelo.Entity<FilaDeConductor>(conductor =>

@@ -405,6 +405,66 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## El canal de aviso — §5.3.B.3 completo
+
+**Elegir el canal es cargar un parámetro, no tocar código.** Insumo #102 pasa de «no se puede
+hacer nada hasta que la institución decida» a «la institución carga una clave».
+
+### Lo que NO se hizo: elegir por la institución
+
+El canal es `[C]`. **No se supuso uno «razonable»** —correo, por ejemplo— porque suponerlo
+produce lo peor: un sistema que cree haber avisado y una persona que nunca recibió nada. Sin la
+clave cargada, el resultado es `SinCanalConfigurado` y se dice con todas las letras.
+
+### Tres razones distintas por las que un aviso no sale
+
+| Resultado | Quién lo arregla |
+|---|---|
+| `SinCanalConfigurado` | **La institución**, eligiendo |
+| `CanalNoImplementado` | **Quien programa**, construyéndolo |
+| `Fallido` | **Quien opera** la infraestructura |
+
+Juntarlas en «no se pudo avisar» mandaría a la persona equivocada a resolver el problema.
+
+### `SoloBandeja` entrega de verdad, y no es un consuelo
+
+Es el único canal implementado, y **es un canal legítimo**: en una delegación sin señal el
+correo y el SMS no llegan, y más de dos millones de personas del área rural no tienen internet
+(`P-5`). Lo que declara es que **el aviso depende de que la persona entre al sistema** — no que
+no se avisó. Marcarlo como fallo diría que el sistema no hizo lo que se le pidió.
+
+Correo institucional y mensaje de texto están en el enum y **no en `Implementados`**:
+declararlos antes de construirlos haría que el sistema dijera «entregado» sobre un envío que
+nunca salió.
+
+### Medido en vivo, y es la prueba que importa
+
+| Momento | Resultado |
+|---|---|
+| Bloqueo **antes** de cargar la clave | `SinCanalConfigurado` · *«no es que no contestara: es que nadie le escribió»* |
+| Se carga `aviso.canal = SoloBandeja` y **la aprueba otra persona** (`HU-145`) | — |
+| Bloqueo **después** | `Entregado por SoloBandeja`, tarea marcada como notificada |
+
+**La tarea anterior conserva su resultado histórico.** No se «arregla» retroactivamente: el
+aviso registra lo que pasó en ese momento, y reescribirlo diría que se avisó cuando no.
+
+### Un aviso por destinatario, no por tarea
+
+Un puesto puede estar coocupado durante un traspaso. Una sola fila por tarea diría que se
+avisó cuando a una de las dos personas no le llegó.
+
+### ⚠️ Smart App Control: el cambio del PO **necesita reiniciar**
+
+El registro sigue en `VerifiedAndReputablePolicyState = 1` y la máquina lleva **44 horas sin
+reiniciar**. Desactivar SAC desde la interfaz **no toma efecto hasta el reinicio**, así que
+sigue bloqueando cada binario recién compilado.
+
+**Lo verificado de este bloque:** las 8 pruebas de `ReglasDelAvisoPruebas` corrieron en verde,
+y el circuito completo se midió en vivo por la API. **Lo que falta:** la suite completa —970
+más las 8 nuevas— que no pudo correr con los binarios frescos.
+
+---
+
 ## La bandeja de tareas — §5.3.B.3 completo, salvo el canal
 
 **El escalamiento dejó de terminar en un registro que nadie mira.** Ahora el acto bloqueado

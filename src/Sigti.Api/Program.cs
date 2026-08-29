@@ -1188,9 +1188,13 @@ app.MapGet("/matriz-de-licencias", async (
 // ni telefono — y esto se despliega on-premise donde nada de eso esta garantizado.
 var tareas = app.MapGroup("/tareas");
 
-tareas.MapGet("/", async (ServicioDeTareas servicio) =>
+tareas.MapGet("/", async (ServicioDeTareas servicio, SigtiDbContext contexto) =>
 {
     var todas = await servicio.TodasAsync();
+
+    // Los intentos de aviso, por tarea. **Se guarda el intento y no solo el exito**: sin eso,
+    // un aviso perfecto y uno que nunca se intento se ven exactamente igual.
+    var avisos = await contexto.Avisos.AsNoTracking().ToListAsync();
     var ahora = DateTimeOffset.UtcNow;
 
     var pendientes = todas.Where(t => t.Estado == EstadoDeTarea.Pendiente).ToList();
@@ -1228,6 +1232,20 @@ tareas.MapGet("/", async (ServicioDeTareas servicio) =>
 
             // **Nulo es «no se aviso»**, no «se aviso y no contestaron».
             notificado = t.NotificadoUtc,
+
+            // Por que no salio, si no salio. Tres razones distintas que arreglan personas
+            // distintas: la institucion eligiendo el canal, quien programa construyendolo, o
+            // quien opera la infraestructura.
+            avisos = avisos.Where(a => a.Tarea == t.Id).Select(a => new
+            {
+                destinatario = a.Destinatario,
+
+                // Nulo es «la institucion no fijo el canal» —insumo #102—, que no es lo mismo
+                // que un canal que fallo.
+                canal = a.Canal,
+                resultado = a.Resultado,
+                detalle = a.Detalle,
+            }),
 
             resuelve = t.Resuelve,
             resuelta = t.ResueltaUtc,

@@ -61,10 +61,9 @@ export default function Bandeja(): ReactElement {
                   ? 'A 1 destinatario no se le avisó'
                   : `A ${data.sinAvisar} destinatarios no se les avisó`}
               </b>
-              . §5.3.B.3 pide notificar además de encolar, y{' '}
-              <b>no hay canal de notificación construido</b> en ningún módulo del sistema. Quien
-              tenga algo pendiente sólo se entera si abre esta pantalla. No es que no
-              contestaran: es que nadie les escribió.
+              . <b>No es que no contestaran: es que nadie les escribió.</b> El motivo va en cada
+              tarea, y son tres distintos —la institución no eligió canal, el canal elegido no
+              está construido, o el envío falló— porque los arreglan personas distintas.
             </Nota>
           )}
 
@@ -140,12 +139,26 @@ function Fila({ tarea, onCerrar }: { tarea: Tarea; onCerrar(): void }): ReactEle
         {tarea.quienLaOrigino} el {diaYHora(tarea.momento)}
       </span>
 
-      {/* Nulo es «no se avisó», no «se avisó y no contestaron». */}
-      {tarea.notificado === null && pendiente && (
-        <span className="tw:text-xs tw:italic tw:text-tinta-mid">
-          no se le avisó — no hay canal de notificación
+      {/* Nulo es «no se avisó», no «se avisó y no contestaron» — y se dice POR QUÉ. */}
+      {pendiente && tarea.avisos.map((a) => (
+        <span
+          key={a.destinatario}
+          className={`tw:text-xs ${
+            a.resultado === 'Entregado' ? 'tw:text-tinta-mid' : 'tw:text-aviso-fg'
+          }`}
+        >
+          {a.resultado === 'Entregado' ? (
+            <>
+              avisado a {a.destinatario} por{' '}
+              {TEXTO_DEL_CANAL[a.canal ?? ''] ?? a.canal}
+            </>
+          ) : (
+            <>
+              <b>no se le avisó a {a.destinatario}</b> — {a.detalle}
+            </>
+          )}
         </span>
-      )}
+      ))}
 
       {!pendiente && tarea.resolucion !== null && (
         <span className="tw:text-xs tw:text-tinta-mid">
@@ -257,6 +270,20 @@ function DialogoDeCierre({
   );
 }
 
+/**
+ * El canal como lo llamaría quien opera.
+ *
+ * <b><c>SoloBandeja</c> no es «ningún canal»</b>: es un canal legítimo y puede ser el único
+ * posible. En una delegación sin señal el correo y el mensaje de texto no llegan, y más de dos
+ * millones de personas del área rural no tienen internet. Lo que declara es que el aviso depende
+ * de que la persona entre al sistema.
+ */
+const TEXTO_DEL_CANAL: Record<string, string> = {
+  SoloBandeja: 'la bandeja del sistema',
+  CorreoInstitucional: 'correo institucional',
+  MensajeDeTexto: 'mensaje de texto',
+};
+
 const TONO: Record<string, Tono> = {
   Pendiente: 'riesgo',
   Resuelta: 'ok',
@@ -281,6 +308,20 @@ interface Tarea {
   resuelta: string | null;
   resolucion: string | null;
   diasEsperando: number;
+  /**
+   * Los intentos de aviso, uno por destinatario.
+   *
+   * **Uno por destinatario y no uno por tarea**: un puesto puede estar coocupado durante un
+   * traspaso, y una sola entrada diría que se avisó cuando a una de las dos personas no le
+   * llegó.
+   */
+  avisos: {
+    destinatario: string;
+    /** **Nulo es «la institución no fijó el canal»**, que no es lo mismo que un canal que falló. */
+    canal: string | null;
+    resultado: string;
+    detalle: string | null;
+  }[];
 }
 
 interface Bandeja {
