@@ -405,6 +405,72 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## La bandeja de tareas — §5.3.B.3 completo, salvo el canal
+
+**El escalamiento dejó de terminar en un registro que nadie mira.** Ahora el acto bloqueado
+*«queda visiblemente pendiente en la bandeja de alguien»*, con contador en el riel.
+
+### La bandeja es el sistema de registro; el aviso es una cortesía
+
+El documento pide las dos cosas y **no son intercambiables**. Un correo que no llega deja el
+trabajo perdido y nadie se entera; una bandeja que se abre al entrar **no depende de que haya
+red, servidor de correo ni teléfono** — y esto se despliega *on-premise* en instituciones
+donde nada de eso está garantizado. Por eso la bandeja se construyó primero.
+
+### No es una bandeja de segregación: es la bandeja
+
+`TipoDeTarea` ya contempla `ReservaEnConflicto` (`RN-60` punto 3) y `PrestamoVencido`
+(`RN-63` punto 4). **Las dos venían arrastrando el mismo pendiente** —el HANDOFF lo decía en
+dos lugares distintos— y una bandeja específica de segregación las habría dejado esperando
+otra vez. Encolarlas es ahora una llamada.
+
+### Lo que impide que el escalamiento sea un trámite
+
+| Regla | Por qué |
+|---|---|
+| **Quien la originó no la cierra** | La tarea existe porque a esa persona se le impidió el acto. Dejarla cerrarla sería apretar un botón; el escalamiento la puso en otra bandeja para que decida alguien más |
+| **Cerrar exige decir qué se hizo** | *«Lo autorizó la Gerencia por oficio 2026-31»* y *«ya no hacía falta»* dejan el mismo rastro vacío si no se escribe |
+| **Una cerrada no se vuelve a cerrar** | Dos resoluciones sobre el mismo hecho dejarían dos versiones de qué pasó |
+| **«Resolver» y «ya no aplica» son dos botones** | Descartar dice que nadie tuvo que hacer nada. Juntarlos impide distinguir el control que operó del que se volvió innecesario |
+
+**Encolar es idempotente por expediente, tipo y persona.** Quince intentos son quince asientos
+en la pista —eso es lo que Auditoría quiere ver— pero **una sola tarea**, porque hay una sola
+cosa que resolver.
+
+### ⚠️ El canal de notificación no existe, y el dato lo dice
+
+`NotificadoUtc` es **siempre nulo hoy**: no hay canal construido en ningún módulo. Y nulo
+significa **«no se avisó»**, no «se avisó y no contestaron» — la distinción es lo que impide
+que una bandeja llena se lea como gente que ignora su trabajo. La pantalla lo dice con todas
+las letras: *«no es que no contestaran: es que nadie les escribió»*.
+
+**Qué canal quiere la institución es insumo pendiente.** Correo institucional, SMS, o sólo la
+bandeja — y en delegaciones sin conectividad las tres primeras no sirven, así que la respuesta
+puede ser legítimamente «sólo la bandeja».
+
+### Un defecto encontrado en vivo
+
+⚠️ La bandeja mostró **«−4 días esperando»**: la tarea se encoló con la fecha del hecho de la
+petición, posterior a hoy. **Una tarea cuya fecha del hecho todavía no llegó no ha esperado
+nada**, y cero es la respuesta correcta; el negativo se lee como un error del sistema.
+
+### ⚠️ Smart App Control bloqueó la verificación, y ahora también la aplicación
+
+**El circuito se verificó a medias.** Se midió en vivo que el bloqueo encola —una tarea
+pendiente, dirigida a `PUE-JEFE-TRANSPORTE` (`P-TRANSPORTE`), originada por `P-ASISTENTE`, sin
+avisar— y ahí se cortó: al reconstruir para corregir los días negativos, **SAC pasó a bloquear
+`Sigti.Dominio.dll` también en la salida de la API**, no sólo en la de pruebas.
+
+**Lo que quedó sin verificar:** las tres reglas de cierre en vivo, y las pruebas de
+`ReglasDeLaTareaPruebas`. Compila todo, el frontend pasa `verificar` y `build`.
+
+**Esto ya no es una molestia de las pruebas: impide correr el sistema.** Cada compilación
+produce un binario sin firma ni reputación, y SAC lo bloquea. La decisión de qué hacer con SAC
+es del PO — es un ajuste de seguridad del equipo y **desactivarlo es irreversible sin
+reinstalar Windows**.
+
+---
+
 ## §5.3.B.3 — el escalamiento, con el espejo trayendo la jerarquía
 
 **Los tres saltos operan.** El bloqueo dejó de ser un callejón sin salida.

@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText, LayoutList, IdCard, Scale, Users, ShieldAlert } from 'lucide-react';
+import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText, LayoutList, IdCard, Scale, Users, ShieldAlert, Inbox } from 'lucide-react';
 
 import { Avisos, Nota, Shell, avisar } from '../ui';
 import type { GrupoNav, Miga } from '../ui';
@@ -21,6 +21,7 @@ import Padron from '../modulos/M03_Flota/Padron';
 import PrestamosPantalla from '../modulos/M03_Flota/Prestamos';
 import Titulos from '../modulos/M03_Flota/Titulos';
 import Puestos from '../modulos/M01_Organizacion/Puestos';
+import BandejaDeTareas from '../modulos/M01_Organizacion/Bandeja';
 import IntentosBloqueados from '../modulos/M14_Auditoria/IntentosBloqueados';
 import ExpedienteDeVehiculo from '../modulos/M03_Flota/Expediente';
 import PadronDeMotoristas from '../modulos/M05_Motoristas/Padron';
@@ -35,7 +36,7 @@ import CierreDeEjercicioPantalla from '../modulos/M14_Auditoria/CierreDeEjercici
 import IncidentesPantalla from '../modulos/M12_Incidentes/Incidentes';
 import ColaDeCierre from '../modulos/M13_Cierre/Cola';
 import Cierre from '../modulos/M13_Cierre/Cierre';
-import { bandejaDeAutorizacion, origenDeDatos } from '../api/misiones';
+import { bandejaDeAutorizacion, origenDeDatos, pedir } from '../api/misiones';
 
 /**
  * El shell de SIGTI en la oficina.
@@ -82,12 +83,28 @@ function Interior(): ReactElement {
     queryFn: bandejaDeAutorizacion,
   });
 
+  // Mismo criterio que el contador de autorización: sale del mismo dato que la pantalla, no de
+  // un conteo aparte. Dos fuentes para el mismo número divergen el día que una falla.
+  const tareas = useQuery({
+    queryKey: ['tareas'],
+    queryFn: () => pedir<{ pendientes: number }>('/tareas'),
+  });
+
   const grupos: GrupoNav[] = [
     {
       // `M-01` va primero porque es la base: sin puesto no hay permiso, y sin competencia no
       // hay quién ejecute ningún acto de los demás módulos.
       titulo: 'M-01 Organización y seguridad',
       items: [
+        // Va primero: es lo que hay que ATENDER. Las competencias se configuran una vez y
+        // se miran de vez en cuando; una tarea escalada espera a alguien hoy.
+        {
+          texto: 'Tareas pendientes',
+          icono: <Inbox />,
+          href: '/tareas',
+          contador: tareas.data?.pendientes,
+          accionable: true,
+        },
         { texto: 'Puestos y competencias', icono: <Users />, href: '/organizacion' },
       ],
     },
@@ -221,6 +238,7 @@ function Interior(): ReactElement {
         <Route path="/autorizacion" element={<Bandeja />} />
         <Route path="/autorizacion/:id" element={<Expediente />} />
         <Route path="/flota" element={<Padron />} />
+        <Route path="/tareas" element={<BandejaDeTareas />} />
         <Route path="/organizacion" element={<Puestos />} />
         <Route path="/titulos" element={<Titulos />} />
         <Route path="/flota/:id" element={<ExpedienteDeVehiculo />} />
@@ -268,6 +286,7 @@ function migasDe(ruta: string): Miga[] {
   if (ruta.startsWith('/programacion/')) return [{ texto: 'Programación', href: '/programacion' }, 'Asignación'];
   if (ruta === '/programacion') return ['Programación'];
   if (ruta === '/despacho') return ['Despacho'];
+  if (ruta === '/tareas') return ['Tareas pendientes'];
   if (ruta === '/organizacion') return ['Organización'];
   if (ruta === '/flota') return ['Flota'];
   if (ruta.startsWith('/flota/')) return [{ texto: 'Flota', href: '/flota' }, 'Expediente del vehículo'];

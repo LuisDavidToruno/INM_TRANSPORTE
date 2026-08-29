@@ -18,7 +18,7 @@ namespace Sigti.Aplicacion.M01_Organizacion;
 /// pero <b>el intento sí</b>. Un sistema que sólo guarda lo consumado no puede contestar si el
 /// control operó — un bloqueo perfecto y uno que nunca se activó se ven iguales.
 /// </summary>
-public sealed class ServicioDeSegregacion(SigtiDbContext contexto)
+public sealed class ServicioDeSegregacion(SigtiDbContext contexto, ServicioDeTareas tareas)
 {
     /// <summary>
     /// Evalúa el acto. Si choca, <b>registra el intento y lanza</b>.
@@ -53,6 +53,19 @@ public sealed class ServicioDeSegregacion(SigtiDbContext contexto)
                 quien, DateOnly.FromDateTime(momento.Date), cancelacion);
 
             await RegistrarAsync(bloqueo.Intento, origen, destino, cancelacion);
+
+            // §5.3.B.3 — **encola la acción como pendiente de resolución**. La pista dice que
+            // el intento ocurrió; la bandeja es lo que hace que alguien lo atienda.
+            await tareas.EncolarAsync(
+                TipoDeTarea.SegregacionBloqueada,
+                $"{bloqueo.Par}: {ReglasDeSegregacion.EnPalabrasDe(bloqueo.Intento.Pretendia)} bloqueada",
+                bloqueo.Message,
+                bloqueo.Intento.Expediente,
+                quien,
+                destino.Puesto,
+                destino.Ocupantes,
+                momento,
+                cancelacion);
 
             throw new SegregacionIncompatible(
                 bloqueo.Par,

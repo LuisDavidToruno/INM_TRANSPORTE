@@ -50,6 +50,12 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     /// control interno, no dato del organigrama.
     /// </summary>
     public DbSet<FilaDeRespaldoDeSede> RespaldosDeSede => Set<FilaDeRespaldoDeSede>();
+
+    /// <summary>
+    /// La bandeja de tareas pendientes — §5.3.B.3. <b>Es el sistema de registro</b>: existe
+    /// aunque no haya red ni correo, que es lo que un despliegue on-premise no puede suponer.
+    /// </summary>
+    public DbSet<FilaDeTarea> Tareas => Set<FilaDeTarea>();
     public DbSet<FilaDeCustodia> Custodias => Set<FilaDeCustodia>();
     public DbSet<FilaDePermisoDeCirculacion> Permisos => Set<FilaDePermisoDeCirculacion>();
     public DbSet<FilaDeCambioDeEstado> CambiosDeEstado => Set<FilaDeCambioDeEstado>();
@@ -339,6 +345,34 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             respaldo.Property(r => r.Designa).HasMaxLength(64).IsRequired();
 
             respaldo.HasIndex(r => r.Delegacion);
+        });
+
+        modelo.Entity<FilaDeTarea>(tarea =>
+        {
+            tarea.ToTable("TareaPendiente", schema: "organizacion");
+
+            tarea.HasKey(t => t.Id);
+            tarea.Property(t => t.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+
+            // Enums por TEXTO. Guardarlos por su ordinal se corrompe en silencio el dia que
+            // alguien inserta un valor en medio del enum, y aca lo que se corrompe es de que
+            // tipo era la tarea que Auditoria esta revisando.
+            tarea.Property(t => t.Tipo).HasConversion<string>().HasMaxLength(40).IsRequired();
+            tarea.Property(t => t.Estado).HasConversion<string>().HasMaxLength(20).IsRequired();
+
+            tarea.Property(t => t.Asunto).HasMaxLength(200).IsRequired();
+            tarea.Property(t => t.Detalle).HasMaxLength(1000).IsRequired();
+            tarea.Property(t => t.Expediente).HasMaxLength(64).IsRequired();
+            tarea.Property(t => t.QuienLaOrigino).HasMaxLength(64).IsRequired();
+            tarea.Property(t => t.PuestoDestino).HasMaxLength(64);
+            tarea.Property(t => t.PersonasDestino).HasMaxLength(400).IsRequired();
+            tarea.Property(t => t.Resuelve).HasMaxLength(64);
+            tarea.Property(t => t.Resolucion).HasMaxLength(1000);
+
+            // Las dos preguntas: que tengo pendiente yo, y que hay pendiente sobre este
+            // expediente. La primera es la bandeja; la segunda, el expediente.
+            tarea.HasIndex(t => t.PuestoDestino);
+            tarea.HasIndex(t => t.Expediente);
         });
 
         modelo.Entity<FilaDeConductor>(conductor =>

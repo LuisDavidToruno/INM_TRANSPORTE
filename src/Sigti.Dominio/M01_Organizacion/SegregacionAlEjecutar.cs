@@ -207,6 +207,14 @@ public static class ReglasDeSegregacion
     /// El identificador del enum va en la pista de auditoría; <b>el mensaje al usuario no lleva
     /// nombres de tipos</b>, porque quien lo lee está tratando de resolver un trámite.
     /// </summary>
+    /// <summary>
+    /// La función en castellano, para quien arma un asunto o un mensaje fuera de esta clase.
+    ///
+    /// Se expone en vez de duplicarla: una segunda tabla de traducción diría «apruebafondo» el
+    /// día que alguien agregue una función y actualice sólo una de las dos.
+    /// </summary>
+    public static string EnPalabrasDe(Funcion funcion) => EnPalabras(funcion);
+
     private static string EnPalabras(Funcion funcion) => funcion switch
     {
         Funcion.Solicita => "la solicitud",

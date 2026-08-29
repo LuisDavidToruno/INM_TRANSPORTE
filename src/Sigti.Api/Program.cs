@@ -77,6 +77,7 @@ constructor.Services.AddScoped<ServicioDePrestamos>();
 constructor.Services.AddScoped<ServicioDeIndisponibilidad>();
 constructor.Services.AddScoped<ServicioDeTitulos>();
 constructor.Services.AddScoped<ServicioDeCompetencias>();
+constructor.Services.AddScoped<ServicioDeTareas>();
 constructor.Services.AddScoped<ServicioDeSegregacion>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
@@ -1175,6 +1176,80 @@ app.MapGet("/matriz-de-licencias", async (
         clasesEnLaFlota = vehiculos.Select(v => v.Clase.ToString()).Distinct(),
         vehiculosEnLaFlota = vehiculos.Count,
     });
+});
+
+// ── M-01 · La bandeja de tareas pendientes ──────────────────────────────────
+//
+// §5.3.B.3: *«el sistema encola la accion como pendiente de resolucion»*, y la mision *«queda
+// visiblemente pendiente en la bandeja de alguien»*.
+//
+// **La bandeja es el sistema de registro y el aviso es una cortesia.** Un correo que no llega
+// deja el trabajo perdido; una bandeja que se abre al entrar no depende de que haya red, correo
+// ni telefono — y esto se despliega on-premise donde nada de eso esta garantizado.
+var tareas = app.MapGroup("/tareas");
+
+tareas.MapGet("/", async (ServicioDeTareas servicio) =>
+{
+    var todas = await servicio.TodasAsync();
+    var ahora = DateTimeOffset.UtcNow;
+
+    var pendientes = todas.Where(t => t.Estado == EstadoDeTarea.Pendiente).ToList();
+
+    return Results.Ok(new
+    {
+        pendientes = pendientes.Count,
+
+        // **Ninguna se aviso**, porque no hay canal. Se publica el numero para que la pantalla
+        // lo pueda decir en vez de dejar que una bandeja llena se lea como gente que ignora su
+        // trabajo.
+        sinAvisar = pendientes.Count(t => t.NotificadoUtc is null),
+
+        // Lo que lleva mas esperando. Nulo cuando no hay pendientes — que no es cero dias.
+        diasDeLaMasVieja = pendientes.Count == 0
+            ? (int?)null
+            : Math.Max(0, pendientes.Max(t => (ahora.Date - t.MomentoUtc.Date).Days)),
+
+        tareas = todas.Select(t => new
+        {
+            id = t.Id.ToString(),
+            tipo = t.Tipo.ToString(),
+            asunto = t.Asunto,
+            detalle = t.Detalle,
+            expediente = t.Expediente,
+            quienLaOrigino = t.QuienLaOrigino,
+
+            // Nulo es Gerencia Administrativa: el ultimo recurso del escalamiento no es un
+            // puesto de la jerarquia de quien quedo bloqueado.
+            puestoDestino = t.PuestoDestino,
+            personasDestino = t.PersonasDestino,
+
+            momento = t.MomentoUtc,
+            estado = t.Estado.ToString(),
+
+            // **Nulo es «no se aviso»**, no «se aviso y no contestaron».
+            notificado = t.NotificadoUtc,
+
+            resuelve = t.Resuelve,
+            resuelta = t.ResueltaUtc,
+            resolucion = t.Resolucion,
+
+            diasEsperando = t.Estado == EstadoDeTarea.Pendiente
+                ? Math.Max(0, (ahora.Date - t.MomentoUtc.Date).Days)
+                : 0,
+        }),
+    });
+});
+
+/// Cierra una tarea. **Quien la origino no puede**: el escalamiento la puso en otra bandeja
+/// justamente para que decida otra persona.
+tareas.MapPost("/{id}/cerrar", async (
+    string id, CerrarTarea peticion, ServicioDeTareas servicio) =>
+{
+    await servicio.CerrarAsync(
+        Ulid.Parse(id), new IdPersona(peticion.Ejecuta), peticion.Motivo,
+        peticion.Descartar, peticion.Momento);
+
+    return Results.Ok(new { id, descartada = peticion.Descartar });
 });
 
 // ── M-01 · Intentos bloqueados por segregacion ──────────────────────────────
@@ -4828,6 +4903,17 @@ internal sealed record DarDeAlta(
 /// **Nula sólo en propiedad**, que es el único régimen que no vence. En los demás su ausencia
 /// haría que el título no venciera nunca — y un comodato que no vence es una apropiación.
 /// </param>
+internal sealed record CerrarTarea(
+    string Ejecuta,
+    /// <summary>Qué se hizo. Sin esto, «lo autorizó el jefe» y «ya no hacía falta» se ven igual.</summary>
+    string Motivo,
+    /// <summary>
+    /// <b>Descartar no es resolver.</b> Descartar dice que nadie tuvo que hacer nada, y juntarlas
+    /// impediría distinguir el control que operó del que se volvió innecesario.
+    /// </summary>
+    bool Descartar,
+    DateTimeOffset Momento);
+
 internal sealed record OtorgarCompetencia(
     string Id,
     string Puesto,
