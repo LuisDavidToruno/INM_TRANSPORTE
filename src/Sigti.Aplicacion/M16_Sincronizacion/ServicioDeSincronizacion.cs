@@ -397,7 +397,12 @@ public sealed class ServicioDeSincronizacion(SigtiDbContext contexto, ConsultaDe
                 // **El identificador del dispositivo**, que es lo que hace inofensivo el
                 // reenvío. Sin él, cada reintento sumaría el mismo galón otra vez.
                 hecho.IdDeCaptura,
-                cancelacion);
+
+                // **Sin tanque, a propósito.** Lo que llega de campo es un hecho consumado: el
+                // motorista no tiene la cisterna a mano ni puede firmar el despacho, y `RN-83`
+                // prohíbe omitir el registro. El galón entra y queda como discrepancia contra el
+                // libro del tanque -- el préstamo invisible de `CE-23`, ahora con nombre.
+                cancelacion: cancelacion);
 
             return null;
         }

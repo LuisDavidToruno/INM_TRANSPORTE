@@ -405,6 +405,90 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+### Las existencias del tanque institucional — `RN-83` punto 5
+
+**RESUELTA.** El tanque tiene libro, el despacho descuenta, y lo que se declaró salido sin
+que ningún tanque lo anotara sale en una lista.
+
+**`FuenteDeAbastecimiento.TanqueInstitucional` existía desde `RN-83`, se podía elegir en la
+pantalla, y no descontaba de ninguna parte.** La regla dice *«descuenta de las existencias del
+tanque»* y no había existencias: el galón quedaba imputado al vehículo y el tanque de la sede
+no se enteraba. **Igual de invisible que antes de la regla, con la apariencia de estar
+registrado** — que es peor.
+
+#### La existencia es la suma del libro
+
+P-1 aplicado a una cantidad. Seis asientos: `E-01` recibir, `E-02` despachar a vehículo,
+`E-03`/`E-04` trasiego, `E-05` constatar, `E-06` ajustar. **No hay columna**
+`existencia_actual`: se desincroniza el primer día en que dos despachos entren a la vez, y
+desde ahí el arqueo compara la realidad contra un número que ya no es la suma de nada.
+
+#### Los bloqueos del despacho
+
+| Qué | Por qué |
+|---|---|
+| No se despacha lo que no hay | Un libro en negativo no describe ningún tanque: describe ingresos que nadie asentó |
+| Quien despacha ≠ quien recibe | `RN-83` punto 5 remite a `RN-01`. Es el control más elemental de una bomba y el más fácil de perder |
+| Un tanque despacha su combustible | Llenar un diésel del tanque de gasolina cuadra en galones y es imposible en la realidad |
+
+El despacho y el abastecimiento van **en la misma transacción**: si el despacho falla, el
+abastecimiento tampoco entra, y no queda un galón imputado a un vehículo contra un tanque que
+nunca lo soltó. Verificado por mutación — romper el descuento hace caer cuatro pruebas.
+
+#### Lo que NO se bloquea, y es el punto
+
+El motorista que declara desde el campo *«cargué de la cisterna»* reporta un **hecho
+consumado**: no tiene el tanque a mano, no puede firmar el despacho, y `RN-83` prohíbe omitir
+el registro. Rechazarlo no devolvería el combustible al tanque — **lo sacaría del denominador
+de `RN-30`, que es donde más falta hace**.
+
+Ese galón entra y queda en `/tanques/despachos-sin-respaldo`: **el préstamo invisible de
+`CE-23`, vuelto lista**. Al probarlo contra la base de desarrollo, el reporte encontró de
+entrada un abastecimiento preexistente —35 galones declarados del tanque, sin ningún tanque
+que los registrara— que hasta hoy no lo veía nadie.
+
+#### El arqueo mide y no ajusta
+
+Misma disciplina que `RN-86` punto 4 impone al plazo vencido: **nunca cuadre automático**. Un
+arqueo que corrige el libro por su cuenta hace desaparecer la diferencia en el mismo acto que
+la descubre, y la única pregunta que un arqueo existe para contestar —*¿cuánto falta?*— deja
+de tener respuesta.
+
+`E-05` deja constancia de lo medido y nombra la diferencia **aunque sea cero**. `E-06` es otro
+acto, de otro, con motivo tipificado —merma técnica, error de registro, faltante sin causa,
+sustracción— y fundamento escrito. **No hay opción «diferencia» a secas**, por la misma razón
+que `CE-26` §3 da para el faltante del fondo.
+
+Y un tanque nunca arqueado **no está cuadrado: está sin verificar**. La diferencia se muestra
+nula, no cero.
+
+#### El trasiego mueve los dos lados o ninguno
+
+`RN-83` lo saca expresamente del abastecimiento: *«es movimiento de existencias y tiene su
+propio circuito»*. Registrar sólo la salida haría que el combustible se evaporara del sistema
+entero en vez de sólo de un tanque — **la forma exacta en que un faltante se disfraza de
+traslado**. Los dos asientos entran en una sola transacción.
+
+⚠️ **Que la institución tenga almacenamiento propio no está confirmado — `[C]`, insumo #36.**
+`HU-041` advierte que *«cambiaría el circuito completo de M-09»*, y `RN-28` lo repite. Si no
+lo tiene, no se da de alta ningún tanque y el panel no aparece. Lo que no podía seguir pasando
+es que la fuente se declarara y no descontara de nada.
+
+⚠️ **Con qué documento se despacha desde la cisterna es `[C]`** — insumo #1, vía `HU-083`. Hoy
+el asiento lleva persona, puesto, vehículo, receptor y motivo; el **folio** del vale de
+despacho, si la institución lo usa, no está.
+
+⚠️ **El rango de merma admisible no existe — `[C]`, insumo #1.** `RN-69` usa merma esperada de
+catálogo para carga a granel y acá no hay equivalente. El sistema registra la merma declarada
+y **no puede decir si es razonable**.
+
+⚠️ **La capacidad del tanque se guarda y no se comprueba.** Un ingreso que rebalse no se puede
+rechazar —el combustible ya entró, y rechazar el asiento lo saca del libro, no del tanque—, así
+que lo único útil sería una alerta, y las alertas persistidas son de `M-14`. Está dicho en el
+código en vez de fingir una validación.
+
+---
+
 ### El circuito de reintegro — `RN-86`
 
 **RESUELTA.** La obligación de reintegro existe como entidad con ciclo propio, el bloqueo de

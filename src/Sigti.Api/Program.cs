@@ -53,6 +53,7 @@ constructor.Services.AddScoped<ServicioDeCombustible>();
 constructor.Services.AddScoped<ServicioDeConciliacion>();
 constructor.Services.AddScoped<ServicioDeAbastecimientos>();
 constructor.Services.AddScoped<ServicioDeReintegro>();
+constructor.Services.AddScoped<ServicioDeTanques>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -625,7 +626,8 @@ fondos.MapPost("/{id}/cerrar", async (
 // de su bolsillo. Sin ella esos galones no existen, y `RN-30` los echa de menos como si
 // fueran fraude.
 app.MapPost("/abastecimientos", async (
-    RegistrarAbastecimiento peticion, ServicioDeAbastecimientos servicio) =>
+    RegistrarAbastecimiento peticion, ServicioDeAbastecimientos servicio,
+    ServicioDeTanques tanques) =>
 {
     var id = await servicio.RegistrarAsync(
         Ulid.Parse(peticion.Id),
@@ -639,7 +641,23 @@ app.MapPost("/abastecimientos", async (
         peticion.Monto,
         peticion.Estacion,
         peticion.Comprobante,
-        peticion.CausaSinComprobante);
+        peticion.CausaSinComprobante,
+        idDeCaptura: null,
+
+        // **El otro lado de `RN-83` punto 5.** Sin `IdTanque` el abastecimiento se registra
+        // igual y queda como discrepancia -- que es lo correcto para el hecho consumado que
+        // llega del campo. Con tanque, el despacho descuenta en la misma transacción y aplica
+        // sus bloqueos: existencia, segregación y compatibilidad de combustible.
+        tanques: tanques,
+        tanque: peticion.IdTanque is null ? null : Ulid.Parse(peticion.IdTanque),
+        despacha: peticion.PuestoDespacha is null
+            ? null
+            : Autoria.De(new IdPersona(peticion.Registra), new IdPuesto(peticion.PuestoDespacha),
+                DateOnly.FromDateTime(peticion.OcurridoEn.Date)),
+        recibe: peticion.IdReceptor is null
+            ? null
+            : new IdPersonaDelReceptor(peticion.IdReceptor),
+        combustibleDelVehiculo: peticion.CombustibleDelVehiculo ?? "");
 
     return Results.Created($"/abastecimientos/{id}", new { id = id.ToString() });
 });
@@ -669,6 +687,132 @@ app.MapGet("/abastecimientos/mision/{id}", async (
         generaReintegro = a.GeneraReintegro,
 
         descripcion = a.Descripcion,
+    })));
+
+// ── `RN-83` punto 5 — el libro de existencias del tanque institucional ──────
+var tanques = app.MapGroup("/tanques");
+
+tanques.MapGet("/", async (ServicioDeTanques servicio) =>
+    Results.Ok((await servicio.TodosAsync()).Select(t => new
+    {
+        id = t.Id.ToString(),
+        nombre = t.Nombre,
+        ambito = t.AmbitoDeclarado,
+        tipoDeCombustible = t.TipoDeCombustible,
+        capacidad = t.CapacidadGalones,
+
+        // La suma del libro. **No hay columna de existencia**: una se desincroniza el primer
+        // día en que dos despachos entren a la vez.
+        existencia = t.Existencia,
+
+        // Nula significa **nunca se arqueó**, y eso no es cero: de un tanque nunca medido no
+        // se deduce que cuadre.
+        diferenciaDelUltimoArqueo = t.DiferenciaDelUltimoArqueo,
+        ultimoArqueo = t.UltimaConstatacion?.Momento,
+        movimientos = t.Libro.Count,
+    })));
+
+tanques.MapGet("/{id}", async (string id, ServicioDeTanques servicio) =>
+    await servicio.BuscarAsync(Ulid.Parse(id)) is { } t
+        ? Results.Ok(new
+        {
+            id = t.Id.ToString(),
+            nombre = t.Nombre,
+            ambito = t.AmbitoDeclarado,
+            tipoDeCombustible = t.TipoDeCombustible,
+            capacidad = t.CapacidadGalones,
+            existencia = t.Existencia,
+            diferenciaDelUltimoArqueo = t.DiferenciaDelUltimoArqueo,
+
+            libro = t.Libro.Select(m => new
+            {
+                movimiento = m.Id,
+                tipo = m.Tipo.ToString(),
+                galones = m.Galones,
+                persona = m.Autor.Persona.Valor,
+                puesto = m.Autor.Puesto.Valor,
+                momento = m.Momento,
+                motivo = m.Motivo,
+                vehiculo = m.Vehiculo?.ToString(),
+                mision = m.Mision?.ToString(),
+                abastecimiento = m.Abastecimiento?.ToString(),
+                contraparte = m.Contraparte?.ToString(),
+                existenciaMedida = m.ExistenciaMedida,
+                motivoDelAjuste = m.MotivoDelAjuste?.ToString(),
+                comprobante = m.Comprobante,
+            }),
+        })
+        : Results.NotFound());
+
+tanques.MapPost("/", async (AbrirTanque peticion, ServicioDeTanques servicio) =>
+{
+    var id = await servicio.AbrirAsync(
+        Ulid.Parse(peticion.Id), peticion.Nombre, peticion.Ambito,
+        peticion.TipoDeCombustible, peticion.Capacidad,
+        Autoria.De(new IdPersona(peticion.Persona), new IdPuesto(peticion.Puesto),
+            DateOnly.FromDateTime(peticion.Momento.Date)),
+        peticion.ExistenciaInicial, peticion.Momento);
+
+    return Results.Created($"/tanques/{id}", new { id = id.ToString() });
+});
+
+/// `E-01`, `E-05` y `E-06`. El despacho a vehículo (`E-02`) **no entra por acá**: va con su
+/// abastecimiento, porque son el mismo hecho visto desde dos lados.
+tanques.MapPost("/{id}/movimiento", async (
+    string id, MoverExistencias peticion, ServicioDeTanques servicio) =>
+{
+    var autor = Autoria.De(
+        new IdPersona(peticion.Persona), new IdPuesto(peticion.Puesto),
+        DateOnly.FromDateTime(peticion.Momento.Date));
+
+    var existencia = await servicio.MoverAsync(Ulid.Parse(id), t =>
+    {
+        switch (peticion.Movimiento)
+        {
+            case "E-01": t.Recibir(autor, peticion.Galones ?? 0m,
+                peticion.Comprobante ?? "", peticion.Momento); break;
+
+            case "E-05": t.Constatar(autor, peticion.ExistenciaMedida ?? 0m,
+                peticion.Texto, peticion.Momento); break;
+
+            case "E-06": t.Ajustar(autor, peticion.Galones ?? 0m,
+                Enum.Parse<MotivoDeAjuste>(peticion.MotivoDelAjuste ?? ""),
+                peticion.Texto, peticion.Momento); break;
+
+            default: throw new BloqueoDuro("RN-83",
+                $"«{peticion.Movimiento}» no entra por acá. Son `E-01` recibir, `E-05` " +
+                "constatar y `E-06` ajustar. El despacho a un vehículo va con su " +
+                "abastecimiento, y el trasiego mueve dos tanques a la vez.");
+        }
+    });
+
+    return Results.Ok(new { existencia });
+});
+
+/// `E-03` y `E-04` — los dos lados en una sola llamada. Registrar sólo la salida haría que el
+/// combustible se evaporara del sistema entero en vez de sólo de un tanque.
+tanques.MapPost("/trasiegos", async (Trasiego peticion, ServicioDeTanques servicio) =>
+{
+    await servicio.TrasegarAsync(
+        Ulid.Parse(peticion.IdOrigen), Ulid.Parse(peticion.IdDestino),
+        Autoria.De(new IdPersona(peticion.Persona), new IdPuesto(peticion.Puesto),
+            DateOnly.FromDateTime(peticion.Momento.Date)),
+        peticion.Galones, peticion.Momento);
+
+    return Results.Ok(new { trasegados = peticion.Galones });
+});
+
+/// **El préstamo invisible, vuelto lista** — galones que alguien declaró sacados del tanque
+/// institucional y que ningún tanque registró haber despachado.
+tanques.MapGet("/despachos-sin-respaldo", async (ServicioDeTanques servicio) =>
+    Results.Ok((await servicio.DespachosSinRespaldoAsync()).Select(d => new
+    {
+        abastecimiento = d.Abastecimiento.ToString(),
+        vehiculo = d.Vehiculo.ToString(),
+        mision = d.Mision?.ToString(),
+        galones = d.Galones,
+        momento = d.OcurridoEn,
+        registra = d.Registra,
     })));
 
 // ── `RN-86` — el circuito de reintegro ──────────────────────────────────────
@@ -1696,7 +1840,16 @@ internal sealed record RegistrarAbastecimiento(
     decimal? Monto = null,
     string? Estacion = null,
     string? Comprobante = null,
-    string? CausaSinComprobante = null);
+    string? CausaSinComprobante = null,
+
+    // ── El despacho del tanque, cuando lo hay ───────────────────────────────
+    // Los cuatro van juntos o ninguno: sin quién despacha y quién recibe no hay despacho,
+    // hay una resta. `RN-83` punto 5 exige responsable identificado con la segregación de
+    // `RN-01`.
+    string? IdTanque = null,
+    string? PuestoDespacha = null,
+    string? IdReceptor = null,
+    string? CombustibleDelVehiculo = null);
 
 /// <summary>Anular, devolver y declarar extravío: los tres exigen acta, y el acta va acá.</summary>
 internal sealed record MotivarVale(string Ejecuta, string Motivo, DateTimeOffset Momento);
@@ -1994,4 +2147,37 @@ internal sealed record LevantarBloqueo(
     string Persona,
     string Puesto,
     string Motivo,
+    DateTimeOffset Momento);
+
+/// <summary>Alta del tanque, con su existencia inicial como asiento de apertura.</summary>
+internal sealed record AbrirTanque(
+    string Id,
+    string Nombre,
+    string Ambito,
+    string TipoDeCombustible,
+    decimal? Capacidad,
+    decimal ExistenciaInicial,
+    string Persona,
+    string Puesto,
+    DateTimeOffset Momento);
+
+/// <summary>`E-01` recibir · `E-05` constatar · `E-06` ajustar.</summary>
+internal sealed record MoverExistencias(
+    string Movimiento,
+    string Persona,
+    string Puesto,
+    string Texto,
+    /// <summary>Positivo en `E-01`; con signo en `E-06`, que va en las dos direcciones.</summary>
+    decimal? Galones,
+    decimal? ExistenciaMedida,
+    string? MotivoDelAjuste,
+    string? Comprobante,
+    DateTimeOffset Momento);
+
+internal sealed record Trasiego(
+    string IdOrigen,
+    string IdDestino,
+    decimal Galones,
+    string Persona,
+    string Puesto,
     DateTimeOffset Momento);

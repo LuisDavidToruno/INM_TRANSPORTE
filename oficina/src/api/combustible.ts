@@ -354,6 +354,48 @@ export interface Abastecimiento {
   descripcion: string;
 }
 
+// ── El tanque institucional — `RN-83` punto 5 ───────────────────────────────
+
+/**
+ * El tanque o cisterna de la institución.
+ *
+ * `existencia` es **la suma del libro**, no una columna: el servidor la proyecta de los
+ * asientos. Y `diferenciaDelUltimoArqueo` nula significa **nunca se arqueó**, que no es cero —
+ * de un tanque nunca medido no se deduce que cuadre.
+ */
+export interface Tanque {
+  id: string;
+  nombre: string;
+  ambito: string;
+  tipoDeCombustible: string;
+  capacidad: number | null;
+  existencia: number;
+  /** Positiva = falta en el tanque. Negativa = hay más de lo que el libro sabe. */
+  diferenciaDelUltimoArqueo: number | null;
+  ultimoArqueo: string | null;
+  movimientos: number;
+}
+
+export const tanques = (): Promise<Tanque[]> => pedir<Tanque[]>('/tanques');
+
+/**
+ * Un galón que alguien declaró sacado del tanque institucional y que ningún tanque anotó.
+ *
+ * **No es necesariamente fraude**: lo más común es que el despacho se haya hecho y nadie lo
+ * asentara. Lo que la fila afirma es que hay dos registros que no se corresponden.
+ */
+export interface DespachoSinRespaldo {
+  abastecimiento: string;
+  vehiculo: string;
+  mision: string | null;
+  galones: number;
+  momento: string;
+  registra: string;
+}
+
+export const despachosSinRespaldo = (): Promise<DespachoSinRespaldo[]> =>
+  pedir<DespachoSinRespaldo[]>('/tanques/despachos-sin-respaldo');
+
 // ── El circuito de reintegro — `RN-86` ──────────────────────────────────────
 
 /**

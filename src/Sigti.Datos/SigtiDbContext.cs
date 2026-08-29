@@ -30,6 +30,11 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     public DbSet<FilaDeObligacion> ObligacionesDeReintegro => Set<FilaDeObligacion>();
 
     public DbSet<FilaDeLevantamiento> LevantamientosDeBloqueo => Set<FilaDeLevantamiento>();
+
+    public DbSet<FilaDeTanque> Tanques => Set<FilaDeTanque>();
+
+    public DbSet<FilaDeMovimientoDeExistencias> MovimientosDeExistencias =>
+        Set<FilaDeMovimientoDeExistencias>();
     public DbSet<FilaDeAbastecimiento> Abastecimientos => Set<FilaDeAbastecimiento>();
 
     /// <summary>
@@ -432,6 +437,60 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             levantamiento.HasIndex(l => new { l.MisionId, l.Responsable }).IsUnique();
 
             levantamiento.HasIndex(l => l.Responsable);
+        });
+
+        modelo.Entity<FilaDeTanque>(tanque =>
+        {
+            tanque.ToTable("Tanque", schema: "combustible");
+
+            tanque.HasKey(t => t.Id);
+            tanque.Property(t => t.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            tanque.Property(t => t.Nombre).HasMaxLength(120).IsRequired();
+            tanque.Property(t => t.AmbitoDeclarado).HasMaxLength(120).IsRequired();
+            tanque.Property(t => t.TipoDeCombustible).HasMaxLength(32).IsRequired();
+            tanque.Property(t => t.CapacidadGalones).HasColumnType("decimal(12,2)");
+
+            tanque.HasIndex(t => t.AmbitoDeclarado);
+
+            tanque.HasMany(t => t.Movimientos)
+                .WithOne()
+                .HasForeignKey(m => m.TanqueId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelo.Entity<FilaDeMovimientoDeExistencias>(movimiento =>
+        {
+            movimiento.ToTable("MovimientoDeExistencias", schema: "combustible");
+
+            movimiento.HasKey(m => m.Id);
+            movimiento.Property(m => m.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            movimiento.Property(m => m.TanqueId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            movimiento.Property(m => m.VehiculoId).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+            movimiento.Property(m => m.MisionId).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+            movimiento.Property(m => m.AbastecimientoId).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+            movimiento.Property(m => m.ContraparteId).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+            movimiento.Property(m => m.Movimiento).HasMaxLength(8).IsRequired();
+            movimiento.Property(m => m.Tipo).HasConversion<string>().HasMaxLength(20).IsRequired();
+            movimiento.Property(m => m.MotivoDelAjuste).HasConversion<string>().HasMaxLength(40);
+            movimiento.Property(m => m.Persona).HasMaxLength(64).IsRequired();
+            movimiento.Property(m => m.Puesto).HasMaxLength(64).IsRequired();
+            movimiento.Property(m => m.Motivo).HasMaxLength(1000).IsRequired();
+            movimiento.Property(m => m.Comprobante).HasMaxLength(64);
+            movimiento.Property(m => m.Galones).HasColumnType("decimal(12,3)");
+            movimiento.Property(m => m.ExistenciaMedida).HasColumnType("decimal(12,3)");
+
+            movimiento.HasIndex(m => new { m.TanqueId, m.Orden }).IsUnique();
+
+            // **Un despacho por abastecimiento.** El galon del tanque y el galon que el
+            // vehiculo declara son el MISMO hecho visto desde dos lados. Dos despachos
+            // contra un abastecimiento descontarian dos veces del tanque, y el faltante
+            // resultante lo pagaria alguien en el proximo arqueo.
+            movimiento.HasIndex(m => m.AbastecimientoId)
+                .IsUnique()
+                .HasFilter("[AbastecimientoId] IS NOT NULL");
+
+            // El consumo por vehiculo sale de aca: es el descargo del tanque contra placas.
+            movimiento.HasIndex(m => m.VehiculoId);
         });
 
         modelo.Entity<FilaDeAbastecimiento>(abastecimiento =>
