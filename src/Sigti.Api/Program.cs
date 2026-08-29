@@ -63,6 +63,7 @@ constructor.Services.AddScoped<ServicioDeTanques>();
 constructor.Services.AddScoped<ServicioDePeajes>();
 constructor.Services.AddScoped<ServicioDeConciliacionExterna>();
 constructor.Services.AddScoped<ServicioDeHallazgosPosteriores>();
+constructor.Services.AddScoped<ServicioDeSaldoDeApertura>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -266,6 +267,52 @@ static object ResumirPaso(PasoPorCaseta p) => new
 /// exige como campos distintos, y la antigüedad se cuenta desde el hecho — contarla desde el
 /// descubrimiento premiaría descubrir tarde.
 /// </summary>
+/// <summary>
+/// Un renglón del saldo. <b>La antigüedad se cuenta desde el hecho</b>, no desde el corte:
+/// contarla al revés dejaría presentar como reciente lo que lleva tres ejercicios.
+/// </summary>
+static object ResumirRenglon(RenglonDelSaldo r, DateOnly corte) => new
+{
+    tipo = r.Tipo.ToString(),
+    referencia = r.Referencia,
+    descripcion = r.Descripcion,
+    fechaDelHecho = r.FechaDelHecho,
+    antiguedadEnDias = r.AntiguedadEnDias(corte),
+    causa = r.Causa.ToString(),
+    responsable = r.Responsable,
+    estado = r.Estado,
+
+    // En cuántos saldos anteriores ya venía. Un renglón que aparece en tres consecutivos es
+    // visible como tal, y eso impide presentarlo como nuevo cada enero.
+    saldosAnteriores = r.SaldosAnteriores,
+
+    monto = r.Monto,
+    impideCerrar = r.ImpideCerrarElPeriodo,
+};
+
+static object ResumirSaldo(SaldoDeApertura s) => new
+{
+    id = s.Id.ToString(),
+    folio = s.Folio,
+    ejercicio = s.Ejercicio,
+    corte = s.Corte,
+    produce = s.Produce.Persona.Valor,
+    momento = s.Momento,
+    renglones = s.Renglones.Count,
+
+    // Los que ya venían de saldos anteriores son los que más importan: el arrastre es
+    // justamente lo que la regla existe para hacer visible.
+    arrastrados = s.Arrastrados.Count,
+
+    antiguedadMaximaEnDias = s.AntiguedadMaximaEnDias,
+    montoTotal = s.MontoTotal,
+    bloqueantes = s.Bloqueantes.Count,
+
+    // El primero tras el despliegue se declara para que no se compare contra los siguientes
+    // como si fueran la misma medición.
+    esInicialDeImplantacion = s.EsInicialDeImplantacion,
+};
+
 static object ResumirHallazgo(ExpedienteDeHallazgoPosterior h) => new
 {
     id = h.Id.ToString(),
@@ -1045,6 +1092,82 @@ hallazgosPosteriores.MapPost("/{id}/resolver", async (
 hallazgosPosteriores.MapGet("/ajuste/{periodo}", async (
     string periodo, ServicioDeHallazgosPosteriores servicio) =>
     Results.Ok(new { periodo, ajuste = await servicio.AjusteDelPeriodoAsync(periodo) }));
+
+// ── `RN-97` — el saldo de apertura de control interno ───────────────────────
+// La regla que impide el abandono. Sin ella, «llega enero, el sistema arranca con reportes en
+// cero, y una misión interrumpida en noviembre... simplemente deja de aparecer en ninguna
+// pantalla. **Nadie decidió abandonarlos: se abandonaron solos**».
+var saldos = app.MapGroup("/saldo-de-apertura");
+
+/// El inventario de lo que sigue vivo a una fecha, **sin producir el documento**. Es lo que
+/// se mira antes de cerrar, para saber qué hay que resolver.
+saldos.MapGet("/inventario/{corte}", async (
+    string corte, ServicioDeSaldoDeApertura servicio) =>
+{
+    var (renglones, fuentes) = await servicio.InventarioAsync(DateOnly.Parse(corte));
+    var alCorte = DateOnly.Parse(corte);
+
+    return Results.Ok(new
+    {
+        corte = alCorte,
+        renglones = renglones.Select(r => ResumirRenglon(r, alCorte)),
+
+        // **Las fuentes van siempre, consultadas o no.** Un saldo que omite en silencio los
+        // préstamos vencidos es el abandono que la regla existe para impedir, con formato de
+        // reporte.
+        fuentes = fuentes.Select(f => new
+        {
+            tipo = f.Tipo.ToString(),
+            sePudoConsultar = f.SePudoConsultar,
+            renglones = f.Renglones,
+            porQueNo = f.PorQueNo,
+        }),
+
+        completo = fuentes.All(f => f.SePudoConsultar),
+
+        // Lo que impide cerrar el período — `RN-97` punto 4.
+        bloqueantes = renglones.Count(r => r.ImpideCerrarElPeriodo),
+    });
+});
+
+/// Produce el documento con folio — `RN-97` punto 1. Se conserva junto al acta de cierre.
+saldos.MapPost("/", async (ProducirSaldo peticion, ServicioDeSaldoDeApertura servicio) =>
+{
+    var saldo = await servicio.ProducirAsync(
+        Ulid.Parse(peticion.Id), peticion.Folio, peticion.Ejercicio, peticion.Corte,
+        Autoria.De(new IdPersona(peticion.Persona), new IdPuesto(peticion.Puesto),
+            peticion.Corte),
+        peticion.Momento, peticion.DeclaracionDeBloqueantes);
+
+    return Results.Created($"/saldo-de-apertura/{saldo.Ejercicio}",
+        new { id = saldo.Id.ToString(), renglones = saldo.Renglones.Count });
+});
+
+/// La serie histórica — `RN-97` punto 5: se reporta a Gerencia Administrativa y a Auditoría
+/// Interna al inicio del ejercicio, **con su serie**.
+saldos.MapGet("/", async (ServicioDeSaldoDeApertura servicio) =>
+    Results.Ok((await servicio.TodosAsync()).Select(ResumirSaldo)));
+
+saldos.MapGet("/{ejercicio}", async (
+    string ejercicio, ServicioDeSaldoDeApertura servicio) =>
+    await servicio.DelEjercicioAsync(ejercicio) is { } saldo
+        ? Results.Ok(new
+        {
+            resumen = ResumirSaldo(saldo),
+            renglones = saldo.Renglones.Select(r => ResumirRenglon(r, saldo.Corte)),
+        })
+        : Results.NotFound());
+
+/// `RN-97` punto 6 — el renglón resuelto se marca con su fecha. **No se borra**: que estuvo en
+/// el saldo es parte de la serie, y el residuo al cierre siguiente es el nuevo saldo.
+saldos.MapPost("/renglones/{id}/resolver", async (
+    string id, ResolverRenglon peticion, ServicioDeSaldoDeApertura servicio) =>
+{
+    await servicio.ResolverRenglonAsync(
+        Ulid.Parse(id), peticion.ComoSeResolvio, peticion.Fecha);
+
+    return Results.Ok(new { resuelto = true });
+});
 
 // ── M-18 Peajes ─────────────────────────────────────────────────────────────
 var peajes = app.MapGroup("/peajes");
@@ -3012,3 +3135,20 @@ internal sealed record VincularMision(
 internal sealed record ResolverHallazgo(
     ResolucionDelHallazgo Resolucion, string Fundamento,
     string Persona, string Puesto, DateTimeOffset Momento);
+
+internal sealed record ProducirSaldo(
+    string Id,
+    /// <summary>Sin folio no se puede citar en el acta de cierre.</summary>
+    string Folio,
+    string Ejercicio,
+    DateOnly Corte,
+    string Persona,
+    string Puesto,
+    DateTimeOffset Momento,
+    /// <summary>
+    /// El motivo para producirlo con préstamos vencidos o interrupciones sin desenlace vivos.
+    /// `RN-97` punto 4: hay que resolverlos **o declararlos explícitamente**.
+    /// </summary>
+    string? DeclaracionDeBloqueantes = null);
+
+internal sealed record ResolverRenglon(string ComoSeResolvio, DateOnly Fecha);

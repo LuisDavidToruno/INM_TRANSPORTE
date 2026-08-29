@@ -69,6 +69,8 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
 
     public DbSet<FilaDeReverso> AsientosReversos => Set<FilaDeReverso>();
 
+    public DbSet<FilaDeSaldo> SaldosDeApertura => Set<FilaDeSaldo>();
+
     public DbSet<FilaDeMovimientoDeExistencias> MovimientosDeExistencias =>
         Set<FilaDeMovimientoDeExistencias>();
     public DbSet<FilaDeAbastecimiento> Abastecimientos => Set<FilaDeAbastecimiento>();
@@ -649,6 +651,57 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
 
             // Y el acumulado del periodo corriente se arma sumando por aca.
             reverso.HasIndex(r => r.PeriodoDeImputacion);
+        });
+
+        modelo.Entity<FilaDeSaldo>(saldo =>
+        {
+            saldo.ToTable("SaldoDeApertura", schema: "auditoria");
+
+            saldo.HasKey(s => s.Id);
+            saldo.Property(s => s.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            saldo.Property(s => s.Folio).HasMaxLength(32).IsRequired();
+            saldo.Property(s => s.Ejercicio).HasMaxLength(16).IsRequired();
+            saldo.Property(s => s.Persona).HasMaxLength(64).IsRequired();
+            saldo.Property(s => s.Puesto).HasMaxLength(64).IsRequired();
+            saldo.Property(s => s.DeclaracionDeBloqueantes).HasMaxLength(2000);
+            saldo.Property(s => s.FuentesNoConsultadas).HasMaxLength(4000).IsRequired();
+
+            // **Uno por ejercicio.** Dos inventarios del mismo corte dejarian al acta de
+            // cierre sin poder decir cual es el que cita.
+            saldo.HasIndex(s => s.Ejercicio).IsUnique();
+
+            // El folio es unico en la institucion, como todo folio (`RN-44`).
+            saldo.HasIndex(s => s.Folio).IsUnique();
+
+            saldo.HasMany(s => s.Renglones)
+                .WithOne()
+                .HasForeignKey(r => r.SaldoId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelo.Entity<FilaDeRenglon>(renglon =>
+        {
+            renglon.ToTable("RenglonDelSaldo", schema: "auditoria");
+
+            renglon.HasKey(r => r.Id);
+            renglon.Property(r => r.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            renglon.Property(r => r.SaldoId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            renglon.Property(r => r.Tipo).HasConversion<string>().HasMaxLength(40).IsRequired();
+            renglon.Property(r => r.Causa).HasConversion<string>().HasMaxLength(40).IsRequired();
+            renglon.Property(r => r.Referencia).HasMaxLength(64).IsRequired();
+            renglon.Property(r => r.Descripcion).HasMaxLength(500).IsRequired();
+            renglon.Property(r => r.Responsable).HasMaxLength(64).IsRequired();
+            renglon.Property(r => r.Estado).HasMaxLength(40).IsRequired();
+            renglon.Property(r => r.ComoSeResolvio).HasMaxLength(1000);
+            renglon.Property(r => r.Monto).HasColumnType("decimal(18,2)");
+
+            // El arrastre entre ejercicios se casa por (tipo, referencia): es lo que
+            // identifica al mismo pendiente entre dos cortes.
+            renglon.HasIndex(r => new { r.Tipo, r.Referencia });
+
+            // **Un pendiente una vez por saldo.** Contarlo dos veces en el mismo documento
+            // inflaria el inventario que `RN-97` manda cuadrar renglon por renglon.
+            renglon.HasIndex(r => new { r.SaldoId, r.Tipo, r.Referencia }).IsUnique();
         });
 
         // ── M-18 Peajes ─────────────────────────────────────────────────────

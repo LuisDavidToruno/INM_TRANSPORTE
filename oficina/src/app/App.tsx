@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarClock, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch } from 'lucide-react';
+import { CalendarClock, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive } from 'lucide-react';
 
 import { Avisos, Nota, Shell, avisar } from '../ui';
 import type { GrupoNav, Miga } from '../ui';
@@ -21,6 +21,7 @@ import Padron from '../modulos/M03_Flota/Padron';
 import Fondos from '../modulos/M09_Combustible/Fondos';
 import Peajes from '../modulos/M18_Peajes/Peajes';
 import Conciliacion from '../modulos/M14_Auditoria/Conciliacion';
+import SaldoDeAperturaPantalla from '../modulos/M14_Auditoria/SaldoDeApertura';
 import ColaDeCierre from '../modulos/M13_Cierre/Cola';
 import Cierre from '../modulos/M13_Cierre/Cierre';
 import { bandejaDeAutorizacion, origenDeDatos } from '../api/misiones';
@@ -132,6 +133,7 @@ function Interior(): ReactElement {
       titulo: 'M-14 Auditoría',
       items: [
         { texto: 'Fuentes externas', icono: <FileSearch />, href: '/conciliacion' },
+        { texto: 'Saldo de apertura', icono: <Archive />, href: '/saldo-de-apertura' },
       ],
     },
     { items: [{ texto: 'Sistema de diseño', icono: <Palette />, href: '/sistema-diseno' }] },
@@ -166,6 +168,7 @@ function Interior(): ReactElement {
         <Route path="/combustible" element={<Fondos />} />
         <Route path="/peajes" element={<Peajes />} />
         <Route path="/conciliacion" element={<Conciliacion />} />
+        <Route path="/saldo-de-apertura" element={<SaldoDeAperturaPantalla />} />
         <Route path="/despacho" element={<Tablero />} />
         <Route path="/programacion" element={<Cola />} />
         
@@ -197,6 +200,7 @@ function migasDe(ruta: string): Miga[] {
   if (ruta === '/flota') return ['Flota'];
   if (ruta === '/combustible') return ['Combustible'];
   if (ruta === '/conciliacion') return ['Auditoría', 'Fuentes externas'];
+  if (ruta === '/saldo-de-apertura') return ['Auditoría', 'Saldo de apertura'];
   if (ruta.startsWith('/cierre/')) return [{ texto: 'Cierre', href: '/cierre' }, 'Expediente'];
   if (ruta === '/cierre') return ['Cierre'];
   if (ruta === '/sistema-diseno') return ["Sistema de diseño"];

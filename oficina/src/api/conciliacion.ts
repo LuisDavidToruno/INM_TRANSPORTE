@@ -150,3 +150,86 @@ export const TEXTO_DE_RESOLUCION: Record<string, string> = {
   SinEfectoEconomico: 'Real, sin efecto económico',
   SinEfecto: 'Sin efecto — era un error del descubridor',
 };
+
+// ── `RN-97` — el saldo de apertura de control interno ───────────────────────
+
+export interface RenglonDelSaldo {
+  tipo: string;
+  referencia: string;
+  descripcion: string;
+  /** La del hecho **original**. La antigüedad no se reinicia con el cambio de ejercicio. */
+  fechaDelHecho: string;
+  antiguedadEnDias: number;
+  causa: string;
+  responsable: string;
+  estado: string;
+  /** En cuántos saldos anteriores ya venía. Lo que impide presentarlo como nuevo cada enero. */
+  saldosAnteriores: number;
+  monto: number | null;
+  /** `RN-97` punto 4: ningún período se cierra con préstamos vencidos ni interrupciones. */
+  impideCerrar: boolean;
+}
+
+/**
+ * Una fuente del inventario. **Va aunque no se haya podido consultar**: un saldo que omite en
+ * silencio los préstamos vencidos es el abandono que la regla existe para impedir, con formato
+ * de reporte.
+ */
+export interface FuenteDelSaldo {
+  tipo: string;
+  sePudoConsultar: boolean;
+  renglones: number;
+  porQueNo: string | null;
+}
+
+export interface InventarioDelSaldo {
+  corte: string;
+  renglones: RenglonDelSaldo[];
+  fuentes: FuenteDelSaldo[];
+  /** Falso cuando alguna fuente no se pudo consultar. */
+  completo: boolean;
+  bloqueantes: number;
+}
+
+export const inventarioDelSaldo = (corte: string): Promise<InventarioDelSaldo> =>
+  pedir<InventarioDelSaldo>(`/saldo-de-apertura/inventario/${corte}`);
+
+export interface SaldoDeApertura {
+  id: string;
+  folio: string;
+  ejercicio: string;
+  corte: string;
+  produce: string;
+  momento: string;
+  renglones: number;
+  /** Los que ya venían de saldos anteriores. **Son los que más importan.** */
+  arrastrados: number;
+  antiguedadMaximaEnDias: number;
+  montoTotal: number;
+  bloqueantes: number;
+  /** El primero tras el despliegue: no se compara contra los siguientes. */
+  esInicialDeImplantacion: boolean;
+}
+
+export const saldosDeApertura = (): Promise<SaldoDeApertura[]> =>
+  pedir<SaldoDeApertura[]>('/saldo-de-apertura');
+
+export const TEXTO_DE_RENGLON: Record<string, string> = {
+  MisionSinCerrar: 'Orden de misión sin cerrar',
+  ValeSinLiquidar: 'Vale sin liquidar',
+  ObligacionDeReintegro: 'Obligación de reintegro',
+  HallazgoPosteriorAbierto: 'Hallazgo posterior abierto',
+  ImputacionExternaNoResuelta: 'Imputación externa no resuelta',
+  PrestamoVencido: 'Préstamo vencido',
+  InterrupcionSinDesenlace: 'Interrupción sin desenlace',
+  ReclamoDePeaje: 'Reclamo de peaje',
+  ExpedienteDeIncidente: 'Expediente de incidente',
+  BitacoraPendienteDeDigitacion: 'Bitácora sin digitar',
+};
+
+export const TEXTO_DE_CAUSA_DEL_RENGLON: Record<string, string> = {
+  PendienteDeGestionInterna: 'pendiente de gestión interna',
+  FueraDelControlInstitucional: 'fuera del control institucional',
+  BienNoRecuperado: 'bien no recuperado',
+  SaldoInicialDeImplantacion: 'saldo inicial de implantación',
+};

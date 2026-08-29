@@ -405,6 +405,79 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+### `RN-97` — el saldo de apertura de control interno
+
+**RESUELTA.** Es la regla que impide el abandono, y la propia ficha explica por qué hacía
+falta: *«sin saldo de apertura, el mecanismo de olvido es automático y no requiere mala fe:
+llega enero, el sistema arranca con reportes en cero, y una misión interrumpida en noviembre,
+un préstamo vencido en agosto y una obligación de reintegro de mayo simplemente dejan de
+aparecer en ninguna pantalla. **Nadie decidió abandonarlos: se abandonaron solos**»*.
+
+#### La antigüedad no se reinicia, y ése es el punto
+
+Se cuenta **desde el hecho original**, nunca desde el corte. `RN-97` lo llama *«la parte que
+hace incómoda a la regla, y por eso mismo la que sirve»*: un expediente que llega al tercer
+ejercicio con 800 días **no se puede presentar como pendiente reciente**.
+
+El arrastre entre saldos conserva la fecha del hecho del saldo anterior —ni siquiera una
+corrección de dato la mueve— y suma uno al contador. Un renglón que aparece en tres saldos
+consecutivos **se ve como tal**. Verificado por mutación: romper cualquiera de las dos cosas
+hace caer pruebas.
+
+#### Las diez fuentes van, incluidas las cinco que no se pueden contar
+
+| Fuente | Estado |
+|---|---|
+| Misiones sin cerrar · vales sin liquidar · obligaciones · hallazgos · imputaciones externas | **Se consultan** |
+| Préstamos vencidos (`RN-63`) · interrupciones sin desenlace (`RN-70`) · reclamos de peaje (`RN-92`) · expedientes de M-12 · bitácoras sin digitar | **Declaradas, no omitidas** |
+
+**Omitir en silencio las cinco que faltan sería el mismo abandono con formato de reporte.** El
+documento dice cuáles no se pudieron consultar y por qué, y la pantalla lo pone arriba — no en
+una nota al pie.
+
+Medido contra la base de desarrollo: 23 renglones al 31/12/2026, el más viejo de 294 días,
+L 8,400.00, y **5 de 10 fuentes sin consultar**.
+
+#### El documento y el bloqueo
+
+Se produce con **folio**, uno por ejercicio: un segundo dejaría dos inventarios del mismo corte
+y el acta de cierre no podría citar cuál. Todo renglón exige **responsable nominado** —*«un
+expediente sin responsable es un expediente muerto»*— y **causa tipificada**.
+
+`RN-97` punto 4 impide cerrar el período con préstamos vencidos o interrupciones sin desenlace.
+Se pueden **declarar explícitamente** con motivo, que no es lo mismo que ignorarlos.
+
+#### Un defecto que salió al escribir la prueba
+
+`ExigirCierrePosible` **confiaba en que quien llamara filtrara** los renglones bloqueantes. Un
+endpoint nuevo que se olvidara de filtrar habría dejado el bloqueo sin efecto, o habría
+detenido el cierre por cualquier pendiente. Ahora **el filtro vive dentro de la regla**.
+
+⚠️ **El bloqueo del cierre hoy no puede disparar.** Sus dos fuentes —`RN-63` y `RN-70`— no
+existen como registro. El sistema lo dice en el documento y en la pantalla: *«2 de ellas
+deberían impedir cerrar el período — así que ese bloqueo hoy no puede disparar»*. **Es la
+consecuencia más importante de este turno y no está resuelta.**
+
+⚠️ **`RN-96` sigue pendiente** — el cierre de ejercicio como corte de imputación. `RN-97` dice
+que el saldo *«debe coincidir renglón por renglón con el inventario de expedientes no
+terminales al corte»* de `RN-96`; hoy coincide **por construcción** —se genera del inventario—
+y existe la comprobación, pero no hay contra qué correrla porque `RN-96` no produce nada.
+
+⚠️ **Los renglones de misión se citan por ULID.** La orden de misión sigue sin folio (`RN-44`),
+y un renglón que se cita con un identificador que nadie reconoce no sirve en un acta.
+
+⚠️ **El responsable sale de quien ejecutó el último acto**, no de una asignación de
+seguimiento. Es lo mejor que se puede afirmar hoy —quien tiene el expediente en la mano— pero
+`RN-97` prevé reasignarlo a la jefatura cuando la persona ya no está, y eso necesita el
+organigrama vivo de `M-01`.
+
+⚠️ **La causa se deriva, no se declara.** Hoy sale de un criterio del código —lo no atribuible
+a un vehículo es *fuera del control institucional*, el resto es *pendiente de gestión*—. La
+regla la quiere tipificada por quien produce el saldo, y eso es una pantalla de captura que no
+está.
+
+---
+
 ### `RN-93` — el expediente de hallazgo posterior
 
 **RESUELTA**, y con ella queda cableado el pendiente que `RN-95` dejó: **cada diferencia de
