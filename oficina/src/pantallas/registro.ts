@@ -134,6 +134,16 @@ export const CONSTRUIDAS: Readonly<Record<string, Construida>> = {
   },
   'PT-076': { ruta: '/flota/:id', archivo: 'M03_Flota/Expediente.tsx' },
 
+  // ── M-01 Organización y seguridad ─────────────────────────────────────────
+  'PT-096': {
+    ruta: '/organizacion',
+    archivo: 'M01_Organizacion/Puestos.tsx',
+    incompleta:
+      'Muestra puestos, ocupantes y competencias. Los usuarios como credencial no existen: ' +
+      'no hay autenticación todavía.',
+  },
+  'PT-097': { ruta: '/organizacion', archivo: 'M01_Organizacion/Puestos.tsx' },
+
   // ── M-05 Motoristas y habilitación ────────────────────────────────────────
   'PT-082': { ruta: '/motoristas', archivo: 'M05_Motoristas/Padron.tsx' },
   'PT-084': { ruta: '/motoristas/matriz', archivo: 'M05_Motoristas/Matriz.tsx' },

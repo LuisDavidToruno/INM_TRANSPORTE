@@ -405,6 +405,97 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## `M-01` — la segregación de funciones deja de ser un documento
+
+**`PT-096` y `PT-097` entregadas, y con ellas la mitad de `M-01` que le faltaba al sistema.**
+La otra mitad —quién ocupa qué puesto— ya existía como espejo de ARGOS desde el bloque 1 del
+Sprint 2. Lo que no existía era **el rol**: ningún puesto tenía competencias, así que §5 de
+`actores-y-roles.md` —*«la sección que hace o deshace este sistema»*— no podía operar.
+
+### La frontera con ARGOS, y por qué esta mitad sí es nuestra
+
+| Mitad | Dueño | Se edita en SIGTI |
+|---|---|---|
+| Quién ocupa qué puesto | ARGOS y Talento Humano | **No.** `RN-48`, `DP-001` |
+| Qué facultades tiene cada puesto | **SIGTI** | Sí |
+
+La segunda no puede ser de ARGOS: **ARGOS no sabe qué es despachar un vehículo** ni entregar
+un vale de combustible, y esperar que lo modele sería pedirle que implemente nuestro dominio.
+Por eso hay `POST /competencias` y no hay `POST` de ocupación.
+
+### Los diecinueve pares, transcritos y no deducidos
+
+Se podría haber escrito «las cinco funciones son mutuamente excluyentes» y derivar los diez
+pares. **Eso habría perdido las tres cosas que hacen útil a la tabla**: que `I-14` es
+configurable y está apagado, que `I-15` e `I-16` son advertencia y no bloqueo, y que cinco de
+ellos —`I-07`, `I-10`, `I-11`, `I-12`, `I-13`— **no se levantan nunca**.
+
+### ⚠️ Tres errores míos en el puente rol→función, encontrados contra las fichas
+
+La tabla habla de **funciones** y el sistema asigna **roles**. Ese puente es donde se mete la
+pata sin que ninguna prueba de la tabla lo note, porque la tabla estaría bien y el puente mal.
+Los tres salieron de leer las fichas de §1 en vez de suponer:
+
+| Lo que escribí | Lo que dice la ficha |
+|---|---|
+| `ACT-04` autoriza | *«No autoriza la necesidad (`ACT-03`), no despacha físicamente, no entrega el fondo, no cierra el expediente»*. Con `Autoriza` + `Liquida` activaba `I-07` —núcleo irreductible— **contra sí mismo**, y el rol quedaba inoperable |
+| `ACT-13` conduce | Responde patrimonialmente por el bien, que es otra cosa. Activaba `I-11` sobre alguien que nunca se sube al vehículo |
+| `I-19` = Solicita × Autoriza | **Era una copia literal de `I-01`.** El par es *solicita el fondo × aprueba el fondo*, y sin funciones propias el hueco del hallazgo `HB3-06` seguía abierto **con una fila que aparentaba cubrirlo** |
+
+También estaban mal `I-15` —que es *custodio* × autoriza, no *conduce*— e `I-16`, que es
+*ordena el mantenimiento × recibe conforme* y yo había escrito con las funciones de `I-17`.
+
+**La prueba muerde**: reintroducir `Autoriza` en `ACT-04` hace fallar
+`El_jefe_de_transporte_no_autoriza_ni_despacha_ni_entrega_fondo`, medido.
+
+### Los dos momentos del control, y sólo uno es un no
+
+§5.3 los separa, y presentarlos igual haría que quien asigna leyera cualquier advertencia como
+un rechazo y dejara de asignar:
+
+- **Preventivo, al otorgar el rol.** Si la acumulación activa `I-12` o `I-13` —absolutos— **se
+  rechaza**. Medido en vivo: *«No se puede otorgar EncargadoDeDespacho a un puesto que ocupa
+  P-AUDITORIA: la acumulación activa I-12 (Audita × Despacha), que es del núcleo
+  irreductible»*. Y dispara **también sobre un puesto vacante**.
+- **Todo lo demás pasa y queda vigilado.** *«No se puede prohibir de entrada que el Encargado
+  de Delegación sea también Solicitante: sería inoperante»*. El bloqueo real llega al ejecutar
+  el acto sobre un expediente concreto.
+
+### La siembra reproduce §5.4 a propósito
+
+El espejo se puebla por integración, que no existe, así que en desarrollo se siembra. **Y se
+sembró el caso incómodo**: la sede tiene las cinco funciones repartidas y la delegación de
+Choluteca las acumula en una sola persona. Una siembra donde todo cumple no muestra nunca el
+problema que el sistema existe para ver.
+
+La pantalla lo dice con las palabras del documento: **diez pares acumulados**, `I-07` e `I-10`
+marcados núcleo irreductible, y la conclusión — *«cumplir la segregación completa exige cinco
+personas distintas por misión, y una delegación de tres no puede cumplirla localmente por
+aritmética, no por falta de voluntad. Lo que corresponde es el escalamiento a sede»*.
+
+### Un defecto encontrado mirando la pantalla
+
+⚠️ Un puesto con una competencia que **rige desde el mes que viene** aparecía como «1
+competencia cerrada». **Son cosas opuestas** y las dos llegan como «no vigente»: una es
+historia, la otra es una asignación programada que alguien espera que entre a funcionar.
+Separadas en `cerradas` y `futuras`.
+
+### Qué desbloquea, y qué falta todavía
+
+De las siete que `M-01` iba a desbloquear, **dos están hechas**. `PT-098` a `PT-100` son
+catálogos y parámetros de `M-02` —hay `POST /parametros` con doble control, falta la lectura—,
+y `PT-101`/`PT-102` son operación, no organización.
+
+**Lo que queda de `M-01` propiamente:** el control **bloqueante** de §5.3.B —impedir el acto
+sobre un expediente concreto, registrar el intento y encolar el escalamiento— y la
+autenticación, sin la cual `PT-001` no existe y el usuario sigue fijo en `App.tsx`.
+
+El bloqueante es el que más vale: hoy la segregación se verifica **por nombre de persona en
+texto libre** en cada módulo, y con `M-01` puede pasar a verificarse por competencia resuelta
+a la fecha del hecho.
+
+---
+
 ## Las 63 que se pueden hacer — bloque 1: los dos expedientes (M-03 y M-05)
 
 **Seis entregadas: `PT-073`, `PT-075`, `PT-076`, `PT-082`, `PT-084`, `PT-085`.** El mapa se

@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText, LayoutList, IdCard, Scale } from 'lucide-react';
+import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText, LayoutList, IdCard, Scale, Users } from 'lucide-react';
 
 import { Avisos, Nota, Shell, avisar } from '../ui';
 import type { GrupoNav, Miga } from '../ui';
@@ -20,6 +20,7 @@ import Tablero from '../modulos/M07_Programacion/Tablero';
 import Padron from '../modulos/M03_Flota/Padron';
 import PrestamosPantalla from '../modulos/M03_Flota/Prestamos';
 import Titulos from '../modulos/M03_Flota/Titulos';
+import Puestos from '../modulos/M01_Organizacion/Puestos';
 import ExpedienteDeVehiculo from '../modulos/M03_Flota/Expediente';
 import PadronDeMotoristas from '../modulos/M05_Motoristas/Padron';
 import MatrizDeLicencias from '../modulos/M05_Motoristas/Matriz';
@@ -81,6 +82,14 @@ function Interior(): ReactElement {
   });
 
   const grupos: GrupoNav[] = [
+    {
+      // `M-01` va primero porque es la base: sin puesto no hay permiso, y sin competencia no
+      // hay quién ejecute ningún acto de los demás módulos.
+      titulo: 'M-01 Organización y seguridad',
+      items: [
+        { texto: 'Puestos y competencias', icono: <Users />, href: '/organizacion' },
+      ],
+    },
     {
       titulo: 'M-06 Solicitud y autorización',
       items: [
@@ -208,6 +217,7 @@ function Interior(): ReactElement {
         <Route path="/autorizacion" element={<Bandeja />} />
         <Route path="/autorizacion/:id" element={<Expediente />} />
         <Route path="/flota" element={<Padron />} />
+        <Route path="/organizacion" element={<Puestos />} />
         <Route path="/titulos" element={<Titulos />} />
         <Route path="/flota/:id" element={<ExpedienteDeVehiculo />} />
         {/* La matriz va ANTES que el detalle: si no, `/motoristas/matriz` entraría por
@@ -253,6 +263,7 @@ function migasDe(ruta: string): Miga[] {
   if (ruta.startsWith('/programacion/')) return [{ texto: 'Programación', href: '/programacion' }, 'Asignación'];
   if (ruta === '/programacion') return ['Programación'];
   if (ruta === '/despacho') return ['Despacho'];
+  if (ruta === '/organizacion') return ['Organización'];
   if (ruta === '/flota') return ['Flota'];
   if (ruta.startsWith('/flota/')) return [{ texto: 'Flota', href: '/flota' }, 'Expediente del vehículo'];
   if (ruta === '/motoristas') return ['Motoristas'];

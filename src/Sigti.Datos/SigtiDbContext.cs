@@ -26,6 +26,12 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     public DbSet<FilaDeVehiculo> Vehiculos => Set<FilaDeVehiculo>();
     public DbSet<FilaDeConductor> Conductores => Set<FilaDeConductor>();
     public DbSet<FilaDeAsignacionDePuesto> AsignacionesDePuesto => Set<FilaDeAsignacionDePuesto>();
+
+    /// <summary>
+    /// Qué facultades tiene cada puesto — <b>maestro de SIGTI</b>, a diferencia del espejo de
+    /// asignaciones. ARGOS no sabe qué es despachar un vehículo.
+    /// </summary>
+    public DbSet<FilaDeCompetencia> Competencias => Set<FilaDeCompetencia>();
     public DbSet<FilaDeCustodia> Custodias => Set<FilaDeCustodia>();
     public DbSet<FilaDePermisoDeCirculacion> Permisos => Set<FilaDePermisoDeCirculacion>();
     public DbSet<FilaDeCambioDeEstado> CambiosDeEstado => Set<FilaDeCambioDeEstado>();
@@ -234,6 +240,28 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             // una persona. RN-100 resuelve las dos a la fecha del hecho.
             asignacion.HasIndex(a => a.Puesto);
             asignacion.HasIndex(a => a.Persona);
+        });
+
+        modelo.Entity<FilaDeCompetencia>(competencia =>
+        {
+            // Mismo esquema que el espejo, nombre que dice lo contrario: esto SI es maestro.
+            competencia.ToTable("CompetenciaDelPuesto", schema: "organizacion");
+
+            competencia.HasKey(c => c.Id);
+            competencia.Property(c => c.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            competencia.Property(c => c.Puesto).HasMaxLength(64).IsRequired();
+
+            // El rol y el alcance van como TEXTO, no como entero. Un enum guardado por su
+            // ordinal se corrompe en silencio el dia que alguien inserta un valor en medio,
+            // y aca lo que se corrompe es quien puede autorizar un gasto publico.
+            competencia.Property(c => c.Rol).HasConversion<string>().HasMaxLength(40).IsRequired();
+            competencia.Property(c => c.Alcance).HasConversion<string>().HasMaxLength(20).IsRequired();
+
+            competencia.Property(c => c.Otorga).HasMaxLength(64).IsRequired();
+            competencia.Property(c => c.ParesVigilados).HasMaxLength(200);
+
+            // La pregunta que se hace siempre: que competencias tiene este puesto.
+            competencia.HasIndex(c => c.Puesto);
         });
 
         modelo.Entity<FilaDeConductor>(conductor =>

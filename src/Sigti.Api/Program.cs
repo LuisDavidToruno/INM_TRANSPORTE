@@ -76,6 +76,7 @@ constructor.Services.AddScoped<ServicioDeIncidentes>();
 constructor.Services.AddScoped<ServicioDePrestamos>();
 constructor.Services.AddScoped<ServicioDeIndisponibilidad>();
 constructor.Services.AddScoped<ServicioDeTitulos>();
+constructor.Services.AddScoped<ServicioDeCompetencias>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -228,7 +229,93 @@ if (app.Environment.IsDevelopment())
 
         contextoDeSiembra.SaveChanges();
     }
+
+    // El espejo del organigrama. **En la institución lo puebla la integración con ARGOS**
+    // (`RN-48`, `DP-001`) y no hay endpoint de escritura; acá se siembra porque sin ocupantes
+    // no se puede ver operar la segregación de funciones, que es el control que más importa.
+    //
+    // Los puestos reproducen el caso de §5.4 a propósito: la sede tiene las cinco funciones
+    // repartidas, y **la delegación de Choluteca las acumula en una sola persona**. Una
+    // siembra donde todo cumple no muestra nunca el problema que el sistema existe para ver.
+    if (!contextoDeSiembra.AsignacionesDePuesto.Any())
+    {
+        contextoDeSiembra.AsignacionesDePuesto.AddRange(
+            OcupacionDeDesarrollo("01JQ8Z000000000000000ASG01", "P-ASISTENTE", "PUE-ASISTENTE-ADMIN"),
+            OcupacionDeDesarrollo("01JQ8Z000000000000000ASG02", "P-JEFATURA", "PUE-JEFATURA-ADMIN"),
+            OcupacionDeDesarrollo("01JQ8Z000000000000000ASG03", "P-TRANSPORTE", "PUE-JEFE-TRANSPORTE"),
+            OcupacionDeDesarrollo("01JQ8Z000000000000000ASG04", "P-DESPACHO", "PUE-DESPACHO-SEDE"),
+            OcupacionDeDesarrollo("01JQ8Z000000000000000ASG05", "P-COMBUSTIBLE", "PUE-COMBUSTIBLE"),
+            OcupacionDeDesarrollo("01JQ8Z000000000000000ASG06", "P-GERENCIA", "PUE-GERENCIA-ADMIN"),
+            OcupacionDeDesarrollo("01JQ8Z000000000000000ASG07", "P-AUDITORIA", "PUE-AUDITORIA-INTERNA"),
+
+            // **El caso de §5.4.** Una persona, un puesto, todas las funciones.
+            OcupacionDeDesarrollo("01JQ8Z000000000000000ASG08", "P-CHOLUTECA", "PUE-DELEGACION-CHOLUTECA"),
+
+            // Y la coocupación de un traspaso: dos personas en el mismo puesto a la vez. Es
+            // acotada y se registra, y existe porque el traspaso real dura días.
+            OcupacionDeDesarrollo("01JQ8Z000000000000000ASG09", "P-CUSTODIO", "PUE-CUSTODIO-FLOTA"),
+            OcupacionDeDesarrollo("01JQ8Z000000000000000ASG10", "P-TRANSPORTE", "PUE-CUSTODIO-FLOTA"));
+
+        contextoDeSiembra.SaveChanges();
+    }
+
+    if (!contextoDeSiembra.Competencias.Any())
+    {
+        contextoDeSiembra.Competencias.AddRange(
+            CompetenciaDeDesarrollo("01JQ8Z000000000000000CMP01", "PUE-ASISTENTE-ADMIN",
+                Rol.Solicitante, AlcanceDeDatos.Propio),
+            CompetenciaDeDesarrollo("01JQ8Z000000000000000CMP02", "PUE-JEFATURA-ADMIN",
+                Rol.JefaturaInmediata, AlcanceDeDatos.Dependencia),
+            CompetenciaDeDesarrollo("01JQ8Z000000000000000CMP03", "PUE-JEFE-TRANSPORTE",
+                Rol.JefeDeTransporte, AlcanceDeDatos.Institucion),
+            CompetenciaDeDesarrollo("01JQ8Z000000000000000CMP04", "PUE-DESPACHO-SEDE",
+                Rol.EncargadoDeDespacho, AlcanceDeDatos.Dependencia),
+            CompetenciaDeDesarrollo("01JQ8Z000000000000000CMP05", "PUE-COMBUSTIBLE",
+                Rol.EncargadoDeCombustible, AlcanceDeDatos.Dependencia),
+            CompetenciaDeDesarrollo("01JQ8Z000000000000000CMP06", "PUE-GERENCIA-ADMIN",
+                Rol.GerenciaAdministrativa, AlcanceDeDatos.Institucion),
+            CompetenciaDeDesarrollo("01JQ8Z000000000000000CMP07", "PUE-AUDITORIA-INTERNA",
+                Rol.AuditorInterno, AlcanceDeDatos.Institucion),
+            CompetenciaDeDesarrollo("01JQ8Z000000000000000CMP08", "PUE-CUSTODIO-FLOTA",
+                Rol.CustodioDelVehiculo, AlcanceDeDatos.Propio),
+
+            // Queda de acumulación vigilada, y es lo correcto: no se puede prohibir de entrada
+            // que la delegación opere, sería inoperante. El bloqueo llega al ejecutar.
+            CompetenciaDeDesarrollo("01JQ8Z000000000000000CMP09", "PUE-DELEGACION-CHOLUTECA",
+                Rol.EncargadoDeDelegacion, AlcanceDeDatos.Delegacion,
+                vigilados: "I-01, I-02, I-03, I-04, I-05, I-06, I-07, I-08, I-09, I-10"));
+
+        contextoDeSiembra.SaveChanges();
+    }
 }
+
+/// <summary>
+/// Una ocupación del espejo. Sin fecha de fin: son los titulares vigentes.
+/// </summary>
+static FilaDeAsignacionDePuesto OcupacionDeDesarrollo(string id, string persona, string puesto) => new()
+{
+    Id = Ulid.Parse(id),
+    Persona = persona,
+    Puesto = puesto,
+    Desde = new DateOnly(2026, 1, 1),
+    Hasta = null,
+
+    // El espejo se confirma, no se crea. Sin esto la bandeja diría que nunca se sincronizó.
+    ConfirmadoAlUtc = DateTime.UtcNow,
+};
+
+static FilaDeCompetencia CompetenciaDeDesarrollo(
+    string id, string puesto, Rol rol, AlcanceDeDatos alcance, string? vigilados = null) => new()
+{
+    Id = Ulid.Parse(id),
+    Puesto = puesto,
+    Rol = rol,
+    Alcance = alcance,
+    Desde = new DateOnly(2026, 1, 1),
+    Hasta = null,
+    Otorga = "P-ADMIN",
+    ParesVigilados = vigilados,
+};
 
 static FilaDeCustodia CustodiaDeDesarrollo(
     string id, string vehiculo, string custodio, DateOnly desde, string acta) => new()
@@ -962,6 +1049,169 @@ app.MapGet("/matriz-de-licencias", async (
         vehiculosEnLaFlota = vehiculos.Count,
     });
 });
+
+// ── M-01 · Competencias del puesto ──────────────────────────────────────────
+//
+// **La mitad de M-01 que SI es de SIGTI.** `DP-001` y `RN-48`: la estructura de puestos y quien
+// los ocupa son propiedad de ARGOS y Talento Humano, y viven como espejo sin escritura. Que
+// facultades tiene cada puesto DENTRO de SIGTI no es de ARGOS —no sabe que es despachar un
+// vehiculo— y por eso esta mitad se administra aca.
+var competencias = app.MapGroup("/competencias");
+
+/// `PT-096` — el padron de puestos con sus competencias vigentes, y quien los ocupa.
+///
+/// Une las dos mitades: el espejo dice quien ocupa que, esta tabla dice que puede hacer cada
+/// puesto, y la union por persona es lo que `RN-100` llama permisos efectivos.
+competencias.MapGet("/", async (
+    ServicioDeCompetencias servicio, ConsultaDelOrganigrama organigrama, DateOnly? fecha) =>
+{
+    var alDia = fecha ?? DateOnly.FromDateTime(DateTime.UtcNow);
+    var todas = await servicio.TodasAsync();
+    var mapa = await organigrama.VigenteAsync();
+
+    return Results.Ok(todas
+        .GroupBy(c => c.Puesto)
+        .Select(g =>
+        {
+            var puesto = new IdPuesto(g.Key);
+            var ocupantes = mapa.QuienesOcupan(puesto, alDia);
+
+            var vigentes = g
+                .Where(c => c.Desde <= alDia && (c.Hasta is null || alDia <= c.Hasta))
+                .ToList();
+
+            return new
+            {
+                puesto = g.Key,
+
+                // **Vacante no es «sin ocupantes por error»**: el puesto existe aunque este
+                // vacio, y por eso se le pueden configurar competencias antes del nombramiento.
+                ocupantes = ocupantes.Select(o => o.Valor),
+                vacante = ocupantes.Count == 0,
+
+                competencias = vigentes.Select(c => new
+                {
+                    id = c.Id.ToString(),
+                    rol = c.Rol.ToString(),
+                    alcance = c.Alcance.ToString(),
+                    desde = c.Desde,
+                    hasta = c.Hasta,
+                    otorga = c.Otorga,
+
+                    // Nulo es «no quedo vigilada», no «no se evaluo».
+                    paresVigilados = c.ParesVigilados,
+                }),
+
+                // **«Ya no rige» y «todavia no empieza» son cosas opuestas**, y las dos llegan
+                // como «no vigente». Una es historia y la otra es una asignacion programada que
+                // alguien espera que entre a funcionar; contarlas juntas haria que un
+                // otorgamiento futuro se leyera como una competencia que se quito.
+                cerradas = g.Count(c => c.Hasta is not null && c.Hasta < alDia),
+                futuras = g.Count(c => c.Desde > alDia),
+            };
+        }));
+});
+
+/// Lo que una persona puede hacer a una fecha — **la union de todos sus puestos**.
+///
+/// `RN-100`: los permisos efectivos son la union de los roles de todos los puestos que la
+/// persona ocupa vigentes a esa fecha. Y por eso las incompatibilidades se evaluan aca y no
+/// puesto por puesto: mirar puesto por puesto es como se cuela la acumulacion.
+competencias.MapGet("/persona/{persona}", async (
+    string persona, ServicioDeCompetencias servicio, DateOnly? fecha) =>
+{
+    var alDia = fecha ?? DateOnly.FromDateTime(DateTime.UtcNow);
+    var suyas = await servicio.DeLaPersonaAsync(new IdPersona(persona), alDia);
+    var efecto = ReglasDeLaAsignacion.Evaluar(suyas.Roles);
+
+    return Results.Ok(new
+    {
+        persona,
+        fecha = alDia,
+        puestos = suyas.Puestos.Select(p => p.Valor),
+        roles = suyas.Roles.Select(r => r.ToString()),
+        funciones = Incompatibilidades.FuncionesDeTodos(suyas.Roles).Select(f => f.ToString()),
+
+        // **Nulo es «no tiene alcance», que no es `Propio`**: `Propio` ya es un permiso.
+        alcanceMaximo = suyas.AlcanceMaximo?.ToString(),
+
+        // Una persona sin puesto vigente es un usuario sin permisos. No se borra: sus actos
+        // historicos la referencian.
+        sinCompetencia = suyas.SinCompetencia,
+
+        // La acumulacion que quedo latente. Bloquea al ejecutar sobre un expediente concreto,
+        // no aca — por eso se muestra como vigilancia y no como impedimento.
+        vigilados = efecto.Vigilados.Select(v => new
+        {
+            par = v.Id,
+            una = v.Una.ToString(),
+            otra = v.Otra.ToString(),
+            nivel = v.Nivel.ToString(),
+            porQue = v.PorQue,
+        }),
+        quedaVigilada = efecto.QuedaVigilada,
+    });
+});
+
+/// `PT-097` — otorgar un rol a un puesto, **con el control preventivo de §5.3.A**.
+///
+/// Rechaza si produce una acumulacion absoluta (`I-12`, `I-13`) en cualquiera de sus
+/// ocupantes; si la acumulacion es solo por expediente, la guarda y deja constancia de los
+/// pares vigilados. No se puede prohibir de entrada que el Encargado de Delegacion sea tambien
+/// Solicitante: seria inoperante.
+competencias.MapPost("/", async (
+    OtorgarCompetencia peticion, ServicioDeCompetencias servicio) =>
+{
+    var efecto = await servicio.OtorgarAsync(
+        Ulid.Parse(peticion.Id),
+        new IdPuesto(peticion.Puesto),
+        peticion.Rol,
+        peticion.Alcance,
+        peticion.Desde,
+        peticion.Hasta,
+        new IdPersona(peticion.Otorga));
+
+    return Results.Created($"/competencias/{peticion.Id}", new
+    {
+        id = peticion.Id,
+        quedaVigilada = efecto.QuedaVigilada,
+        vigilados = efecto.Vigilados.Select(v => new { par = v.Id, porQue = v.PorQue }).Distinct(),
+    });
+});
+
+/// Cierra una competencia. **No la borra**: un acto de febrero se juzga con la competencia
+/// vigente en febrero, y una fila borrada dejaria ese expediente sin respaldo.
+competencias.MapPost("/{id}/cerrar", async (
+    string id, CerrarCompetencia peticion, ServicioDeCompetencias servicio) =>
+{
+    await servicio.CerrarAsync(Ulid.Parse(id), peticion.Hasta);
+    return Results.Ok(new { id, hasta = peticion.Hasta });
+});
+
+/// El catalogo que la pantalla necesita para ofrecer opciones: los roles, los alcances y la
+/// tabla de incompatibilidades **con su nivel**.
+///
+/// Va del servidor porque la tabla es la autoridad transcrita de `actores-y-roles.md`, y una
+/// copia en el cliente diria que `I-14` bloquea el dia que alguien la actualice a medias.
+competencias.MapGet("/catalogo", () => Results.Ok(new
+{
+    roles = Enum.GetValues<Rol>().Select(r => new
+    {
+        rol = r.ToString(),
+        funciones = Incompatibilidades.Funciones(r).Select(f => f.ToString()),
+    }),
+    alcances = Enum.GetValues<AlcanceDeDatos>().Select(a => a.ToString()),
+    incompatibilidades = Incompatibilidades.Tabla
+        .GroupBy(p => p.Id)
+        .Select(g => new
+        {
+            par = g.Key,
+            nivel = g.First().Nivel.ToString(),
+            alcance = g.First().Alcance.ToString(),
+            porQue = g.First().PorQue,
+            funciones = g.Select(p => new { una = p.Una.ToString(), otra = p.Otra.ToString() }),
+        }),
+}));
 
 // `HU-009` — la bandeja de autorización muestra **desde cuándo no se confirma el
 // espejo**, porque una jefatura que va a firmar sobre un organigrama de hace nueve días
@@ -4292,6 +4542,18 @@ internal sealed record DarDeAlta(
 /// **Nula sólo en propiedad**, que es el único régimen que no vence. En los demás su ausencia
 /// haría que el título no venciera nunca — y un comodato que no vence es una apropiación.
 /// </param>
+internal sealed record OtorgarCompetencia(
+    string Id,
+    string Puesto,
+    Rol Rol,
+    AlcanceDeDatos Alcance,
+    DateOnly Desde,
+    DateOnly? Hasta,
+    /// <summary>Quien otorga. El otorgamiento es un acto y tiene autor.</summary>
+    string Otorga);
+
+internal sealed record CerrarCompetencia(DateOnly Hasta);
+
 internal sealed record RegistrarTitulo(
     string Id,
     string IdVehiculo,
