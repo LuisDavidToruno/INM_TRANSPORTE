@@ -454,23 +454,29 @@ puede ser legítimamente «sólo la bandeja».
 petición, posterior a hoy. **Una tarea cuya fecha del hecho todavía no llegó no ha esperado
 nada**, y cero es la respuesta correcta; el negativo se lee como un error del sistema.
 
-### ⚠️ Smart App Control bloqueó la verificación, y ahora también la aplicación
+### El circuito, verificado de punta a punta
 
-**El circuito se verificó a medias.** Se midió en vivo que el bloqueo encola —una tarea
-pendiente, dirigida a `PUE-JEFE-TRANSPORTE` (`P-TRANSPORTE`), originada por `P-ASISTENTE`, sin
-avisar— y ahí se cortó: al reconstruir para corregir los días negativos, **SAC pasó a bloquear
-`Sigti.Dominio.dll` también en la salida de la API**, no sólo en la de pruebas.
+| Paso | |
+|---|---|
+| `P-ASISTENTE` despacha lo que solicitó | **409 I-02**, y encola |
+| La tarea queda dirigida a `PUE-JEFE-TRANSPORTE` (`P-TRANSPORTE`) | sin avisar — no hay canal |
+| **La cierra quien la originó** | **409** — *«el escalamiento la puso en otra bandeja justamente para que decida otra persona»* |
+| Motivo insuficiente | **409** — *«“lo autorizó el jefe” y “ya no hacía falta” dejan el mismo rastro vacío»* |
+| `P-TRANSPORTE` con motivo | **200** |
+| Volver a cerrarla | **409** — *«dos versiones de qué pasó»* |
 
-**Lo que quedó sin verificar:** las tres reglas de cierre en vivo, y las pruebas de
-`ReglasDeLaTareaPruebas`. Compila todo, el frontend pasa `verificar` y `build`.
+**970 pruebas en verde**, cero fallas. Y los días negativos ya dan **0**.
 
-**Esto ya no es una molestia de las pruebas: impide correr el sistema.** Cada compilación
-produce un binario sin firma ni reputación, y SAC lo bloquea. La decisión de qué hacer con SAC
-es del PO — es un ajuste de seguridad del equipo y **desactivarlo es irreversible sin
-reinstalar Windows**.
+### La corrida que faltaba: Smart App Control
+
+Durante el trabajo, **SAC bloqueó primero las pruebas y después la propia aplicación** —cada
+compilación produce un binario sin firma ni reputación—. El PO lo desactivó y todo corrió.
+
+Queda anotado porque **el síntoma es reconocible y engañoso**: ,
+cero pruebas corriendo o fallas masivas **sin una sola aserción rota**. Lo que NO hay que hacer
+es limpiar / para «arreglarlo»: cada limpieza produce binarios nuevos y lo empeora.
 
 ---
-
 ## §5.3.B.3 — el escalamiento, con el espejo trayendo la jerarquía
 
 **Los tres saltos operan.** El bloqueo dejó de ser un callejón sin salida.
