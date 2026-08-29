@@ -89,6 +89,17 @@ public sealed class ServicioDeCombustible(SigtiDbContext contexto)
     public Task<decimal> SaldoAsync(Ulid fondoId, CancellationToken cancelacion = default) =>
         _combustible.SaldoAsync(fondoId, cancelacion);
 
+    /// <summary>
+    /// Un fondo por su identificador.
+    ///
+    /// Existe por `I-19`: el control bloqueante compara **quien pretende aprobar contra quien
+    /// solicito**, y esos actos estan en el diario del fondo. El fondo es objeto de PERIODO, asi
+    /// que no le sirven los actos de ninguna mision.
+    /// </summary>
+    public Task<FondoDeCombustible?> BuscarFondoAsync(
+        Ulid id, CancellationToken cancelacion = default) =>
+        _combustible.BuscarFondoAsync(id, cancelacion);
+
     public Task<IReadOnlyList<FondoDeCombustible>> FondosAsync(
         CancellationToken cancelacion = default) =>
         _combustible.TodosLosFondosAsync(cancelacion);

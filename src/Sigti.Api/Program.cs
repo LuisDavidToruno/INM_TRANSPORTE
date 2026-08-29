@@ -1474,11 +1474,40 @@ fondos.MapGet("/", async (ServicioDeCombustible servicio) =>
     return Results.Ok(salida);
 });
 
+/// `F-02` — aprobar el fondo, **con el control bloqueante de §5.3.B**.
+///
+/// ── `I-19`, y por que no basta con `RN-26.4` ─────────────────────────────────
+/// `RN-26.4` ya impedia que quien solicito aprobara, y **sigue donde esta**: es control propio
+/// de `RN-26`, no una aplicacion de `RN-01`, y es la ultima linea si alguien llama al dominio
+/// directo. Lo que le faltaba es lo que §5.3.B exige alrededor del bloqueo: **el asiento en la
+/// pista de auditoria**, el par nombrado y el destino del escalamiento.
+///
+/// El fondo es objeto **de periodo**: por eso `I-19` existe como par propio y por eso se le
+/// pasan los actos del fondo y no los de ninguna mision.
 fondos.MapPost("/{id}/aprobar", async (
-    string id, AprobarFondo peticion, ServicioDeCombustible servicio) =>
+    string id, AprobarFondo peticion, HttpContext http,
+    ServicioDeCombustible servicio, ServicioDeSegregacion segregacion) =>
 {
+    var idFondo = Ulid.Parse(id);
+
+    if (await servicio.BuscarFondoAsync(idFondo) is { } fondo)
+    {
+        // El ambito DECLARADO —«Delegacion de Danli»— y no el enum —«Dependencia»—: quien lee
+        // el bloqueo necesita saber cual de sus fondos es, y el enum dice de que tipo es.
+        var referencia =
+            $"del fondo de {fondo.AmbitoDeclarado}, del {fondo.Desde:dd/MM/yyyy} al {fondo.Hasta:dd/MM/yyyy}";
+
+        await segregacion.ExigirAsync(
+            new IdPersona(peticion.Ejecuta),
+            Funcion.ApruebaFondo,
+            ActosDelFondo.De(fondo, referencia),
+            id,
+            peticion.Momento,
+            origen: http.Connection.RemoteIpAddress?.ToString());
+    }
+
     var estado = await servicio.MoverFondoAsync(
-        Ulid.Parse(id),
+        idFondo,
         fondo => fondo.Aprobar(new IdPersona(peticion.Ejecuta), peticion.Monto,
                                peticion.Partida, peticion.Momento),
         peticion.Momento);

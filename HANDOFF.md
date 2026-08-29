@@ -405,6 +405,56 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## `I-19` — aprobar el fondo, y el hallazgo que se cierra
+
+**Nueve pares disparando.** El último de los que tenían dónde hacerlo con lo que hay
+construido.
+
+### El fondo necesitaba su propio ensamblador
+
+`ActosDeLaMision` no le sirve: **el fondo es objeto de período, no de misión**. Es exactamente
+el motivo por el que `I-19` existe como par propio — *«`RN-01` razona por Orden de Misión y el
+fondo es objeto de período, así que este par se caía entre las dos»*. Pasarle los actos de una
+misión sería contestar sobre el objeto equivocado: un fondo cubre muchas y ninguna en
+particular.
+
+`ActosDelFondo` mapea sólo `F-01` y `F-02`. **Ampliar y cerrar no entran**, y no es una lista
+incompleta: no son ninguna de las funciones que el MARCI separa, e inventarles una haría que
+un cierre bloqueara una aprobación.
+
+### ⚠️ Un comentario del código que había quedado vencido
+
+`ReglasDelFondo` declaraba un **hallazgo abierto**: *«el par solicita fondo × aprueba fondo no
+existe en la tabla `I-01`…`I-17` de actores-y-roles.md»*. **Ya existe: es `I-19`**, incorporado
+tras `HN1-15` y `HB3-06`. El comentario quedó corregido y el hallazgo, cerrado.
+
+**`RN-26.4` no se retira.** Sigue siendo control propio de `RN-26` y es la última línea si
+alguien llama al dominio sin pasar por §5.3.B. Lo que le faltaba es lo que el control
+bloqueante agrega alrededor: **el asiento en la pista, el par nombrado y el escalamiento**.
+
+### Tres defectos del mensaje, corregidos
+
+Y en §5.3.B.1 **el mensaje es el control**, así que valen:
+
+| Decía | Por qué está mal |
+|---|---|
+| «el fondo de **Dependencia**» | Es el enum, no el ámbito declarado. Quien lee necesita saber **cuál** de sus fondos, no de qué tipo es |
+| «solicitud **de el** fondo» | El ensamblador anteponía «de» a una referencia que ya traía preposición. Se lee como un error del sistema |
+| «sobre este **expediente**» | Un fondo no es un expediente. Nombrar mal el objeto vuelve sospechoso al bloqueo justo cuando tiene que ser creíble |
+
+Medido en vivo, ya se lee: *«Usted ya ejerció la solicitud del fondo (solicitud del fondo de
+Delegacion de Danli, del 01/10/2026 al 31/10/2026 (F-01), el 05/09/2026). No puede además la
+aprobación del fondo: es la incompatibilidad I-19.»* Y aprobado por otra persona: **200**.
+
+### El recíproco que la prueba defiende
+
+**Quien solicitó el transporte sí puede aprobar el fondo.** Son objetos distintos, e `I-03`
+habla de *entregar* el fondo, no de aprobarlo. Sin ese recíproco, colapsar `Solicita` con
+`SolicitaFondo` —que es justo el error que `I-19` existe para impedir— pasaría la prueba
+principal.
+
+---
+
 ## §5.3.B cableado en despachar y entregar el fondo
 
 **Ocho de los diecinueve pares disparan hoy sobre expedientes reales.** Ayer eran tres.

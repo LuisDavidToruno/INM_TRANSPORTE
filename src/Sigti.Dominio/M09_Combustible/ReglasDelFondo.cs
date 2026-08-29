@@ -16,11 +16,15 @@ namespace Sigti.Dominio.M09_Combustible;
 /// La regla lo dice sin margen: es <b>control propio de `RN-26`</b>, no una aplicación de
 /// `RN-01`, y <b>no es configurable</b>.
 ///
-/// ⚠️ <b>Hallazgo abierto que esta clase hereda</b>: el par <i>solicita fondo × aprueba
-/// fondo</i> no existe en la tabla `I-01`…`I-17` de `actores-y-roles.md`, que es la autoridad
-/// en incompatibilidades y también razona por misión. Queda señalado ahí para que la
-/// autoridad lo incorpore; acá se ejecuta igual, porque no ejecutarlo mientras se decide
-/// dejaría el hueco abierto en el dinero.
+/// ── El hallazgo que esta clase heredaba está CERRADO ────────────────────────
+/// Decía que el par <i>solicita fondo × aprueba fondo</i> no existía en la tabla de
+/// `actores-y-roles.md`. <b>Ya existe: es `I-19`</b>, incorporado tras los hallazgos
+/// `HN1-15` y `HB3-06`, con funciones propias precisamente porque el fondo es objeto de
+/// <b>período</b> y `RN-01` razona por Orden de Misión.
+///
+/// <b>Esta regla no se retira.</b> Sigue siendo control propio de `RN-26` y es la última línea
+/// si alguien llama al dominio sin pasar por el control bloqueante de §5.3.B — que es lo que
+/// además deja el asiento en la pista de auditoría y nombra el escalamiento.
 /// </summary>
 public static class ReglasDelFondo
 {

@@ -189,8 +189,12 @@ public static class ReglasDeSegregacion
               "delegación, ni por emergencia, ni por resolución de la máxima autoridad."
             : string.Empty;
 
+        // **No dice «sobre este expediente».** El control opera igual sobre una Orden de
+        // Misión y sobre un fondo de combustible —que es objeto de período y no un
+        // expediente—, y nombrar mal el objeto en el mensaje del bloqueo lo vuelve
+        // sospechoso justo cuando tiene que ser creíble.
         return
-            $"Usted ya ejerció {EnPalabras(propio.Funcion)} sobre este expediente " +
+            $"Usted ya ejerció {EnPalabras(propio.Funcion)} " +
             $"({propio.Referencia}, el {propio.Fecha:dd/MM/yyyy}). No puede además " +
             $"{EnPalabras(pretende)}: es la incompatibilidad {par.Id}. {par.PorQue}{nucleo} " +
             "Lo que corresponde es que el acto lo ejerza otra persona, o que se escale al " +

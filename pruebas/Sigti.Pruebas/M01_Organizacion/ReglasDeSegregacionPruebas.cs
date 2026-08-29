@@ -113,6 +113,43 @@ public class ReglasDeSegregacionPruebas
         Assert.Equal("I-10", error.Par);
     }
 
+    /// <summary>
+    /// `I-19` — <b>solicita el fondo × aprueba el fondo</b>.
+    ///
+    /// Es el par que <i>«se caía entre las dos»</i>: `RN-01` razona por Orden de Misión y el
+    /// fondo es objeto <b>de período</b>. Vivía sólo en el numeral 4 de `RN-26` —hallazgos
+    /// `HN1-15` y `HB3-06`—, sin pista de auditoría ni escalamiento.
+    /// </summary>
+    [Fact]
+    public void Quien_solicito_el_fondo_no_lo_aprueba()
+    {
+        var error = Assert.Throws<SegregacionIncompatible>(() =>
+            ReglasDeSegregacion.Exigir(
+                Nery, Funcion.ApruebaFondo,
+                Actos(Acto(Funcion.SolicitaFondo, Nery, "solicitud del fondo de septiembre")),
+                "FON-2026-09", Momento));
+
+        Assert.Equal("I-19", error.Par);
+        Assert.Contains("solicitud del fondo de septiembre", error.Message);
+    }
+
+    /// <summary>
+    /// <b>El par del fondo no se contagia al de la misión.</b> Quien solicitó el TRANSPORTE
+    /// puede aprobar el fondo: son objetos distintos, y `I-03` habla de <i>entregar</i> el
+    /// fondo, no de aprobarlo.
+    ///
+    /// Sin este recíproco, colapsar <c>Solicita</c> con <c>SolicitaFondo</c> —que es justo el
+    /// error que `I-19` existe para impedir— pasaría la prueba anterior.
+    /// </summary>
+    [Fact]
+    public void Quien_solicito_el_transporte_si_puede_aprobar_el_fondo()
+    {
+        Assert.Empty(ReglasDeSegregacion.Exigir(
+            Nery, Funcion.ApruebaFondo,
+            Actos(Acto(Funcion.Solicita, Nery, "solicitud SOL-2026-00417")),
+            "FON-2026-09", Momento));
+    }
+
     // ── El mensaje de §5.3.B.1 ──────────────────────────────────────────────
 
     /// <summary>
