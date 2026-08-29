@@ -43,6 +43,16 @@ public sealed class FilaDeIndisponibilidad
     public string? OrdenDeTrabajo { get; set; }
     public int? OdometroDeSalida { get; set; }
 
+    /// <summary>
+    /// ⚠️ Por qué el vehiculo NO cambio de estado operativo, si no lo hizo.
+    ///
+    /// `RN-60` habla de indisponibilidad sobrevenida sobre un vehiculo con reservas, pero §10.2
+    /// no tiene `ASIGNADO → EN_TALLER`. La autoridad sobre transiciones es el diagrama, asi que
+    /// el asiento no se pone y **queda escrito por que** — en vez de moverlo igual, que seria
+    /// escribir en el documento desde el codigo.
+    /// </summary>
+    public string? EstadoNoAplicado { get; set; }
+
     public List<FilaDeReservaAfectada> Reservas { get; } = [];
     public List<FilaDeResolucionDeReserva> Resoluciones { get; } = [];
 }

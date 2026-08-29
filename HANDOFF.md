@@ -405,6 +405,79 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## `W-01`..`W-19` — la tabla de transiciones del estado operativo
+
+**RESUELTA.** Era el cuello de botella que tres reglas esperaban: M-12, `RN-63` y `RN-60`
+necesitaban mover el estado del vehículo y ninguna podía, porque el código no tenía la tabla.
+
+### El comentario que lo bloqueaba estaba equivocado
+
+`EstadoDeLaFlota.AnotarAsync` decía: *«no valida la transición entre estados, y es deliberado:
+§10.2 **no publica una tabla de transiciones permitidas del vehículo** como sí lo hace para la
+misión, y inventarla acá sería escribir la regla en la capa que menos autoridad tiene»*.
+
+**Sí la publica.** El diagrama de §10.2 enumera `W-01` a `W-19` más `W-16b`. Quien escribió eso
+miró la tabla de estados y no el diagrama de transiciones. Lo que faltaba era **transcribirla**,
+no inventarla — y el argumento del comentario sigue siendo correcto: si la tabla del código y el
+diagrama difieren, manda el documento y el código es el defecto.
+
+### Lo que la tabla impone ahora
+
+| Control | De dónde sale |
+|---|---|
+| La transición existe en el diagrama | `W-01`..`W-19` |
+| `ASIGNADO` y `EN_MISION` **sólo los fija el sistema** | *«permitir fijarlos a mano abre la puerta a un vehículo "en misión" sin misión»* |
+| `NO_DISPONIBLE` exige **causa tipificada** | *«sin tipificación, este estado se convierte en el cementerio donde se esconde la flota que nadie repara»* |
+| Terminales y préstamo exigen **acta** | `NRM-02` |
+| Sin misiones abiertas para los dos terminales | §10.2 |
+| **El descargo es de bienes propios; el retiro, de ajenos** | corrección `HB3-17` |
+
+Ese último es el que más importa: declarar *«dado de baja del registro de bienes del Estado»* un
+vehículo en comodato es **un asiento falso sobre un bien ajeno, detectable cruzando el inventario
+institucional contra el padrón de flota**. Sin régimen declarado **se advierte, no se bloquea**:
+frenar el descargo de toda la flota por un dato de alta que nadie llenó sería peor que el asiento
+que se quiere evitar.
+
+**El bloqueo enumera los destinos legales.** Medido en vivo: *«§10.2 no contempla ir de Prestado
+a EnTaller. Desde Prestado se puede ir a: Disponible (W-17 devolución del préstamo)»*. Un
+«transición no permitida» a secas obliga a quien opera a adivinar el camino.
+
+### Una contradicción abierta entre `RN-60` y §10.2
+
+⚠️ **`RN-60` presupone una transición que el diagrama no tiene.** La regla habla de
+indisponibilidad *sobrevenida* sobre un vehículo con reservas —*«toda Orden de Misión ya
+PROGRAMADA o DESPACHADA sobre ese vehículo debe marcarse en conflicto»*— pero §10.2 sólo deja ir
+a taller desde `DISPONIBLE` (`W-09`) o `NO_DISPONIBLE` (`W-12`): **no hay `ASIGNADO →
+EN_TALLER`**.
+
+§10.2 es la autoridad sobre transiciones, y agregar la que falta desde el código sería escribir
+en el documento. Lo que hace el sistema es **registrar el expediente igual** —el conflicto, el
+acuse y el bloqueo del despacho operan— y **declarar en el expediente que el asiento de estado
+no se pudo poner**, con el porqué. La contradicción la resuelve quien tenga autoridad sobre
+§10.2, no este turno.
+
+### Dos hallazgos más, salidos de correr las pruebas
+
+⚠️ **El sistema anotaba `ASIGNADO` sobre vehículos sin estado declarado**, que §10.2 no
+contempla —`W-01` dice que el vehículo nace `NO_DISPONIBLE`—. No se bloqueó, porque **`BD-07` ya
+decidió otra cosa**: con estado nulo no bloquea, lo declara en el diario. Esa decisión es de la
+máquina de estados y no se contradice desde acá; y si `BD-07` dejó programar, negarse a anotar la
+consecuencia dejaría la misión programada y el vehículo sin asiento. **Sólo se tolera para las
+automáticas**: una persona que declara un estado sobre un vehículo sin historial sigue teniendo
+que empezar por `W-01`.
+
+**Cuatro pruebas existentes saltaban directo al estado que querían** —`EnTaller` sobre un
+vehículo recién sembrado— y pasaban porque el endpoint no validaba nada. Ahora recorren el camino
+legal: `W-01` alta → `W-02` habilitar → operar, que es además lo que hace el alta real. Y el
+historial pasó de dos asientos a cuatro: **conserva el camino entero**, que es lo que contesta
+«¿por qué no estuvo disponible?».
+
+⚠️ **El régimen de tenencia no existe como campo del vehículo.** `RN-62` lo pide con vigencia y
+rubros, y sin él la verificación del terminal correcto siempre advierte en vez de juzgar. Es lo
+que falta para que la corrección de `HB3-17` opere de verdad.
+
+---
+
 ## `RN-60` — la indisponibilidad sobrevenida y sus reservas en conflicto (M-11)
 
 **RESUELTA.** Es el corazón de M-11 y **cierra el hueco que M-12 y `RN-63` dejaron dos veces**:
@@ -452,10 +525,10 @@ autoridad sobre los bloqueos duros del despacho y no lo cataloga; `RN-60` sí lo
 implementó citando la regla, y **queda como hallazgo para que la autoridad lo incorpore** — es
 el mismo patrón que la nota abierta de `RN-63` sobre `actores-y-roles.md`.
 
-⚠️ **La indisponibilidad no mueve el estado operativo del vehículo.** Registra la ventana, el
-acuse y las reservas, pero el asiento en el diario de estado operativo lo tiene que poner quien
-la declara. Es el mismo hueco de las transiciones `W-xx` que M-12 y `RN-63` dejaron: sigue sin
-cerrarse, y ahora tres reglas lo esperan.
+✅ **La indisponibilidad ya mueve el estado operativo**, en la misma transacción y validada contra
+la tabla `W-xx`. Con una excepción declarada: cuando §10.2 no contempla la transición —el caso
+`ASIGNADO → EN_TALLER`— el expediente se registra igual y dice por qué el asiento no se puso. Ver
+[`W-01`..`W-19`](#w-01w-19--la-tabla-de-transiciones-del-estado-operativo).
 
 ⚠️ **`horizonte_reservas_afectadas` no está declarado.** `RN-60` lo declara configurable; hoy el
 horizonte **es la ventana estimada de la indisponibilidad**, que es lo defendible sin inventarlo

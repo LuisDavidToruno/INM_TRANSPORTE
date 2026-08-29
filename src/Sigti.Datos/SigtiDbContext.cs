@@ -776,6 +776,7 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             baja.Property(i => i.Causa).HasMaxLength(120).IsRequired();
             baja.Property(i => i.Ejecuta).HasMaxLength(64).IsRequired();
             baja.Property(i => i.OrdenDeTrabajo).HasMaxLength(64);
+            baja.Property(i => i.EstadoNoAplicado).HasMaxLength(500);
 
             // La consulta del despacho: si este vehiculo esta indisponible ahora. Corre en
             // cada `T-12`, asi que va indexada por vehiculo y por si sigue vigente.

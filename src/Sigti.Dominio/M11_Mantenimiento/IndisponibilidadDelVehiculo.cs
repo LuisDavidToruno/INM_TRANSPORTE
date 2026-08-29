@@ -94,7 +94,13 @@ public sealed record IndisponibilidadDelVehiculo(
     IReadOnlyList<ResolucionDeLaReserva> Resoluciones,
     DateOnly? FinReal = null,
     string? OrdenDeTrabajo = null,
-    int? OdometroDeSalida = null)
+    int? OdometroDeSalida = null,
+
+    /// <summary>
+    /// ⚠️ Por qué el vehículo <b>no</b> cambió de estado operativo, si no lo hizo. Nulo cuando
+    /// sí se movió.
+    /// </summary>
+    string? EstadoNoAplicado = null)
 {
     public bool EstaVigente => FinReal is null;
 

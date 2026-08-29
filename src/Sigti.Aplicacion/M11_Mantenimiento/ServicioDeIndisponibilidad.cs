@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Sigti.Datos;
 using Sigti.Datos.M11_Mantenimiento;
+using Sigti.Aplicacion.M03_Flota;
 using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
 using Sigti.Dominio.M11_Mantenimiento;
@@ -18,7 +19,7 @@ namespace Sigti.Aplicacion.M11_Mantenimiento;
 /// Sin ese paso, el conflicto aparece después y nadie lo decidió. Con él, quien manda el vehículo
 /// al taller vio qué misiones quedaban en el aire y siguió adelante.
 /// </summary>
-public sealed class ServicioDeIndisponibilidad(SigtiDbContext contexto)
+public sealed class ServicioDeIndisponibilidad(SigtiDbContext contexto, EstadoDeLaFlota flota)
 {
     /// <summary>
     /// Las reservas que se verían afectadas — <b>lo que se le muestra a quien va a acusar</b>.
@@ -142,6 +143,38 @@ public sealed class ServicioDeIndisponibilidad(SigtiDbContext contexto)
             });
 
         contexto.Indisponibilidades.Add(fila);
+
+        // ── Y el vehículo se mueve, en la misma transacción ──────────────────
+        // `RN-60` punto 1 lo exige: la indisponibilidad **es** una transición del estado
+        // operativo. Registrar la ventana sin mover el vehículo dejaría el expediente diciendo
+        // que está en taller y a `BD-07` dejándolo programar.
+        //
+        // ⚠️ **Salvo que §10.2 no contemple la transición**, y ahí hay una contradicción abierta
+        // que no se resuelve desde acá. `RN-60` habla de indisponibilidad *sobrevenida* sobre un
+        // vehículo con reservas —«toda Orden de Misión ya PROGRAMADA o DESPACHADA sobre ese
+        // vehículo debe marcarse en conflicto»— pero el diagrama de §10.2 sólo deja ir a taller
+        // desde `DISPONIBLE` (`W-09`) o desde `NO_DISPONIBLE` (`W-12`): **no hay `ASIGNADO →
+        // EN_TALLER`**.
+        //
+        // §10.2 es la autoridad sobre transiciones. Agregar la que falta desde acá sería
+        // escribir en el documento desde el código. Lo que se hace es registrar el expediente
+        // igual —el conflicto, el acuse y el bloqueo del despacho sí operan— y **declarar que el
+        // asiento de estado no se pudo poner**.
+        var actual = await flota.ActualAsync(vehiculo, cancelacion);
+
+        fila.EstadoNoAplicado = ReglasDelEstadoOperativo.Buscar(actual, estado) is null
+            ? $"§10.2 no contempla ir de {(actual is null ? "sin estado declarado" : $"{actual}")} " +
+              $"a {estado}, así que el vehículo NO cambió de estado operativo. El expediente de " +
+              "indisponibilidad y el bloqueo del despacho operan igual."
+            : null;
+
+        if (fila.EstadoNoAplicado is null)
+            await flota.AnotarAsync(
+                vehiculo,
+                new CambioDeEstadoOperativo(estado, momentoDelAcuse, ejecuta.Trim(), causa.Trim(),
+                    Automatico: false),
+                cancelacion: cancelacion);
+
         await contexto.SaveChangesAsync(cancelacion);
 
         return id;
@@ -201,6 +234,39 @@ public sealed class ServicioDeIndisponibilidad(SigtiDbContext contexto)
         fila.FinReal = finReal;
         fila.OrdenDeTrabajo = ordenDeTrabajo.Trim();
         fila.OdometroDeSalida = odometroDeSalida;
+
+        // El alta devuelve el vehículo a la flota — `W-10` desde taller, `W-02` desde no
+        // disponible. Cuál de las dos corresponde lo decide la tabla de §10.2 contra el estado
+        // actual, no este servicio.
+        //
+        // ⚠️ Y si el vehículo nunca llegó a moverse —porque §10.2 no contemplaba la transición
+        // de entrada— tampoco puede volver: el asiento de salida presupone el de entrada. Se
+        // declara igual, en vez de forzar una transición que la autoridad no tiene.
+        var actual = await flota.ActualAsync(fila.VehiculoId, cancelacion);
+        var vuelta = ReglasDelEstadoOperativo.Buscar(actual, EstadoOperativo.Disponible);
+
+        if (vuelta is null || vuelta.Automatica)
+        {
+            fila.EstadoNoAplicado =
+                $"El alta no movió el estado operativo: desde {actual} a DISPONIBLE " +
+                (vuelta is null
+                    ? "§10.2 no tiene transición."
+                    : $"corresponde {vuelta.Id}, que la fija el sistema por una transición de la " +
+                      "Orden de Misión y no una persona.");
+
+            await contexto.SaveChangesAsync(cancelacion);
+            return;
+        }
+
+        await flota.AnotarAsync(
+            fila.VehiculoId,
+            new CambioDeEstadoOperativo(
+                EstadoOperativo.Disponible,
+                new DateTime(finReal.Year, finReal.Month, finReal.Day, 12, 0, 0, DateTimeKind.Utc),
+                fila.Ejecuta,
+                $"Alta con orden de trabajo {ordenDeTrabajo.Trim()}, odómetro {odometroDeSalida:N0}",
+                Automatico: false),
+            cancelacion: cancelacion);
 
         await contexto.SaveChangesAsync(cancelacion);
     }
@@ -272,5 +338,6 @@ public sealed class ServicioDeIndisponibilidad(SigtiDbContext contexto)
             r.Motivo))],
         f.FinReal,
         f.OrdenDeTrabajo,
-        f.OdometroDeSalida);
+        f.OdometroDeSalida,
+        f.EstadoNoAplicado);
 }

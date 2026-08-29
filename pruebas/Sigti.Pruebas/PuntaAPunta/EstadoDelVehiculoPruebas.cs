@@ -46,6 +46,7 @@ public class EstadoDelVehiculoPruebas(BaseDePruebas baseDePruebas)
         using var aplicacion = Aplicacion();
         using var cliente = aplicacion.CreateClient();
 
+        await Habilitar(cliente, r.Vehiculo);
         await Declarar(cliente, r.Vehiculo, "EnTaller", "Orden de trabajo 2026-0044, frenos");
 
         await CrearYAprobar(cliente, id);
@@ -78,6 +79,7 @@ public class EstadoDelVehiculoPruebas(BaseDePruebas baseDePruebas)
         using var aplicacion = Aplicacion();
         using var cliente = aplicacion.CreateClient();
 
+        await Habilitar(cliente, r.Vehiculo);
         await Declarar(cliente, r.Vehiculo, "EnTaller", "Orden de trabajo 2026-0045");
         await Declarar(cliente, r.Vehiculo, "Disponible", "Trabajo cerrado, revisión conforme");
 
@@ -150,6 +152,9 @@ public class EstadoDelVehiculoPruebas(BaseDePruebas baseDePruebas)
         using var aplicacion = Aplicacion();
         using var cliente = aplicacion.CreateClient();
 
+        // `W-18` — fin de tenencia. Sólo se alcanza desde `NO_DISPONIBLE`: el vehículo se
+        // inhabilita primero y después se devuelve, que es el orden real de los actos.
+        await Declarar(cliente, r.Vehiculo, "NoDisponible", "Fin del comodato, pendiente de devolver");
         await Declarar(cliente, r.Vehiculo, "RetiradoDeFlota", "Acta de devolución de comodato 2026-03");
 
         var respuesta = await cliente.PostAsJsonAsync($"/flota/{r.Vehiculo}/estado", new
@@ -195,6 +200,7 @@ public class EstadoDelVehiculoPruebas(BaseDePruebas baseDePruebas)
         using var aplicacion = Aplicacion();
         using var cliente = aplicacion.CreateClient();
 
+        await Habilitar(cliente, r.Vehiculo);
         await Declarar(cliente, r.Vehiculo, "EnTaller", "Orden 2026-0050, transmisión");
         await Declarar(cliente, r.Vehiculo, "Disponible", "Trabajo cerrado");
 
@@ -203,11 +209,14 @@ public class EstadoDelVehiculoPruebas(BaseDePruebas baseDePruebas)
         Assert.Equal("Disponible", estado.GetProperty("actual").GetString());
 
         var historial = estado.GetProperty("historial").EnumerateArray().ToList();
-        Assert.Equal(2, historial.Count);
-        Assert.Contains("transmisión", historial[0].GetProperty("motivo").GetString()!);
+
+        // Cuatro: los dos del alta —`W-01` y `W-02`— más el taller y la vuelta. **El historial
+        // conserva el camino entero**, que es lo que contesta «¿por qué no estuvo disponible?».
+        Assert.Equal(4, historial.Count);
+        Assert.Contains("transmisión", historial[2].GetProperty("motivo").GetString()!);
         // Y distingue lo declarado de lo automático: §10.2 dice que ASIGNADO y EN_MISION los
         // fija el sistema, y sin esta marca esa afirmación no se puede auditar.
-        Assert.False(historial[0].GetProperty("automatico").GetBoolean());
+        Assert.False(historial[2].GetProperty("automatico").GetBoolean());
     }
 
     [Fact]
@@ -230,6 +239,21 @@ public class EstadoDelVehiculoPruebas(BaseDePruebas baseDePruebas)
         var ultimo = estado.GetProperty("historial").EnumerateArray().Last();
         Assert.True(ultimo.GetProperty("automatico").GetBoolean());
         Assert.Contains("T-08", ultimo.GetProperty("motivo").GetString()!);
+    }
+
+    /// <summary>
+    /// Lleva el vehículo recién sembrado a `DISPONIBLE` por el <b>camino legal</b> de §10.2:
+    /// `W-01` alta en flota → `W-02` habilitar.
+    ///
+    /// ── Antes estas pruebas saltaban directo al estado que querían ──────────
+    /// Y pasaban, porque el endpoint no validaba la transición. Al transcribir la tabla `W-xx`
+    /// empezaron a fallar **con razón**: un vehículo no llega a `EN_TALLER` sin haber existido
+    /// antes en la flota. Recorrer el camino es además lo que hace el alta real.
+    /// </summary>
+    private static async Task Habilitar(HttpClient cliente, string vehiculo)
+    {
+        await Declarar(cliente, vehiculo, "NoDisponible", "Alta en flota, pendiente de habilitar");
+        await Declarar(cliente, vehiculo, "Disponible", "Documentación verificada y custodio asignado");
     }
 
     private static async Task Declarar(HttpClient cliente, string vehiculo, string estado, string motivo)

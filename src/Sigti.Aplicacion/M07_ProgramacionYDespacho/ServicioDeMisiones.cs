@@ -120,7 +120,7 @@ public sealed class ServicioDeMisiones(SigtiDbContext contexto, EstadoDeLaFlota 
         await flota.AnotarAsync(id, new CambioDeEstadoOperativo(
             estado, ultima.Momento, ultima.Ejecuta.Valor,
             Motivo: $"{ultima.Id} de la misión {expediente.Id}",
-            Automatico: true), cancelacion);
+            Automatico: true), cancelacion: cancelacion);
     }
 
     /// <summary>

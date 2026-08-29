@@ -75,22 +75,48 @@ public sealed class EstadoDeLaFlota(SigtiDbContext contexto)
     ];
 
     /// <summary>
-    /// Anota un cambio. <b>No valida la transición entre estados</b>, y es deliberado: §10.2
-    /// no publica una tabla de transiciones permitidas del vehículo como sí lo hace para la
-    /// misión, y inventarla acá sería escribir la regla en la capa que menos autoridad tiene.
+    /// Anota un cambio, <b>validado contra la tabla de transiciones de §10.2</b>.
     ///
-    /// Lo que sí impone es que quede <b>quién</b> y —salvo los automáticos— <b>por qué</b>.
+    /// ── Antes no validaba la transición, y era por un error de lectura ──────
+    /// Este comentario decía: <i>«no valida la transición entre estados, y es deliberado: §10.2
+    /// no publica una tabla de transiciones permitidas del vehículo como sí lo hace para la
+    /// misión»</i>. <b>Sí la publica</b>: el diagrama de §10.2 enumera `W-01` a `W-19`. Lo que
+    /// faltaba era transcribirla — está en
+    /// <see cref="ReglasDelEstadoOperativo.Tabla"/>— y ahora se valida contra ella.
+    ///
+    /// <b>La regla sigue viviendo en el documento.</b> Si la tabla y el diagrama difieren, manda
+    /// el diagrama y esto es el defecto.
     /// </summary>
-    public async Task AnotarAsync(
+    /// <param name="esBienPropio">
+    /// Si el vehículo pertenece al Estado — decide cuál de los dos terminales corresponde
+    /// (`HB3-17`). <b>Nulo es «no se sabe»</b>, y entonces no se juzga: bloquear el descargo de
+    /// toda la flota por un dato de alta que nadie llenó sería peor que el asiento que se
+    /// quiere evitar.
+    /// </param>
+    /// <returns>
+    /// La advertencia que quedó, si la hubo. Hoy sólo una: que no se pudo verificar el régimen
+    /// de tenencia contra el terminal declarado.
+    /// </returns>
+    public async Task<string?> AnotarAsync(
         Ulid vehiculo,
         CambioDeEstadoOperativo cambio,
+        bool? esBienPropio = null,
         CancellationToken cancelacion = default)
     {
-        if (!cambio.Automatico && string.IsNullOrWhiteSpace(cambio.Motivo))
-            throw new ArgumentException(
-                "Un cambio de estado declarado por una persona exige motivo: §10.2 pide causa " +
-                "tipificada para NO_DISPONIBLE y acta para el préstamo y los terminales.",
-                nameof(cambio));
+        // ── Contra la tabla de §10.2 ────────────────────────────────────────
+        var actual = await ActualAsync(vehiculo, cancelacion);
+
+        var transicion = ReglasDelEstadoOperativo.ExigirTransicion(actual, cambio.Estado);
+
+        ReglasDelEstadoOperativo.ExigirQuienLaFija(transicion, cambio.Automatico);
+        ReglasDelEstadoOperativo.ExigirCausaOActa(cambio.Estado, cambio.Motivo);
+
+        if (cambio.Estado is EstadoOperativo.DadoDeBaja or EstadoOperativo.RetiradoDeFlota)
+            ReglasDelEstadoOperativo.ExigirSinMisionesAbiertas(
+                cambio.Estado, await MisionesAbiertasAsync(vehiculo, cancelacion));
+
+        var advertencia = ReglasDelEstadoOperativo.ExigirTerminalDelRegimenCorrecto(
+            cambio.Estado, esBienPropio);
 
         var ultimo = await contexto.CambiosDeEstado
             .AsNoTracking()
@@ -113,6 +139,7 @@ public sealed class EstadoDeLaFlota(SigtiDbContext contexto)
         // Sin `SaveChanges`: quien llama decide cuándo confirmar. Cuando el cambio lo dispara
         // una transición de la misión, el asiento tiene que entrar en la MISMA transacción —
         // ver `ServicioDeMisiones.ConfirmarAsync`.
+        return advertencia;
     }
 
     /// <summary>
