@@ -405,6 +405,82 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## §5.3.B.3 — el escalamiento, con el espejo trayendo la jerarquía
+
+**Los tres saltos operan.** El bloqueo dejó de ser un callejón sin salida.
+
+> *«La misión no queda trabada por un problema de organización: queda visiblemente pendiente
+> en la bandeja de alguien.»* Y §5.4: *«bloquear sin alternativa no produce control: produce
+> evasión»*.
+
+### El espejo trae dos campos nuevos, y uno es maestro
+
+| Tabla | Dueño | Qué aporta |
+|---|---|---|
+| `PuestoEspejo` | **ARGOS** | Denominación, unidad, **puesto superior**, delegación |
+| `RespaldoDeSede` | **SIGTI** | A qué puesto de sede escala cada delegación |
+
+La segunda no puede ser de ARGOS: **conoce la estructura, no nuestra política de control
+interno**. Que Choluteca escale a tal puesto cuando su encargado queda bloqueado por
+segregación es una decisión nuestra, no un dato del organigrama.
+
+### Los tres saltos, medidos en vivo
+
+| Caso | Salto | Mensaje |
+|---|---|---|
+| `P-ASISTENTE` bloqueado por `I-02` | **Puesto superior** | *«Queda pendiente de resolución en Jefe de Transporte (P-TRANSPORTE), que es el puesto superior dentro de su misma unidad»* |
+| `P-CHOLUTECA` bloqueado por `I-19` | **Respaldo de sede** | *«… el respaldo de sede de su delegación. Los saltos anteriores no aplicaron: Jefe Regional de Choluteca está vacante»* |
+| Sin superior ni respaldo | **Último recurso** | Gerencia Administrativa, con los dos motivos enumerados |
+
+### Cuatro decisiones que las pruebas defienden
+
+**El superior tiene que ser de la misma unidad.** §5.3.B.3 lo dice, y llamar primer salto a un
+superior de otra unidad borraría la distinción con el segundo, que es justamente el rodeo por
+sede.
+
+**«O está vacante» incluye el caso en que el único ocupante es quien quedó bloqueado.**
+Escalarle el acto a la misma persona es un callejón sin salida disfrazado de bandeja, y ocurre
+de verdad: §5.4 describe la delegación donde una persona ocupa varios puestos.
+
+**Cada fallo dice por qué.** Un escalamiento que siempre termina en Gerencia Administrativa sin
+explicarse se lee como que la jerarquía no sirve, cuando lo que puede estar pasando es que el
+puesto superior esté **vacante** — un problema de organización que alguien tiene que resolver, y
+que sólo se ve si se dice. Se distinguen cuatro motivos: sin jerarquía en el espejo, sin
+superior, superior de otra unidad, y superior o respaldo vacante.
+
+**Nulo en `salto` es «no se resolvió», no «fue a Gerencia».** Los intentos anteriores al
+escalamiento existen, y decir que fueron al último recurso sería inventar un encaminamiento que
+nunca ocurrió. La pantalla los muestra como *«sin destino registrado»*.
+
+### ⚠️ Lo que sigue faltando: la notificación
+
+§5.3.B.3 pide dos cosas y sólo se entregó una. **El destino se resuelve y queda registrado; a
+quien le toca resolverlo no se le avisa** — tiene que abrir `PT-091`. Las notificaciones no
+están construidas en ningún módulo del sistema.
+
+### ⚠️ La suite no se pudo correr completa
+
+**199 de 958 pruebas fallaron, y ninguna por aserción**: todas son
+`FileLoadException 0x800711C7` — *«una directiva de Control de aplicaciones bloqueó este
+archivo»*— sobre `Sigti.Datos.dll` en la salida de pruebas. Es el mismo bloqueo de Windows que
+ya apareció en este proyecto; esta vez no se destrabó cambiando de configuración, ni limpiando
+`bin`/`obj`, ni construyendo a otra ruta.
+
+**Lo que sí quedó verificado:** las 759 que no tocan la base pasan, incluidas las 10 nuevas del
+escalamiento y las 55 de dominio de `M-01`. Y los tres saltos se midieron **en vivo contra la
+base por la API**, que arranca sin problema.
+
+**Las 199 hay que volver a correrlas** cuando la política deje pasar el binario. No están
+verificadas y no se declaran verdes.
+
+### Un defecto de lectura, corregido
+
+`PT-091` mostraba *«quiso apruebafondo»* — el nombre del enum en minúscula. El servidor lo
+publica así a propósito, porque va a la pista de auditoría y tiene que ser estable; **la
+pantalla la lee Auditoría Interna**, y ahora dice *«quiso ejercer la aprobación del fondo»*.
+
+---
+
 ## `I-19` — aprobar el fondo, y el hallazgo que se cierra
 
 **Nueve pares disparando.** El último de los que tenían dónde hacerlo con lo que hay

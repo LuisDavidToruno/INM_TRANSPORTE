@@ -38,6 +38,18 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     /// escribe desde el propio bloqueo y no se edita ni se borra.
     /// </summary>
     public DbSet<FilaDeIntentoBloqueado> IntentosBloqueados => Set<FilaDeIntentoBloqueado>();
+
+    /// <summary>
+    /// La estructura de puestos — <b>espejo de ARGOS</b>, sin escritura. Trae la jerarquía, que
+    /// es lo que el escalamiento de §5.3.B.3 necesita para su primer salto.
+    /// </summary>
+    public DbSet<FilaDePuestoEspejo> PuestosEspejo => Set<FilaDePuestoEspejo>();
+
+    /// <summary>
+    /// A qué puesto de sede escala cada delegación — <b>maestro de SIGTI</b>: es política de
+    /// control interno, no dato del organigrama.
+    /// </summary>
+    public DbSet<FilaDeRespaldoDeSede> RespaldosDeSede => Set<FilaDeRespaldoDeSede>();
     public DbSet<FilaDeCustodia> Custodias => Set<FilaDeCustodia>();
     public DbSet<FilaDePermisoDeCirculacion> Permisos => Set<FilaDePermisoDeCirculacion>();
     public DbSet<FilaDeCambioDeEstado> CambiosDeEstado => Set<FilaDeCambioDeEstado>();
@@ -284,11 +296,49 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             intento.Property(i => i.Referencia).HasMaxLength(300).IsRequired();
             intento.Property(i => i.Origen).HasMaxLength(120);
 
+            // A donde quedo pendiente. §5.3.B.3: la mision «queda visiblemente pendiente en la
+            // bandeja de alguien», y sin guardar el destino la pista registra pero no encamina.
+            intento.Property(i => i.Salto).HasMaxLength(40);
+            intento.Property(i => i.EscalaA).HasMaxLength(64);
+            intento.Property(i => i.PorQueNoAntes).HasMaxLength(400);
+
             // Las dos preguntas de Auditoria: quien reincide, y sobre que expediente.
             // «Un mismo usuario intentando quince veces autorizar sus propias solicitudes es
             // exactamente lo que Auditoria Interna quiere ver.»
             intento.HasIndex(i => i.Quien);
             intento.HasIndex(i => i.Expediente);
+        });
+
+        modelo.Entity<FilaDePuestoEspejo>(puesto =>
+        {
+            // Mismo esquema y mismo sufijo que la otra tabla espejada: el nombre dice que no
+            // es maestro, igual que "AsignacionDePuestoEspejo".
+            puesto.ToTable("PuestoEspejo", schema: "organizacion");
+
+            puesto.HasKey(p => p.Id);
+            puesto.Property(p => p.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            puesto.Property(p => p.Puesto).HasMaxLength(64).IsRequired();
+            puesto.Property(p => p.Denominacion).HasMaxLength(160).IsRequired();
+            puesto.Property(p => p.Unidad).HasMaxLength(160).IsRequired();
+            puesto.Property(p => p.Superior).HasMaxLength(64);
+            puesto.Property(p => p.Delegacion).HasMaxLength(160);
+
+            // Un codigo de puesto identifica un puesto: dos filas para el mismo codigo dejarian
+            // la jerarquia con dos respuestas y el escalamiento elegiria una al azar.
+            puesto.HasIndex(p => p.Puesto).IsUnique();
+        });
+
+        modelo.Entity<FilaDeRespaldoDeSede>(respaldo =>
+        {
+            respaldo.ToTable("RespaldoDeSede", schema: "organizacion");
+
+            respaldo.HasKey(r => r.Id);
+            respaldo.Property(r => r.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            respaldo.Property(r => r.Delegacion).HasMaxLength(160).IsRequired();
+            respaldo.Property(r => r.Puesto).HasMaxLength(64).IsRequired();
+            respaldo.Property(r => r.Designa).HasMaxLength(64).IsRequired();
+
+            respaldo.HasIndex(r => r.Delegacion);
         });
 
         modelo.Entity<FilaDeConductor>(conductor =>

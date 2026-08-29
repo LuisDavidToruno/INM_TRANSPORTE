@@ -272,6 +272,61 @@ if (app.Environment.IsDevelopment())
         contextoDeSiembra.SaveChanges();
     }
 
+    // La estructura de puestos con su jerarquia. **En la institucion la puebla la integracion
+    // con ARGOS** y no hay endpoint de escritura; aca se siembra porque sin ella el escalamiento
+    // de §5.3.B.3 no puede dar su primer salto y todo bloqueo termina en Gerencia
+    // Administrativa, que es el ultimo recurso y no el primero.
+    //
+    // La delegacion de Choluteca cuelga de un Jefe Regional **de su misma unidad**: es lo que
+    // hace que el primer salto exista. Y el respaldo de sede se designa aparte, porque no es
+    // dato del organigrama sino politica de control interno nuestra.
+    if (!contextoDeSiembra.PuestosEspejo.Any())
+    {
+        contextoDeSiembra.PuestosEspejo.AddRange(
+            PuestoDeDesarrollo("01JQ8Z000000000000000PST01", "PUE-ASISTENTE-ADMIN",
+                "Asistente administrativo", "Unidad de Transporte", "PUE-JEFE-TRANSPORTE", null),
+            PuestoDeDesarrollo("01JQ8Z000000000000000PST02", "PUE-JEFATURA-ADMIN",
+                "Jefatura de la dependencia", "Gerencia Administrativa", "PUE-GERENCIA-ADMIN", null),
+            PuestoDeDesarrollo("01JQ8Z000000000000000PST03", "PUE-JEFE-TRANSPORTE",
+                "Jefe de Transporte", "Unidad de Transporte", null, null),
+            PuestoDeDesarrollo("01JQ8Z000000000000000PST04", "PUE-DESPACHO-SEDE",
+                "Encargado de Despacho", "Unidad de Transporte", "PUE-JEFE-TRANSPORTE", null),
+            PuestoDeDesarrollo("01JQ8Z000000000000000PST05", "PUE-COMBUSTIBLE",
+                "Encargado de Combustible", "Unidad de Transporte", "PUE-JEFE-TRANSPORTE", null),
+            PuestoDeDesarrollo("01JQ8Z000000000000000PST06", "PUE-GERENCIA-ADMIN",
+                "Gerencia Administrativa", "Gerencia Administrativa", null, null),
+            PuestoDeDesarrollo("01JQ8Z000000000000000PST07", "PUE-AUDITORIA-INTERNA",
+                "Auditor Interno", "Auditoria Interna", null, null),
+
+            // El caso de §5.4, ahora con su rama: el delegado cuelga de un jefe regional de su
+            // misma unidad, y por eso el primer salto del escalamiento puede resolver.
+            PuestoDeDesarrollo("01JQ8Z000000000000000PST08", "PUE-DELEGACION-CHOLUTECA",
+                "Encargado de Delegacion", "Delegacion de Choluteca", "PUE-JEFE-REGIONAL",
+                "Choluteca"),
+            PuestoDeDesarrollo("01JQ8Z000000000000000PST09", "PUE-JEFE-REGIONAL",
+                "Jefe Regional de Choluteca", "Delegacion de Choluteca", "PUE-JEFE-TRANSPORTE",
+                "Choluteca"),
+
+            PuestoDeDesarrollo("01JQ8Z000000000000000PST10", "PUE-CUSTODIO-FLOTA",
+                "Custodio de flota", "Unidad de Transporte", "PUE-JEFE-TRANSPORTE", null));
+
+        contextoDeSiembra.SaveChanges();
+    }
+
+    if (!contextoDeSiembra.RespaldosDeSede.Any())
+    {
+        contextoDeSiembra.RespaldosDeSede.Add(new FilaDeRespaldoDeSede
+        {
+            Id = Ulid.Parse("01JQ8Z000000000000000RSP01"),
+            Delegacion = "Choluteca",
+            Puesto = "PUE-JEFE-TRANSPORTE",
+            Designa = "P-GERENCIA",
+            Desde = new DateOnly(2026, 1, 1),
+        });
+
+        contextoDeSiembra.SaveChanges();
+    }
+
     if (!contextoDeSiembra.Competencias.Any())
     {
         contextoDeSiembra.Competencias.AddRange(
@@ -314,6 +369,24 @@ static FilaDeAsignacionDePuesto OcupacionDeDesarrollo(string id, string persona,
     Hasta = null,
 
     // El espejo se confirma, no se crea. Sin esto la bandeja diría que nunca se sincronizó.
+    ConfirmadoAlUtc = DateTime.UtcNow,
+};
+
+static FilaDePuestoEspejo PuestoDeDesarrollo(
+    string id, string puesto, string denominacion, string unidad,
+    string? superior, string? delegacion) => new()
+{
+    Id = Ulid.Parse(id),
+    Puesto = puesto,
+    Denominacion = denominacion,
+    Unidad = unidad,
+
+    // Nulo es «la cima de su rama», no «falta el dato».
+    Superior = superior,
+
+    // Nulo es sede: el corte territorial y el jerarquico coexisten.
+    Delegacion = delegacion,
+
     ConfirmadoAlUtc = DateTime.UtcNow,
 };
 
@@ -1140,6 +1213,13 @@ app.MapGet("/segregacion/intentos", async (ServicioDeSegregacion servicio) =>
             chocaCon = i.ChocaCon,
             referencia = i.Referencia,
             momento = i.MomentoUtc,
+
+            // §5.3.B.3 — donde quedo pendiente. **Nulo es «no se resolvio»**, no «fue a
+            // Gerencia»: los intentos anteriores al escalamiento existen, y decir que fueron al
+            // ultimo recurso seria inventar un encaminamiento que nunca ocurrio.
+            salto = i.Salto,
+            escalaA = i.EscalaA,
+            porQueNoAntes = i.PorQueNoAntes,
 
             // Nulo es «no se supo», no «desde el servidor».
             origen = i.Origen,

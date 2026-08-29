@@ -53,4 +53,29 @@ public sealed class FilaDeIntentoBloqueado
     /// auditoría es peor que un origen ausente.
     /// </summary>
     public string? Origen { get; init; }
+
+    /// <summary>
+    /// Por cual de los tres saltos de §5.3.B.3 se resolvio el destino.
+    ///
+    /// <b>Nulo es «no se resolvio»</b> —el intento es anterior al escalamiento— y no «fue a
+    /// Gerencia». Los intentos viejos existen y decir que fueron al ultimo recurso seria
+    /// inventar un encaminamiento que nunca ocurrio.
+    /// </summary>
+    public string? Salto { get; init; }
+
+    /// <summary>
+    /// El puesto donde quedó pendiente. <b>Nulo cuando el destino es Gerencia Administrativa</b>,
+    /// que es el último recurso y no un puesto de la jerarquía de quien intentó.
+    /// </summary>
+    public string? EscalaA { get; init; }
+
+    /// <summary>
+    /// Que fallo en los saltos previos.
+    ///
+    /// <b>No es decoracion.</b> Un escalamiento que siempre termina en Gerencia Administrativa
+    /// sin decir por que se lee como que la jerarquia no sirve, cuando lo que puede estar
+    /// pasando es que el puesto superior este vacante — un problema de organizacion que
+    /// alguien tiene que resolver, y que solo se ve si se dice.
+    /// </summary>
+    public string? PorQueNoAntes { get; init; }
 }

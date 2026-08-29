@@ -47,19 +47,87 @@ public sealed class ServicioDeSegregacion(SigtiDbContext contexto)
         }
         catch (SegregacionIncompatible bloqueo)
         {
-            await RegistrarAsync(bloqueo.Intento, origen, cancelacion);
-            throw;
+            // §5.3.B.3 — **a dónde queda pendiente**. Se resuelve acá y no en el dominio porque
+            // exige el espejo de puestos y el organigrama, que viven en la base.
+            var (estructura, destino) = await EscalarAsync(
+                quien, DateOnly.FromDateTime(momento.Date), cancelacion);
+
+            await RegistrarAsync(bloqueo.Intento, origen, destino, cancelacion);
+
+            throw new SegregacionIncompatible(
+                bloqueo.Par,
+                $"{bloqueo.Message} {ReglasDelEscalamiento.EnPalabras(destino, estructura)}",
+                bloqueo.Intento);
         }
+    }
+
+    /// <summary>
+    /// Resuelve el destino del acto bloqueado.
+    ///
+    /// ── Se busca el puesto de quien intentó, no se recibe ───────────────────
+    /// Porque quien ejecuta llega como identidad de <b>persona</b> —es lo que la segregación
+    /// compara— y el escalamiento necesita su <b>puesto</b>. Pedirle el puesto a cada llamador
+    /// abriría la puerta a que declare uno que no ocupa.
+    ///
+    /// <b>Si ocupa varios, se toma el primero.</b> Es una simplificación y conviene saberlo: la
+    /// persona que ocupa dos puestos podría escalar por dos ramas distintas, y cuál corresponde
+    /// depende de en calidad de qué actuaba — un dato que el acto no lleva. Se declara en el
+    /// motivo en vez de elegir en silencio.
+    /// </summary>
+    private async Task<(EstructuraDePuestos, DestinoDelActo)> EscalarAsync(
+        IdPersona quien, DateOnly fechaDelHecho, CancellationToken cancelacion)
+    {
+        var espejo = await contexto.PuestosEspejo.AsNoTracking().ToListAsync(cancelacion);
+
+        var estructura = new EstructuraDePuestos(
+        [
+            .. espejo.Select(f => new Puesto(
+                new IdPuesto(f.Puesto), f.Denominacion, f.Unidad,
+                f.Superior is null ? null : new IdPuesto(f.Superior),
+                f.Delegacion)),
+        ]);
+
+        var asignaciones = await contexto.AsignacionesDePuesto
+            .AsNoTracking()
+            .ToListAsync(cancelacion);
+
+        var organigrama = new Organigrama(
+        [
+            .. asignaciones.Select(a => new AsignacionDePuesto(
+                new IdPersona(a.Persona), new IdPuesto(a.Puesto), a.Desde, a.Hasta)),
+        ]);
+
+        var respaldos = await contexto.RespaldosDeSede.AsNoTracking().ToListAsync(cancelacion);
+
+        var suyos = organigrama.PuestosDe(quien, fechaDelHecho);
+
+        var destino = ReglasDelEscalamiento.Resolver(
+            quien,
+            suyos.Count > 0 ? suyos[0] : null,
+            estructura,
+            organigrama,
+            [.. respaldos.Select(r => new RespaldoDeSede(r.Delegacion, new IdPuesto(r.Puesto)))],
+            fechaDelHecho);
+
+        return (estructura, destino);
     }
 
     /// <summary>
     /// El asiento de §5.3.B.2, con los siete datos que la sección enumera.
     /// </summary>
     private async Task RegistrarAsync(
-        IntentoBloqueado intento, string? origen, CancellationToken cancelacion)
+        IntentoBloqueado intento, string? origen, DestinoDelActo destino,
+        CancellationToken cancelacion)
     {
         contexto.IntentosBloqueados.Add(new FilaDeIntentoBloqueado
         {
+            Salto = destino.Salto.ToString(),
+            EscalaA = destino.Puesto?.Valor,
+
+            // Vacío se guarda como nulo: «no hubo motivos» y «no se registraron» son cosas
+            // distintas, y una cadena vacía las confunde.
+            PorQueNoAntes = destino.PorQueNoAntes.Length == 0 ? null : destino.PorQueNoAntes,
+
             Id = Ulid.NewUlid(),
             Quien = intento.Quien.Valor,
             Pretendia = intento.Pretendia.ToString(),
