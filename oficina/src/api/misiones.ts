@@ -20,6 +20,14 @@ export class BloqueoDuro extends Error {
   constructor(
     readonly precondicion: string,
     mensaje: string,
+    /**
+     * La tercera parte de `R-3`: cómo salir.
+     *
+     * **Nulo cuando el servidor no tiene camino documentado** para esta precondición. La
+     * pantalla lo dice así en vez de inventar «comuníquese con el administrador»: eso
+     * convertiría el silencio en una instrucción, y `ACT-01` no tiene acceso al negocio.
+     */
+    readonly salida: CaminoDeSalida | null = null,
   ) {
     super(mensaje);
     this.name = 'BloqueoDuro';
@@ -48,8 +56,17 @@ export class BloqueoDuro extends Error {
  * Son varias a propósito: el nombre del campo dice de qué familia es el rechazo, y por lo
  * tanto por dónde se sale de él. Ver el `switch` de excepciones en `Program.cs`.
  */
+export interface CaminoDeSalida {
+  readonly quePuedeHacer: string;
+  /** Nulo es «no se sabe quién resuelve», distinto de «resuélvalo usted». */
+  readonly aQuienAcudir: string | null;
+  readonly ficha: string | null;
+}
+
 interface RechazoDelServidor {
   readonly mensaje?: string;
+  /** La tercera parte de . Nula cuando no hay camino documentado. */
+  readonly salida?: CaminoDeSalida | null;
   /** Un `BD-xx` o una `RN-xx`. */
   readonly precondicion?: string;
   /** Un `T-xx` de la Orden de Misión o del vale: el expediente no está en el estado que exige. */
@@ -80,6 +97,7 @@ export async function pedir<T>(ruta: string, opciones?: RequestInit): Promise<T>
       cuerpo.precondicion ?? cuerpo.transicion ?? cuerpo.movimiento ?? cuerpo.motivo ??
         (cuerpo.caducada === true ? 'aprobación caducada' : 'desconocida'),
       cuerpo.mensaje ?? 'La operación no cumple una precondición.',
+      cuerpo.salida ?? null,
     );
   }
 

@@ -414,6 +414,83 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## `PT-004` — el patrón de bloqueo duro. **Sección 2.1 cerrada**
+
+Las cinco transversales están: `PT-001`, `PT-002`, `PT-003`, `PT-004` y `PT-005`.
+
+### `R-3` pide tres partes y sólo había dos
+
+> *«Una pantalla de bloqueo tiene siempre tres partes: qué se impidió · por qué exactamente,
+> con nombres y números · cuál es el camino de salida.»*
+
+Los mensajes del dominio ya cubrían las dos primeras —dicen la placa, la categoría que falta,
+el saldo y el monto—. **La tercera no la tenía nadie.** Y es la que decide qué pasa después:
+*«un mensaje genérico produce una llamada a soporte; un mensaje preciso produce la acción
+correcta»*. Sin ella, quien queda bloqueado sabe que no puede seguir y no sabe a quién buscar,
+así que busca a quien tenga más cerca — y con frecuencia esa persona tampoco puede.
+
+`ReglasDeLaSalida` transcribe el camino de las **trece** precondiciones de §10.2 sección 4,
+desde su ficha. Ninguno inventado: un camino inventado manda a alguien a una oficina que no
+resuelve nada, y lo manda **con la confianza de estar leyendo al sistema**.
+
+Lo que no está documentado **devuelve nulo y la pantalla lo dice**. Rellenarlo con
+«comuníquese con el administrador» convertiría el silencio en una instrucción, y sería falsa:
+`ACT-01` no tiene acceso al negocio y no puede resolver un bloqueo de negocio. Hay una prueba
+que lo impide — ningún camino puede nombrar al administrador ni a soporte.
+
+### ⚠️ `W-xx`: siete bloqueos compartían un identificador comodín
+
+Siete `throw new BloqueoDuro("W-xx", …)` en el estado operativo del vehículo. **`PT-004`
+muestra ese identificador en pantalla**, y «W-xx» no le dice a nadie qué regla lo detuvo, no
+se puede rastrear contra la autoridad y no se le puede documentar una salida. Resueltos:
+
+| Dónde | Ahora emite | Por qué |
+|---|---|---|
+| `ExigirQuienLaFija` ×2 | `transicion.Id` | El dato estaba ahí y no se usaba |
+| Causa obligatoria al declarar | `RN-60` | Su propio mensaje ya citaba la regla |
+| Terminal según el régimen ×2 | `RN-62` | Es el hallazgo `HB3-17` |
+| Transición inexistente · baja con misiones abiertas ×2 | `§10.2` | **No se les inventa un `W-nn`**: los de la tabla nombran transiciones que existen, y estas se disparan justo cuando no hay ninguna |
+
+**Y quedó una guarda de arquitectura** que recorre `src/` y falla si algún bloqueo vuelve a
+usar un identificador comodín. Verificada por mutación: reintroducir un `W-xx` la rompe.
+
+### ⚠️ El identificador del servidor no coincidía consigo mismo
+
+La rama de `CambioDeEstadoInvalido` en la API devolvía `precondicion = "10.2"` y el dominio
+emite `"§10.2"`. **Dos textos distintos para la misma precondición**, así que el camino de
+salida nunca se habría encontrado — el 409 llegaba sin la tercera parte y nadie sabría por qué.
+Ahora la API usa la constante del dominio.
+
+### El bloqueo dejó de ser un aviso que se va solo
+
+`R-3` dice **«es una pantalla, no un cartel rojo»**, y la autorización lo mostraba con
+`avisar.error(...)`: un toast que desaparece antes de que alguien pueda leer la placa o el
+monto, y del todo si la persona parpadeó. Ahora se **retiene** hasta que se resuelva.
+
+El componente **no ofrece ninguna acción que avance** — es la otra mitad de `R-4`: la
+advertencia sí deja seguir cobrando el peaje de un motivo escrito, y el bloqueo no. *«Si se
+parecen, el usuario deja de leer ambos.»* La única acción es volver.
+
+**Las demás pantallas siguen mostrando el bloqueo como aviso flotante** — Puestos, Padrón,
+Títulos, Programación. Queda dicho, no hecho.
+
+### Por qué el patrón tiene pantalla propia
+
+`PT-004` no tiene datos: se aplica dentro de otras pantallas. Pero un patrón que sólo existe
+repartido **no se puede revisar** —nadie contesta «¿cómo se ve un bloqueo?» sin provocar uno—
+y las siete historias que lo citan no tendrían nada que señalar. En `/bloqueos` se juzga el
+texto **antes** de que alguien quede detenido frente a él en el predio a las seis de la mañana.
+
+**1085 pruebas en verde.** Una prueba existente atrapó el cambio de `W-xx` —fijaba ese literal
+como esperado— y se actualizó a la constante.
+
+⚠️ **Verificación en vivo incompleta**: el catálogo `GET /bloqueos` se probó y responde con las
+catorce precondiciones. El 409 con su camino de salida y la pantalla en el navegador **no se
+alcanzaron a ver**: Smart App Control volvió a bloquear el binario recién compilado. Se
+destraba solo — ver la sección de SAC más abajo.
+
+---
+
 ## Bloque 4: el puesto vigente y su alcance (`PT-001`, `PT-002`, `PT-005`)
 
 Cierra las transversales de la sección 2.1 salvo `PT-004`. Y destapó **la brecha más grande

@@ -42,6 +42,22 @@ public static class ReglasDelEstadoOperativo
     /// la numera así y acá se conserva el identificador tal cual — renumerarla haría que el
     /// asiento del sistema no se pudiera cruzar contra el documento.
     /// </summary>
+    /// <summary>
+    /// Identificador de las precondiciones que <b>no corresponden a una transición concreta</b>
+    /// de la tabla `W`, sino a la sección entera.
+    ///
+    /// ── Por qué no se les inventa un `W-nn` ──────────────────────────────────
+    /// Los identificadores de la tabla nombran transiciones que existen, y estas precondiciones
+    /// se disparan justamente cuando <b>no hay transición</b> que las nombre — ir a un estado
+    /// no contemplado, o dar de baja con misiones abiertas. Un `W-nn` ahí sería un
+    /// identificador que la autoridad no reconoce.
+    ///
+    /// Reemplaza al literal `"W-xx"`, que <b>siete bloqueos distintos compartían</b>: la
+    /// pantalla de bloqueo de `PT-004` muestra este identificador, y «W-xx» no le dice a nadie
+    /// qué regla lo detuvo ni permite rastrearla.
+    /// </summary>
+    public const string PrecondicionDeSeccion = "§10.2";
+
     public static readonly IReadOnlyList<TransicionOperativa> Tabla =
     [
         // Nace NO_DISPONIBLE: §10.2 lista «alta reciente sin habilitar» entre sus causas. Un
@@ -140,7 +156,7 @@ public static class ReglasDelEstadoOperativo
 
         var origen = desde is null ? "sin estado declarado" : $"{desde}";
 
-        throw new BloqueoDuro("W-xx",
+        throw new BloqueoDuro(PrecondicionDeSeccion,
             $"§10.2 no contempla ir de {origen} a {hasta}. " +
             (posibles.Count == 0
                 ? "Desde ahí no hay ninguna transición: es un estado terminal."
@@ -157,13 +173,13 @@ public static class ReglasDelEstadoOperativo
     public static void ExigirQuienLaFija(TransicionOperativa transicion, bool automatica)
     {
         if (transicion.Automatica && !automatica)
-            throw new BloqueoDuro("W-xx",
+            throw new BloqueoDuro(transicion.Id,
                 $"{transicion.Id} ({transicion.Nombre}) la fija el sistema como consecuencia de " +
                 "una transición de la Orden de Misión, no una persona. Declararla a mano abre " +
                 "la puerta a un vehículo «en misión» sin misión.");
 
         if (!transicion.Automatica && automatica)
-            throw new BloqueoDuro("W-xx",
+            throw new BloqueoDuro(transicion.Id,
                 $"{transicion.Id} ({transicion.Nombre}) la declara una persona, y el asiento " +
                 "diría que la puso el sistema. Nadie respondería por ella.");
     }
@@ -205,7 +221,7 @@ public static class ReglasDelEstadoOperativo
             _ => null,
         };
 
-        if (razon is not null) throw new BloqueoDuro("W-xx", razon);
+        if (razon is not null) throw new BloqueoDuro("RN-60", razon);
     }
 
     /// <summary>
@@ -219,7 +235,7 @@ public static class ReglasDelEstadoOperativo
         if (hasta is not (EstadoOperativo.DadoDeBaja or EstadoOperativo.RetiradoDeFlota)) return;
         if (misionesAbiertas == 0) return;
 
-        throw new BloqueoDuro("W-xx",
+        throw new BloqueoDuro(PrecondicionDeSeccion,
             $"Este vehículo tiene {misionesAbiertas} misión(es) sin estado terminal. Un vehículo " +
             "con misiones abiertas no se da de baja ni se retira de flota: el expediente " +
             "quedaría apuntando a una unidad que para el sistema ya no existe.");
@@ -255,14 +271,14 @@ public static class ReglasDelEstadoOperativo
                    "propios y el retiro de flota para ajenos.";
 
         if (hasta is EstadoOperativo.DadoDeBaja && esBienPropio is false)
-            throw new BloqueoDuro("W-xx",
+            throw new BloqueoDuro("RN-62",
                 "Este vehículo no es un bien del Estado, así que no se puede descargar del " +
                 "registro de bienes: sería un asiento falso sobre un bien ajeno, detectable " +
                 "cruzando el inventario institucional contra el padrón de flota. Lo que " +
                 "corresponde es RETIRADO_DE_FLOTA — fin de tenencia, con acta de devolución.");
 
         if (hasta is EstadoOperativo.RetiradoDeFlota && esBienPropio is true)
-            throw new BloqueoDuro("W-xx",
+            throw new BloqueoDuro("RN-62",
                 "Este vehículo es un bien del Estado, y el retiro de flota es para bienes " +
                 "ajenos: devolver un comodato o terminar un alquiler. Un bien propio sale del " +
                 "registro por DESCARGO, con acta conforme a `NRM-02`.");

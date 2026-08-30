@@ -31,6 +31,7 @@ import {
 } from '../../dominio/mision';
 import type { Expediente as ExpedienteDto, Validacion } from '../../dominio/mision';
 import { laDependencia, momentoCompleto } from './formato';
+import Bloqueo from '../../ui/Bloqueo';
 import { usarQuienEjecuta } from '../../app/puesto';
 
 /**
@@ -51,6 +52,14 @@ export default function Expediente(): ReactElement {
   const [acusadas, setAcusadas] = useState<Set<string>>(new Set());
   const [negativo, setNegativo] = useState<'rechazar' | 'devolver' | null>(null);
 
+  // ⚠️ El bloqueo se RETIENE, no se avisa y se va.
+  //
+  // `R-3`: el bloqueo duro es una pantalla, no un cartel rojo. Un aviso flotante desaparece
+  // antes de que alguien pueda leer la placa, la categoría que falta o el monto — y desaparece
+  // del todo si la persona parpadeó. Queda sabiendo que algo falló y sin nada con qué actuar,
+  // que es la definición de la llamada a soporte.
+  const [bloqueo, setBloqueo] = useState<BloqueoDuro | null>(null);
+
   const { data, isPending, isError } = useQuery({
     queryKey: ['expediente', id],
     queryFn: () => traerExpediente(id),
@@ -70,7 +79,7 @@ export default function Expediente(): ReactElement {
     },
     onError: (e) => {
       if (e instanceof BloqueoDuro) {
-        avisar.error(e.paraMostrar);
+        setBloqueo(e);
         return;
       }
       avisar.error('No se pudo autorizar. El expediente quedó como estaba.');
@@ -104,6 +113,15 @@ export default function Expediente(): ReactElement {
   return (
     <div className="tw:flex tw:flex-col tw:gap-6">
       <Cabecera expediente={data} />
+
+      {/* Va antes que todo lo demás: si hay un bloqueo, es lo único que importa leer. */}
+      {bloqueo !== null && (
+        <Bloqueo
+          bloqueo={bloqueo}
+          queSeImpidio="autorizar este expediente"
+          onVolver={() => setBloqueo(null)}
+        />
+      )}
 
       <RastreadorEtapas etapas={ETAPAS_DE_MISION} etapaActual={indiceDeEtapa(data.estado)} />
 

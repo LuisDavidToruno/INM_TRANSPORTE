@@ -24,6 +24,7 @@ using Sigti.Dominio.M12_Incidentes;
 using Sigti.Dominio.M14_Auditoria;
 using Sigti.Dominio.M20_Integraciones;
 using Sigti.Dominio.M18_Peajes;
+using Sigti.Dominio.Reglas;
 using Sigti.Aplicacion.M19_Seguimiento;
 using Sigti.Dominio.M19_Seguimiento;
 using Sigti.Dominio.M01_Organizacion;
@@ -116,8 +117,20 @@ app.UseExceptionHandler(rama => rama.Run(async contexto =>
 
     var (codigo, cuerpo) = excepcion switch
     {
+        // `R-3` — la pantalla de bloqueo tiene TRES partes, y la tercera es el camino de
+        // salida. El mensaje del dominio cubre las dos primeras —que se impidio, y por que con
+        // nombres y numeros—; la tercera se resuelve aca y viaja con el 409.
+        //
+        // **Nulo cuando no esta documentado.** Rellenarlo con «comuniquese con el
+        // administrador» convertiria el silencio en una instruccion, y seria falsa: `ACT-01`
+        // no tiene acceso al negocio y no puede resolver un bloqueo de negocio.
         BloqueoDuro b => (StatusCodes.Status409Conflict,
-            (object)new { precondicion = b.Precondicion, mensaje = b.Message }),
+            (object)new
+            {
+                precondicion = b.Precondicion,
+                mensaje = b.Message,
+                salida = Salida(ReglasDeLaSalida.De(b.Precondicion)),
+            }),
         TransicionInvalida t => (StatusCodes.Status409Conflict,
             new { transicion = t.Transicion, estadoActual = t.EstadoActual.ToString(), mensaje = t.Message }),
         // **El bloqueo por segregacion trae su propia forma.** El par de §5.2 es lo que
@@ -131,6 +144,10 @@ app.UseExceptionHandler(rama => rama.Run(async contexto =>
                 pretendia = seg.Intento.Pretendia.ToString(),
                 chocaCon = seg.Intento.ChocaCon.ToString(),
                 escalarA = ReglasDeSegregacion.DestinoDelEscalamiento(false),
+
+                // El par de §5.2 ya dice por donde se sale, y `BD-06` lo documenta en las
+                // mismas palabras: se ejecuta desde otro puesto, o se escala.
+                salida = Salida(ReglasDeLaSalida.De("BD-06")),
             }),
         CargaRechazada c => (StatusCodes.Status409Conflict,
             new { motivo = c.Motivo.ToString(), mensaje = c.Message }),
@@ -1712,7 +1729,14 @@ app.MapPost("/flota/{id}/estado", async (
     }
     catch (CambioDeEstadoInvalido invalido)
     {
-        return Results.Conflict(new { precondicion = "10.2", mensaje = invalido.Message });
+        return Results.Conflict(new
+        {
+            // El identificador tiene que ser el MISMO que el dominio usa, o el camino de
+            // salida de `R-3` no se encuentra: aca decia "10.2" y el dominio emite "§10.2".
+            precondicion = ReglasDelEstadoOperativo.PrecondicionDeSeccion,
+            mensaje = invalido.Message,
+            salida = Salida(ReglasDeLaSalida.De(ReglasDelEstadoOperativo.PrecondicionDeSeccion)),
+        });
     }
 
     if (string.IsNullOrWhiteSpace(peticion.Motivo))
@@ -3495,6 +3519,34 @@ puestos.MapGet("/{puesto}/expedientes", async (
     });
 });
 
+
+/// `PT-004` — el catalogo del patron de bloqueo duro.
+///
+/// **Un patron que solo existe repartido no se puede revisar.** Nadie puede contestar «como se
+/// ve un bloqueo» sin provocar uno, y las siete historias que citan `PT-004` quedarian sin nada
+/// que señalar. Aca se ve cada precondicion con su camino de salida **antes** de que alguien
+/// quede detenido frente a ella en el predio a las seis de la mañana.
+app.MapGet("/bloqueos", () => Results.Ok(new
+{
+    precondiciones = ReglasDeLaSalida.Todos.Select(c => new
+    {
+        precondicion = c.Precondicion,
+        titulo = c.Titulo,
+
+        // Contesta «¿por que me aparecio ahora?»: la misma precondicion se revalida en varios
+        // momentos, y `BD-02` lo hace a proposito en el despacho aunque ya haya pasado en la
+        // programacion — una licencia vence entre una y otra.
+        seEvaluaEn = c.SeEvaluaEn,
+
+        salida = new
+        {
+            quePuedeHacer = c.QuePuedeHacer,
+            aQuienAcudir = c.AQuienAcudir,
+            ficha = c.Ficha,
+        },
+    }),
+}));
+
 var tanques = app.MapGroup("/tanques");
 
 tanques.MapGet("/", async (ServicioDeTanques servicio) =>
@@ -4646,6 +4698,19 @@ void Transicion(string ruta, Action<OrdenDeMision, IdPersona, DateTimeOffset> ap
         return Results.Ok(new { id, estado = estado.ToString() });
     });
 
+/// Aplana el camino de salida de `R-3` para el 409. <b>Nulo cuando no hay camino documentado</b>,
+/// y la pantalla lo dice en vez de inventar una instruccion.
+static object? Salida(CaminoDeSalida? c) =>
+    c is null
+        ? null
+        : new
+        {
+            quePuedeHacer = c.QuePuedeHacer,
+            // Nulo es «no se sabe quien resuelve», que es distinto de «resuelvalo usted».
+            aQuienAcudir = c.AQuienAcudir,
+            ficha = c.Ficha,
+        };
+
 internal sealed record CrearMision(
     string Id,
     string CapturadaPor,
@@ -5485,3 +5550,4 @@ public sealed record ReporteEntrante(
     string? CausaDeEspera = null,
     string? SeAtribuyeA = null,
     bool? MotorEncendido = null);
+

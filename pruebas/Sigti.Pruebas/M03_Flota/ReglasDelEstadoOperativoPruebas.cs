@@ -77,7 +77,10 @@ public class ReglasDelEstadoOperativoPruebas
             ReglasDelEstadoOperativo.ExigirTransicion(
                 EstadoOperativo.EnMision, EstadoOperativo.DadoDeBaja));
 
-        Assert.Equal("W-xx", error.Precondicion);
+        // La autoridad de esta precondición es la sección, no una transición: se dispara
+        // justamente cuando **no hay** una `W-nn` que la nombre. Antes decía `W-xx`, que siete
+        // bloqueos distintos compartían — y `PT-004` muestra ese identificador en pantalla.
+        Assert.Equal(ReglasDelEstadoOperativo.PrecondicionDeSeccion, error.Precondicion);
         Assert.Contains("§10.2 no contempla", error.Message);
     }
 

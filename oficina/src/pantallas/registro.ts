@@ -153,6 +153,13 @@ export const CONSTRUIDAS: Readonly<Record<string, Construida>> = {
       'que quien elige un puesto tenga derecho a ocuparlo.',
   },
   'PT-002': { ruta: '/inicio', archivo: 'M01_Organizacion/InicioDelPuesto.tsx' },
+  'PT-004': {
+    ruta: '/bloqueos',
+    archivo: 'ui/Bloqueo.tsx',
+    incompleta:
+      'El patrón administrativo de R-3 está: tres partes y sin botón de continuar. Falta la ' +
+      'versión de campo, que el dictamen pide aparte y necesita el cliente de campo.',
+  },
   'PT-005': {
     ruta: '/buscar',
     archivo: 'M01_Organizacion/Buscador.tsx',

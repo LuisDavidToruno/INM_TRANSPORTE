@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText, LayoutList, IdCard, Scale, Users, ShieldAlert, Inbox, Route as RutaIcono, SlidersHorizontal, Radio, Home, Search } from 'lucide-react';
+import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText, LayoutList, IdCard, Scale, Users, ShieldAlert, Inbox, Route as RutaIcono, SlidersHorizontal, Radio, Home, Search, ShieldX } from 'lucide-react';
 
 import { Avisos, Nota, Shell, avisar } from '../ui';
 import type { GrupoNav, Miga } from '../ui';
@@ -26,6 +26,7 @@ import IntentosBloqueados from '../modulos/M14_Auditoria/IntentosBloqueados';
 import Ingreso from '../modulos/M01_Organizacion/Ingreso';
 import InicioDelPuesto from '../modulos/M01_Organizacion/InicioDelPuesto';
 import Buscador from '../modulos/M01_Organizacion/Buscador';
+import Bloqueos from '../modulos/M01_Organizacion/Bloqueos';
 import { ProveedorDelPuesto, usarPuesto } from './puesto';
 import TableroDeSeguimiento from '../modulos/M19_Seguimiento/Tablero';
 import EnRuta from '../modulos/M19_Seguimiento/EnRuta';
@@ -121,6 +122,7 @@ function Interior(): ReactElement {
       items: [
         { texto: 'Inicio', icono: <Home />, href: '/inicio' },
         { texto: 'Buscar expedientes', icono: <Search />, href: '/buscar' },
+        { texto: 'Patrón de bloqueo', icono: <ShieldX />, href: '/bloqueos' },
       ],
     },
     {
@@ -299,6 +301,7 @@ function Interior(): ReactElement {
         <Route path="/ingreso" element={<Ingreso />} />
         <Route path="/inicio" element={<InicioDelPuesto />} />
         <Route path="/buscar" element={<Buscador />} />
+        <Route path="/bloqueos" element={<Bloqueos />} />
         <Route path="/seguimiento" element={<TableroDeSeguimiento />} />
         <Route path="/seguimiento/:id" element={<EnRuta />} />
         <Route path="/rastro" element={<RastroDelExpediente />} />
@@ -353,6 +356,7 @@ function migasDe(ruta: string): Miga[] {
   if (ruta === '/ingreso') return ['Ingreso'];
   if (ruta === '/inicio') return ['Mi puesto'];
   if (ruta === '/buscar') return ['Mi puesto', 'Buscar expedientes'];
+  if (ruta === '/bloqueos') return ['Mi puesto', 'Patrón de bloqueo'];
   if (ruta === '/seguimiento') return ['Seguimiento en ruta'];
   if (ruta.startsWith('/seguimiento/'))
     return [{ texto: 'Seguimiento en ruta', href: '/seguimiento' }, 'Misión'];
