@@ -94,6 +94,7 @@ constructor.Services.AddScoped<ConsultaDeLaSolicitud>();
 constructor.Services.AddScoped<ServicioDeConflictos>();
 constructor.Services.AddScoped<ServicioDePersonasExternas>();
 constructor.Services.AddScoped<ServicioDelManifiesto>();
+constructor.Services.AddScoped<ServicioDeHabeasData>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -1816,6 +1817,152 @@ personas.MapPost("/manifiesto/{mision}/novedades", async (
         peticion.Autoriza is null ? null : new IdPersona(peticion.Autoriza));
 
     return Results.Ok(new { mision, registrada = true });
+});
+
+
+/// `PT-134` — todo lo que el sistema guarda sobre una persona.
+///
+/// «Expedita y no onerosa», dice el Articulo 182. Y **la consulta misma queda registrada**:
+/// atender un habeas data implica leer datos personales, asi que deja asiento como cualquier
+/// otro acceso — no hacerlo dejaria fuera del registro las consultas mas sensibles del sistema.
+personas.MapGet("/habeas-data/{identificacion}", async (
+    string identificacion, string consultante, string rol,
+    ServicioDeHabeasData servicio, HttpContext http) =>
+{
+    var e = await servicio.BuscarAsync(
+        identificacion, new IdPersona(consultante), rol, DateTimeOffset.UtcNow,
+        http.Connection.RemoteIpAddress?.ToString());
+
+    return Results.Ok(new
+    {
+        identificacion = e.Identificacion,
+
+        // En cuantos traslados aparece.
+        apariciones = e.Apariciones.Select(a => new
+        {
+            mision = a.Mision,
+            nombre = a.Nombre,
+            forma = a.Forma,
+            queMotivaElTraslado = a.QueMotivaElTraslado,
+            origen = a.Origen,
+            destino = a.Destino,
+            requerimientoOperativo = a.RequerimientoOperativo,
+        }),
+
+        // Lo que ya se rectifico, con su valor anterior: el original nunca se pierde.
+        rectificaciones = e.Rectificaciones.Select(r => new
+        {
+            campo = r.Campo,
+            valorAnterior = r.ValorAnterior,
+            valorRectificado = r.ValorRectificado,
+            quienLaPidio = r.QuienLaPidio,
+            motivo = r.Motivo,
+            momento = r.Momento,
+        }),
+
+        // **La segunda pregunta del habeas data**, y la que solo se puede contestar si cada
+        // acceso quedo registrado.
+        quienLoVio = e.QuienLoVio.Select(a => new
+        {
+            consultante = a.Consultante,
+            rol = a.Rol,
+            momento = a.Momento,
+            alcance = a.Alcance,
+            necesidad = a.Necesidad,
+        }),
+    });
+});
+
+/// `PT-135` — rectifica **sin destruir** el asiento original.
+personas.MapPost("/habeas-data/rectificar", async (
+    Rectificar peticion, ServicioDeHabeasData servicio) =>
+{
+    if (!Identificador.Valido(peticion.Manifiesto, out var ulid, out var error)) return error;
+
+    await servicio.RectificarAsync(
+        ulid, peticion.Campo, peticion.ValorAnterior, peticion.ValorRectificado,
+        peticion.QuienLaPidio, peticion.Motivo, new IdPersona(peticion.Registra),
+        peticion.Momento);
+
+    return Results.Ok(new { rectificado = true, elOriginalQuedaIntacto = true });
+});
+
+/// `PT-136` — el reporte de transparencia, **sin ningun dato personal**.
+///
+/// No filtra: sale de otro origen. La tabla de personas **ni se consulta** — lo unico que cruza
+/// la frontera es cuantas personas se trasladaron, que es dato de gestion y no identifica a
+/// nadie. Un filtro se puede olvidar; basta que alguien agregue una columna para publicar
+/// nombres.
+personas.MapGet("/transparencia", async (
+    ServicioDeHabeasData servicio, DateOnly? desde, DateOnly? hasta) =>
+{
+    var inicio = desde ?? DateOnly.FromDateTime(DateTime.UtcNow.AddYears(-1));
+    var fin = hasta ?? DateOnly.FromDateTime(DateTime.UtcNow);
+
+    var filas = await servicio.TransparenciaAsync(inicio, fin);
+
+    return Results.Ok(new
+    {
+        desde = inicio,
+        hasta = fin,
+        sinDatosPersonales = true,
+        filas = filas.Select(f => new
+        {
+            folio = f.Folio,
+            estado = f.Estado,
+            dependencia = f.Dependencia,
+            destino = f.Destino,
+            objetoDelTraslado = f.ObjetoDelTraslado,
+            salida = f.Salida,
+            retorno = f.Retorno,
+            // Cuantas, no quienes.
+            personasTrasladadas = f.Personas,
+        }),
+    });
+});
+
+/// `PT-137` — la depuracion. **Lo unico del sistema que destruye contenido.**
+///
+/// Con `simular=true` cuenta y no borra: es lo que hay que ver **antes** de avisar.
+personas.MapPost("/depuracion", async (
+    Depurar peticion, ServicioDeHabeasData servicio) =>
+{
+    var r = await servicio.DepurarAsync(
+        peticion.Momento, peticion.AvisadoEl, peticion.Simular,
+        peticion.Segmentos);
+
+    return Results.Ok(new
+    {
+        // **Nada se borro** cuando es simulacion.
+        simulacion = r.Simulacion,
+        plazoEnDias = r.PlazoEnDias,
+        manifiestos = r.Manifiestos,
+        personas = r.Personas,
+
+        // Lo que NO se toco, dicho siempre: la cadena de auditoria tiene que seguir
+        // verificando despues, y el criterio de exito es doble.
+        loQueNoSeToca = "El manifiesto queda con su recuento y sus novedades, y los registros " +
+                        "financieros y de bienes no se depuran: se conservan por el plazo de " +
+                        "fiscalizacion.",
+    });
+});
+
+/// El plazo vigente. **Nulo cuando no esta configurado**, y no se sustituye por nada.
+personas.MapGet("/depuracion/plazo", async (ServicioDeHabeasData servicio) =>
+{
+    var plazo = await servicio.PlazoAsync(DateOnly.FromDateTime(DateTime.UtcNow));
+
+    return Results.Ok(new
+    {
+        plazoEnDias = plazo,
+        configurado = plazo is not null,
+        porQue = plazo is null
+            ? "El plazo de depuracion de datos personales no esta configurado. Acuerde el " +
+              "plazo con Auditoria Interna y el Oficial de Informacion Publica. **No se aplica " +
+              "ninguno por omision**: cuanto tiempo conserva la institucion la identidad de " +
+              "quien traslado no es una decision tecnica."
+            : $"Los datos personales se depuran a los {plazo} dias del cierre del manifiesto.",
+    });
 });
 
 var auditoria = app.MapGroup("/auditoria");
@@ -6320,3 +6467,13 @@ public sealed record CerrarManifiesto(string Cierra, DateTimeOffset Momento);
 public sealed record RegistrarNovedad(
     string Tipo, string Motivo, string Registra, DateTimeOffset FechaDelHecho,
     string? AQuien = null, string? DondePaso = null, string? Autoriza = null);
+
+/// Rectifica un dato personal. **El manifiesto original queda intacto.**
+public sealed record Rectificar(
+    string Manifiesto, string Campo, string ValorAnterior, string ValorRectificado,
+    string QuienLaPidio, string Motivo, string Registra, DateTimeOffset Momento);
+
+/// La depuracion. `Simular` cuenta sin borrar; sin simular exige aviso previo.
+public sealed record Depurar(
+    DateTimeOffset Momento, bool Simular = true, DateTimeOffset? AvisadoEl = null,
+    IReadOnlyList<string>? Segmentos = null);

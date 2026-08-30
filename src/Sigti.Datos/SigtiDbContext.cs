@@ -1661,6 +1661,23 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             novedad.Property(n => n.Autoriza).HasMaxLength(64);
         });
 
+        modelo.Entity<FilaDeRectificacion>(rectificacion =>
+        {
+            rectificacion.ToTable("Rectificacion", schema: "personas");
+
+            rectificacion.HasKey(r => r.Id);
+            rectificacion.Property(r => r.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            rectificacion.Property(r => r.ManifiestoId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            rectificacion.Property(r => r.Campo).HasMaxLength(60).IsRequired();
+            rectificacion.Property(r => r.ValorAnterior).HasMaxLength(400).IsRequired();
+            rectificacion.Property(r => r.ValorRectificado).HasMaxLength(400).IsRequired();
+            rectificacion.Property(r => r.QuienLaPidio).HasMaxLength(200).IsRequired();
+            rectificacion.Property(r => r.Motivo).HasMaxLength(1000).IsRequired();
+            rectificacion.Property(r => r.Registra).HasMaxLength(64).IsRequired();
+
+            rectificacion.HasIndex(r => r.ManifiestoId);
+        });
+
         modelo.Entity<FilaDeRango>(rango =>
         {
             rango.ToTable("RangoDeFolio", schema: "mision");

@@ -72,3 +72,33 @@ public sealed class FilaDeNovedadDeRuta
     /// <summary>Obligatorio sólo cuando alguien subió en ruta. Nulo en las demás.</summary>
     public string? Autoriza { get; init; }
 }
+
+/// <summary>
+/// Una rectificación por hábeas data — `HU-122`, `RN-04`.
+///
+/// ── Tabla aparte, y el manifiesto no se toca ────────────────────────────────
+/// Rectificar no es corregir: es un asiento que dice qué decía y qué dice ahora. Si el
+/// manifiesto se editara, dejaría de coincidir con la lista impresa que el motorista llevó — y
+/// esa discrepancia aparecería años después sin nadie que pudiera explicarla.
+/// </summary>
+public sealed class FilaDeRectificacion
+{
+    public required Ulid Id { get; init; }
+    public required Ulid ManifiestoId { get; init; }
+    public required string Campo { get; init; }
+
+    /// <summary>Lo que decía. <b>No se pierde</b>: es lo que estaba en el papel.</summary>
+    public required string ValorAnterior { get; init; }
+
+    public required string ValorRectificado { get; init; }
+
+    /// <summary>
+    /// Quién la pidió. El hábeas data <b>sólo lo puede interponer el titular</b>, así que este
+    /// dato es parte de la legitimación del acto.
+    /// </summary>
+    public required string QuienLaPidio { get; init; }
+
+    public required string Motivo { get; init; }
+    public required string Registra { get; init; }
+    public required DateTime MomentoUtc { get; init; }
+}

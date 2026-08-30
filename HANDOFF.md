@@ -414,6 +414,67 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## M-17 — el ciclo de vida del dato personal (`PT-134` a `PT-137`)
+
+**1241 pruebas en verde.** Las cuatro cosas que la Constitución permite pedir, y la que la
+institución tiene que hacer por su cuenta: **qué guardan sobre mí**, **quién lo vio**,
+**corríjanlo**, y **cuándo deja de guardarse**.
+
+### `PT-137` es lo único del sistema que destruye contenido
+
+Todo lo demás se reversa, se anula o se marca. Por eso lleva **tres bloqueos**, y ninguno es
+una formalidad:
+
+| Bloqueo | Por qué |
+|---|---|
+| **Sin plazo configurado no depura nada**, y no aplica ninguno por omisión | Un plazo por defecto sería el equipo decidiendo cuánto conserva la institución la identidad de quien trasladó. Es la decisión que `[C]` deja a Auditoría Interna y al OIP |
+| **No toca lo financiero ni los bienes** | Se conservan por el plazo de fiscalización. Borrarlos dejaría al TSC sin con qué probar un asiento |
+| **No se ejecuta sin aviso previo**, ni avisando el mismo día | Una destrucción silenciosa **es indistinguible de una pérdida de datos**: el día que falte un manifiesto de hace tres años, nadie podrá decir cuál de las dos ocurrió |
+
+Y borra **las personas, no los manifiestos**: el manifiesto queda con su recuento y sus
+novedades. El criterio de éxito es doble —cero datos personales sobrevivientes **y** la cadena
+de auditoría verificando después—, y la primera mitad sola se logra borrando la base entera.
+
+La simulación cuenta sin borrar, y **no exige aviso**: es precisamente lo que hay que ver
+antes de avisar.
+
+### `PT-136` no filtra: sale de otro origen
+
+`RN-51` es explícita — *«no por filtrado en el reporte, sino por separación de origen»*. La
+tabla de personas **ni se consulta**: lo único que cruza la frontera es cuántas personas se
+trasladaron.
+
+La diferencia importa porque **un filtro se puede olvidar**. Basta que alguien agregue una
+columna al reporte para publicar nombres, y el error aparecería ya publicado. Verificado en
+vivo: 28 traslados listos para publicar y **cero apariciones** de un nombre o una
+identificación, ni en la respuesta ni en la página.
+
+### `PT-134` contesta las dos preguntas, no una
+
+**Qué guardan sobre mí** y **quién lo vio**. La segunda sólo se puede responder si cada acceso
+quedó registrado — y es la que la institución no puede improvisar el día que se la pidan.
+
+En la prueba, la búsqueda devolvió una aparición y **tres accesos**, con quién, con qué rol y
+con qué alcance vio cada uno.
+
+**Y la consulta misma queda registrada.** Atender un hábeas data implica leer datos
+personales: no registrarla dejaría fuera del control justamente las consultas más sensibles.
+
+### `PT-135` — rectificar no es corregir
+
+El manifiesto original **queda intacto**. La rectificación es un asiento aparte con el valor
+anterior, el nuevo, quién lo pidió y por qué — porque un manifiesto editado **deja de coincidir
+con la lista impresa que el motorista llevó**, y esa discrepancia aparece años después sin
+nadie que pueda explicarla.
+
+Exige decir quién lo pidió: el hábeas data sólo lo puede interponer el titular, y sin ese dato
+el cambio es indistinguible de una corrección interna sobre un dato personal.
+
+`[C]` El **plazo de depuración** sigue sin fijarse. Se sembró 1095 días en desarrollo, que
+**no es decisión de la institución**.
+
+---
+
 ## M-17 — el manifiesto y sus novedades (`PT-095`, `PT-129`, `PT-131`)
 
 **1218 pruebas en verde.** Sobre el núcleo del bloque anterior se construyó la entidad que le

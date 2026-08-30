@@ -225,6 +225,22 @@ export const CONSTRUIDAS: Readonly<Record<string, Construida>> = {
   },
   'PT-131': { ruta: '/manifiesto', archivo: 'M17_PersonasExternas/Manifiesto.tsx' },
   'PT-133': { ruta: '/manifiesto/accesos', archivo: 'M17_PersonasExternas/Accesos.tsx' },
+  'PT-134': { ruta: '/habeas-data', archivo: 'M17_PersonasExternas/HabeasData.tsx' },
+  'PT-135': {
+    ruta: '/habeas-data',
+    archivo: 'M17_PersonasExternas/HabeasData.tsx',
+    incompleta:
+      'Muestra las rectificaciones con su valor anterior. Registrarlas entra por la API: la ' +
+      'pantalla de captura sale con PT-094, que espera el formato en papel.',
+  },
+  'PT-136': { ruta: '/transparencia', archivo: 'M17_PersonasExternas/Transparencia.tsx' },
+  'PT-137': {
+    ruta: '/transparencia',
+    archivo: 'M17_PersonasExternas/Transparencia.tsx',
+    incompleta:
+      'Muestra el plazo y simula sin borrar. La ejecucion real entra por la API y exige aviso ' +
+      'previo: el circuito de aviso al responsable no esta construido.',
+  },
 
   // ── M-19 Seguimiento en Ruta ──────────────────────────────────────────────
   //
