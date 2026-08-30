@@ -184,6 +184,15 @@ export const CONSTRUIDAS: Readonly<Record<string, Construida>> = {
       'desde acá: PT-007 replica un formato en papel que falta (insumo #2).',
   },
 
+  'PT-009': {
+    ruta: '/autorizacion/:id',
+    archivo: 'M06_Solicitudes/DesgloseDePeajes.tsx',
+    incompleta:
+      'Muestra el desglose congelado punto por punto y declara lo no valorado. El estimado ' +
+      'se congela al programar, asi que antes de eso la solicitud no lo tiene todavia.',
+  },
+  'PT-010': { ruta: '/autorizacion/:id', archivo: 'M06_Solicitudes/TramosInhabiles.tsx' },
+
   // ── M-19 Seguimiento en Ruta ──────────────────────────────────────────────
   //
   // Sin cliente de campo todavía: los reportes entran por la API. Las dos pantallas ya

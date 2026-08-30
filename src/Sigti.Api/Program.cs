@@ -87,6 +87,7 @@ constructor.Services.AddScoped<ServicioDeSegregacion>();
 constructor.Services.AddScoped<ServicioDeSeguimiento>();
 constructor.Services.AddScoped<ServicioDelPuesto>();
 constructor.Services.AddScoped<ServicioDeFolios>();
+constructor.Services.AddScoped<ConsultaDeLaSolicitud>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -1304,6 +1305,79 @@ app.MapGet("/matriz-de-licencias", async (
 // Su ficha: *«Verificar. Nada mas y nada menos. Revisar la cadena solicitud → autorizacion →
 // orden de mision → bitacora → vale → comprobante → liquidacion»*. Y su limite absoluto: **solo
 // lectura y exportacion**, sin excepciones — por eso este grupo no tiene ningun `MapPost`.
+
+/// `PT-010` — los tramos de la ventana en dia u hora inhabil, **señalados sin bloquear**.
+///
+/// `HU-006` es explicita: se señalan, **no impiden** la solicitud. El permiso de la maxima
+/// autoridad se gestiona despues y `BD-04` lo exige al despachar. Bloquear aca adelantaria un
+/// control de otro momento y dejaria al solicitante sin poder ni pedir lo que sabe que necesita
+/// permiso.
+misiones.MapGet("/{id}/tramos-inhabiles", async (string id, ConsultaDeLaSolicitud consulta) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    var t = await consulta.TramosAsync(ulid);
+
+    if (t is null)
+        return Results.NotFound(new { mensaje = $"No existe el expediente {id}." });
+
+    return Results.Ok(new
+    {
+        // `R-7`: con que tabla se juzgo. Un asiento que cita `PROVISIONAL-SIN-FERIADOS` se
+        // puede auditar; uno que dice «calendario vigente» a secas, no.
+        versionDelCalendario = t.VersionDelCalendario,
+
+        // Incluye la holgura: el vehiculo sigue afuera durante ella, y esa es la parte que se
+        // recorre sin que nadie la haya previsto.
+        finDelRango = t.FinDelRango,
+
+        diasInhabiles = t.DiasInhabiles,
+        horasInhabiles = t.HorasInhabiles,
+        haySeñalamiento = t.HayAlgoQueSeñalar,
+
+        // ⚠️ **Las dos mitades de `BD-04`, por separado.** Sin feriados el calendario
+        // SUBDECLARA —dira que el 15 de septiembre es habil—; sin horario, la hora no se
+        // evalua. «Ningun tramo inhabil» sin decir cual mitad no se miro afirma algo que
+        // nadie comprobo.
+        conFeriadosCargados = t.ConFeriadosCargados,
+        conHorarioDeclarado = t.ConHorarioDeclarado,
+        laMisionDeclaraHoras = t.LaMisionDeclaraHoras,
+    });
+});
+
+/// `PT-009` — el desglose de peajes congelado, punto por punto (`R-8`).
+misiones.MapGet("/{id}/peajes", async (string id, ConsultaDeLaSolicitud consulta) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    var d = await consulta.PeajesAsync(ulid);
+
+    if (d is null)
+        return Results.NotFound(new { mensaje = $"No existe el expediente {id}." });
+
+    return Results.Ok(new
+    {
+        // **Nulo cuando no hay estimado congelado** — la mision no se ha programado. Distinto
+        // de un estimado de cero, que diria que la ruta no tiene peajes.
+        total = d.Total,
+
+        // Un total parcial presentado como completo subestima el costo, y eso se paga en
+        // efectivo faltante a mitad de camino.
+        parcial = d.Parcial,
+        sinValorar = d.SinValorar,
+
+        lineas = d.Lineas.Select(l => new
+        {
+            punto = l.Punto,
+            // Nulo cuando el punto ya no esta en el catalogo: se muestra el identificador.
+            nombre = l.Nombre,
+            cruces = l.Cruces,
+            // Nulo es «no se pudo valorar», nunca cero.
+            subtotal = l.Subtotal,
+        }),
+    });
+});
+
 var auditoria = app.MapGroup("/auditoria");
 
 /// `PT-089` — el rastro de un expediente **con sus huecos visibles**.

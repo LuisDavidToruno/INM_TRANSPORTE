@@ -32,6 +32,8 @@ import {
 import type { Expediente as ExpedienteDto, Validacion } from '../../dominio/mision';
 import { laDependencia, momentoCompleto } from './formato';
 import Bloqueo from '../../ui/Bloqueo';
+import DesgloseDePeajes from '../M06_Solicitudes/DesgloseDePeajes';
+import TramosInhabiles from '../M06_Solicitudes/TramosInhabiles';
 import { usarQuienEjecuta } from '../../app/puesto';
 
 /**
@@ -149,6 +151,12 @@ export default function Expediente(): ReactElement {
               ))}
             </div>
           </Panel>
+
+          {/* El mapa de navegación cuelga estos dos del expediente en decisión, y no de una
+              pantalla aparte: `R-8` pide el desglose a un toque, y una jefatura que tiene
+              que navegar para verlo autoriza sin verlo. */}
+          <DesgloseDePeajes mision={data.id} />
+          <TramosInhabiles mision={data.id} />
 
           <Panel titulo="Diario del expediente">
             <Diario transiciones={data.diario} />

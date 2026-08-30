@@ -414,6 +414,57 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## `PT-009` y `PT-010` — lo que la jefatura necesita ver antes de firmar
+
+Las dos van **dentro del expediente en decisión**, no en pantallas aparte. El mapa de
+navegación las cuelga ahí, y `R-8` dice por qué: *«todo total tiene su desglose a un toque —
+un total opaco no se puede autorizar ni conciliar»*. Una jefatura que tiene que navegar para
+ver el costo **autoriza sin verlo**.
+
+### Casi todo el trabajo ya estaba hecho
+
+El estimado de peajes se congela al programar y se guarda punto por punto; el calendario ya
+sabía resolver días y horas inhábiles, con sus nulos bien declarados. Lo que faltaba era
+**exponerlo y mostrarlo** — dos consultas y dos paneles.
+
+Vale anotarlo porque es lo contrario del patrón de los últimos bloques: acá no había una
+regla escrita y sin llamar, sino una regla escrita, llamada, y **sin superficie donde se
+viera**. El efecto para quien usa el sistema es el mismo.
+
+### `PT-010` señala y no bloquea, y esa es toda la historia
+
+`HU-006` lo dice en su título. El permiso de la máxima autoridad se gestiona después y
+`BD-04` lo exige al despachar: bloquear en la solicitud adelantaría un control de otro
+momento y **dejaría al solicitante sin poder ni pedir lo que ya sabe que necesita permiso**.
+El panel usa tono de aviso, nunca de bloqueo — `R-4`: si los dos se parecen, se dejan de leer
+los dos.
+
+**Y declara qué mitad de `BD-04` no se pudo mirar.** Son dos y fallan por separado:
+
+| Falta | Consecuencia |
+|---|---|
+| Feriados (insumo #14) | El calendario **subdeclara**: dará por hábil un 15 de septiembre |
+| Horario hábil (insumo #1) | La hora **no se evalúa** — es la mitad que decide si salir a las cinco de la mañana exige salvoconducto |
+
+Un panel que muestre «ningún tramo inhábil» sin decir cuál mitad no se miró **afirma algo que
+nadie comprobó**. Hoy faltan las dos, y el panel lo dice cada vez.
+
+### `PT-009`: lo parcial se dice, y se paga en efectivo
+
+Las líneas sin valorar —sin tarifa cargada o sin categoría resuelta— **no se suman como cero**
+y el total se marca `parcial`. Un total parcial presentado como completo subestima el costo, y
+eso termina con **el motorista llegando a una caseta con menos de lo que necesita**.
+
+Y se muestra el estimado **congelado**, no uno recalculado: si una tarifa cambió después, el
+número que se autorizó sigue siendo el que se ve — que es lo que hace explicable la
+liquidación dos años más tarde.
+
+**1116 pruebas en verde**, y verificado en el navegador contra una misión real: **L 88.00
+desglosados en Comayagua y Zambrano**, y **sábado y domingo señalados** dentro de la ventana
+con holgura, con las dos mitades faltantes declaradas.
+
+---
+
 ## El folio institucional y el congelamiento (`PT-006`, M-06)
 
 El folio real **no existía en ninguna parte**: toda pantalla mostraba `PROV-XXXXXX`. Y el
