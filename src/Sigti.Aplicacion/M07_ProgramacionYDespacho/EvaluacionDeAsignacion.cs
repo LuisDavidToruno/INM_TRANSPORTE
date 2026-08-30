@@ -108,7 +108,7 @@ public sealed class EvaluacionDeAsignacion(
             conductor.Licencia(), vehiculo.Ficha(), ventana, matriz, conocidoAl);
 
         var documentacion = ReglasDeDocumentacion.Evaluar(
-            vehiculo.Documentacion(), ventana, politica);
+            vehiculo.Documentacion(alSalir: ventana.Salida), ventana, politica);
 
         // `BD-11`. El solape lo decide el dominio, con la misma `SeSolapaCon` que después
         // bloquea en `T-08`: una segunda implementación acá haría que la pantalla y el

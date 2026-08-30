@@ -33,9 +33,16 @@ public class ReglasDeDocumentacionPruebas
     [Fact]
     public void Sin_placa_y_sin_constancia_sustituta_si_bloquea()
     {
-        // Sin placa no bloquea; sin placa y sin constancia, sí: entonces no queda ningún
-        // documento que identifique al vehículo en carretera.
-        var documentacion = Vigente() with { Placa = null, TieneConstanciaSustitutaDePlaca = false };
+        // ⚠️ **Lo que bloquea no es la ausencia de placa: es la ausencia de RESPALDO** —
+        // RN-65. Antes esto se declaraba con un booleano y por eso una constancia vencida a
+        // mitad de la misión pasaba igual que una vigente.
+        var documentacion = Vigente() with
+        {
+            Placa = null,
+            TieneConstanciaSustitutaDePlaca = false,
+            EstadoDePlaca = EstadoDePlaca.NumeroAsignadoSinLamina,
+            Respaldo = null,
+        };
 
         var resultado = ReglasDeDocumentacion.Evaluar(documentacion, Ventana, PoliticaDeDocumentacion.PorDefecto);
 

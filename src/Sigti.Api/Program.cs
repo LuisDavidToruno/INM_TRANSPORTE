@@ -71,6 +71,7 @@ constructor.Services.AddScoped<ConsultaDeCustodias>();
 constructor.Services.AddScoped<ConsultaDePermisos>();
 constructor.Services.AddScoped<ServicioDePermisos>();
 constructor.Services.AddScoped<EfectosDeLaSustitucion>();
+constructor.Services.AddScoped<ServicioDeRespaldoDePlaca>();
 constructor.Services.AddScoped<ServicioDeSalvoconductos>();
 constructor.Services.AddScoped<ConsultaDelDiaDeDespacho>();
 constructor.Services.AddScoped<ConsultaDeOdometro>();
@@ -2379,6 +2380,107 @@ static object Documento(SalvoconductoImpreso d) => new
         motivo = i.Motivo,
     }),
 };
+
+
+// ── RN-64 y RN-65 — el estado de la lamina y lo que sostiene circular sin ella ─
+//
+// ⚠️ **Lo que bloquea el despacho de un vehiculo sin lamina no es la ausencia de placa: es la
+// ausencia de respaldo.** Y hasta hoy eso era un booleano: decia «hay una constancia» y nada
+// mas, asi que una vencida a mitad de la mision pasaba exactamente igual que una vigente.
+//
+// Hay desabastecimiento nacional de laminas. La flota real circula asi.
+
+/// `RN-64` — declarar el estado de la LAMINA. **No toca el numero de placa**: son dos datos
+/// distintos, y un vehiculo puede tener numero asignado y no tener lamina.
+app.MapPost("/flota/{id}/estado-de-placa", async (
+    string id, DeclararEstadoDePlaca peticion, ServicioDeRespaldoDePlaca servicio) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    if (!Enum.TryParse<EstadoDePlaca>(peticion.Estado, ignoreCase: true, out var estado))
+    {
+        return Results.BadRequest(new
+        {
+            mensaje = $"«{peticion.Estado}» no es un estado de placa del catalogo.",
+            valores = Enum.GetNames<EstadoDePlaca>(),
+        });
+    }
+
+    await servicio.DeclararEstadoAsync(ulid, estado);
+    return Results.Ok(new { id, estado = estado.ToString() });
+});
+
+/// `RN-65` — registrar un documento de respaldo. **No pisa el anterior**: RN-64 exige historial
+/// con rangos de vigencia, porque la pregunta que el auditor hace es «con que documento
+/// circulaba este vehiculo en marzo».
+app.MapPost("/flota/{id}/respaldo-de-placa", async (
+    string id, RegistrarRespaldoDePlaca peticion, ServicioDeRespaldoDePlaca servicio) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    Ulid? adjunto = null;
+
+    if (!string.IsNullOrWhiteSpace(peticion.Adjunto))
+    {
+        if (!Identificador.Valido(peticion.Adjunto, out var a, out var e)) return e;
+        adjunto = a;
+    }
+
+    var nuevo = await servicio.RegistrarAsync(
+        ulid, peticion.Tipo, peticion.Emisor, peticion.Folio, adjunto,
+        peticion.VigenteDesde, peticion.VigenteHasta,
+        new IdPersona(peticion.Registra), peticion.Momento);
+
+    return Results.Created($"/flota/{id}/respaldo-de-placa/{nuevo}", new
+    {
+        id = nuevo.ToString(),
+
+        // Se dice explicito porque es la parte que se supone al reves: registrar el respaldo no
+        // habilita nada por si solo. Lo que habilita es que CUBRA la ventana de la mision.
+        mensaje = "Respaldo registrado. Habilita el despacho solo de las misiones cuya ventana " +
+                  "quede cubierta enteramente por su vigencia (RN-65).",
+    });
+});
+
+/// El historial, **con el veredicto de cada respaldo a la ventana consultada**.
+///
+/// El veredicto va resuelto y no como fechas sueltas: una lista de documentos obliga a quien la
+/// mira a hacer la resta a mano, y esa es exactamente la resta que el sistema existe para no
+/// equivocar.
+app.MapGet("/flota/{id}/respaldo-de-placa", async (
+    string id, DateOnly? salida, DateOnly? hasta, ServicioDeRespaldoDePlaca servicio) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    var desde = salida ?? DateOnly.FromDateTime(DateTime.UtcNow);
+    var fin = hasta ?? desde;
+
+    var historial = await servicio.HistorialAsync(ulid, desde, fin);
+
+    return Results.Ok(historial.Select(r => new
+    {
+        id = r.Id.ToString(),
+        tipo = r.Respaldo.Tipo,
+        emisor = r.Respaldo.Emisor,
+        folio = r.Respaldo.Folio,
+
+        // **Nulo es «se declaro y no se adjunto»**, y eso no alcanza: el agente pide el papel.
+        adjunto = r.Respaldo.Adjunto?.ToString(),
+
+        vigenteDesde = r.Respaldo.VigenteDesde,
+
+        // ⚠️ **Nulo NO es «vigente para siempre»**: es un provisional sin fecha declarada, que
+        // es justo lo que hay que preguntar antes de despachar.
+        vigenteHasta = r.Respaldo.VigenteHasta,
+
+        registra = r.Registra,
+        registradoEn = r.RegistradoEn,
+
+        // Si ESTE respaldo cubre la ventana consultada, ya resuelto.
+        cubre = r.Cubre,
+        veredicto = r.Veredicto,
+    }));
+});
 
 var auditoria = app.MapGroup("/auditoria");
 
@@ -5916,14 +6018,20 @@ void ConAsignacion(
         if (await padron.PorIdAsync(idConductor) is not { } conductor)
             return Results.NotFound(new { mensaje = $"No existe el conductor {peticion.IdConductor}." });
 
+        if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+        // ⚠️ **La fecha de salida se resuelve ANTES de armar la asignación**, y no es un
+        // detalle de orden: `RN-65` elige el respaldo de placa que regía ese día (`P-4`). Un
+        // despacho capturado tarde se juzga contra el documento que estaba vigente al salir, no
+        // contra el de hoy.
+        var salidaDeLaMision = (await servicio.BuscarAsync(ulid))?.Solicitud.Ventana.Salida;
+
         // La documentación sale de la BASE, con vencimientos reales. `BD-03` puede
         // bloquear de verdad — antes no podía, y el código lo decía.
         var asignacion = new AsignacionDeMision(
             conductor.Licencia(),
             vehiculo.Ficha(),
-            vehiculo.Documentacion());
-
-        if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+            vehiculo.Documentacion(alSalir: salidaDeLaMision));
 
         // Las reservas se traen SIN filtrar por fecha: el solape lo decide el dominio.
         var reservas = await ocupacion.ReservasDeAsync(idVehiculo, idConductor, ulid);
@@ -6207,6 +6315,23 @@ internal sealed record EjecutarTransicion(string Ejecuta, DateTimeOffset Momento
 /// **La justificacion no es opcional.** Es lo unico que la maxima autoridad tiene para decidir:
 /// sin ella la pantalla de firma muestra un vehiculo, un destino y unas fechas, y firmar se
 /// vuelve un tramite — se aprueba lo que aparece porque no hay nada que juzgar.
+/// `RN-64` — el estado de la LAMINA fisica, del catalogo `estado_de_placa`.
+internal sealed record DeclararEstadoDePlaca(string Estado);
+
+/// `RN-65` — un documento que sostiene la circulacion sin lamina.
+///
+/// **VigenteHasta nulo no es «para siempre»**: es un provisional sin fecha declarada, y la
+/// regla lo trata como insuficiente. Es lo que hay que preguntar antes de despachar.
+internal sealed record RegistrarRespaldoDePlaca(
+    string Tipo,
+    string Emisor,
+    string Folio,
+    string? Adjunto,
+    DateOnly VigenteDesde,
+    DateOnly? VigenteHasta,
+    string Registra,
+    DateTimeOffset Momento);
+
 internal sealed record TramitarPermiso(
     string Justificacion, string Solicita, DateTimeOffset Momento);
 

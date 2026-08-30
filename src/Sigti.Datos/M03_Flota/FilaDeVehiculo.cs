@@ -1,3 +1,4 @@
+using Sigti.Datos.M03_Flota;
 using Sigti.Dominio.M03_Flota;
 
 namespace Sigti.Datos;
@@ -31,7 +32,28 @@ public sealed class FilaDeVehiculo
     /// </summary>
     public string? Placa { get; init; }
 
+    /// <summary>
+    /// ⚠️ <b>Reemplazado por <see cref="EstadoDePlaca"/> y el historial de respaldo</b> —
+    /// `RN-64`, `RN-65`.
+    ///
+    /// Decía <i>que hay una constancia</i> y nada más: una vencida a mitad de la misión pasaba
+    /// exactamente igual que una vigente. Se conserva mientras dure la migración de las filas
+    /// existentes; no lo lea código nuevo.
+    /// </summary>
     public required bool TieneConstanciaSustitutaDePlaca { get; init; }
+
+    /// <summary>
+    /// El estado de la <b>lámina física</b> — `RN-64`, catálogo `estado_de_placa`.
+    ///
+    /// Es un dato distinto y no intercambiable con <see cref="Placa"/>: el número puede existir
+    /// aunque la lámina no. Un vehículo con número y sin lámina, uno con la lámina retenida por
+    /// la DNVT y uno que nunca tuvo número son <b>tres situaciones administrativas distintas</b>
+    /// que con un campo `placa` vacío se ven iguales.
+    /// </summary>
+    public EstadoDePlaca EstadoDePlaca { get; set; } = EstadoDePlaca.ConLamina;
+
+    /// <summary>Los respaldos de circulación sin lámina, con su historial de vigencia.</summary>
+    public List<FilaDeRespaldoDePlaca> RespaldosDePlaca { get; } = [];
 
     /// <summary>Texto libre de cada institución: «pick-up», «microbús», «cisterna».</summary>
     public required string TipoDeVehiculo { get; init; }
@@ -153,11 +175,37 @@ public sealed class FilaDeVehiculo
         new(TipoDeVehiculo, Clase, PesoBrutoKg, CapacidadPasajeros, LlevaRemolque,
             CapacidadDeTanqueGalones, NumeroDeEjes, TipoDeCombustible);
 
-    /// <summary>La documentación que `BD-03` evalúa. <b>Con fechas reales.</b></summary>
-    public DocumentacionDelVehiculo Documentacion() => new()
+    /// <summary>
+    /// La documentación que `BD-03` evalúa. <b>Con fechas reales.</b>
+    /// </summary>
+    /// <param name="alSalir">
+    /// La fecha de salida de la misión, para elegir <b>qué respaldo regía entonces</b>.
+    ///
+    /// ⚠️ Es `P-4`: un despacho capturado tarde se juzga contra el respaldo que estaba vigente
+    /// el día de la salida, no contra el de hoy. Tomar «el último cargado» diría si el vehículo
+    /// está respaldado ahora, que es otra pregunta.
+    ///
+    /// Nula sólo donde no hay misión de la cual sacarla — y entonces el respaldo no se resuelve
+    /// y `RN-65` bloquea por «sin respaldo», que es lo correcto: no se pudo comprobar.
+    /// </param>
+    public DocumentacionDelVehiculo Documentacion(DateOnly? alSalir = null) => new()
     {
         Placa = Placa,
         TieneConstanciaSustitutaDePlaca = TieneConstanciaSustitutaDePlaca,
+        EstadoDePlaca = EstadoDePlaca,
+
+        // El respaldo vigente a la fecha del hecho. **Nulo es que no hay ninguno**, y con el
+        // vehículo sin lámina eso bloquea: `RN-65` — lo que impide despachar no es la ausencia
+        // de placa, es la ausencia de respaldo.
+        Respaldo = alSalir is not { } fecha
+            ? null
+            : RespaldosDePlaca
+                .Where(r => r.VigenteDesde <= fecha)
+                .OrderByDescending(r => r.VigenteDesde)
+                .Select(r => new RespaldoDePlaca(
+                    r.Tipo, r.Emisor, r.Folio, r.Adjunto, r.VigenteDesde, r.VigenteHasta))
+                .FirstOrDefault(),
+
         VenceMatricula = VenceMatricula,
         VencePoliza = VencePoliza,
         VenceRevisionMecanica = VenceRevisionMecanica,

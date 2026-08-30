@@ -22,6 +22,17 @@ public sealed class ConsultaDeFlota(SigtiDbContext contexto)
     public async Task<FilaDeVehiculo?> PorIdAsync(Ulid id, CancellationToken cancelacion = default) =>
         await contexto.Vehiculos
             .AsNoTracking()
+
+            // ⚠️ **Los respaldos vienen con el vehiculo.** `RN-65` los evalua dentro de
+            // `Documentacion()`, y sin esta carga llegan vacios: el bloqueo diria «sin
+            // respaldo» sobre un vehiculo que tiene uno vigente, y nadie podria despachar.
+            //
+            // Lo atrapo la prueba de punta a punta. Es el mismo defecto de siempre: la regla
+            // correcta con el otro extremo sin conectar.
+            //
+            // Son pocas filas por vehiculo -el historial de sus documentos provisionales- y se
+            // necesitan en el camino critico del despacho.
+            .Include(v => v.RespaldosDePlaca)
             .SingleOrDefaultAsync(v => v.Id == id, cancelacion);
 
     /// <summary>

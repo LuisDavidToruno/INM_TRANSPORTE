@@ -12,8 +12,29 @@ public sealed record DocumentacionDelVehiculo
     /// <summary>Nula cuando el vehículo no tiene placa metálica asignada. Es válido.</summary>
     public string? Placa { get; init; }
 
-    /// <summary>Constancia o documento sustitutivo del IP, exigido cuando no hay placa.</summary>
+    /// <summary>
+    /// ⚠️ <b>Reemplazado por <see cref="EstadoDePlaca"/> y <see cref="Respaldo"/></b> — `RN-64`,
+    /// `RN-65`.
+    ///
+    /// Decía <i>que hay una constancia</i> y nada más: <b>una vencida a mitad de la misión
+    /// pasaba exactamente igual que una vigente</b>, y un permiso provisional de treinta días
+    /// emitido hace un año se veía idéntico a uno de la semana pasada.
+    /// </summary>
     public required bool TieneConstanciaSustitutaDePlaca { get; init; }
+
+    /// <summary>
+    /// El estado de la <b>lámina física</b> — `RN-64`. Distinto del número de placa: el número
+    /// puede existir aunque la lámina no.
+    /// </summary>
+    public EstadoDePlaca EstadoDePlaca { get; init; } = EstadoDePlaca.ConLamina;
+
+    /// <summary>
+    /// El documento que sostiene la circulación sin lámina, si lo hay.
+    ///
+    /// <b>Nulo es que no hay ninguno</b>, y con el vehículo sin lámina eso bloquea: lo que
+    /// impide despachar no es la ausencia de placa, es la ausencia de respaldo (`RN-65`).
+    /// </summary>
+    public RespaldoDePlaca? Respaldo { get; init; }
 
     /// <summary>Único documento que bloquea de forma dura, sin configuración de por medio.</summary>
     public required DateOnly VenceMatricula { get; init; }
@@ -98,12 +119,24 @@ public static class ReglasDeDocumentacion
             venceElQueBloquea = documentacion.VenceMatricula;
         }
 
-        // Sin placa no bloquea; sin placa Y sin constancia sustituta, sí: entonces no hay
-        // ningún documento que identifique al vehículo en carretera.
-        if (bloqueo is MotivoDeDocumentacionInsuficiente.Ninguno &&
-            string.IsNullOrWhiteSpace(documentacion.Placa) &&
-            !documentacion.TieneConstanciaSustitutaDePlaca)
+        // ⚠️ **`RN-65` — lo que bloquea no es la ausencia de placa: es la ausencia de
+        // respaldo**, y el respaldo tiene que cubrir TODO el rango, extremos incluidos.
+        //
+        // Esto era un booleano: decía «hay una constancia» y nada más. Una vencida a mitad de
+        // la misión pasaba igual que una vigente, y un provisional de treinta días emitido hace
+        // un año se veía idéntico a uno de la semana pasada.
+        //
+        // Mismo patrón que `RN-10` para la licencia: un respaldo que cubre tres de los cinco
+        // días deja al agente que revise el cuarto con un vehículo del Estado sin lámina y sin
+        // nada que lo explique.
+        var placa = ReglasDelRespaldoDePlaca.Evaluar(
+            documentacion.EstadoDePlaca, documentacion.Respaldo, ventana.Salida, fin);
+
+        if (bloqueo is MotivoDeDocumentacionInsuficiente.Ninguno && !placa.Habilita)
+        {
             bloqueo = MotivoDeDocumentacionInsuficiente.SinPlacaNiConstanciaSustituta;
+            venceElQueBloquea = placa.VenceElQueBloquea;
+        }
 
         Evaluar(documentacion.VencePoliza, politica.BloquearPorPolizaVencida,
             MotivoDeDocumentacionInsuficiente.PolizaVenceDentroDelRango);

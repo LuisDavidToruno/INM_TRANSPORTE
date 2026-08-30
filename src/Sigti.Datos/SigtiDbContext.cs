@@ -71,6 +71,7 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     public DbSet<FilaDePermisoDeCirculacion> Permisos => Set<FilaDePermisoDeCirculacion>();
     public DbSet<FilaDeSalvoconducto> Salvoconductos => Set<FilaDeSalvoconducto>();
     public DbSet<FilaDeRecongelamiento> RecongelamientosDePeaje => Set<FilaDeRecongelamiento>();
+    public DbSet<FilaDeRespaldoDePlaca> RespaldosDePlaca => Set<FilaDeRespaldoDePlaca>();
     public DbSet<FilaDeCambioDeEstado> CambiosDeEstado => Set<FilaDeCambioDeEstado>();
     public DbSet<FilaDeFondo> Fondos => Set<FilaDeFondo>();
     public DbSet<FilaDeAsignacion> AsignacionesDeCombustible => Set<FilaDeAsignacion>();
@@ -500,6 +501,14 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
 
             // Contra lo que RN-32 compara el vale. Nulo es «la ficha no lo declara».
             vehiculo.Property(v => v.TipoDeCombustible).HasMaxLength(40);
+
+            // RN-64 — el estado de la LAMINA, distinto del numero de placa.
+            vehiculo.Property(v => v.EstadoDePlaca).HasConversion<string>().HasMaxLength(40);
+
+            vehiculo.HasMany(v => v.RespaldosDePlaca)
+                .WithOne()
+                .HasForeignKey(r => r.VehiculoId)
+                .OnDelete(DeleteBehavior.Cascade);
             vehiculo.Property(v => v.Clase).HasConversion<string>().HasMaxLength(32).IsRequired();
 
             // Encontrar lo que vence pronto es lo que sostiene RN-17, y sin indice eso
@@ -1770,6 +1779,28 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             // La bandeja de firma de PT-021 pregunta por estado, y es la consulta que la
             // maxima autoridad abre en el celular: tiene que responder sin recorrer la tabla.
             permiso.HasIndex(p => p.Estado);
+        });
+
+        modelo.Entity<FilaDeRespaldoDePlaca>(respaldo =>
+        {
+            respaldo.ToTable("RespaldoDePlaca", schema: "flota");
+
+            respaldo.HasKey(r => r.Id);
+            respaldo.Property(r => r.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            respaldo.Property(r => r.VehiculoId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+
+            // Nulo es «se declaro y no se adjunto», y eso NO alcanza: el agente pide el papel.
+            respaldo.Property(r => r.Adjunto).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+
+            respaldo.Property(r => r.Tipo).HasMaxLength(80).IsRequired();
+            respaldo.Property(r => r.Emisor).HasMaxLength(120).IsRequired();
+            respaldo.Property(r => r.Folio).HasMaxLength(60).IsRequired();
+            respaldo.Property(r => r.Registra).HasMaxLength(64).IsRequired();
+            respaldo.Property(r => r.EstadoDePlaca).HasConversion<string>().HasMaxLength(40);
+
+            // Por vehiculo y por fecha: es como se pregunta «con que documento circulaba en
+            // marzo», que es la pregunta que el auditor hace de verdad (RN-64).
+            respaldo.HasIndex(r => new { r.VehiculoId, r.VigenteDesde });
         });
 
         modelo.Entity<FilaDeRecongelamiento>(re =>

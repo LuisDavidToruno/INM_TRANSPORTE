@@ -414,6 +414,58 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## `RN-64` y `RN-65` — el booleano que decía «hay una constancia»
+
+**1317 pruebas en verde.** Cierra el penúltimo de los nueve efectos de `RN-61`.
+
+### ⚠️ El hallazgo
+
+*«Sin placa metálica es un estado válido — hay desabastecimiento nacional»*. Es premisa del
+proyecto, y el sistema lo resolvía con un booleano: `TieneConstanciaSustitutaDePlaca`.
+
+Eso dice **que hay una constancia** y nada más. Una vencida a mitad de la misión pasaba
+**exactamente igual** que una vigente, y un permiso provisional de treinta días emitido hace
+un año se veía idéntico a uno de la semana pasada. El agente que revisara el cuarto día de una
+misión de cinco tendría enfrente un vehículo del Estado sin lámina y sin nada que lo explique.
+
+### Lo que quedó
+
+| | |
+|---|---|
+| **`RN-64`** — estado de la lámina tipificado | Seis valores. El **número de placa y el estado de la lámina son dos datos distintos**: el número puede existir aunque la lámina no |
+| **`RN-65`** — respaldo con emisor, folio, adjunto y vigencia | Y el bloqueo evalúa la vigencia contra **todo el rango, extremos incluidos** — mismo patrón que `RN-10` |
+| **Historial, no un registro que se pisa** | La pregunta del auditor es *«¿con qué documento circulaba este vehículo en marzo?»* |
+| **El veredicto va resuelto** | Una lista de fechas obliga a hacer la resta a mano, y ésa es la resta que el sistema existe para no equivocar |
+
+Tres distinciones que el booleano no podía hacer, y las tres tienen su prueba:
+
+- **Sin fecha de vencimiento no es «vigente para siempre».** Un provisional sin fecha
+  declarada es justo lo que hay que preguntar antes de despachar; tratarlo como indefinido
+  convierte un dato faltante en una autorización.
+- **«Todavía no rige» no es «vencido».** Uno no empezó y el otro terminó, y el arreglo difiere.
+- **El respaldo sin documento adjunto no alcanza.** El agente pide el papel: uno que sólo
+  existe como texto en una pantalla no se le puede mostrar. Es la misma distinción que costó
+  el respaldo del parámetro normativo esta mañana — *el identificador de un adjunto no es el
+  adjunto*.
+
+### Y el defecto que la prueba atrapó al escribirla
+
+`ConsultaDeFlota.PorIdAsync` **no cargaba los respaldos**. La regla nueva los evaluaba, y
+llegaban vacíos siempre: el bloqueo habría dicho «sin respaldo» sobre un vehículo con uno
+vigente, y **nadie habría podido despachar ningún vehículo sin lámina**.
+
+Es el mismo defecto de siempre —la regla correcta con el otro extremo sin conectar— y la única
+razón de que no llegara al commit es que la prueba de punta a punta cruza el servicio.
+
+### Lo que queda de `RN-61`
+
+De los nueve valores derivados, **queda uno**: la **custodia**, que `RN-22` manda trasladar
+con constancia al sustituir el vehículo. El paquete de identificación en carretera —el
+documento impreso de `RN-65`— tampoco está: la maquinaria de impresión, folio y QR ya existe
+desde `PT-023`, así que es encadenar más que construir.
+
+---
+
 ## `RN-32` — el bloqueo que se llamaba siempre con nulo
 
 **1299 pruebas en verde.** Iba a cerrar lo que faltaba de `RN-61` y apareció algo más urgente
