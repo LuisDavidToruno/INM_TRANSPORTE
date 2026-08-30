@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText, LayoutList, IdCard, Scale, Users, ShieldAlert, Inbox, Route as RutaIcono, SlidersHorizontal, Radio, Home, Search, ShieldX, FileStack, Hash, GitCompareArrows, HardDrive, PlugZap, ShieldQuestion, Eye, ScrollText as Lista, Globe } from 'lucide-react';
+import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText, LayoutList, IdCard, Scale, Users, ShieldAlert, Inbox, Route as RutaIcono, SlidersHorizontal, Radio, Home, Search, ShieldX, FileStack, Hash, GitCompareArrows, HardDrive, PlugZap, ShieldQuestion, Eye, ScrollText as Lista, Globe, HeartPulse } from 'lucide-react';
 
 import { Avisos, Nota, Shell, avisar } from '../ui';
 import type { GrupoNav, Miga } from '../ui';
@@ -37,6 +37,7 @@ import Accesos from '../modulos/M17_PersonasExternas/Accesos';
 import Manifiesto from '../modulos/M17_PersonasExternas/Manifiesto';
 import HabeasData from '../modulos/M17_PersonasExternas/HabeasData';
 import Transparencia from '../modulos/M17_PersonasExternas/Transparencia';
+import Salud from '../modulos/M02_Parametros/Salud';
 import { ProveedorDelPuesto, usarPuesto } from './puesto';
 import TableroDeSeguimiento from '../modulos/M19_Seguimiento/Tablero';
 import EnRuta from '../modulos/M19_Seguimiento/EnRuta';
@@ -276,6 +277,7 @@ function Interior(): ReactElement {
         { texto: 'Pista de auditoría', icono: <FileSearch />, href: '/pista' },
         { texto: 'Intentos bloqueados', icono: <ShieldAlert />, href: '/intentos-bloqueados' },
         { texto: 'Parámetros normativos', icono: <SlidersHorizontal />, href: '/parametros-normativos' },
+        { texto: 'Qué está mal', icono: <HeartPulse />, href: '/salud' },
         { texto: 'Fuentes externas', icono: <FileSearch />, href: '/conciliacion' },
         { texto: 'Saldo de apertura', icono: <Archive />, href: '/saldo-de-apertura' },
         // El cierre de ejercicio va al final del grupo: es lo que se produce DESPUES de que
@@ -350,6 +352,7 @@ function Interior(): ReactElement {
         <Route path="/manifiesto/accesos" element={<Accesos />} />
         <Route path="/habeas-data" element={<HabeasData />} />
         <Route path="/transparencia" element={<Transparencia />} />
+        <Route path="/salud" element={<Salud />} />
         <Route path="/seguimiento" element={<TableroDeSeguimiento />} />
         <Route path="/seguimiento/:id" element={<EnRuta />} />
         <Route path="/rastro" element={<RastroDelExpediente />} />
@@ -415,6 +418,7 @@ function migasDe(ruta: string): Miga[] {
   if (ruta === '/manifiesto/accesos') return ['Personas externas', 'Quién vio qué'];
   if (ruta === '/habeas-data') return ['Personas externas', 'Hábeas data'];
   if (ruta === '/transparencia') return ['Personas externas', 'Transparencia y depuración'];
+  if (ruta === '/salud') return ['Qué está mal'];
   if (ruta === '/seguimiento') return ['Seguimiento en ruta'];
   if (ruta.startsWith('/seguimiento/'))
     return [{ texto: 'Seguimiento en ruta', href: '/seguimiento' }, 'Misión'];

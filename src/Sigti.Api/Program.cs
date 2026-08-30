@@ -95,6 +95,7 @@ constructor.Services.AddScoped<ServicioDeConflictos>();
 constructor.Services.AddScoped<ServicioDePersonasExternas>();
 constructor.Services.AddScoped<ServicioDelManifiesto>();
 constructor.Services.AddScoped<ServicioDeHabeasData>();
+constructor.Services.AddScoped<PanelDeSalud>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -1962,6 +1963,49 @@ personas.MapGet("/depuracion/plazo", async (ServicioDeHabeasData servicio) =>
               "ninguno por omision**: cuanto tiempo conserva la institucion la identidad de " +
               "quien traslado no es una decision tecnica."
             : $"Los datos personales se depuran a los {plazo} dias del cierre del manifiesto.",
+    });
+});
+
+
+/// `PT-101` — panel de salud: **que esta mal y que hacer**.
+///
+/// El sistema esta lleno de controles que se apagan solos cuando falta su parametro, y cada uno
+/// lo declara donde aparece. Cada aviso por separado es correcto y **ninguno alcanza**: nadie
+/// recorre once pantallas para saber que le falta configurar, y un control apagado se descubre
+/// el dia que hacia falta.
+app.MapGet("/salud", async (PanelDeSalud panel) =>
+{
+    var salud = await panel.EvaluarAsync(DateOnly.FromDateTime(DateTime.UtcNow));
+
+    return Results.Ok(new
+    {
+        // La cifra que se mira primero. **Cero no significa que todo funcione**: significa que
+        // todo lo que este panel sabe mirar esta configurado.
+        sinConfigurar = salud.SinConfigurar,
+
+        controles = salud.Controles.Select(c => new
+        {
+            clave = c.Clave,
+            nombre = c.Nombre,
+            configurado = c.Configurado,
+
+            // Nulo cuando no esta configurado, **y esa es la razon de que el control este
+            // apagado** — no un dato que falte mostrar.
+            valor = c.Valor,
+
+            // Lo que hace util el panel: sin esto, una lista de claves sin valor no le dice a
+            // nadie que esta en riesgo.
+            queSeApaga = c.QueSeApaga,
+            queHacer = c.QueHacer,
+
+            // Nulo no significa decidido: significa que no se levanto como insumo.
+            insumo = c.Insumo,
+
+            // ⚠️ **De donde salio el valor.** Un valor cargado y uno DECIDIDO se ven iguales en
+            // una casilla marcada: sin el respaldo, uno puesto para poder probar el sistema
+            // pasa por decision de la institucion y nadie vuelve a preguntar por el.
+            respaldo = c.Respaldo,
+        }),
     });
 });
 
@@ -4975,6 +5019,41 @@ misiones.MapPost("/{id}/evaluar-asignacion", async (
 });
 
 var parametros = app.MapGroup("/parametros");
+
+/// `PT-099` y `PT-100` — las versiones cargadas de un parametro, con su doble control.
+parametros.MapGet("/", async (SigtiDbContext contexto, string? clave) =>
+{
+    var consulta = contexto.Parametros.AsNoTracking();
+    if (clave is not null) consulta = consulta.Where(v => v.Clave == clave);
+
+    var filas = await consulta.ToListAsync();
+
+    return Results.Ok(filas
+        .OrderBy(v => v.Clave)
+        .ThenByDescending(v => v.VigenteDesde)
+        .Select(v => new
+        {
+            id = v.Id.ToString(),
+            clave = v.Clave,
+            valor = v.Valor,
+
+            // Las dos parejas de fechas de `ADR-006`.
+            vigenteDesde = v.VigenteDesde,
+            vigenteHasta = v.VigenteHasta,
+            registradoDesde = v.RegistradoDesde,
+            registradoHasta = v.RegistradoHasta,
+
+            cargadoPor = v.CargadoPor,
+
+            // **Nulo es sin aprobar, y sin aprobar NO RIGE**: el doble control de `HU-145`
+            // seria decorativo si el valor rigiera igual.
+            aprobadoPor = v.AprobadoPor,
+            estaAprobada = v.AprobadoPor != null,
+
+            respaldo = new { fuente = v.Respaldo.Fuente, verificadoEl = v.Respaldo.FechaDeVerificacion },
+        }));
+});
+
 
 // HU-144: la carga nace PENDIENTE. Una carga que ya resolviera volvería decorativo el
 // doble control de HU-145.

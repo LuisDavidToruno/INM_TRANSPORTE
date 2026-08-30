@@ -414,6 +414,58 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## `PT-101` — el panel que dice qué está apagado
+
+**1241 pruebas en verde.** Llevo ocho bloques escribiendo «este parámetro no está
+configurado» en la pantalla donde aparece, y hasta ahora **ninguna pantalla los juntaba**.
+
+### El problema que resuelve
+
+Cada aviso por separado es correcto y **ninguno alcanza**: nadie recorre once pantallas para
+saber qué le falta configurar. Sin un resumen, **un control apagado se descubre el día que
+hacía falta** — que es tarde por definición.
+
+Y dice **qué hacer**, no sólo qué falta. Es la mitad que convierte un tablero en algo
+accionable: *«umbral no configurado»* manda a preguntar; *«acuérdelo con Auditoría Interna y
+cárguelo acá»* se puede hacer.
+
+Junta parámetros e integraciones en **una sola lista**, a propósito: a quien administra el
+sistema le da igual si lo que falta es una clave o una integración, y separarlos en dos
+pantallas haría que la segunda no la mire nadie.
+
+### ⚠️ Y destapó algo del propio trabajo de estos bloques
+
+La primera corrida dijo **«2 de 10 sin configurar»** — y era engañoso. Los otros ocho
+aparecían con su casilla marcada, pero **cuatro son siembra de prueba que puse yo** para poder
+verificar cada bloque: el formato del folio, el umbral de agotamiento, las causas
+improductivas y el plazo de depuración.
+
+**Un valor cargado y uno decidido se ven iguales en una casilla marcada.** Un administrador
+habría visto un sistema listo que no lo está, y nadie habría vuelto a preguntar por esos
+cuatro.
+
+Se corrigió mostrando **el respaldo documental** de cada valor —que ya existía, porque
+`HU-144` lo exige al cargar— y marcando los que se delatan solos. Ahora el panel dice: *«4
+valores están cargados con respaldo de prueba. Cuentan como pendientes aunque el control
+funcione.»*
+
+La detección es una **heurística sobre el texto del respaldo**, así que avisa en vez de
+bloquear: un respaldo legítimo que mencione «prueba» aparecería marcado, y eso es preferible
+a que uno de prueba pase por decidido.
+
+### Lo que el panel reporta hoy
+
+| | |
+|---|---|
+| **Apagados** | Espejo de Talento Humano (no es configuración: hay que construirlo) · Umbral de degradación del seguimiento (#68) |
+| **Con respaldo de prueba** | Formato del folio (#34) · Umbral de agotamiento (#34) · Causas improductivas (#103) · Plazo de depuración |
+| **Configurados de verdad** | Canal de aviso (#102) · Catálogo de estados en ruta · Rangos de folio · Campos sensibles fundamentados |
+
+Y `cero sin configurar` **no significa que todo funcione**: significa que no falta nada de
+esta lista. La pantalla lo dice con esas palabras.
+
+---
+
 ## M-17 — el ciclo de vida del dato personal (`PT-134` a `PT-137`)
 
 **1241 pruebas en verde.** Las cuatro cosas que la Constitución permite pedir, y la que la

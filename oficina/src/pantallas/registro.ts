@@ -213,6 +213,9 @@ export const CONSTRUIDAS: Readonly<Record<string, Construida>> = {
   'PT-057': { ruta: '/dispositivos', archivo: 'M16_Sincronizacion/Dispositivos.tsx' },
   'PT-054': { ruta: '/conflictos', archivo: 'M16_Sincronizacion/Conflictos.tsx' },
 
+  // ── M-02 Parámetros ───────────────────────────────────────────────────────
+  'PT-101': { ruta: '/salud', archivo: 'M02_Parametros/Salud.tsx' },
+
   // ── M-17 Personas externas ────────────────────────────────────────────────
   'PT-095': { ruta: '/manifiesto', archivo: 'M17_PersonasExternas/Manifiesto.tsx' },
   'PT-128': { ruta: '/manifiesto/campos', archivo: 'M17_PersonasExternas/CamposDelManifiesto.tsx' },
