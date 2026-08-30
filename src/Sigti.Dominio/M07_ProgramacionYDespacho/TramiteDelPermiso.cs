@@ -76,6 +76,15 @@ public sealed record PermisoEnTramite(
     IdPersona? FirmadoPor)
 {
     /// <summary>
+    /// A qué permiso reemplaza. <b>Nulo en el primero</b>, que es el caso normal.
+    ///
+    /// La referencia cruzada de `RN-04`. Sin ella hay dos permisos sueltos para una misma misión
+    /// y nada dice cuál superó a cuál: un auditor ve dos folios, dos firmas y dos salvoconductos,
+    /// y tiene que reconstruir el orden por las fechas.
+    /// </summary>
+    public Ulid? Reemplaza { get; init; }
+
+    /// <summary>
     /// Si este trámite cubre lo mismo que se está por pedir. <b>Sólo cuenta lo vivo</b>: un
     /// desistido no estorba, porque desistir es justamente decir que ya no se pide.
     /// </summary>
@@ -88,6 +97,21 @@ public sealed record PermisoEnTramite(
 
 /// <summary>Por qué no hizo falta abrir el trámite. Nulo cuando sí hizo falta.</summary>
 public sealed record NoHaceFalta(string Motivo, string Detalle);
+
+/// <summary>
+/// Por qué un permiso firmado dejó de cubrir la misión.
+/// </summary>
+/// <param name="ExigeReemision">
+/// ⚠️ <b>No todo lo que deja de cubrir hay que reemitirlo.</b>
+///
+/// Una misión desprogramada no ampara nada <b>en este momento</b>, y si se reprograma con el
+/// mismo vehículo y el mismo motorista el permiso vuelve a amparar solo. Ofrecer «reemitir» ahí
+/// quemaría un folio —que no se recicla— y exigiría otra firma de la máxima autoridad para nada.
+///
+/// Falso significa <b>espere</b>; verdadero significa <b>actúe</b>. Un aviso que no distingue
+/// las dos cosas convierte cada reprogramación en un trámite.
+/// </param>
+public sealed record NoCubre(string Detalle, bool ExigeReemision);
 
 /// <summary>
 /// `HU-016` — el trámite y la firma del permiso de circulación en día u hora inhábil.
@@ -187,6 +211,120 @@ public static class ReglasDelPermiso
                    "misión antes de firmar (RN-23).";
 
         return null;
+    }
+
+    /// <summary>
+    /// Por qué este permiso firmado <b>ya no cubre</b> la misión. Nulo es que sigue cubriendo.
+    ///
+    /// ── ⚠️ Por qué dice QUÉ cambió y no sólo que cambió ─────────────────────
+    /// «El permiso ya no cubre la misión» manda a alguien a comparar cuatro cosas a mano
+    /// contra un papel. Cada elemento tiene su propio arreglo y su propia urgencia: una ventana
+    /// corrida se reprograma, un vehículo en taller se sustituye, un motorista incapacitado se
+    /// releva. El mensaje que no nombra el elemento convierte una acción en una investigación.
+    ///
+    /// ── Y por qué no es lo mismo que <see cref="PermisoDeCirculacion.Ampara"/> ──
+    /// `Ampara` contesta sí o no en el camino crítico del despacho, y `BD-04` lo usa para
+    /// bloquear. Esto contesta <b>por qué no</b>, antes de llegar ahí, para que nadie descubra
+    /// el problema el sábado por la mañana con el vehículo cargado.
+    /// </summary>
+    /// <param name="enRuta">
+    /// Si la misión <b>ya salió</b>.
+    ///
+    /// ⚠️ Excepción deliberada de `HU-018`: <b>un relevo documentado en ruta no invalida el
+    /// permiso de la misión ya iniciada</b>. El vehículo está en la carretera; declarar el papel
+    /// inválido no lo devuelve, y sí dejaría al motorista relevado circulando sin nada. El
+    /// traspaso consta en acta con corte de odómetro (`RN-71`), y lo que sí exige permiso
+    /// reemitido es la circulación en franja inhábil <b>posterior</b> al traspaso — que es de
+    /// `M-08` y no se bloquea.
+    /// </param>
+    public static NoCubre? PorQueYaNoCubre(
+        PermisoEnTramite permiso,
+        Ulid? vehiculoDeHoy,
+        Ulid? motoristaDeHoy,
+        string destinoDeHoy,
+        DateOnly desdeDeHoy,
+        DateOnly hastaDeHoy,
+        string nombreDeLoAmparado,
+        string nombreDeLoDeHoy,
+        bool enRuta)
+    {
+        if (permiso.Estado != EstadoDelPermiso.Firmado) return null;
+
+        if (enRuta) return null;
+
+        // Se comparan en el orden en que se arreglan: lo que exige otra persona primero.
+        if (permiso.Vehiculo != vehiculoDeHoy)
+        {
+            // ⚠️ Sin vehículo asignado **no se ordena reemitir**, y la diferencia es cara: si la
+            // misión se reprograma con el mismo vehículo y el mismo motorista, el permiso sigue
+            // amparando. Reemitirlo quemaría un folio y exigiría otra firma de la máxima
+            // autoridad para nada.
+            return vehiculoDeHoy is null
+                ? new NoCubre(
+                    "La misión no tiene vehículo asignado en este momento, así que el permiso " +
+                    "no ampara nada. Si se reprograma con el mismo vehículo y el mismo " +
+                    "motorista, el permiso vuelve a amparar; si cambia alguno de los dos, " +
+                    "reemítalo.",
+                    ExigeReemision: false)
+                : new NoCubre(
+                    $"El permiso ampara el vehículo {nombreDeLoAmparado} y la misión se " +
+                    $"ejecutará con {nombreDeLoDeHoy}. El permiso debe reemitirse y firmarse " +
+                    "de nuevo (RN-23).",
+                    ExigeReemision: true);
+        }
+
+        if (permiso.Motorista != motoristaDeHoy)
+        {
+            return new NoCubre(
+                "El permiso es nominativo sobre el motorista y el de la misión cambió. " +
+                "La firma anterior no se arrastra: reemita el permiso.",
+                ExigeReemision: true);
+        }
+
+        if (!string.Equals(permiso.Destino, destinoDeHoy, StringComparison.OrdinalIgnoreCase))
+        {
+            return new NoCubre(
+                $"El permiso ampara el destino {permiso.Destino} y la misión se ejecutará a " +
+                $"{destinoDeHoy}. Reemita el permiso.",
+                ExigeReemision: true);
+        }
+
+        // La ventana tiene que estar contenida ENTERA. Un permiso que cubre tres de los cinco
+        // días no ampara los otros dos, y el agente que revise el cuarto tiene un vehículo del
+        // Estado circulando sin respaldo.
+        if (permiso.Desde > desdeDeHoy || permiso.Hasta < hastaDeHoy)
+        {
+            return new NoCubre(
+                $"El permiso ampara del {permiso.Desde:dd/MM/yyyy} al " +
+                $"{permiso.Hasta:dd/MM/yyyy} y la misión se ejecutará del " +
+                $"{desdeDeHoy:dd/MM/yyyy} al {hastaDeHoy:dd/MM/yyyy}. Reemita el permiso; la " +
+                "vigencia no se traslada.",
+                ExigeReemision: true);
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Por qué no se puede reemitir. <b>Nulo es que sí.</b>
+    ///
+    /// La reemisión abre un trámite nuevo <b>sin firma</b> — `HU-018`: <i>«el permiso nuevo
+    /// requiere firma nueva, no la firma anterior»</i>. Arrastrarla convertiría el acto de la
+    /// máxima autoridad en una casilla que se hereda, y lo que firmó fue <b>otro</b> vehículo
+    /// con <b>otro</b> motorista.
+    /// </summary>
+    public static string? PorQueNoSeReemite(PermisoEnTramite permiso, string? motivo)
+    {
+        if (permiso.Estado != EstadoDelPermiso.Firmado)
+        {
+            return $"El permiso {permiso.Folio} está {Texto(permiso.Estado)}. Sólo se reemite " +
+                   "uno firmado: lo que no llegó a amparar nada no se reemplaza, se retira.";
+        }
+
+        return string.IsNullOrWhiteSpace(motivo)
+            ? "Diga qué cambió. El motivo queda en el asiento de anulación del salvoconducto " +
+              "anterior, y sin él nadie puede reconstruir por qué hay dos folios."
+            : null;
     }
 
     public static string Texto(EstadoDelPermiso estado) => estado switch

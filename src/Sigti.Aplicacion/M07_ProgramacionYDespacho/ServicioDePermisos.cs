@@ -219,6 +219,109 @@ public sealed class ServicioDePermisos(
         await contexto.SaveChangesAsync(cancelacion);
     }
 
+    /// <summary>
+    /// Reemite el permiso cuando cambió lo que ampara — `HU-018`.
+    ///
+    /// ── Tres cosas en un solo acto, y las tres importan ─────────────────────
+    /// <b>1 · Anula el salvoconducto anterior</b>, con motivo y autor (`RN-04`). El papel sigue
+    /// impreso y en la mano de alguien: el punto de verificación tiene que empezar a decir que
+    /// no vale <b>de inmediato</b>, o un documento anulado pasa un control.
+    ///
+    /// <b>2 · Desiste el permiso anterior.</b> Deja de contar para `BD-04` — si siguiera
+    /// firmado, el despacho podría ampararse en él aunque ya no cubra.
+    ///
+    /// <b>3 · Abre un trámite nuevo SIN FIRMA.</b> `HU-018` es literal: <i>«el permiso nuevo
+    /// requiere firma nueva, no la firma anterior»</i>. Arrastrarla convertiría el acto de la
+    /// máxima autoridad en una casilla heredada, y lo que firmó fue <b>otro</b> vehículo con
+    /// <b>otro</b> motorista.
+    ///
+    /// ── ⚠️ Y por qué el folio nuevo no recicla el anterior ──────────────────
+    /// `RN-04`: el folio no se recicla. Dos papeles distintos con el mismo folio son
+    /// indistinguibles para quien los compara, y el anulado seguiría verificando como el vivo.
+    /// </summary>
+    public async Task<Ulid> ReemitirAsync(
+        Ulid id,
+        string motivo,
+        IdPersona quien,
+        DateTimeOffset momento,
+        CancellationToken cancelacion = default)
+    {
+        var anterior = await contexto.Permisos.SingleOrDefaultAsync(p => p.Id == id, cancelacion)
+            ?? throw new PermisoNoEncontrado(id);
+
+        if (ReglasDelPermiso.PorQueNoSeReemite(Convertir(anterior), motivo) is { } porQue)
+            throw new BloqueoDuro("RN-23", porQue);
+
+        var expediente = await contexto.Expedientes
+            .AsNoTracking()
+            .Include(e => e.Transiciones)
+            .SingleOrDefaultAsync(e => e.Id == anterior.ExpedienteId, cancelacion)
+            ?? throw new ExpedienteNoEncontrado(anterior.ExpedienteId);
+
+        var ventana = new VentanaDeMision(
+            expediente.Salida, expediente.Retorno, expediente.HolguraDias,
+            expediente.HoraDeSalida, expediente.HoraDeRetorno);
+
+        var calendario = parametros.CalendarioVigenteAl(ventana.Salida);
+        var tramos = Tramos(calendario, ventana);
+
+        var nuevo = Ulid.NewUlid();
+
+        // ── 1 · El papel anterior deja de valer, con quién y por qué ────────
+        var papel = await contexto.Salvoconductos
+            .SingleOrDefaultAsync(sc => sc.PermisoId == id, cancelacion);
+
+        if (papel is not null)
+        {
+            papel.Anulado = true;
+            papel.MotivoDeLaAnulacion = motivo.Trim();
+            papel.AnuladoPor = quien.Valor;
+            papel.AnuladoEnUtc = momento.UtcDateTime;
+        }
+
+        // ── 2 · El permiso anterior deja de contar para BD-04 ───────────────
+        anterior.Estado = EstadoDelPermiso.Desistido.ToString();
+        anterior.MotivoDelDesistimiento = $"Reemitido: {motivo.Trim()}";
+
+        // ── 3 · El nuevo nace SIN FIRMA ─────────────────────────────────────
+        contexto.Permisos.Add(new FilaDePermisoDeCirculacion
+        {
+            Id = nuevo,
+            Folio = $"PC-PROV-{nuevo.ToString()[^8..]}",
+            ExpedienteId = anterior.ExpedienteId,
+
+            // La referencia cruzada de `RN-04`. Sin ella un auditor ve dos folios para una
+            // misma misión y nada dice cuál superó a cuál.
+            Reemplaza = anterior.Id,
+
+            Estado = EstadoDelPermiso.Solicitado.ToString(),
+
+            // ⚠️ Nulos **a propósito**. No se copian del anterior: se resuelven al firmar
+            // contra la reserva de HOY, que es justamente lo que cambió.
+            Vehiculo = null,
+            Motorista = null,
+            EmitidoPor = null,
+            FirmadoEnUtc = null,
+
+            // El destino y la ventana salen del EXPEDIENTE, no del permiso anterior: si lo que
+            // cambió fue la ventana, copiarla del anterior reproduciría el problema.
+            Destino = expediente.Destino,
+            Desde = ventana.Salida,
+            Hasta = ventana.FinDelRango,
+
+            Solicita = quien.Valor,
+            SolicitadoEnUtc = momento.UtcDateTime,
+            Justificacion = anterior.Justificacion,
+
+            // Se recalculan contra el calendario vigente a la fecha del hecho: si lo que cambió
+            // fue la ventana, los tramos inhábiles que hay que cubrir son otros.
+            TramosInhabiles = string.Join(" · ", tramos),
+        });
+
+        await contexto.SaveChangesAsync(cancelacion);
+        return nuevo;
+    }
+
     /// <summary>Todos los trámites de un expediente, en cualquier estado.</summary>
     public async Task<IReadOnlyList<PermisoEnTramite>> DelExpedienteAsync(
         Ulid expediente, CancellationToken cancelacion = default)
@@ -229,6 +332,75 @@ public sealed class ServicioDePermisos(
             .ToListAsync(cancelacion);
 
         return [.. filas.Select(Convertir)];
+    }
+
+    /// <summary>
+    /// Los trámites de un expediente <b>con el diagnóstico de si todavía cubren</b> — `PT-024`.
+    ///
+    /// ── Por qué el diagnóstico va acá y no al despachar ─────────────────────
+    /// `BD-04` ya bloquea el despacho con un permiso que dejó de cubrir, y llega tarde: el
+    /// sábado por la mañana, con el vehículo cargado y la máxima autoridad sin trabajar. Esta
+    /// consulta contesta la misma pregunta <b>el jueves</b>, en la pantalla donde el Jefe de
+    /// Transporte ya está mirando el expediente.
+    ///
+    /// Y contesta <b>qué</b> cambió, no sólo que cambió: cada elemento tiene su propio arreglo.
+    /// </summary>
+    public async Task<IReadOnlyList<PermisoDiagnosticado>> DiagnosticoDelExpedienteAsync(
+        Ulid expediente, CancellationToken cancelacion = default)
+    {
+        var filas = await contexto.Permisos
+            .AsNoTracking()
+            .Where(p => p.ExpedienteId == expediente)
+            .ToListAsync(cancelacion);
+
+        if (filas.Count == 0) return [];
+
+        var mision = await contexto.Expedientes
+            .AsNoTracking()
+            .Include(e => e.Transiciones)
+            .SingleOrDefaultAsync(e => e.Id == expediente, cancelacion)
+            ?? throw new ExpedienteNoEncontrado(expediente);
+
+        var reserva = Reserva(mision);
+        var ultima = mision.Transiciones.MaxBy(t => t.Orden);
+
+        // ⚠️ La excepción deliberada de `HU-018`: **un relevo documentado en ruta no invalida
+        // el permiso de la misión ya iniciada**. El vehículo está en la carretera; declarar el
+        // papel inválido no lo devuelve, y sí dejaría al motorista relevado sin nada.
+        var enRuta = ultima?.Destino is EstadoDeMision.EnRuta or EstadoDeMision.Despachada;
+
+        var ventana = new VentanaDeMision(
+            mision.Salida, mision.Retorno, mision.HolguraDias,
+            mision.HoraDeSalida, mision.HoraDeRetorno);
+
+        var resultado = new List<PermisoDiagnosticado>();
+
+        foreach (var f in filas.OrderBy(f => f.SolicitadoEnUtc))
+        {
+            var permiso = Convertir(f);
+
+            var porQue = ReglasDelPermiso.PorQueYaNoCubre(
+                permiso,
+                reserva.Vehiculo, reserva.Motorista,
+                mision.Destino, ventana.Salida, ventana.FinDelRango,
+                await NombreDeVehiculoAsync(permiso.Vehiculo, cancelacion) ?? "(sin asignar)",
+                await NombreDeVehiculoAsync(reserva.Vehiculo, cancelacion) ?? "(sin asignar)",
+                enRuta);
+
+            resultado.Add(new PermisoDiagnosticado(
+                permiso,
+                await NombreDeVehiculoAsync(permiso.Vehiculo, cancelacion),
+                await NombreDeMotoristaAsync(permiso.Motorista, cancelacion),
+                porQue?.Detalle,
+                porQue?.ExigeReemision ?? false,
+
+                // **Ampara** es la conjunción de las dos cosas: firmado Y todavía cubre. Que
+                // estén separadas en el contrato deja que la pantalla explique cuál de las dos
+                // falta, que es lo accionable.
+                Ampara: permiso.Estado == EstadoDelPermiso.Firmado && porQue is null));
+        }
+
+        return resultado;
     }
 
     /// <summary>
@@ -302,7 +474,8 @@ public sealed class ServicioDePermisos(
         f.Justificacion,
         f.TramosInhabiles.Length == 0 ? [] : [.. f.TramosInhabiles.Split(" · ")],
         new IdPersona(f.Solicita),
-        f.EmitidoPor is null ? null : new IdPersona(f.EmitidoPor));
+        f.EmitidoPor is null ? null : new IdPersona(f.EmitidoPor))
+    { Reemplaza = f.Reemplaza };
 
     /// <summary>
     /// Los estados en los que la reserva <b>cuenta</b>.
@@ -422,3 +595,25 @@ public sealed record PermisoParaFirmar(
 
 public sealed class PermisoNoEncontrado(Ulid id)
     : Exception($"No existe el permiso {id}.");
+
+/// <param name="PorQueYaNoCubre">
+/// Nulo es que sigue cubriendo —o que nunca llegó a cubrir, porque no está firmado—. No nulo es
+/// <b>qué elemento cambió</b>, en palabras que dicen qué hacer con él.
+/// </param>
+/// <param name="ExigeReemision">
+/// ⚠️ <b>No todo lo que deja de cubrir hay que reemitirlo.</b> Falso significa <b>espere</b>
+/// —la misión se desprogramó y puede volver a amparar sola—; verdadero significa <b>actúe</b>.
+/// Ofrecer reemitir cuando no hace falta quema un folio y pide una firma para nada.
+/// </param>
+/// <param name="Ampara">
+/// Firmado <b>y</b> todavía cubre. Las dos condiciones van separadas en el contrato para que la
+/// pantalla pueda decir cuál de las dos falta: esperar una firma y reemitir un permiso son dos
+/// acciones distintas de dos personas distintas.
+/// </param>
+public sealed record PermisoDiagnosticado(
+    PermisoEnTramite Permiso,
+    string? Vehiculo,
+    string? Motorista,
+    string? PorQueYaNoCubre,
+    bool ExigeReemision,
+    bool Ampara);

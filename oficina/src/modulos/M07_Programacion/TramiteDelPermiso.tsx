@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FileText, Info, ShieldCheck, Stamp } from 'lucide-react';
+import { FileText, Info, RefreshCcw, ShieldCheck, Stamp, TriangleAlert } from 'lucide-react';
 
 import { Boton, Campo, Nota, Panel, Pastilla, avisar } from '../../ui';
 import { BloqueoDuro, pedir } from '../../api/misiones';
@@ -38,10 +38,35 @@ export default function TramiteDelPermiso({
   const cliente = useQueryClient();
   const ir = useNavigate();
   const [justificacion, setJustificacion] = useState('');
+  const [reemitiendo, setReemitiendo] = useState<string | null>(null);
+  const [cambio, setCambio] = useState('');
 
   const { data, isPending, isError } = useQuery({
     queryKey: ['permisos', mision],
     queryFn: () => pedir<Permiso[]>(`/misiones/${mision}/permisos`),
+  });
+
+  const reemitir = useMutation({
+    mutationFn: (permiso: string) =>
+      pedir<{ id: string; mensaje: string }>(`/permisos/${permiso}/reemitir`, {
+        method: 'POST',
+        body: JSON.stringify({
+          ejecuta: quienEjecuta,
+          motivo: cambio,
+          momento: new Date().toISOString(),
+        }),
+      }),
+    onSuccess: async (r) => {
+      // Se dice explícito porque la gente lo supone al revés: un permiso reemitido **parece**
+      // una corrección del anterior, y es un acto nuevo que necesita firma nueva.
+      avisar.exito(r.mensaje);
+      setReemitiendo(null);
+      setCambio('');
+      await cliente.invalidateQueries({ queryKey: ['permisos', mision] });
+      await cliente.invalidateQueries({ queryKey: ['salvoconducto', mision] });
+    },
+    onError: (e) =>
+      avisar.error(e instanceof BloqueoDuro ? e.paraMostrar : 'No se pudo reemitir el permiso.'),
   });
 
   const emitir = useMutation({
@@ -97,6 +122,14 @@ export default function TramiteDelPermiso({
   const vivos = data.filter((p) => p.estado !== 'Desistido');
   const ampara = vivos.some((p) => p.ampara);
 
+  // ⚠️ Firmado y "ampara" **no son lo mismo**: un permiso firmado deja de cubrir cuando cambia
+  // el vehículo, el motorista, el destino o la ventana. Ésa es la diferencia que `PT-024`
+  // existe para hacer visible antes del sábado por la mañana.
+  // ⚠️ Sólo los que **exigen** reemisión. Una misión desprogramada no ampara nada en este
+  // momento y puede volver a amparar sola: ofrecer «reemitir» ahí quemaría un folio —que no se
+  // recicla— y pediría otra firma de la máxima autoridad para nada.
+  const caducos = vivos.filter((p) => p.exigeReemision);
+
   return (
     <Panel titulo="Permiso de circulación en día u hora inhábil">
       <div className="tw:flex tw:flex-col tw:gap-4">
@@ -117,12 +150,37 @@ export default function TramiteDelPermiso({
                 <div className="tw:flex tw:flex-wrap tw:items-baseline tw:gap-x-3 tw:text-sm">
                   <span className="tw:font-mono">{p.folio}</span>
 
-                  {/* **Solicitado NO ampara.** Si se leyera como «hay permiso», alguien
-                      creería que la misión puede salir y se enteraría el sábado. */}
-                  <Pastilla tono={p.ampara ? 'ok' : 'aviso'}>
-                    {p.ampara ? 'firmado, ampara' : 'esperando firma, no ampara'}
+                  {/* Tres estados y no dos. **Solicitado no ampara** —si se leyera como «hay
+                      permiso», alguien creería que la misión puede salir—, y **firmado
+                      tampoco basta**: deja de cubrir cuando cambia lo que ampara. */}
+                  <Pastilla
+                    tono={p.ampara ? 'ok' : p.porQueYaNoCubre !== null ? 'riesgo' : 'aviso'}
+                  >
+                    {p.ampara
+                      ? 'firmado, ampara'
+                      : p.porQueYaNoCubre !== null
+                        ? 'firmado, YA NO CUBRE'
+                        : 'esperando firma, no ampara'}
                   </Pastilla>
+
+                  {p.reemplaza !== null && (
+                    <span className="tw:text-xs tw:text-tinta-mid">reemite a uno anterior</span>
+                  )}
                 </div>
+
+                {/* ── El diagnóstico, que dice QUÉ cambió ──────────────────── */}
+                {p.porQueYaNoCubre !== null && (
+                  <Nota tono="riesgo" icono={<TriangleAlert />}>
+                    {p.porQueYaNoCubre}
+                  </Nota>
+                )}
+
+                {p.vehiculo !== null && (
+                  <span className="tw:text-xs tw:text-tinta-mid">
+                    Ampara: {p.vehiculo}
+                    {p.motorista !== null && ` · ${p.motorista}`}
+                  </span>
+                )}
 
                 <span className="tw:text-sm tw:text-tinta-mid">{p.justificacion}</span>
 
@@ -135,6 +193,55 @@ export default function TramiteDelPermiso({
             ))}
           </ul>
         )}
+
+        {/* ── Reemitir: el permiso firmado que dejó de cubrir ───────────────── */}
+        {caducos.map((p) => (
+          <div key={`re-${p.id}`} className="tw:flex tw:flex-col tw:gap-3">
+            {reemitiendo === p.id ? (
+              <>
+                <Campo
+                  etiqueta="Qué cambió"
+                  obligatorio
+                  ayuda="Queda en el asiento de anulación del salvoconducto anterior. Sin esto nadie puede reconstruir por qué hay dos folios."
+                >
+                  <input
+                    value={cambio}
+                    onChange={(e) => setCambio(e.target.value)}
+                    placeholder="Sustitución de vehículo INS-P-014 por INS-P-021"
+                  />
+                </Campo>
+
+                <div className="tw:flex tw:flex-wrap tw:items-center tw:gap-3">
+                  <Boton
+                    onClick={() => reemitir.mutate(p.id)}
+                    cargando={reemitir.isPending}
+                    disabled={cambio.trim() === ''}
+                    icono={<RefreshCcw />}
+                  >
+                    Reemitir
+                  </Boton>
+
+                  <Boton variante="fantasma" onClick={() => setReemitiendo(null)}>
+                    Cancelar
+                  </Boton>
+                </div>
+
+                <Nota tono="aviso">
+                  Al reemitir, el <b>salvoconducto anterior queda anulado</b> —el punto de
+                  verificación lo dirá de inmediato— y el permiso nuevo <b>nace sin firma</b>.
+                  La firma de la máxima autoridad no se arrastra: lo que firmó fue otro
+                  vehículo con otro motorista.
+                </Nota>
+              </>
+            ) : (
+              <div>
+                <Boton onClick={() => setReemitiendo(p.id)} icono={<RefreshCcw />}>
+                  Reemitir el permiso {p.folio}
+                </Boton>
+              </div>
+            )}
+          </div>
+        ))}
 
         {ampara ? (
           <>
@@ -218,7 +325,16 @@ interface Permiso {
   solicita: string;
   /** **Nulo es sin firmar, y sin firmar no ampara.** */
   firmadoPor: string | null;
-  /** Lo que `BD-04` mira. Sólo los firmados. */
+  /** Lo que el permiso ampara, congelado al firmar. Un relevo posterior no lo cambia. */
+  vehiculo: string | null;
+  motorista: string | null;
+  /** La referencia cruzada de `RN-04`. Nulo en el primero. */
+  reemplaza: string | null;
+  /** **Qué elemento cambió**, no sólo que cambió. Nulo es que sigue cubriendo. */
+  porQueYaNoCubre: string | null;
+  /** Falso es **espere**; verdadero es **actúe**. No todo lo que deja de cubrir se reemite. */
+  exigeReemision: boolean;
+  /** Firmado **y** todavía cubre. Las dos condiciones, y por eso van separadas. */
   ampara: boolean;
 }
 

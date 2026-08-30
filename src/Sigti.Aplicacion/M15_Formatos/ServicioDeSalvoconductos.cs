@@ -174,10 +174,24 @@ public sealed class ServicioDeSalvoconductos(
     public async Task<SalvoconductoImpreso?> DelExpedienteAsync(
         Ulid expediente, CancellationToken cancelacion = default)
     {
-        var fila = await contexto.Salvoconductos
+        // ⚠️ **Una misión puede tener varios salvoconductos a lo largo del tiempo**, y no es
+        // un defecto: cada reemisión anula el anterior y emite uno nuevo (`HU-018`). La
+        // unicidad es por PERMISO, no por misión.
+        //
+        // Esto era `Single` y reventaba con 500 la primera vez que se reemitió — la consulta
+        // suponía que la misión tenía a lo sumo un papel, que es cierto sólo hasta que algo
+        // cambia.
+        var filas = await contexto.Salvoconductos
             .AsNoTracking()
             .Include(s => s.Impresiones)
-            .SingleOrDefaultAsync(s => s.ExpedienteId == expediente, cancelacion);
+            .Where(s => s.ExpedienteId == expediente)
+            .ToListAsync(cancelacion);
+
+        // El vigente es el que se imprime y el que la pantalla ofrece. Si todos están anulados
+        // se devuelve el último: la pantalla tiene que poder decir qué pasó, y "no hay
+        // documento" sería falso.
+        var fila = filas.FirstOrDefault(f => !f.Anulado)
+            ?? filas.MaxBy(f => f.EmitidoEnUtc);
 
         return fila is null ? null : await ArmarAsync(fila, cancelacion);
     }

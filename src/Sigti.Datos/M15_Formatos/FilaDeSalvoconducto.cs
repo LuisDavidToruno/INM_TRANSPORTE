@@ -84,6 +84,25 @@ public sealed class FilaDeSalvoconducto
     public bool Anulado { get; set; }
 
     /// <summary>
+    /// Por qué se anuló, quién y cuándo — `RN-04`: la anulación es un <b>asiento reverso con
+    /// motivo y autor</b>, no una bandera.
+    ///
+    /// ⚠️ Una casilla `Anulado = true` sin estas tres cosas es peor que no tener nada: el
+    /// documento sigue impreso y en la mano de alguien, y ante un operativo nadie puede decir
+    /// quién decidió que dejara de valer ni contra qué se cambió.
+    ///
+    /// El motivo nombra <b>el elemento que cambió</b>: «Sustitución de vehículo INS-P-014 por
+    /// INS-P-021» y no «reemitido».
+    /// </summary>
+    public string? MotivoDeLaAnulacion { get; set; }
+
+    /// <inheritdoc cref="MotivoDeLaAnulacion"/>
+    public string? AnuladoPor { get; set; }
+
+    /// <inheritdoc cref="MotivoDeLaAnulacion"/>
+    public DateTime? AnuladoEnUtc { get; set; }
+
+    /// <summary>
     /// Cada vez que el papel salió de la impresora.
     ///
     /// La primera es la emisión y no lleva motivo; las siguientes sí — `HU-017` exige registrar

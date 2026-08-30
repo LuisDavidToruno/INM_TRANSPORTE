@@ -797,6 +797,115 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
             despues.GetProperty("contenido").GetProperty("motorista").GetString());
     }
 
+    /// <summary>
+    /// `HU-018` y `PT-024` — <b>reemitir cuando cambió lo que el permiso ampara</b>.
+    ///
+    /// ── Las tres cosas que tienen que pasar juntas ──────────────────────────
+    /// <b>1 · El salvoconducto anterior queda anulado</b>, con motivo y autor. El papel sigue
+    /// impreso y en la mano de alguien: el punto de verificación tiene que decir que no vale
+    /// <b>de inmediato</b>, o un documento anulado pasa un control.
+    ///
+    /// <b>2 · El permiso anterior deja de contar</b> para `BD-04`.
+    ///
+    /// <b>3 · El nuevo nace sin firma.</b> Es lo que más fácil se rompe: un permiso reemitido
+    /// <i>parece</i> una corrección del anterior, y es un acto nuevo. Lo que la máxima autoridad
+    /// firmó fue <b>otro</b> vehículo con <b>otro</b> motorista.
+    /// </summary>
+    [Fact]
+    public async Task Reemitir_anula_el_salvoconducto_anterior_y_el_permiso_nuevo_nace_sin_firma()
+    {
+        var r = await Sembrar("REEM-0001");
+        var id = Ulid.NewUlid().ToString();
+
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        await CrearYAprobarEnFinDeSemana(cliente, id);
+        await Programar(cliente, id, r);
+
+        var apertura = await cliente.PostAsJsonAsync($"/misiones/{id}/permiso", new
+        {
+            Justificacion = "Operativo migratorio de fin de semana.",
+            Solicita = "P-TRANSPORTE",
+            Momento,
+        });
+
+        var permiso = (await apertura.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("id").GetString()!;
+
+        await cliente.PostAsJsonAsync($"/permisos/{permiso}/firmar", new
+        {
+            Ejecuta = "P-MAXIMA",
+            Momento,
+        });
+
+        await cliente.PostAsJsonAsync($"/permisos/{permiso}/salvoconducto", new
+        {
+            Ejecuta = "P-TRANSPORTE",
+            Momento,
+        });
+
+        var papel = await cliente.GetFromJsonAsync<JsonElement>($"/misiones/{id}/salvoconducto");
+        var folioAnulado = papel.GetProperty("folio").GetString()!;
+        var codigo = papel.GetProperty("codigoCorto").GetString()!;
+
+        // ── Reemitir ─────────────────────────────────────────────────────────
+        var reemision = await cliente.PostAsJsonAsync($"/permisos/{permiso}/reemitir", new
+        {
+            Ejecuta = "P-TRANSPORTE",
+            Motivo = "Sustitución de vehículo por entrada a taller.",
+            Momento,
+        });
+
+        Assert.Equal(System.Net.HttpStatusCode.Created, reemision.StatusCode);
+
+        var nuevo = (await reemision.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("id").GetString()!;
+
+        // ── 1 · El papel anterior deja de valer, y el QR lo dice ─────────────
+        var verificado = await cliente.GetFromJsonAsync<JsonElement>(
+            $"/salvoconductos/verificar/{Uri.EscapeDataString(codigo)}");
+
+        Assert.Equal("Anulado", verificado.GetProperty("estado").GetString());
+        Assert.Contains("No ampara ninguna circulación", verificado.GetProperty("veredicto").GetString());
+
+        // ── 2 y 3 · El anterior desistido, el nuevo sin firma ───────────────
+        var permisos = await cliente.GetFromJsonAsync<JsonElement>($"/misiones/{id}/permisos");
+        var lista = permisos.EnumerateArray().ToList();
+
+        var viejo = lista.Single(x => x.GetProperty("id").GetString() == permiso);
+        Assert.Equal("Desistido", viejo.GetProperty("estado").GetString());
+
+        var recien = lista.Single(x => x.GetProperty("id").GetString() == nuevo);
+        Assert.Equal("Solicitado", recien.GetProperty("estado").GetString());
+
+        // **La firma NO se hereda.** Es lo que este bloque existe para garantizar.
+        Assert.Null(recien.GetProperty("firmadoPor").GetString());
+        Assert.False(recien.GetProperty("ampara").GetBoolean());
+
+        // Y la referencia cruzada de `RN-04`: sin ella un auditor ve dos folios y nada dice
+        // cuál superó a cuál.
+        Assert.Equal(permiso, recien.GetProperty("reemplaza").GetString());
+
+        // ── El folio no se recicla ──────────────────────────────────────────
+        await cliente.PostAsJsonAsync($"/permisos/{nuevo}/firmar", new
+        {
+            Ejecuta = "P-MAXIMA",
+            Momento,
+        });
+
+        await cliente.PostAsJsonAsync($"/permisos/{nuevo}/salvoconducto", new
+        {
+            Ejecuta = "P-TRANSPORTE",
+            Momento,
+        });
+
+        var papelNuevo = await cliente.GetFromJsonAsync<JsonElement>(
+            $"/misiones/{id}/salvoconducto");
+
+        Assert.NotEqual(folioAnulado, papelNuevo.GetProperty("folio").GetString());
+    }
+
     /// <summary>Del viernes 20 al domingo 22 de marzo de 2026 — cruza el fin de semana.</summary>
     private static async Task CrearYAprobarEnFinDeSemana(HttpClient cliente, string id)
     {

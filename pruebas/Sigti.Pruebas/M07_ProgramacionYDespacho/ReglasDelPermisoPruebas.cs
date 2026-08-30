@@ -244,6 +244,205 @@ public class ReglasDelPermisoPruebas
         Assert.Contains("ya está firmado", motivo);
     }
 
+    // ── ¿Todavía cubre? — `HU-018`, `PT-024` ────────────────────────────────
+
+    [Fact]
+    public void Un_permiso_firmado_sobre_lo_mismo_sigue_cubriendo()
+    {
+        Assert.Null(YaNoCubre(Firmado(), Vehiculo, Motorista, "Choluteca", Salida, Retorno));
+    }
+
+    /// <summary>
+    /// El vehículo entra a taller la víspera y se sustituye. <b>El mensaje nombra los dos
+    /// vehículos</b>: sin eso, quien lo lee tiene que ir a comparar cuál es cuál.
+    /// </summary>
+    [Fact]
+    public void Sustituir_el_vehiculo_deja_de_cubrir_y_lo_dice_nombrando_ambos()
+    {
+        var otro = Ulid.NewUlid();
+
+        var porQue = ReglasDelPermiso.PorQueYaNoCubre(
+            Firmado(), otro, Motorista, "Choluteca", Salida, Retorno,
+            nombreDeLoAmparado: "INS-P-014", nombreDeLoDeHoy: "INS-P-021", enRuta: false);
+
+        Assert.NotNull(porQue);
+        Assert.Contains("INS-P-014", porQue.Detalle);
+        Assert.Contains("INS-P-021", porQue.Detalle);
+        Assert.Contains("RN-23", porQue.Detalle);
+    }
+
+    /// <summary>
+    /// <b>La firma anterior no se arrastra.</b> Lo que la máxima autoridad firmó fue otro
+    /// motorista, y el salvoconducto lo lee un agente que compara el nombre del papel con quien
+    /// va al volante.
+    /// </summary>
+    [Fact]
+    public void Relevar_al_motorista_antes_de_salir_deja_de_cubrir()
+    {
+        var porQue = YaNoCubre(Firmado(), Vehiculo, Ulid.NewUlid(), "Choluteca", Salida, Retorno);
+
+        Assert.NotNull(porQue);
+        Assert.Contains("nominativo sobre el motorista", porQue.Detalle);
+        Assert.Contains("La firma anterior no se arrastra", porQue.Detalle);
+    }
+
+    [Fact]
+    public void Cambiar_el_destino_deja_de_cubrir()
+    {
+        var porQue = YaNoCubre(Firmado(), Vehiculo, Motorista, "Danlí", Salida, Retorno);
+
+        Assert.NotNull(porQue);
+        Assert.Contains("Choluteca", porQue.Detalle);
+        Assert.Contains("Danlí", porQue.Detalle);
+    }
+
+    /// <summary>La vigencia <b>no se traslada</b>: es lo que el fiscalizador compara primero.</summary>
+    [Fact]
+    public void Correr_la_ventana_deja_de_cubrir()
+    {
+        var porQue = YaNoCubre(
+            Firmado(), Vehiculo, Motorista, "Choluteca",
+            Salida.AddDays(7), Retorno.AddDays(7));
+
+        Assert.NotNull(porQue);
+        Assert.Contains("la vigencia no se traslada", porQue.Detalle);
+    }
+
+    /// <summary>
+    /// Una ventana que <b>se acorta</b> sigue cubierta: el permiso contiene el rango entero. Si
+    /// esto diera «ya no cubre», adelantar un retorno obligaría a reemitir un papel que ampara
+    /// de sobra.
+    /// </summary>
+    [Fact]
+    public void Acortar_la_ventana_dentro_del_permiso_sigue_cubierto()
+    {
+        Assert.Null(YaNoCubre(
+            Firmado(), Vehiculo, Motorista, "Choluteca", Salida, Retorno.AddDays(-1)));
+    }
+
+    /// <summary>
+    /// ⚠️ <b>La excepción deliberada de `HU-018`.</b>
+    ///
+    /// Un relevo documentado en ruta <b>no invalida</b> el permiso de la misión ya iniciada. El
+    /// vehículo está en la carretera: declarar el papel inválido no lo devuelve, y sí dejaría al
+    /// motorista relevado circulando sin nada. Lo que sí exige permiso reemitido es la
+    /// circulación en franja inhábil <b>posterior</b> al traspaso, que es de `M-08`.
+    /// </summary>
+    [Fact]
+    public void Un_relevo_en_ruta_no_invalida_el_permiso_de_la_mision_ya_iniciada()
+    {
+        var porQue = ReglasDelPermiso.PorQueYaNoCubre(
+            Firmado(), Vehiculo, Ulid.NewUlid(), "Choluteca", Salida, Retorno,
+            "INS-P-014", "INS-P-014", enRuta: true);
+
+        Assert.Null(porQue);
+    }
+
+    /// <summary>
+    /// Un trámite sin firmar <b>no puede dejar de cubrir</b>: nunca cubrió nada. Reportarlo
+    /// como caduco mandaría a reemitir algo que sólo hay que firmar.
+    /// </summary>
+    [Fact]
+    public void Un_tramite_sin_firmar_no_reporta_que_dejo_de_cubrir()
+    {
+        Assert.Null(YaNoCubre(EnTramite(), Ulid.NewUlid(), Ulid.NewUlid(), "Danlí", Salida, Retorno));
+    }
+
+    /// <summary>
+    /// ⚠️ Una misión desprogramada <b>no ordena reemitir</b>, y la diferencia es cara.
+    ///
+    /// Si se reprograma con el mismo vehículo y el mismo motorista, el permiso sigue amparando.
+    /// Reemitirlo quemaría un folio —que no se recicla— y exigiría otra firma de la máxima
+    /// autoridad para nada. El mensaje tiene que decir <b>de qué depende</b>, no dar una orden
+    /// que puede ser innecesaria.
+    /// </summary>
+    [Fact]
+    public void Sin_vehiculo_asignado_se_dice_de_que_depende_y_no_se_ordena_reemitir()
+    {
+        var porQue = YaNoCubre(Firmado(), null, null, "Choluteca", Salida, Retorno);
+
+        Assert.NotNull(porQue);
+        Assert.Contains("el permiso vuelve a amparar", porQue.Detalle);
+        Assert.Contains("si cambia alguno de los dos, reemítalo", porQue.Detalle);
+
+        // ⚠️ **Y no exige reemisión.** Es la mitad que la pantalla usa para decidir si ofrece
+        // el botón: sin esto, cada reprogramación ofrecería reemitir, quemando un folio —que
+        // no se recicla— y pidiendo otra firma de la máxima autoridad para nada.
+        Assert.False(porQue.ExigeReemision);
+    }
+
+    /// <summary>
+    /// Lo contrario: un elemento que <b>de verdad cambió</b> sí exige reemisión. Falso significa
+    /// espere; verdadero significa actúe, y confundirlos deja al motorista saliendo con un papel
+    /// que no lo ampara.
+    /// </summary>
+    [Theory]
+    [InlineData("vehículo")]
+    [InlineData("motorista")]
+    [InlineData("destino")]
+    [InlineData("ventana")]
+    public void Un_elemento_que_cambio_de_verdad_exige_reemision(string elemento)
+    {
+        var porQue = elemento switch
+        {
+            "vehículo" => YaNoCubre(Firmado(), Ulid.NewUlid(), Motorista, "Choluteca", Salida, Retorno),
+            "motorista" => YaNoCubre(Firmado(), Vehiculo, Ulid.NewUlid(), "Choluteca", Salida, Retorno),
+            "destino" => YaNoCubre(Firmado(), Vehiculo, Motorista, "Danlí", Salida, Retorno),
+            _ => YaNoCubre(
+                Firmado(), Vehiculo, Motorista, "Choluteca",
+                Salida.AddDays(7), Retorno.AddDays(7)),
+        };
+
+        Assert.NotNull(porQue);
+        Assert.True(porQue.ExigeReemision);
+    }
+
+    // ── Reemitir ────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Un_permiso_firmado_con_motivo_se_reemite()
+    {
+        Assert.Null(ReglasDelPermiso.PorQueNoSeReemite(
+            Firmado(), "Sustitución de vehículo INS-P-014 por INS-P-021."));
+    }
+
+    [Fact]
+    public void No_se_reemite_sin_decir_que_cambio()
+    {
+        var porQue = ReglasDelPermiso.PorQueNoSeReemite(Firmado(), "  ");
+
+        Assert.NotNull(porQue);
+        Assert.Contains("por qué hay dos folios", porQue);
+    }
+
+    /// <summary>
+    /// Lo que no llegó a amparar nada <b>no se reemplaza, se retira</b>. Reemitir un trámite sin
+    /// firmar dejaría dos peticiones vivas para la misma circulación.
+    /// </summary>
+    [Fact]
+    public void Un_tramite_sin_firmar_no_se_reemite_se_desiste()
+    {
+        var porQue = ReglasDelPermiso.PorQueNoSeReemite(EnTramite(), "Cambió el vehículo.");
+
+        Assert.NotNull(porQue);
+        Assert.Contains("se retira", porQue);
+    }
+
+    private static PermisoEnTramite Firmado() => EnTramite() with
+    {
+        Estado = EstadoDelPermiso.Firmado,
+        Vehiculo = Vehiculo,
+        Motorista = Motorista,
+        FirmadoPor = Doris,
+    };
+
+    private static NoCubre? YaNoCubre(
+        PermisoEnTramite permiso, Ulid? vehiculo, Ulid? motorista,
+        string destino, DateOnly desde, DateOnly hasta) =>
+        ReglasDelPermiso.PorQueYaNoCubre(
+            permiso, vehiculo, motorista, destino, desde, hasta,
+            "INS-P-014", "INS-P-021", enRuta: false);
+
     // ── Andamios ────────────────────────────────────────────────────────────
 
     private static AperturaDelPermiso Apertura() => new(

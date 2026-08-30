@@ -22,6 +22,17 @@ public sealed class FilaDePermisoDeCirculacion
     public required Ulid ExpedienteId { get; init; }
 
     /// <summary>
+    /// Qué permiso viene a reemplazar. <b>Nulo en el primero</b>, que es el caso normal.
+    ///
+    /// ── Por qué la referencia va en los dos sentidos ────────────────────────
+    /// Sin ella hay dos permisos sueltos para una misma misión y nada dice cuál superó a cuál:
+    /// un auditor ve dos folios, dos firmas y dos salvoconductos, y tiene que reconstruir el
+    /// orden por las fechas. `RN-04` pide <b>referencia cruzada</b> — el anulado dice por qué
+    /// se anuló y el nuevo dice a quién reemplaza.
+    /// </summary>
+    public Ulid? Reemplaza { get; init; }
+
+    /// <summary>
     /// El folio del salvoconducto.
     ///
     /// ⚠️ <b>Provisional</b>, como el de la Orden de Misión: los rangos por delegación son de

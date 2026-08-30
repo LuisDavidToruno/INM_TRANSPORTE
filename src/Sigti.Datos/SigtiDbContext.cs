@@ -1737,6 +1737,10 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             permiso.Property(p => p.Folio).HasMaxLength(32).IsRequired();
             permiso.Property(p => p.Estado).HasMaxLength(16).IsRequired();
 
+            // Nulo en el primero. La referencia cruzada de RN-04: sin ella un auditor ve dos
+            // folios para una misma mision y nada dice cual supero a cual.
+            permiso.Property(p => p.Reemplaza).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+
             // Nulo mientras no se firme, **y esa es la razon de que no ampare**.
             permiso.Property(p => p.EmitidoPor).HasMaxLength(64);
 
@@ -1779,6 +1783,10 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             salvo.Property(x => x.Justificacion).HasMaxLength(600).IsRequired();
             salvo.Property(x => x.FirmadoPor).HasMaxLength(64).IsRequired();
             salvo.Property(x => x.EmitidoPor).HasMaxLength(64).IsRequired();
+
+            // RN-04: la anulacion es asiento reverso con motivo y autor, no una bandera.
+            salvo.Property(x => x.MotivoDeLaAnulacion).HasMaxLength(300);
+            salvo.Property(x => x.AnuladoPor).HasMaxLength(64);
 
             // **Un folio por permiso.** RN-04: dos folios para una misma circulacion rompen la
             // conciliacion, y la unicidad es la ultima red si el bloqueo de aplicacion fallara.

@@ -217,6 +217,10 @@ export const CONSTRUIDAS: Readonly<Record<string, Construida>> = {
   // Cuelga del expediente, junto al señalamiento de tramos: es ahi donde el problema se
   // ve, y mandarlo a otra pantalla es como el tramite se posterga hasta el viernes.
   'PT-020': { ruta: '/autorizacion/:id', archivo: 'M07_Programacion/TramiteDelPermiso.tsx' },
+
+  // Cuelga del mismo panel que PT-020: el diagnostico de «ya no cubre» y el boton de
+  // reemitir van donde se ve el permiso, no en otra pantalla.
+  'PT-024': { ruta: '/autorizacion/:id', archivo: 'M07_Programacion/TramiteDelPermiso.tsx' },
   'PT-021': { ruta: '/permisos/firmar', archivo: 'M07_Programacion/FirmaDePermisos.tsx' },
 
   // ── M-15 Formatos oficiales ──────────────────────────────────────────────

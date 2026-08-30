@@ -2167,24 +2167,71 @@ misiones.MapGet("/{id}/permisos", async (string id, ServicioDePermisos servicio)
 {
     if (!Identificador.Valido(id, out var ulid, out var error)) return error;
 
-    var filas = await servicio.DelExpedienteAsync(ulid);
+    var filas = await servicio.DiagnosticoDelExpedienteAsync(ulid);
 
-    return Results.Ok(filas.Select(f => new
+    return Results.Ok(filas.Select(d => new
     {
-        id = f.Id.ToString(),
-        folio = f.Folio,
-        estado = f.Estado.ToString(),
-        destino = f.Destino,
-        desde = f.Desde,
-        hasta = f.Hasta,
-        justificacion = f.Justificacion,
-        tramosInhabiles = f.TramosInhabiles,
-        solicita = f.Solicita.Valor,
+        id = d.Permiso.Id.ToString(),
+        folio = d.Permiso.Folio,
+        estado = d.Permiso.Estado.ToString(),
+        destino = d.Permiso.Destino,
+        desde = d.Permiso.Desde,
+        hasta = d.Permiso.Hasta,
+        justificacion = d.Permiso.Justificacion,
+        tramosInhabiles = d.Permiso.TramosInhabiles,
+        solicita = d.Permiso.Solicita.Valor,
 
         // **Nulo es sin firmar, y sin firmar NO AMPARA**: BD-04 solo mira los firmados.
-        firmadoPor = f.FirmadoPor?.Valor,
-        ampara = f.Estado == EstadoDelPermiso.Firmado,
+        firmadoPor = d.Permiso.FirmadoPor?.Valor,
+
+        // Lo que el permiso ampara, congelado al firmar. Un relevo posterior no lo cambia:
+        // lo deja de amparar, que es lo que RN-23 prescribe.
+        vehiculo = d.Vehiculo,
+        motorista = d.Motorista,
+
+        // La referencia cruzada de RN-04. Nulo en el primero.
+        reemplaza = d.Permiso.Reemplaza?.ToString(),
+
+        // ⚠️ **Qué elemento cambio**, no solo que cambio. Cada uno tiene su propio arreglo: una
+        // ventana corrida se reprograma, un vehiculo en taller se sustituye, un motorista
+        // incapacitado se releva. Nulo es que sigue cubriendo.
+        porQueYaNoCubre = d.PorQueYaNoCubre,
+
+        // ⚠️ **No todo lo que deja de cubrir hay que reemitirlo.** Falso es «espere» —la
+        // mision se desprogramo y puede volver a amparar sola—; verdadero es «actue».
+        exigeReemision = d.ExigeReemision,
+
+        // Firmado **y** todavia cubre. Van separadas para que la pantalla diga cual falta:
+        // esperar una firma y reemitir un permiso son dos acciones de dos personas distintas.
+        ampara = d.Ampara,
     }));
+});
+
+/// `PT-024` — reemitir cuando cambio lo que el permiso ampara (HU-018).
+///
+/// Tres cosas en un acto: **anula el salvoconducto anterior** con motivo y autor (RN-04),
+/// **desiste el permiso anterior** para que deje de contar en BD-04, y **abre un tramite nuevo
+/// SIN FIRMA** — la firma no se arrastra, porque lo que la maxima autoridad firmo fue otro
+/// vehiculo con otro motorista.
+permisosDeCirculacion.MapPost("/{id}/reemitir", async (
+    string id, RechazarMision peticion, ServicioDePermisos servicio) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    var nuevo = await servicio.ReemitirAsync(
+        ulid, peticion.Motivo, new IdPersona(peticion.Ejecuta), peticion.Momento);
+
+    return Results.Created($"/permisos/{nuevo}", new
+    {
+        id = nuevo.ToString(),
+        estado = "Solicitado",
+        reemplaza = id,
+
+        // Se dice explicito porque es lo que la gente supone al reves: un permiso reemitido
+        // parece una correccion del anterior, y es un acto nuevo que necesita firma nueva.
+        mensaje = "El permiso nuevo NO hereda la firma. Encaminelo a la maxima autoridad, y " +
+                  "emita el salvoconducto de nuevo: el anterior quedo anulado.",
+    });
 });
 
 

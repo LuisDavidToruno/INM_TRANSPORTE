@@ -414,6 +414,86 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## `PT-024` — el permiso que dejó de cubrir, dicho antes del sábado
+
+**1293 pruebas en verde.** Cierra la historia del permiso de circulación: tramitar, firmar,
+imprimir y **reemitir**.
+
+### El problema
+
+`BD-04` ya bloqueaba el despacho con un permiso que dejó de cubrir la misión — y llegaba
+**tarde**: el sábado por la mañana, con el vehículo cargado y la máxima autoridad sin
+trabajar. Los disparadores son cotidianos: el vehículo entra a taller la víspera, el motorista
+aparece con incapacidad, la misión se corre al fin de semana siguiente.
+
+Ahora el expediente lo dice **el jueves**, en la pantalla donde el Jefe de Transporte ya está.
+
+### Y dice qué cambió, no sólo que cambió
+
+Cada elemento tiene su propio arreglo y su propia urgencia. *«El permiso ya no cubre»* manda a
+comparar cuatro cosas a mano contra un papel; **el mensaje que no nombra el elemento convierte
+una acción en una investigación.**
+
+| Cambió | Qué dice |
+|---|---|
+| El vehículo | Nombra **los dos**: el amparado y el de hoy |
+| El motorista | *«El permiso es nominativo. La firma anterior no se arrastra»* |
+| El destino | Nombra los dos destinos |
+| La ventana | *«La vigencia no se traslada»* — con las dos fechas |
+
+### ⚠️ La distinción que apareció al verificarlo vivo
+
+La primera versión mandaba a **reemitir** también cuando la misión sólo se había
+desprogramado. Y eso está mal: si se reprograma con el mismo vehículo y el mismo motorista,
+**el permiso vuelve a amparar solo**. Reemitirlo habría quemado un folio —que no se recicla—
+y pedido otra firma de la máxima autoridad para nada.
+
+El dominio ahora separa las dos cosas: `NoCubre.ExigeReemision`. **Falso significa espere;
+verdadero significa actúe.** La pantalla ofrece el botón sólo cuando algo cambió de verdad, y
+lo verifiqué vivo: desprogramar y volver a programar con lo mismo devuelve el amparo sin
+tocar nada.
+
+### Reemitir son tres cosas en un acto
+
+1. **El salvoconducto anterior queda anulado**, con motivo y autor (`RN-04` — asiento reverso,
+   no una bandera). El papel sigue impreso en la mano de alguien: el punto de verificación
+   tiene que decir que no vale **de inmediato**, o un documento anulado pasa un control.
+2. **El permiso anterior se desiste** y deja de contar para `BD-04`.
+3. **El nuevo nace sin firma.** Es lo que más fácil se rompe: un permiso reemitido *parece*
+   una corrección del anterior, y es un acto nuevo — lo que la máxima autoridad firmó fue
+   **otro** vehículo con **otro** motorista.
+
+Con referencia cruzada en los dos sentidos: sin ella un auditor ve dos folios, dos firmas y
+dos salvoconductos, y tiene que reconstruir el orden por las fechas.
+
+### La excepción deliberada
+
+Un **relevo documentado en ruta no invalida** el permiso de la misión ya iniciada. El vehículo
+está en la carretera: declarar el papel inválido no lo devuelve, y sí dejaría al motorista
+relevado circulando sin nada. Lo que sí exige permiso reemitido es la circulación en franja
+inhábil **posterior** al traspaso — que es de `M-08` y no se bloquea.
+
+### Un defecto que salió al probar la reemisión
+
+`GET /misiones/{id}/salvoconducto` usaba `Single` y **reventaba con 500** la primera vez que
+se reemitió: suponía que una misión tiene a lo sumo un papel, y eso es cierto sólo hasta que
+algo cambia. La unicidad es por **permiso**, no por misión. Ahora devuelve el vigente, y si
+todos están anulados devuelve el último — la pantalla tiene que poder decir qué pasó.
+
+### Lo que queda abierto
+
+- **`RN-61` no se implementó acá**: la sustitución de vehículo debe recalcular y volver a
+  congelar los valores derivados —el estimado de peajes cambia con la categoría por ejes—,
+  con asiento de diferencia. `HU-018` lo pide y su propia sección de alcance lo remite a
+  `CU-04` y `M-07`. **No está hecho en ninguno de los dos.**
+- **`PT-022`, la firma en lote de feriado largo** (`HU-020`), sigue sin construir.
+- El hallazgo de `HU-018` sobre las tres redacciones de lo que el permiso ampara —`BD-04`
+  dice dos elementos, `PC-03` tres y `RN-23` cuatro— **se resolvió a favor de `RN-23`** en el
+  código: `Ampara` y `PorQueYaNoCubre` comparan los cuatro. La máquina de estados sigue
+  diciendo dos: es la autoridad y **le toca alinearse**.
+
+---
+
 ## `PT-023` — el primer documento físico del sistema
 
 **1276 pruebas en verde.** Hasta acá todo vivía en pantalla. El salvoconducto sale por una
