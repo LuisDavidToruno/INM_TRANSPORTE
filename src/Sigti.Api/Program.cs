@@ -28,6 +28,8 @@ using Sigti.Dominio.Reglas;
 using Sigti.Aplicacion.M06_Solicitudes;
 using Sigti.Dominio.M06_Solicitudes;
 using Sigti.Dominio.M16_Sincronizacion;
+using Sigti.Aplicacion.M17_PersonasExternas;
+using Sigti.Dominio.M17_PersonasExternas;
 using Sigti.Aplicacion.M19_Seguimiento;
 using Sigti.Dominio.M19_Seguimiento;
 using Sigti.Dominio.M01_Organizacion;
@@ -90,6 +92,7 @@ constructor.Services.AddScoped<ServicioDelPuesto>();
 constructor.Services.AddScoped<ServicioDeFolios>();
 constructor.Services.AddScoped<ConsultaDeLaSolicitud>();
 constructor.Services.AddScoped<ServicioDeConflictos>();
+constructor.Services.AddScoped<ServicioDePersonasExternas>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -1534,6 +1537,161 @@ conflictos.MapGet("/por-dispositivo", async (ServicioDeConflictos servicio) =>
         pendientes = d.Pendientes,
         deAltoImpacto = d.DeAltoImpacto,
     })));
+
+
+// ═══ M-17 · Personas externas ═══════════════════════════════════════════════
+//
+// **La medida de proteccion mas barata es no capturar el dato.** `RN-51`: «un dato que no se
+// captura no se puede filtrar, no se puede publicar por error y no se puede pedir por habeas
+// data».
+//
+// No hay ley de datos personales vigente en Honduras y `DP-001 D-14` decidio **no diseñar para
+// anticiparla**. Lo que si esta vigente es el habeas data del Articulo 182.
+var personas = app.MapGroup("/personas-externas");
+
+/// `PT-128` — el catalogo de campos, con los que estan **sin fundamentar** primero.
+personas.MapGet("/campos", async (ServicioDePersonasExternas servicio) =>
+{
+    var campos = await servicio.CamposAsync();
+
+    return Results.Ok(new
+    {
+        // El reporte que `ACT-12` abre. Va como cifra propia: un catalogo de treinta campos
+        // con dos sin fundamentar se ve tranquilo hasta que alguien los cuenta.
+        sinFundamento = campos.Count(c => c.SinFundamento),
+
+        // La salida que satisface la necesidad **sin capturar el dato sensible** — `RN-51`.
+        laSalidaSinCapturar = ReglasDelCampoSensible.LaSalidaSinCapturarElDato,
+
+        campos = campos.Select(c => new
+        {
+            clave = c.Clave,
+            etiqueta = c.Etiqueta,
+            clase = c.Clase.ToString(),
+            claseEnPalabras = ReglasDelCampoSensible.EnPalabras(c.Clase),
+            sensible = ReglasDelCampoSensible.EsSensible(c.Clase),
+            activo = c.Activo,
+
+            // **Activo, sensible y sin fundamento.** No es un error de configuracion: es un
+            // estado real que se reporta hasta que alguien lo fundamente.
+            sinFundamento = c.SinFundamento,
+
+            fundamento = c.Fundamento is { } f
+                ? new
+                {
+                    baseLegal = f.BaseLegal,
+                    necesidadOperativa = f.NecesidadOperativa,
+                    registra = f.Registra.Valor,
+                    momento = f.Momento,
+                }
+                : null,
+        }),
+    });
+});
+
+/// Activa un campo. **Advierte y marca; no bloquea** — `HU-112`.
+personas.MapPost("/campos", async (
+    ActivarCampo peticion, ServicioDePersonasExternas servicio) =>
+{
+    if (!Enum.TryParse<ClaseDelCampo>(peticion.Clase, ignoreCase: true, out var clase))
+        return Results.BadRequest(new
+        {
+            mensaje = $"«{peticion.Clase}» no es una clase de campo. Las validas son: " +
+                      string.Join(", ", Enum.GetNames<ClaseDelCampo>()) + ".",
+        });
+
+    var advertencia = await servicio.ActivarAsync(
+        peticion.Clave, peticion.Etiqueta, clase, new IdPersona(peticion.Activa),
+        peticion.Momento, peticion.BaseLegal, peticion.NecesidadOperativa);
+
+    return Results.Ok(new
+    {
+        clave = peticion.Clave,
+        activo = true,
+
+        // Nula cuando no habia nada que advertir. **El campo se activo igual**: es lo que
+        // `HU-112` pide, y lo contrario mandaria el dato a la libreta de alguien.
+        advertencia,
+    });
+});
+
+/// Registra el fundamento de un campo ya activo — exige **las dos mitades**.
+personas.MapPost("/campos/{clave}/fundamento", async (
+    string clave, RegistrarFundamento peticion, ServicioDePersonasExternas servicio) =>
+{
+    await servicio.FundamentarAsync(
+        clave, peticion.BaseLegal, peticion.NecesidadOperativa,
+        new IdPersona(peticion.Registra), peticion.Momento);
+
+    return Results.Ok(new { clave, fundamentado = true });
+});
+
+/// `PT-133` — el reporte de accesos, y los patrones que merecen una pregunta.
+///
+/// Con `registro` es la consulta del **habeas data**: quien vio lo mio.
+personas.MapGet("/accesos", async (
+    ServicioDePersonasExternas servicio, string? registro, int? dias, int? umbral) =>
+{
+    var ahora = DateTimeOffset.UtcNow;
+    var desde = ahora.AddDays(-(dias ?? 30));
+
+    var r = await servicio.AccesosAsync(desde, ahora, umbral ?? 20, registro);
+
+    return Results.Ok(new
+    {
+        desde,
+        total = r.Accesos.Count,
+
+        // **Cuanto del registro es inauditable.** Va al lado del total siempre: «120 accesos» y
+        // «120 accesos, 38 sin decir para que» sostienen conclusiones distintas.
+        sinNecesidadDeclarada = r.SinNecesidadDeclarada,
+
+        patrones = r.Patrones.Select(x => new
+        {
+            consultante = x.Consultante.Valor,
+            consultas = x.Consultas,
+            registrosDistintos = x.RegistrosDistintos,
+            sinNecesidadDeclarada = x.SinNecesidadDeclarada,
+
+            // **Marcado no significa que hizo algo malo**: significa que alguien deberia
+            // preguntar. Un reporte que acusa se deja de leer tan rapido como uno que calla.
+            marcado = x.Marcado,
+        }),
+
+        accesos = r.Accesos.Select(a => new
+        {
+            consultante = a.Consultante.Valor,
+            rol = a.Rol,
+            momento = a.Momento,
+            registro = a.RegistroConsultado,
+
+            // Que se mostro, no solo que se abrio.
+            alcance = a.Alcance.ToString(),
+
+            // Nulo es «no lo declaro», y esa ausencia es la que vuelve inauditable el acceso.
+            necesidadDeConocer = a.NecesidadDeConocer,
+            origen = a.Origen,
+        }),
+    });
+});
+
+/// Deja el asiento de una consulta. **Se llama antes de mostrar el dato**, nunca despues.
+personas.MapPost("/accesos", async (
+    RegistrarAcceso peticion, ServicioDePersonasExternas servicio, HttpContext http) =>
+{
+    if (!Enum.TryParse<AlcanceDeLaConsulta>(peticion.Alcance, ignoreCase: true, out var alcance))
+        return Results.BadRequest(new
+        {
+            mensaje = "Diga que se mostro: SoloRecuento, ListaDeNombres o ManifiestoCompleto.",
+        });
+
+    var id = await servicio.RegistrarConsultaAsync(
+        new IdPersona(peticion.Consultante), peticion.Rol, peticion.Registro, alcance,
+        peticion.Momento, peticion.NecesidadDeConocer,
+        http.Connection.RemoteIpAddress?.ToString());
+
+    return Results.Created($"/personas-externas/accesos/{id}", new { id = id.ToString() });
+});
 
 var auditoria = app.MapGroup("/auditoria");
 
@@ -6009,3 +6167,18 @@ public sealed record ResolverConflicto(
 /// El lote, con su criterio declarado — sin el es sobrescritura con mas pasos.
 public sealed record ResolverLote(
     string Expediente, string SeToma, string Criterio, string Resuelve, DateTimeOffset Momento);
+
+/// Activa un campo del manifiesto. El fundamento es opcional **aca**: si no viene, el campo se
+/// activa marcado — `HU-112`.
+public sealed record ActivarCampo(
+    string Clave, string Etiqueta, string Clase, string Activa, DateTimeOffset Momento,
+    string? BaseLegal = null, string? NecesidadOperativa = null);
+
+/// El fundamento exige **las dos mitades**: la norma que autoriza y la operacion que lo necesita.
+public sealed record RegistrarFundamento(
+    string BaseLegal, string NecesidadOperativa, string Registra, DateTimeOffset Momento);
+
+/// Un acceso a datos de personas trasladadas — `RN-52`.
+public sealed record RegistrarAcceso(
+    string Consultante, string Rol, string Registro, string Alcance, DateTimeOffset Momento,
+    string? NecesidadDeConocer = null);

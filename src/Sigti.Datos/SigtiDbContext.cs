@@ -6,6 +6,7 @@ using Sigti.Datos.M03_Flota;
 using Sigti.Datos.M11_Mantenimiento;
 using Sigti.Datos.M06_Solicitudes;
 using Sigti.Datos.M16_Sincronizacion;
+using Sigti.Datos.M17_PersonasExternas;
 using Sigti.Datos.M12_Incidentes;
 using Sigti.Datos.M14_Auditoria;
 using Sigti.Datos.M18_Peajes;
@@ -141,6 +142,17 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     /// se aplican solos cuando llega lo que faltaba.
     /// </summary>
     public DbSet<FilaDeHechoRetenido> HechosRetenidos => Set<FilaDeHechoRetenido>();
+
+    /// <summary>El catálogo de campos del manifiesto — `RN-51`.</summary>
+    public DbSet<FilaDeCampoDelManifiesto> CamposDelManifiesto =>
+        Set<FilaDeCampoDelManifiesto>();
+
+    /// <summary>
+    /// Cada acceso a datos de personas trasladadas — `RN-52`. <b>Inmutable</b>, y separada del
+    /// manifiesto para que depurar los datos personales no borre el rastro de quién los vio.
+    /// </summary>
+    public DbSet<FilaDeConsultaAManifiesto> ConsultasAManifiestos =>
+        Set<FilaDeConsultaAManifiesto>();
 
     /// <summary>Los rangos de folio pre-asignados por delegación — `RN-44`.</summary>
     public DbSet<FilaDeRango> RangosDeFolio => Set<FilaDeRango>();
@@ -1542,6 +1554,44 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
 
             // La consulta que corre en cada lote: «que estaba esperando a este expediente».
             retenido.HasIndex(r => r.EsperaExpediente);
+        });
+
+        modelo.Entity<FilaDeCampoDelManifiesto>(campo =>
+        {
+            campo.ToTable("CampoDelManifiesto", schema: "personas");
+
+            campo.HasKey(c => c.Id);
+            campo.Property(c => c.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            campo.Property(c => c.Clave).HasMaxLength(60).IsRequired();
+            campo.Property(c => c.Etiqueta).HasMaxLength(120).IsRequired();
+            campo.Property(c => c.Clase).HasConversion<string>().HasMaxLength(40).IsRequired();
+            campo.Property(c => c.BaseLegal).HasMaxLength(1000);
+            campo.Property(c => c.NecesidadOperativa).HasMaxLength(1000);
+            campo.Property(c => c.FundamentaPersona).HasMaxLength(64);
+            campo.Property(c => c.Activa).HasMaxLength(64).IsRequired();
+
+            // Dos campos con la misma clave serian el mismo campo, y el catalogo diria que hay
+            // dos controles donde hay uno. Lo impone la BASE.
+            campo.HasIndex(c => c.Clave).IsUnique();
+        });
+
+        modelo.Entity<FilaDeConsultaAManifiesto>(consulta =>
+        {
+            consulta.ToTable("ConsultaAManifiesto", schema: "personas");
+
+            consulta.HasKey(c => c.Id);
+            consulta.Property(c => c.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            consulta.Property(c => c.Consultante).HasMaxLength(64).IsRequired();
+            consulta.Property(c => c.Rol).HasMaxLength(60).IsRequired();
+            consulta.Property(c => c.RegistroConsultado).HasMaxLength(120).IsRequired();
+            consulta.Property(c => c.Alcance).HasConversion<string>().HasMaxLength(30).IsRequired();
+            consulta.Property(c => c.NecesidadDeConocer).HasMaxLength(500);
+            consulta.Property(c => c.Origen).HasMaxLength(64);
+
+            // Las dos preguntas del habeas data: «quien vio LO MIO» y «que vio ESTA PERSONA».
+            // La primera la hace el titular; la segunda, control interno.
+            consulta.HasIndex(c => new { c.RegistroConsultado, c.MomentoUtc });
+            consulta.HasIndex(c => new { c.Consultante, c.MomentoUtc });
         });
 
         modelo.Entity<FilaDeRango>(rango =>

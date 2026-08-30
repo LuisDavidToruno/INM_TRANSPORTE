@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText, LayoutList, IdCard, Scale, Users, ShieldAlert, Inbox, Route as RutaIcono, SlidersHorizontal, Radio, Home, Search, ShieldX, FileStack, Hash, GitCompareArrows, HardDrive, PlugZap } from 'lucide-react';
+import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText, LayoutList, IdCard, Scale, Users, ShieldAlert, Inbox, Route as RutaIcono, SlidersHorizontal, Radio, Home, Search, ShieldX, FileStack, Hash, GitCompareArrows, HardDrive, PlugZap, ShieldQuestion, Eye } from 'lucide-react';
 
 import { Avisos, Nota, Shell, avisar } from '../ui';
 import type { GrupoNav, Miga } from '../ui';
@@ -32,6 +32,8 @@ import Folios from '../modulos/M06_Solicitudes/Folios';
 import Conflictos from '../modulos/M16_Sincronizacion/Conflictos';
 import Dispositivos from '../modulos/M16_Sincronizacion/Dispositivos';
 import Espejos from '../modulos/M16_Sincronizacion/Espejos';
+import CamposDelManifiesto from '../modulos/M17_PersonasExternas/CamposDelManifiesto';
+import Accesos from '../modulos/M17_PersonasExternas/Accesos';
 import { ProveedorDelPuesto, usarPuesto } from './puesto';
 import TableroDeSeguimiento from '../modulos/M19_Seguimiento/Tablero';
 import EnRuta from '../modulos/M19_Seguimiento/EnRuta';
@@ -227,6 +229,13 @@ function Interior(): ReactElement {
       ],
     },
     {
+      titulo: 'M-17 Personas externas',
+      items: [
+        { texto: 'Qué se pregunta', icono: <ShieldQuestion />, href: '/manifiesto/campos' },
+        { texto: 'Quién vio qué', icono: <Eye />, href: '/manifiesto/accesos' },
+      ],
+    },
+    {
       titulo: 'M-19 Seguimiento en ruta',
       items: [
         { texto: 'Tablero en ruta', icono: <Radio />, href: '/seguimiento' },
@@ -330,6 +339,8 @@ function Interior(): ReactElement {
         <Route path="/conflictos" element={<Conflictos />} />
         <Route path="/dispositivos" element={<Dispositivos />} />
         <Route path="/espejos" element={<Espejos />} />
+        <Route path="/manifiesto/campos" element={<CamposDelManifiesto />} />
+        <Route path="/manifiesto/accesos" element={<Accesos />} />
         <Route path="/seguimiento" element={<TableroDeSeguimiento />} />
         <Route path="/seguimiento/:id" element={<EnRuta />} />
         <Route path="/rastro" element={<RastroDelExpediente />} />
@@ -390,6 +401,8 @@ function migasDe(ruta: string): Miga[] {
   if (ruta === '/conflictos') return ['Registros que no coinciden'];
   if (ruta === '/dispositivos') return ['Envíos de los equipos'];
   if (ruta === '/espejos') return ['Datos de otros sistemas'];
+  if (ruta === '/manifiesto/campos') return ['Personas externas', 'Qué se pregunta'];
+  if (ruta === '/manifiesto/accesos') return ['Personas externas', 'Quién vio qué'];
   if (ruta === '/seguimiento') return ['Seguimiento en ruta'];
   if (ruta.startsWith('/seguimiento/'))
     return [{ texto: 'Seguimiento en ruta', href: '/seguimiento' }, 'Misión'];

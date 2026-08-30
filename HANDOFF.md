@@ -414,6 +414,73 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## M-17 — el núcleo de datos personales (`PT-128`, `PT-133`)
+
+**1200 pruebas en verde.** La sección más sensible del sistema no tenía nada: manifiestos,
+minimización, registro de consultas. Se construyó el núcleo que hace cumplibles `RN-51` y
+`RN-52` — sin él, las otras ocho pantallas de M-17 no tendrían sobre qué operar.
+
+### La frase que gobierna todo el módulo
+
+> *«Un dato que no se captura no se puede filtrar, no se puede publicar por error y **no se
+> puede pedir por hábeas data**.»* — `RN-51`
+
+Por eso el catálogo del manifiesto es **cerrado** —identificación, institución o condición que
+motiva el traslado, origen y destino— y todo lo demás exige decir por qué.
+
+### ⚠️ Activar un campo sensible **no se bloquea: se marca**
+
+Va contra la intuición, y es lo que `HU-112` pide textualmente. Bloquear parece más seguro y
+es peor: **quien necesita el dato hoy lo va a capturar igual** —en observaciones, en una
+libreta, en un mensaje— y ahí queda fuera de todo control.
+
+Marcado, el dato está dentro del sistema, con su acceso registrado, y aparece en el reporte
+que revisa Auditoría Interna hasta que alguien lo fundamente.
+
+**Y el fundamento exige las dos mitades.** La base legal sola autoriza capturar todo lo que la
+norma no prohíba —que en un país sin ley de datos es casi todo—. La pregunta que limita de
+verdad es la otra: *¿para qué operación del traslado hace falta este dato?* Hay campos que no
+la pueden contestar.
+
+La pantalla ofrece además **la salida que evita el problema**, arriba de la lista: si lo que
+hace falta es operar el traslado —una camilla, un acompañante—, se registra como requerimiento
+operativo **sin consignar el diagnóstico**. La necesidad se satisface sin capturar el dato.
+
+### `PT-133` — la única respuesta posible a un hábeas data
+
+> *«Si una persona pregunta quién accedió a sus datos, la única respuesta defendible es el
+> registro de consultas. **Sin él, la institución no puede afirmar nada.**»* — `RN-52`
+
+Y no poder afirmar nada no es quedar en empate: es **no poder demostrar que no hubo acceso
+indebido**.
+
+| Decisión | Por qué |
+|---|---|
+| El registro guarda **qué se mostró**, no sólo qué se abrió | Ver una lista de nombres y ver el manifiesto completo son dos accesos distintos al mismo registro |
+| El **recuento no exige motivo** | Cuántas personas van es dato de gestión. Pedir justificación para verlo vuelve el control un trámite que se aprende a saltar escribiendo cualquier cosa — y ahí el registro entero deja de valer |
+| Los accesos **sin motivo declarado se cuentan aparte** | Es la medida de cuánto del registro **no se puede auditar**: queda el rastro de quién miró y ninguna forma de juzgar si debía |
+| «Marcado» **no acusa** | Un despachador que abre veinte manifiestos un lunes está trabajando. El reporte pone el número delante de alguien para que pregunte — uno que acusa se deja de leer tan rápido como uno que calla |
+
+**Nadie está exento**, y ése es el punto: el administrador del sistema es justamente quien
+podría borrar su propio rastro. En la prueba en vivo, `P-ADMIN` intentó ver la lista de
+nombres sin declarar para qué y **se rechazó con 409**.
+
+### La separación estructural, que no es un detalle de esquema
+
+El registro de consultas vive en **tabla aparte** del manifiesto, a propósito: depurar los
+datos personales al vencer su plazo (`PT-137`) **no puede borrar el rastro de quién los
+consultó**. Si vivieran juntos, la depuración destruiría la única respuesta ante un hábeas
+data — justo sobre los datos más viejos, que son los que más probablemente se reclamen.
+
+Es la misma separación que `RN-51` exige entre datos personales y datos de gestión, y la que
+permitirá `PT-136` —exportación de transparencia— **por origen y no por filtrado**.
+
+`[C]` Sigue sin decidirse: no hay ley de datos personales vigente y `DP-001 D-14` decidió **no
+diseñar para anticiparla**. Lo construido responde al hábeas data del Artículo 182, que sí
+está vigente, y al control de acceso que el MARCI exige.
+
+---
+
 ## `PT-056` y `PT-057` — **sección 2.9 cerrada**, y las 1170 en verde
 
 M-16 completo: las seis pantallas de sincronización y conflictos. Y **SAC cedió del todo**,
