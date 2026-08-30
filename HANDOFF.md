@@ -414,6 +414,79 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## `PT-099` y `PT-100` — el respaldo que nunca tuvo dónde estar
+
+**1244 pruebas en verde**, y el circuito del parámetro normativo verificado vivo de punta a
+punta: subir el documento, cargar con vigencia, y los cuatro desenlaces de la aprobación.
+
+### ⚠️ El hallazgo: el identificador del adjunto no era el adjunto
+
+`HU-145` pide rechazar la aprobación *«sin haber visto el respaldo documental»*. Al ir a
+implementarlo apareció que **no se podía**: `RespaldoDocumental.Adjunto` es un `Ulid`
+obligatorio —así que la columna nunca estaba vacía— y apuntaba a `mision.Adjunto`, una tabla
+cuyo `IdTransicion` era **obligatorio**. Un respaldo de parámetro no cuelga de ninguna
+transición de misión.
+
+O sea: **no había ninguna fila que pudiera contener ese documento.** El identificador se
+cargaba, la pantalla mostraba fuente y fecha de verificación —que son texto que alguien
+escribió— y detrás no había nada. Un respaldo que no está **se veía igual que uno que sí**.
+
+Y las pruebas lo reproducían sin notarlo: `Respaldo()` devolvía un `Ulid.NewUlid()` suelto y
+pasaba, porque nadie comprobaba.
+
+| Qué se hizo | Dónde |
+|---|---|
+| `IdTransicion` pasa a admitir nulo — un adjunto tiene **dos dueños posibles** | migración `AdjuntoDeParametro` |
+| `POST /adjuntos` deja de exigirlo: ausente **no es inválido** | `Program.cs` |
+| La aprobación comprueba el adjunto **contra la tabla**, no contra el tipo | `ServicioDeParametros` |
+| Tercer rechazo del doble control, con qué hacer | `ReglasDeDobleControl` |
+
+El rechazo nuevo va **antes** que el de identidad, y no es cosmético: un respaldo que no está
+bloquea a cualquiera. Decirle a quien cargó «usted no puede aprobar» lo manda a buscar un
+colega que se estrellaría contra el mismo muro, y recién ahí se sabría lo que faltaba.
+
+### El «impacto estimado» de `HU-145` no se construyó como lo pide la historia
+
+La historia pide una frase del tipo *«con 25 % dejarían de generarse 34 de los 41 hallazgos de
+consumo del último trimestre»*. **No se sostiene de forma general**: sólo significa algo para
+los parámetros que son umbrales de un cálculo, y nada para el formato del folio o el canal de
+aviso. Producirla para unos y dejarla en blanco para otros haría que la ausencia se leyera
+como «sin impacto», que es falso. Y recalcularla exige rehacer la conciliación de cada misión
+del período: **una cifra aproximada, en una pantalla cuyo propósito es que alguien firme, es
+exactamente el dato que después se cita como si fuera exacto.**
+
+Se construyó en su lugar lo que **sí es cierto para todo parámetro y es exacto: desde cuándo
+rige.** Si la vigencia arranca antes de hoy, aprobar no cambia el futuro — cambia la base de
+cálculo de hechos **ya ocurridos y ya registrados**, porque `P-4` manda usar la tabla vigente
+a la fecha del hecho. La pantalla lo declara, y cuenta las misiones con salida dentro de esa
+ventana **diciendo que es una cota superior**, no una cuenta de afectadas.
+
+### Dos defectos menores que salieron por el camino
+
+- **`pedir()` forzaba `content-type: application/json` en toda petición**, incluidas las de
+  `FormData`. El navegador tiene que escribir ese encabezado él, porque el valor lleva el
+  `boundary` que separa las partes. La subida llegaba como formulario mal formado, sin archivo
+  y sin campos, y el error no mencionaba el encabezado. No se había notado porque **nada subía
+  archivos todavía**.
+- Tres clases mías escritas `sm:tw:grid-cols-2` en vez de `tw:sm:grid-cols-2`. Con el prefijo
+  invertido no generan nada: la rejilla de dos columnas simplemente no existía. `verificar-tokens`
+  no lo detecta — comprueba tokens, no validez de clases.
+
+### Lo que queda abierto
+
+- **`CU-19` sigue sin existir.** `PT-099` y `PT-100` se construyeron contra `HU-144`/`HU-145`,
+  no contra un caso de uso: alcanza para las dos pantallas y **no alcanza para el flujo
+  completo** — quién devuelve una carga rechazada, cómo se cierra una vigencia abierta, qué
+  pasa con lo ya calculado cuando se aprueba algo retroactivo.
+- **`mision.Adjunto` admite hoy un adjunto sin ningún dueño.** `IdTransicion` nulo era
+  necesario, pero falta la restricción que obligue a tener **exactamente uno** de los dos.
+  Mientras no esté, un adjunto huérfano no lo detecta nadie.
+- El inventario de pantallas decía «⛔ sin historia» de `PT-099` y `PT-100` **meses después de
+  que dejara de ser cierto**. Corregido, y anotado en `HB34-67`: es el modo normal en que una
+  tabla derivada miente.
+
+---
+
 ## `PT-101` — el panel que dice qué está apagado
 
 **1241 pruebas en verde.** Llevo ocho bloques escribiendo «este parámetro no está

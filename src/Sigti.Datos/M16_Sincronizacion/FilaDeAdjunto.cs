@@ -13,8 +13,23 @@ public sealed class FilaDeAdjunto
     /// <summary>El ULID que generó el dispositivo (`ADR-005`). Hace inofensivo el reenvío.</summary>
     public required Ulid Id { get; init; }
 
-    /// <summary>A qué hecho respalda. Una foto sin su transición no prueba nada.</summary>
-    public required Ulid IdTransicion { get; init; }
+    /// <summary>
+    /// A qué hecho respalda. Una foto sin su transición no prueba nada.
+    ///
+    /// ⚠️ <b>Nulo cuando el adjunto no respalda un hecho de misión sino una versión de
+    /// parámetro normativo</b> — el comunicado o el acuerdo del que salió una tarifa.
+    ///
+    /// Fue obligatorio hasta el 2026-08-29, y eso hacía que `RespaldoDocumental.Adjunto` no
+    /// tuviera dónde apuntar: el tipo exigía un `Ulid` y <b>no existía ninguna fila que
+    /// pudiera contenerlo</b>. El identificador se cargaba, se mostraba en pantalla junto a la
+    /// fuente, y no había documento detrás. Se descubrió al exigir que el respaldo exista
+    /// antes de aprobar (`HU-145`).
+    ///
+    /// No se partió en dos tablas porque es el mismo objeto —archivo, hash, ruta, tipo,
+    /// clasificación— con dos dueños posibles. Lo que sí queda pendiente es la restricción
+    /// que obligue a tener exactamente uno: ver el hallazgo en `HANDOFF.md`.
+    /// </summary>
+    public Ulid? IdTransicion { get; init; }
 
     /// <summary>
     /// Relativa a la raíz del almacén, <b>nunca absoluta</b>.

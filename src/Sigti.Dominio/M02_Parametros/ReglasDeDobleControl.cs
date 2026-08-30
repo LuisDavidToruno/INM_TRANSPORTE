@@ -26,9 +26,10 @@ public sealed record IntentoDeAprobacion(
 public static class ReglasDeDobleControl
 {
     public static IntentoDeAprobacion Evaluar(
-        VersionDeParametro version, IdPersona quienAprueba, DateTimeOffset momento)
+        VersionDeParametro version, IdPersona quienAprueba, DateTimeOffset momento,
+        bool elRespaldoExiste)
     {
-        var rechazo = Rechazo(version, quienAprueba);
+        var rechazo = Rechazo(version, quienAprueba, elRespaldoExiste);
 
         return new IntentoDeAprobacion(
             version.Clave, quienAprueba, momento,
@@ -43,10 +44,24 @@ public static class ReglasDeDobleControl
     public static VersionDeParametro? Aplicar(VersionDeParametro version, IntentoDeAprobacion intento) =>
         intento.Concedida ? version with { AprobadoPor = intento.Quien } : null;
 
-    private static string? Rechazo(VersionDeParametro version, IdPersona quienAprueba)
+    private static string? Rechazo(
+        VersionDeParametro version, IdPersona quienAprueba, bool elRespaldoExiste)
     {
         if (version.EstaAprobada)
             return "La versión ya fue aprobada. Una segunda aprobación no agrega control, lo simula.";
+
+        // ⚠️ **El identificador del adjunto no es el adjunto.** El tipo exige un `Ulid`, así que
+        // la columna nunca está vacía — pero nada garantizaba que apuntara a un archivo que
+        // existe, y un respaldo que no está **se ve igual que uno que sí**.
+        //
+        // `HU-145` lo pone como escenario propio: quien aprueba tiene que poder abrir el
+        // documento. Aprobar sin él es firmar que se verificó una fuente que nadie vio.
+        // Va antes que la identidad **a propósito**: un respaldo que no está bloquea a
+        // cualquiera, y decirle a quien cargó «usted no puede aprobar» lo manda a buscar un
+        // colega que se estrellaría contra el mismo muro. Primero lo que le pasa a todos.
+        if (!elRespaldoExiste)
+            return "La carga no tiene respaldo documental adjunto. Devuelva al Administrador " +
+                   "del Sistema para que lo agregue.";
 
         // La comparación es por identidad de PERSONA, no de usuario: un mismo servidor
         // con dos cuentas sigue siendo la misma persona.

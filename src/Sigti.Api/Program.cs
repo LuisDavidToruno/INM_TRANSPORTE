@@ -96,6 +96,7 @@ constructor.Services.AddScoped<ServicioDePersonasExternas>();
 constructor.Services.AddScoped<ServicioDelManifiesto>();
 constructor.Services.AddScoped<ServicioDeHabeasData>();
 constructor.Services.AddScoped<PanelDeSalud>();
+constructor.Services.AddScoped<ConsultaDeAprobaciones>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -5055,6 +5056,61 @@ parametros.MapGet("/", async (SigtiDbContext contexto, string? clave) =>
 });
 
 
+
+/// `PT-100` — lo que quien aprueba tiene que ver **antes** de aprobar.
+///
+/// Aprobar un parametro normativo es un acto de control interno, y quien lo firma responde por
+/// el ante el Tribunal Superior de Cuentas. Un boton «Aprobar» junto a un numero suelto
+/// convierte ese acto en un tramite: por eso la ruta trae el valor anterior, la fuente, el
+/// respaldo y desde cuando regiria.
+parametros.MapGet("/pendientes", async (ConsultaDeAprobaciones consulta) =>
+{
+    var filas = await consulta.PendientesAsync(DateOnly.FromDateTime(DateTime.UtcNow));
+
+    return Results.Ok(filas.Select(c => new
+    {
+        id = c.Id.ToString(),
+        clave = c.Clave,
+        valor = c.Valor,
+
+        // **Nulo es la primera carga de la clave**, no un dato que falte: significa que hasta
+        // hoy el control estaba apagado. La pantalla lo dice distinto.
+        valorAnterior = c.ValorAnterior,
+        anteriorVigenteDesde = c.AnteriorVigenteDesde,
+
+        vigenteDesde = c.VigenteDesde,
+        vigenteHasta = c.VigenteHasta,
+
+        cargadoPor = c.CargadoPor,
+        cargadoEl = c.CargadoEl,
+
+        respaldo = new
+        {
+            fuente = c.Fuente,
+            verificadoEl = c.VerificadoEl,
+            adjunto = c.Adjunto.ToString(),
+
+            // El identificador del adjunto NO es el adjunto. Falso bloquea la aprobacion.
+            existe = c.ElRespaldoExiste,
+        },
+
+        // A que alcanza aprobar. No es el «impacto estimado» de HU-145 —que solo tiene sentido
+        // para umbrales y exigiria recalcular cada mision— sino lo que es cierto para todo
+        // parametro y exacto: **desde cuando rige**. Si arranca antes de hoy, aprobar cambia la
+        // base de calculo de hechos ya registrados, porque P-4 manda usar la tabla vigente a la
+        // fecha del hecho.
+        alcance = new
+        {
+            esRetroactivo = c.Alcance.EsRetroactivo,
+            desde = c.Alcance.Desde,
+            hasta = c.Alcance.Hasta,
+
+            // **Cota superior, no cuenta de afectadas**: no toda mision usa todo parametro.
+            misionesAlcanzadas = c.Alcance.MisionesAlcanzadas,
+        },
+    }));
+});
+
 // HU-144: la carga nace PENDIENTE. Una carga que ya resolviera volvería decorativo el
 // doble control de HU-145.
 parametros.MapPost("/", async (CargarParametro peticion, ServicioDeParametros servicio) =>
@@ -5259,7 +5315,17 @@ app.MapPost("/adjuntos", async (HttpRequest peticion, ServicioDeAdjuntos servici
         return Results.BadRequest(new { mensaje = "Falta el archivo." });
 
     if (!Identificador.Valido(formulario["idAdjunto"].ToString(), out var idAdjunto, out var e1)) return e1;
-    if (!Identificador.Valido(formulario["idTransicion"].ToString(), out var idTransicion, out var e2)) return e2;
+    // **Ausente NO es invalido**: un respaldo de parametro normativo no cuelga de ninguna
+    // transicion. Exigirlo obligaria a inventar una, que es como `RespaldoDocumental.Adjunto`
+    // termino apuntando a filas que no existian.
+    var textoDeTransicion = formulario["idTransicion"].ToString();
+    Ulid? idTransicion = null;
+
+    if (!string.IsNullOrWhiteSpace(textoDeTransicion))
+    {
+        if (!Identificador.Valido(textoDeTransicion, out var t, out var e2)) return e2;
+        idTransicion = t;
+    }
 
     if (!DateTimeOffset.TryParse(formulario["capturadoEn"].ToString(), out var capturadoEn))
         return Results.BadRequest(new { mensaje = "«capturadoEn» tiene que ser una marca de tiempo con desfase (ADR-007)." });

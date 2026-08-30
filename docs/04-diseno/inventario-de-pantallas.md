@@ -272,8 +272,8 @@ Notas de esta sección:
 | PT-096 | Usuarios, puestos y asignaciones vigentes | A | `ACT-01` | ⛔ falta `CU-19` | ⛔ sin historia | No | No |
 | PT-097 | Asignación puesto↔rol con control de acumulación incompatible | A | `ACT-01` `(ACT-08)` | ⛔ falta `CU-19` | HU-010 | No | No |
 | PT-098 | Catálogos maestros (M-02) | A | `ACT-01` `(ACT-08)` | ⛔ falta `CU-19` | ⛔ sin historia | No | No |
-| PT-099 | **Carga del parámetro normativo** con vigencia y respaldo documental | A | `ACT-01` | ⛔ falta `CU-19` | ⛔ sin historia | No | No |
-| PT-100 | **Puesta en vigencia — doble control** | A | `ACT-08` | ⛔ falta `CU-19` | ⛔ sin historia | No | No |
+| PT-099 | **Carga del parámetro normativo** con vigencia y respaldo documental | A | `ACT-01` | ⛔ falta `CU-19` | [HU-144](../02-requisitos/historias/HU-144-cargar-parametro-normativo-con-vigencia.md) | No | No |
+| PT-100 | **Puesta en vigencia — doble control** | A | `ACT-08` | ⛔ falta `CU-19` | [HU-145](../02-requisitos/historias/HU-145-aprobar-la-puesta-en-vigencia-doble-control.md) · [HU-146](../02-requisitos/historias/HU-146-bloquear-que-quien-carga-apruebe-su-propia-carga.md) | No | No |
 | PT-101 | Panel de salud: qué está mal y qué hacer | A | `ACT-01` | — | [RNF-20](../02-requisitos/no-funcionales/RNF-20-observabilidad-y-diagnostico.md) | No | No |
 | PT-102 | Respaldo y restauración para alguien sin especialización | A | `ACT-01` | — | [RNF-09](../02-requisitos/no-funcionales/RNF-09-instalacion-respaldo-y-restauracion.md) | No | No |
 
@@ -284,6 +284,14 @@ Notas de esta sección:
 > **Ninguna de las tres tiene un solo criterio de aceptación en Gherkin**, mientras que registrar un arribo tiene doce. La pantalla desde la que se carga una tarifa —la que decide si `RNF-05` se cumple o se cablea— es hoy la peor documentada del sistema.
 >
 > **No se puede corregir desde este documento:** hace falta un `CU-19` de administración de parámetros normativos con doble control, y sus historias. **Se pide antes de que la implementación resuelva el doble control con un `if`.** Mientras tanto, las celdas afectadas van marcadas ⛔ y **estas pantallas no se envían a diseño**: sin criterio de aceptación, lo que se dibuje va a fijar la regla por accidente.
+
+> ### ✅ Resuelto a medias — 2026-08-29
+>
+> **Las historias se escribieron**: [`HU-144`](../02-requisitos/historias/HU-144-cargar-parametro-normativo-con-vigencia.md), [`HU-145`](../02-requisitos/historias/HU-145-aprobar-la-puesta-en-vigencia-doble-control.md), [`HU-146`](../02-requisitos/historias/HU-146-bloquear-que-quien-carga-apruebe-su-propia-carga.md) y [`HU-147`](../02-requisitos/historias/HU-147-resolver-el-parametro-a-la-fecha-del-hecho.md), con sus criterios de aceptación. Las celdas HU de `PT-099` y `PT-100` siguieron diciendo «sin historia» después de que dejara de ser cierto: **este documento quedó desactualizado respecto de los artefactos que cita**, que es el modo normal en que una tabla derivada miente.
+>
+> Y lo que el hallazgo temía **no ocurrió**: el doble control no se resolvió con un `if`. Está en `ReglasDeDobleControl`, es puro, devuelve el intento en lugar de lanzar —para que el rechazo quede registrado igual— y tiene su clase de pruebas.
+>
+> **`CU-19` sigue sin existir**, y por eso las celdas CU siguen en ⛔. `PT-099` y `PT-100` se construyeron contra las historias, no contra un caso de uso: alcanza para las dos pantallas y **no alcanza para el flujo completo** —quién devuelve una carga rechazada, cómo se cierra una vigencia abierta, qué pasa con lo ya calculado cuando se aprueba algo retroactivo—. Lo último se declara hoy en la propia pantalla `PT-100`, porque no había dónde más ponerlo.
 >
 > El mismo ⛔ afecta a `PT-096`, `PT-097`, `PT-098`, `PT-128`, `PT-132` y `PT-137`: ninguna historia del backlog menciona parámetros, catálogos, usuarios ni puestos.
 

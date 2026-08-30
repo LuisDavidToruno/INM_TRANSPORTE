@@ -86,7 +86,13 @@ public sealed class ServicioDeParametros(SigtiDbContext contexto)
         var version = await contexto.Parametros.SingleOrDefaultAsync(p => p.Id == id, cancelacion)
             ?? throw new VersionNoEncontrada(id);
 
-        var intento = ReglasDeDobleControl.Evaluar(version, quienAprueba, momento);
+        // Se comprueba contra la tabla de adjuntos, no contra el tipo: el `Ulid` siempre
+        // está: lo que puede faltar es el archivo al que apunta.
+        var elRespaldoExiste = await contexto.Adjuntos
+            .AnyAsync(a => a.Id == version.Respaldo.Adjunto, cancelacion);
+
+        var intento = ReglasDeDobleControl.Evaluar(
+            version, quienAprueba, momento, elRespaldoExiste);
         var aprobada = ReglasDeDobleControl.Aplicar(version, intento);
 
         await EnUnaSolaTransaccion(async () =>

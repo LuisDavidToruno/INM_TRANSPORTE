@@ -80,9 +80,17 @@ interface RechazoDelServidor {
 }
 
 export async function pedir<T>(ruta: string, opciones?: RequestInit): Promise<T> {
+  // ⚠️ **Un `FormData` no lleva `content-type` puesto a mano.** El navegador tiene que
+  // escribirlo él, porque el valor incluye el `boundary` que separa las partes y sólo él lo
+  // conoce. Ponerlo acá produce una petición que el servidor no puede desarmar: llega como
+  // formulario mal formado, sin archivo y sin campos, y el error no menciona el encabezado.
+  const esFormulario = opciones?.body instanceof FormData;
+
   const respuesta = await fetch(`${BASE}${ruta}`, {
     ...opciones,
-    headers: { 'content-type': 'application/json', ...opciones?.headers },
+    headers: esFormulario
+      ? { ...opciones?.headers }
+      : { 'content-type': 'application/json', ...opciones?.headers },
   });
 
   if (respuesta.status === 409) {

@@ -1743,7 +1743,8 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
 
             adjunto.HasKey(a => a.Id);
             adjunto.Property(a => a.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
-            adjunto.Property(a => a.IdTransicion).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            // Nulo = respalda una version de parametro, no un hecho de mision.
+            adjunto.Property(a => a.IdTransicion).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
             adjunto.Property(a => a.Ruta).HasMaxLength(400).IsRequired();
             adjunto.Property(a => a.Hash).HasMaxLength(80).IsRequired();
             adjunto.Property(a => a.Tipo).HasMaxLength(120).IsRequired();
@@ -1753,7 +1754,8 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             // habeas data, y lo que permite depurar sin recorrer treinta mil filas.
             adjunto.HasIndex(a => a.Clasificacion);
 
-            // Todo adjunto respalda un hecho: el paquete de evidencia se arma por ahi.
+            // El paquete de evidencia se arma por aca. Los de parametro no entran: no
+            // respaldan un hecho de mision.
             adjunto.HasIndex(a => a.IdTransicion);
         });
 

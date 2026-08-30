@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText, LayoutList, IdCard, Scale, Users, ShieldAlert, Inbox, Route as RutaIcono, SlidersHorizontal, Radio, Home, Search, ShieldX, FileStack, Hash, GitCompareArrows, HardDrive, PlugZap, ShieldQuestion, Eye, ScrollText as Lista, Globe, HeartPulse } from 'lucide-react';
+import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText, LayoutList, IdCard, Scale, Users, ShieldAlert, Inbox, Route as RutaIcono, SlidersHorizontal, Radio, Home, Search, ShieldX, FileStack, Hash, GitCompareArrows, HardDrive, PlugZap, ShieldQuestion, Eye, ScrollText as Lista, Globe, HeartPulse, FilePlus2, ShieldCheck } from 'lucide-react';
 
 import { Avisos, Nota, Shell, avisar } from '../ui';
 import type { GrupoNav, Miga } from '../ui';
@@ -38,6 +38,8 @@ import Manifiesto from '../modulos/M17_PersonasExternas/Manifiesto';
 import HabeasData from '../modulos/M17_PersonasExternas/HabeasData';
 import Transparencia from '../modulos/M17_PersonasExternas/Transparencia';
 import Salud from '../modulos/M02_Parametros/Salud';
+import CargarParametro from '../modulos/M02_Parametros/CargarParametro';
+import Aprobaciones from '../modulos/M02_Parametros/Aprobaciones';
 import { ProveedorDelPuesto, usarPuesto } from './puesto';
 import TableroDeSeguimiento from '../modulos/M19_Seguimiento/Tablero';
 import EnRuta from '../modulos/M19_Seguimiento/EnRuta';
@@ -277,6 +279,8 @@ function Interior(): ReactElement {
         { texto: 'Pista de auditoría', icono: <FileSearch />, href: '/pista' },
         { texto: 'Intentos bloqueados', icono: <ShieldAlert />, href: '/intentos-bloqueados' },
         { texto: 'Parámetros normativos', icono: <SlidersHorizontal />, href: '/parametros-normativos' },
+        { texto: 'Cargar parámetro', icono: <FilePlus2 />, href: '/parametros/cargar' },
+        { texto: 'Poner en vigencia', icono: <ShieldCheck />, href: '/parametros/aprobar' },
         { texto: 'Qué está mal', icono: <HeartPulse />, href: '/salud' },
         { texto: 'Fuentes externas', icono: <FileSearch />, href: '/conciliacion' },
         { texto: 'Saldo de apertura', icono: <Archive />, href: '/saldo-de-apertura' },
@@ -352,6 +356,8 @@ function Interior(): ReactElement {
         <Route path="/manifiesto/accesos" element={<Accesos />} />
         <Route path="/habeas-data" element={<HabeasData />} />
         <Route path="/transparencia" element={<Transparencia />} />
+        <Route path="/parametros/cargar" element={<CargarParametro />} />
+        <Route path="/parametros/aprobar" element={<Aprobaciones />} />
         <Route path="/salud" element={<Salud />} />
         <Route path="/seguimiento" element={<TableroDeSeguimiento />} />
         <Route path="/seguimiento/:id" element={<EnRuta />} />
@@ -418,6 +424,8 @@ function migasDe(ruta: string): Miga[] {
   if (ruta === '/manifiesto/accesos') return ['Personas externas', 'Quién vio qué'];
   if (ruta === '/habeas-data') return ['Personas externas', 'Hábeas data'];
   if (ruta === '/transparencia') return ['Personas externas', 'Transparencia y depuración'];
+  if (ruta === '/parametros/cargar') return ['Parámetros', 'Cargar'];
+  if (ruta === '/parametros/aprobar') return ['Parámetros', 'Poner en vigencia'];
   if (ruta === '/salud') return ['Qué está mal'];
   if (ruta === '/seguimiento') return ['Seguimiento en ruta'];
   if (ruta.startsWith('/seguimiento/'))

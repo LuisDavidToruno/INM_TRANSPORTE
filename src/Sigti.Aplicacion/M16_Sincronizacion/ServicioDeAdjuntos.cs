@@ -5,9 +5,14 @@ using Sigti.Datos;
 namespace Sigti.Aplicacion.M16_Sincronizacion;
 
 /// <summary>Lo que el dispositivo declara sobre el archivo que sube.</summary>
+/// <param name="IdTransicion">
+/// El hecho de misión que respalda. <b>Nulo cuando respalda una versión de parámetro
+/// normativo</b> —el comunicado o el acuerdo del que salió una tarifa— que no es un hecho de
+/// misión y no tiene transición a la cual colgarse.
+/// </param>
 public sealed record AdjuntoQueLlega(
     Ulid IdAdjunto,
-    Ulid IdTransicion,
+    Ulid? IdTransicion,
     string Hash,
     string Tipo,
     string Clasificacion,
