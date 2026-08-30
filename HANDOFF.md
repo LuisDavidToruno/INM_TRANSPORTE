@@ -414,6 +414,62 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## M-17 — el manifiesto y sus novedades (`PT-095`, `PT-129`, `PT-131`)
+
+**1218 pruebas en verde.** Sobre el núcleo del bloque anterior se construyó la entidad que le
+faltaba: el manifiesto. Las cuatro pantallas de hábeas data y transparencia ya tienen sobre
+qué operar.
+
+### Exigir documento no impide que la persona suba: impide que figure
+
+`HU-113` lo dice así — *«para que el traslado salga amparado y con constancia de quién iba,
+**en lugar de que la persona suba sin figurar en ningún papel**»*.
+
+El vehículo sale igual. Lo único que cambia es si queda constancia. Un campo obligatorio de
+identidad produce manifiestos **con menos gente de la que viajó** — y eso es peor que uno con
+una persona no identificada, porque el primero **miente** y el segundo declara lo que sabe.
+
+Por eso `NoIdentificada` es un caso previsto, no un registro incompleto. Lo que sí se rechaza
+es decir «documento» y no poner cuál — y el mensaje ofrece la salida en la misma frase.
+
+### El manifiesto se cierra al despachar, y después no se toca
+
+> *«Si se puede editar después, deja de ser una declaración y pasa a ser **un resumen ajustado
+> a lo que ocurrió** — que es exactamente lo contrario de un control.»* — `RN-53`
+
+Lo que pasa después se registra como **novedad de ruta** y se suma sin tocar el original. Por
+eso el manifiesto lleva dos cifras: **declaradas** —lo autorizado, que no cambia— y
+**efectivas**, que sale de las novedades. La liquidación compara las dos.
+
+`Efectivas` se **calcula**, no se guarda: una segunda cifra almacenada se desincroniza de los
+asientos que la sostienen.
+
+**Y subir a alguien en ruta exige decir quién lo autorizó.** Es la novedad que más se presta
+—el vehículo institucional que lleva a un conocido—: con autorización nombrada es la decisión
+de alguien; sin ella, un favor que nadie firmó. Las otras dos no la piden: nadie autoriza que
+alguien no llegue, y exigirlo convertiría el registro de un hecho en un trámite — con lo cual
+el hecho dejaría de registrarse.
+
+### El alcance no filtra: decide qué sale del servidor
+
+Con «sólo cuántos van», los nombres **no viajan**. No se ocultan en la pantalla — no se cargan
+en la respuesta. Si fueran y se escondieran en el cliente, cualquiera los vería abriendo las
+herramientas del navegador, **y el asiento diría que sólo vio un número**.
+
+Verificado en vivo: con recuento, `declaradas 2 · efectivas 1` y **cero nombres en la
+respuesta**; con manifiesto completo, las dos personas —una identificada y una no— y la
+novedad que explica la diferencia.
+
+### Y la separación estructural se volvió concreta
+
+El manifiesto es **tabla propia**, no columnas del expediente. `RN-51` lo exige para que la
+gestión pública pueda exportarse sin los datos personales, y la diferencia es de fondo: si
+vivieran juntos, la exportación de transparencia tendría que **filtrar** — y un filtro es algo
+que alguien puede olvidar, o que una consulta nueva puede saltarse. Separadas, el reporte sale
+de otra tabla y no hay nada que filtrar. Eso es lo que habilita `PT-136`.
+
+---
+
 ## M-17 — el núcleo de datos personales (`PT-128`, `PT-133`)
 
 **1200 pruebas en verde.** La sección más sensible del sistema no tenía nada: manifiestos,

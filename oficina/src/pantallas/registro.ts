@@ -214,7 +214,16 @@ export const CONSTRUIDAS: Readonly<Record<string, Construida>> = {
   'PT-054': { ruta: '/conflictos', archivo: 'M16_Sincronizacion/Conflictos.tsx' },
 
   // ── M-17 Personas externas ────────────────────────────────────────────────
+  'PT-095': { ruta: '/manifiesto', archivo: 'M17_PersonasExternas/Manifiesto.tsx' },
   'PT-128': { ruta: '/manifiesto/campos', archivo: 'M17_PersonasExternas/CamposDelManifiesto.tsx' },
+  'PT-129': {
+    ruta: '/manifiesto',
+    archivo: 'M17_PersonasExternas/Manifiesto.tsx',
+    incompleta:
+      'La persona sin documento se registra y se muestra como no identificada. La captura ' +
+      'entra por la API: PT-094 replica un formato en papel que falta (insumo #2).',
+  },
+  'PT-131': { ruta: '/manifiesto', archivo: 'M17_PersonasExternas/Manifiesto.tsx' },
   'PT-133': { ruta: '/manifiesto/accesos', archivo: 'M17_PersonasExternas/Accesos.tsx' },
 
   // ── M-19 Seguimiento en Ruta ──────────────────────────────────────────────

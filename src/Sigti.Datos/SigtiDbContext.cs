@@ -154,6 +154,12 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     public DbSet<FilaDeConsultaAManifiesto> ConsultasAManifiestos =>
         Set<FilaDeConsultaAManifiesto>();
 
+    /// <summary>
+    /// Los manifiestos — `RN-53`. <b>Tabla propia</b>, separada del expediente: es lo que permite
+    /// exportar la gestión pública sin filtrar nada (`RN-51`).
+    /// </summary>
+    public DbSet<FilaDeManifiesto> Manifiestos => Set<FilaDeManifiesto>();
+
     /// <summary>Los rangos de folio pre-asignados por delegación — `RN-44`.</summary>
     public DbSet<FilaDeRango> RangosDeFolio => Set<FilaDeRango>();
 
@@ -1592,6 +1598,67 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             // La primera la hace el titular; la segunda, control interno.
             consulta.HasIndex(c => new { c.RegistroConsultado, c.MomentoUtc });
             consulta.HasIndex(c => new { c.Consultante, c.MomentoUtc });
+        });
+
+        modelo.Entity<FilaDeManifiesto>(manifiesto =>
+        {
+            manifiesto.ToTable("Manifiesto", schema: "personas");
+
+            manifiesto.HasKey(m => m.Id);
+            manifiesto.Property(m => m.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            manifiesto.Property(m => m.MisionId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            manifiesto.Property(m => m.CierraQuien).HasMaxLength(64);
+
+            // Un manifiesto por mision. Dos serian dos declaraciones de quien iba en el mismo
+            // vehiculo, y la liquidacion no sabria contra cual comparar.
+            manifiesto.HasIndex(m => m.MisionId).IsUnique();
+
+            manifiesto.HasMany(m => m.Personas)
+                .WithOne()
+                .HasForeignKey(x => x.ManifiestoId)
+                // Cero DELETE: la depuracion de `PT-137` es un acto propio con aviso previo y
+                // verificacion de la cadena, no un borrado en cascada.
+                .OnDelete(DeleteBehavior.Restrict);
+
+            manifiesto.HasMany(m => m.Novedades)
+                .WithOne()
+                .HasForeignKey(x => x.ManifiestoId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelo.Entity<FilaDePersonaEnManifiesto>(persona =>
+        {
+            persona.ToTable("PersonaEnManifiesto", schema: "personas");
+
+            persona.HasKey(p => p.Id);
+            persona.Property(p => p.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            persona.Property(p => p.ManifiestoId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            persona.Property(p => p.Nombre).HasMaxLength(200);
+            persona.Property(p => p.Identificacion).HasMaxLength(60);
+            persona.Property(p => p.Forma).HasConversion<string>().HasMaxLength(30).IsRequired();
+            persona.Property(p => p.QueMotivaElTraslado).HasMaxLength(200).IsRequired();
+            persona.Property(p => p.Origen).HasMaxLength(120).IsRequired();
+            persona.Property(p => p.Destino).HasMaxLength(120).IsRequired();
+            persona.Property(p => p.RequerimientoOperativo).HasMaxLength(300);
+
+            // La consulta del habeas data: «que hay guardado sobre esta persona». Sin indice,
+            // responder exigiria recorrer todos los manifiestos de la institucion.
+            persona.HasIndex(p => p.Identificacion).HasFilter("[Identificacion] IS NOT NULL");
+        });
+
+        modelo.Entity<FilaDeNovedadDeRuta>(novedad =>
+        {
+            novedad.ToTable("NovedadDeRuta", schema: "personas");
+
+            novedad.HasKey(n => n.Id);
+            novedad.Property(n => n.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            novedad.Property(n => n.ManifiestoId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            novedad.Property(n => n.Tipo).HasConversion<string>().HasMaxLength(30).IsRequired();
+            novedad.Property(n => n.AQuien).HasMaxLength(200);
+            novedad.Property(n => n.Motivo).HasMaxLength(1000).IsRequired();
+            novedad.Property(n => n.DondePaso).HasMaxLength(200);
+            novedad.Property(n => n.Registra).HasMaxLength(64).IsRequired();
+            novedad.Property(n => n.Autoriza).HasMaxLength(64);
         });
 
         modelo.Entity<FilaDeRango>(rango =>

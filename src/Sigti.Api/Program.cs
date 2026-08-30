@@ -93,6 +93,7 @@ constructor.Services.AddScoped<ServicioDeFolios>();
 constructor.Services.AddScoped<ConsultaDeLaSolicitud>();
 constructor.Services.AddScoped<ServicioDeConflictos>();
 constructor.Services.AddScoped<ServicioDePersonasExternas>();
+constructor.Services.AddScoped<ServicioDelManifiesto>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -1691,6 +1692,130 @@ personas.MapPost("/accesos", async (
         http.Connection.RemoteIpAddress?.ToString());
 
     return Results.Created($"/personas-externas/accesos/{id}", new { id = id.ToString() });
+});
+
+
+/// `PT-095` — ver el manifiesto, **dejando asiento de la consulta**.
+///
+/// No hay forma de leerlo sin registrar. Y el `alcance` decide **que se devuelve**: con
+/// `SoloRecuento` no viaja ni un nombre — no es un filtro de presentacion, la lista no sale de
+/// la consulta, asi que no hay nada que alguien pueda destapar en el cliente.
+personas.MapGet("/manifiesto/{mision}", async (
+    string mision, string consultante, string rol, string? alcance, string? necesidad,
+    ServicioDelManifiesto servicio, HttpContext http) =>
+{
+    if (!Identificador.Valido(mision, out var ulid, out var error)) return error;
+
+    if (!Enum.TryParse<AlcanceDeLaConsulta>(alcance ?? "SoloRecuento", ignoreCase: true, out var q))
+        return Results.BadRequest(new
+        {
+            mensaje = "Diga que quiere ver: SoloRecuento, ListaDeNombres o ManifiestoCompleto.",
+        });
+
+    var visto = await servicio.VerAsync(
+        ulid, new IdPersona(consultante), rol, q, DateTimeOffset.UtcNow, necesidad,
+        http.Connection.RemoteIpAddress?.ToString());
+
+    if (visto is null)
+        return Results.NotFound(new { mensaje = $"La mision {mision} no tiene manifiesto." });
+
+    return Results.Ok(new
+    {
+        // **Declaradas es lo que se autorizo y no cambia.** Efectivas sale de las novedades.
+        declaradas = visto.Declaradas,
+        efectivas = visto.Efectivas,
+
+        cerrado = visto.Cerrado,
+        cerradoEl = visto.CerradoEl,
+
+        personas = visto.Personas.Select(x => new
+        {
+            // Nulos cuando la persona no se identifico: **es un caso previsto**, no un
+            // registro incompleto. Exigir documento no impide que suba, impide que figure.
+            nombre = x.Nombre,
+            identificacion = x.Identificacion,
+            forma = x.Forma.ToString(),
+
+            queMotivaElTraslado = x.QueMotivaElTraslado,
+            origen = x.Origen,
+            destino = x.Destino,
+
+            // Camilla, acompañante. **No es un dato de salud**: la necesidad se satisface sin
+            // consignar diagnostico.
+            requerimientoOperativo = x.RequerimientoOperativo,
+        }),
+
+        novedades = visto.Novedades.Select(n => new
+        {
+            tipo = n.Tipo.ToString(),
+            aQuien = n.AQuien,
+            motivo = n.Motivo,
+            dondePaso = n.DondePaso,
+            fechaDelHecho = n.FechaDelHecho,
+            registra = n.Registra.Valor,
+            // Sólo lo lleva quien subio en ruta: es lo que separa una decision de un favor.
+            autoriza = n.Autoriza?.Valor,
+        }),
+    });
+});
+
+/// Abre el manifiesto de una mision.
+personas.MapPost("/manifiesto/{mision}", async (
+    string mision, ServicioDelManifiesto servicio) =>
+{
+    if (!Identificador.Valido(mision, out var ulid, out var error)) return error;
+
+    var id = await servicio.AbrirAsync(ulid);
+    return Results.Ok(new { manifiesto = id.ToString() });
+});
+
+/// Agrega una persona. **Solo mientras el manifiesto este abierto.**
+personas.MapPost("/manifiesto/{mision}/personas", async (
+    string mision, AgregarPersona peticion, ServicioDelManifiesto servicio) =>
+{
+    if (!Identificador.Valido(mision, out var ulid, out var error)) return error;
+
+    if (!Enum.TryParse<FormaDeIdentificacion>(peticion.Forma, ignoreCase: true, out var forma))
+        return Results.BadRequest(new
+        {
+            mensaje = "La forma de identificacion es Documento, Alternativa o NoIdentificada.",
+        });
+
+    await servicio.AgregarAsync(ulid, new PersonaEnManifiesto(
+        peticion.Nombre, peticion.Identificacion, forma, peticion.QueMotivaElTraslado,
+        peticion.Origen, peticion.Destino, peticion.RequerimientoOperativo));
+
+    return Results.Ok(new { mision, agregada = true });
+});
+
+/// `RN-53` — cierra el manifiesto al despachar. **Despues de esto no se toca.**
+personas.MapPost("/manifiesto/{mision}/cerrar", async (
+    string mision, CerrarManifiesto peticion, ServicioDelManifiesto servicio) =>
+{
+    if (!Identificador.Valido(mision, out var ulid, out var error)) return error;
+
+    await servicio.CerrarAsync(ulid, new IdPersona(peticion.Cierra), peticion.Momento);
+    return Results.Ok(new { mision, cerrado = true });
+});
+
+/// `PT-131` — la novedad de ruta. **Se suma; no edita el manifiesto.**
+personas.MapPost("/manifiesto/{mision}/novedades", async (
+    string mision, RegistrarNovedad peticion, ServicioDelManifiesto servicio) =>
+{
+    if (!Identificador.Valido(mision, out var ulid, out var error)) return error;
+
+    if (!Enum.TryParse<TipoDeNovedad>(peticion.Tipo, ignoreCase: true, out var tipo))
+        return Results.BadRequest(new
+        {
+            mensaje = "La novedad es NoSePresento, SubioEnRuta o BajoAntes.",
+        });
+
+    await servicio.RegistrarNovedadAsync(
+        ulid, tipo, peticion.AQuien, peticion.Motivo, peticion.DondePaso,
+        peticion.FechaDelHecho, new IdPersona(peticion.Registra),
+        peticion.Autoriza is null ? null : new IdPersona(peticion.Autoriza));
+
+    return Results.Ok(new { mision, registrada = true });
 });
 
 var auditoria = app.MapGroup("/auditoria");
@@ -6182,3 +6307,16 @@ public sealed record RegistrarFundamento(
 public sealed record RegistrarAcceso(
     string Consultante, string Rol, string Registro, string Alcance, DateTimeOffset Momento,
     string? NecesidadDeConocer = null);
+
+/// Una persona declarada a bordo. **Sin documento se registra como NoIdentificada**: el traslado
+/// sale igual y queda constancia de que iba.
+public sealed record AgregarPersona(
+    string QueMotivaElTraslado, string Origen, string Destino, string Forma,
+    string? Nombre = null, string? Identificacion = null, string? RequerimientoOperativo = null);
+
+public sealed record CerrarManifiesto(string Cierra, DateTimeOffset Momento);
+
+/// Lo que cambio en ruta. `Autoriza` es obligatorio solo cuando alguien subio.
+public sealed record RegistrarNovedad(
+    string Tipo, string Motivo, string Registra, DateTimeOffset FechaDelHecho,
+    string? AQuien = null, string? DondePaso = null, string? Autoriza = null);
