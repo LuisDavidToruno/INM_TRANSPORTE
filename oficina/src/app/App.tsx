@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText, LayoutList, IdCard, Scale, Users, ShieldAlert, Inbox, Route as RutaIcono, SlidersHorizontal, Radio, Home, Search, ShieldX, FileStack, Hash, GitCompareArrows, HardDrive, PlugZap, ShieldQuestion, Eye, ScrollText as Lista, Globe, HeartPulse, FilePlus2, ShieldCheck, Stamp } from 'lucide-react';
+import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText, LayoutList, IdCard, Scale, Users, ShieldAlert, Inbox, Route as RutaIcono, SlidersHorizontal, Radio, Home, Search, ShieldX, FileStack, Hash, GitCompareArrows, HardDrive, PlugZap, ShieldQuestion, Eye, ScrollText as Lista, Globe, HeartPulse, FilePlus2, ShieldCheck, Stamp, ScanLine } from 'lucide-react';
 
 import { Avisos, Nota, Shell, avisar } from '../ui';
 import type { GrupoNav, Miga } from '../ui';
@@ -22,6 +22,8 @@ import PrestamosPantalla from '../modulos/M03_Flota/Prestamos';
 import Titulos from '../modulos/M03_Flota/Titulos';
 import Puestos from '../modulos/M01_Organizacion/Puestos';
 import FirmaDePermisos from '../modulos/M07_Programacion/FirmaDePermisos';
+import Salvoconducto from '../modulos/M15_Formatos/Salvoconducto';
+import Verificacion from '../modulos/M15_Formatos/Verificacion';
 import BandejaDeTareas from '../modulos/M01_Organizacion/Bandeja';
 import IntentosBloqueados from '../modulos/M14_Auditoria/IntentosBloqueados';
 import Ingreso from '../modulos/M01_Organizacion/Ingreso';
@@ -185,6 +187,15 @@ function Interior(): ReactElement {
           href: '/permisos/firmar',
           accionable: true,
         },
+
+        // El punto de verificación vive en el riel porque **también se usa desde adentro**:
+        // quien recibe una llamada de un agente en carretera teclea acá el código que le
+        // dictan. El QR entra por la misma ruta sin pasar por el riel.
+        {
+          texto: 'Verificar salvoconducto',
+          icono: <ScanLine />,
+          href: '/verificar',
+        },
       ],
     },
     {
@@ -340,6 +351,12 @@ function Interior(): ReactElement {
         <Route path="/tareas" element={<BandejaDeTareas />} />
         <Route path="/organizacion" element={<Puestos />} />
         <Route path="/permisos/firmar" element={<FirmaDePermisos />} />
+        <Route path="/misiones/:id/salvoconducto" element={<Salvoconducto />} />
+
+        {/* A esto resuelve el QR del papel. El parámetro es opcional: quien no pudo
+            escanear entra sin él y teclea el código corto que anotó. */}
+        <Route path="/verificar" element={<Verificacion />} />
+        <Route path="/verificar/:codigo" element={<Verificacion />} />
         <Route path="/titulos" element={<Titulos />} />
         <Route path="/flota/:id" element={<ExpedienteDeVehiculo />} />
         {/* La matriz va ANTES que el detalle: si no, `/motoristas/matriz` entraría por
@@ -438,6 +455,9 @@ function migasDe(ruta: string): Miga[] {
   if (ruta === '/parametros/cargar') return ['Parámetros', 'Cargar'];
   if (ruta === '/parametros/aprobar') return ['Parámetros', 'Poner en vigencia'];
   if (ruta === '/permisos/firmar') return ['Permisos de circulación', 'Firma'];
+  if (ruta.startsWith('/verificar')) return ['Verificar salvoconducto'];
+  if (ruta.endsWith('/salvoconducto'))
+    return [{ texto: 'Bandeja de autorización', href: '/autorizacion' }, 'Salvoconducto'];
   if (ruta === '/salud') return ['Qué está mal'];
   if (ruta === '/seguimiento') return ['Seguimiento en ruta'];
   if (ruta.startsWith('/seguimiento/'))

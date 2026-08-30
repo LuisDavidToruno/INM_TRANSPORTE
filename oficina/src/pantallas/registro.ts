@@ -218,6 +218,16 @@ export const CONSTRUIDAS: Readonly<Record<string, Construida>> = {
   // ve, y mandarlo a otra pantalla es como el tramite se posterga hasta el viernes.
   'PT-020': { ruta: '/autorizacion/:id', archivo: 'M07_Programacion/TramiteDelPermiso.tsx' },
   'PT-021': { ruta: '/permisos/firmar', archivo: 'M07_Programacion/FirmaDePermisos.tsx' },
+
+  // ── M-15 Formatos oficiales ──────────────────────────────────────────────
+  'PT-023': {
+    ruta: '/misiones/:id/salvoconducto',
+    archivo: 'M15_Formatos/Salvoconducto.tsx',
+    incompleta:
+      'el folio es provisional mientras no haya rangos de salvoconducto asignados por ' +
+      'delegación (insumo #34), y el punto de verificación es interno hasta que la ' +
+      'institución decida si lo expone (RN-25, pendiente G).',
+  },
   'PT-099': { ruta: '/parametros/cargar', archivo: 'M02_Parametros/CargarParametro.tsx' },
   'PT-100': { ruta: '/parametros/aprobar', archivo: 'M02_Parametros/Aprobaciones.tsx' },
   'PT-101': { ruta: '/salud', archivo: 'M02_Parametros/Salud.tsx' },

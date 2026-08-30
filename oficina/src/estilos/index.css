@@ -2074,3 +2074,73 @@
      dos reglas de la misma especificidad y sólo el orden decide, así que tienen
      que estar juntas. Buscar `.loki-riel-item::before`. */
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   IMPRESIÓN — el patrón de M-15 · Formatos Oficiales
+   ══════════════════════════════════════════════════════════════════════════
+
+   Premisa rectora 4 del proyecto: híbrido digital-papel **por diseño, no por
+   parche**. El salvoconducto es el primer documento que sale por una impresora
+   y se lleva en la mano; la Orden de Misión, la hoja de bitácora y el vale de
+   combustible van a salir por acá también.
+
+   Tres decisiones que valen para todos:
+
+   1 · **El papel es blanco siempre.** No se usan los tokens del tema: un
+       documento oficial impreso con el tema oscuro gasta el tóner y no se lee.
+
+   2 · **La cáscara no se imprime.** El riel, la barra y los botones son
+       controles de pantalla. Impresos son ruido que un fiscalizador tiene que
+       aprender a ignorar en un documento que se le exige comparar.
+
+   3 · **A4, no Letter.** Es el tamaño que se usa en la administración pública
+       hondureña; imprimir en Letter recorta el margen inferior donde va el
+       espacio de firma y sello.                                              */
+
+@media print {
+  @page {
+    size: A4;
+
+    /* 15 mm arriba y abajo: lo justo para que la firma y el sello quepan y no
+       los coma el área no imprimible de la impresora. */
+    margin: 15mm 12mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* La cáscara de la aplicación. Se nombra por su papel, no por su etiqueta:
+     lo que no se imprime es lo que sirve para navegar. */
+  .loki-riel,
+  .loki-barra,
+  nav,
+  [role='navigation'] {
+    display: none !important;
+  }
+
+  /* El marco deja de acotar: en papel manda el @page. */
+  main,
+  .loki-marco {
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* ⚠️ Nada de sombras ni de fondos decorativos. Salen como manchas grises que
+     consumen tóner y bajan el contraste de lo único que importa: el texto que
+     un agente compara con lo que tiene enfrente. */
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  /* Que un documento no se parta a la mitad. El bloque de firma cortado entre
+     dos hojas es un documento sin firma. */
+  article,
+  section {
+    break-inside: avoid;
+  }
+}

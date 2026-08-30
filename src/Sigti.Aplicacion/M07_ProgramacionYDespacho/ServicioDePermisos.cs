@@ -305,21 +305,48 @@ public sealed class ServicioDePermisos(
         f.EmitidoPor is null ? null : new IdPersona(f.EmitidoPor));
 
     /// <summary>
+    /// Los estados en los que la reserva <b>cuenta</b>.
+    ///
+    /// Mismos que los de <c>ConsultaDeOcupacion</c>, y por la misma razón: la ocupación es la
+    /// proyección del diario y sólo vale mientras el estado la sostiene.
+    /// </summary>
+    private static readonly EstadoDeMision[] Sostienen =
+    [
+        EstadoDeMision.Programada,
+        EstadoDeMision.Despachada,
+        EstadoDeMision.EnRuta,
+    ];
+
+    /// <summary>
     /// Qué vehículo y qué motorista tiene reservados la misión <b>hoy</b>.
     ///
     /// Sale de la última transición que tomó recursos, no de una columna: el expediente no
     /// guarda «el vehículo asignado» — lo asignado es un hecho del diario (`P-1`), y un relevo
     /// posterior es otro hecho que lo supera. Leer una columna daría el primero para siempre.
     ///
-    /// <b>Nulos cuando la misión no está programada.</b> Ésa es la condición que impide firmar.
+    /// ── ⚠️ Y no basta con la última transición que tomó recursos ────────────
+    /// <b>Liberar es no volver a tomar.</b> `T-11` desprograma y la transición de `T-08` que
+    /// reservó <b>permanece en el diario</b> —nada se deshace (`P-3`)—, simplemente deja de
+    /// contar. Mirar sólo la última con vehículo devolvería la reserva de una misión que ya
+    /// volvió a `APROBADA` y no tiene ninguna.
+    ///
+    /// Costó el estado <c>Desactualizado</c> del salvoconducto: desprogramar una misión dejaba
+    /// el papel impreso contestando «documento válido» a quien lo verificara en la carretera,
+    /// porque acá seguía apareciendo el motorista que ya no iba.
+    ///
+    /// <b>Nulos cuando la misión no sostiene reserva.</b> Ésa es la condición que impide firmar.
     /// </summary>
-    private static (Ulid? Vehiculo, Ulid? Motorista) Reserva(FilaDeExpediente expediente)
+    internal static (Ulid? Vehiculo, Ulid? Motorista) Reserva(FilaDeExpediente expediente)
     {
-        var ultima = expediente.Transiciones
+        var ultima = expediente.Transiciones.MaxBy(t => t.Orden);
+
+        if (ultima is null || !Sostienen.Contains(ultima.Destino)) return (null, null);
+
+        var reserva = expediente.Transiciones
             .Where(t => t.VehiculoTomado is not null)
             .MaxBy(t => t.Orden);
 
-        return (ultima?.VehiculoTomado, ultima?.ConductorTomado);
+        return (reserva?.VehiculoTomado, reserva?.ConductorTomado);
     }
 
     private static IReadOnlyList<string> Tramos(

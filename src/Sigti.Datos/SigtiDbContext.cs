@@ -5,6 +5,7 @@ using Sigti.Datos.M09_Combustible;
 using Sigti.Datos.M03_Flota;
 using Sigti.Datos.M11_Mantenimiento;
 using Sigti.Datos.M06_Solicitudes;
+using Sigti.Datos.M15_Formatos;
 using Sigti.Datos.M16_Sincronizacion;
 using Sigti.Datos.M17_PersonasExternas;
 using Sigti.Datos.M12_Incidentes;
@@ -68,6 +69,7 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     public DbSet<FilaDeAviso> Avisos => Set<FilaDeAviso>();
     public DbSet<FilaDeCustodia> Custodias => Set<FilaDeCustodia>();
     public DbSet<FilaDePermisoDeCirculacion> Permisos => Set<FilaDePermisoDeCirculacion>();
+    public DbSet<FilaDeSalvoconducto> Salvoconductos => Set<FilaDeSalvoconducto>();
     public DbSet<FilaDeCambioDeEstado> CambiosDeEstado => Set<FilaDeCambioDeEstado>();
     public DbSet<FilaDeFondo> Fondos => Set<FilaDeFondo>();
     public DbSet<FilaDeAsignacion> AsignacionesDeCombustible => Set<FilaDeAsignacion>();
@@ -1750,6 +1752,64 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             // La bandeja de firma de PT-021 pregunta por estado, y es la consulta que la
             // maxima autoridad abre en el celular: tiene que responder sin recorrer la tabla.
             permiso.HasIndex(p => p.Estado);
+        });
+
+        modelo.Entity<FilaDeSalvoconducto>(salvo =>
+        {
+            salvo.ToTable("Salvoconducto", schema: "mision");
+
+            salvo.HasKey(x => x.Id);
+            salvo.Property(x => x.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            salvo.Property(x => x.PermisoId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            salvo.Property(x => x.ExpedienteId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+
+            salvo.Property(x => x.Folio).HasMaxLength(40).IsRequired();
+
+            // Nulos cuando el folio es provisional: no hay rango del que salga.
+            salvo.Property(x => x.FolioRangoId).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+
+            salvo.Property(x => x.Huella).HasMaxLength(80).IsRequired();
+            salvo.Property(x => x.CodigoCorto).HasMaxLength(16).IsRequired();
+
+            salvo.Property(x => x.FolioDelPermiso).HasMaxLength(32).IsRequired();
+            salvo.Property(x => x.Vehiculo).HasMaxLength(200).IsRequired();
+            salvo.Property(x => x.Motorista).HasMaxLength(160).IsRequired();
+            salvo.Property(x => x.Destino).HasMaxLength(120).IsRequired();
+            salvo.Property(x => x.TramosInhabiles).HasMaxLength(600).IsRequired();
+            salvo.Property(x => x.Justificacion).HasMaxLength(600).IsRequired();
+            salvo.Property(x => x.FirmadoPor).HasMaxLength(64).IsRequired();
+            salvo.Property(x => x.EmitidoPor).HasMaxLength(64).IsRequired();
+
+            // **Un folio por permiso.** RN-04: dos folios para una misma circulacion rompen la
+            // conciliacion, y la unicidad es la ultima red si el bloqueo de aplicacion fallara.
+            salvo.HasIndex(x => x.PermisoId).IsUnique();
+            salvo.HasIndex(x => x.Folio).IsUnique();
+
+            // Por aca entra la verificacion en carretera: el agente teclea el codigo corto
+            // porque no pudo escanear. Es EL camino de lectura del documento.
+            salvo.HasIndex(x => x.CodigoCorto);
+
+            salvo.HasMany(x => x.Impresiones)
+                .WithOne()
+                .HasForeignKey(i => i.SalvoconductoId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelo.Entity<FilaDeImpresion>(impresion =>
+        {
+            impresion.ToTable("ImpresionDeSalvoconducto", schema: "mision");
+
+            impresion.HasKey(i => i.Id);
+            impresion.Property(i => i.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            impresion.Property(i => i.SalvoconductoId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+
+            impresion.Property(i => i.Quien).HasMaxLength(64).IsRequired();
+
+            // Nulo SOLO en la primera, que es la emision misma.
+            impresion.Property(i => i.Motivo).HasMaxLength(300);
+
+            // «La tercera impresion de este folio» tiene que poder responderse en orden.
+            impresion.HasIndex(i => new { i.SalvoconductoId, i.Orden }).IsUnique();
         });
 
         modelo.Entity<FilaDeAdjunto>(adjunto =>

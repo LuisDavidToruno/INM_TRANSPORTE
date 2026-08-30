@@ -16,6 +16,7 @@
   "dependencies": {
     "@tanstack/react-query": "^5.90.2",
     "lucide-react": "1.32.0",
+    "qrcode-generator": "^2.0.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-hook-form": "7.85.0",

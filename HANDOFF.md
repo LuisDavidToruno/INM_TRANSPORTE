@@ -414,6 +414,74 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## `PT-023` — el primer documento físico del sistema
+
+**1276 pruebas en verde.** Hasta acá todo vivía en pantalla. El salvoconducto sale por una
+impresora, se dobla y se guarda en la guantera, y su único destinatario —el agente del TSC o
+de la DNVT en un operativo— **no tiene usuario, no se autentica y no verá nunca el**
+**expediente**. Es la premisa rectora 4 dejando de ser una frase.
+
+### Lo que quedó construido
+
+| | |
+|---|---|
+| **El papel** | Folio, vigencia explícita arriba y grande, vehículo por siglas institucionales, QR, huella, espacio de firma y sello |
+| **El QR** | SVG generado en el cliente. `qrcode-generator`, sin dependencias transitivas: **on-premise y sin red que consultar** |
+| **El código corto** | Ocho caracteres sin `I`, `O`, `0` ni `1` — se dicta por teléfono |
+| **La verificación** | Por folio (lo que resuelve el QR) **y** por código corto (lo que se anota cuando no hay señal) |
+| **La reimpresión** | Mismo folio, mismo contenido, misma huella. Con quién, cuándo y por qué |
+| **La hoja de impresión** | A4, sin la cáscara, sin sombras. Es el patrón para el resto de `M-15` |
+
+### ⚠️ Y un defecto mío, de media hora antes
+
+`RN-25` obliga a un tercer estado además de vigente y anulado: **`DESACTUALIZADO`**. El
+documento se imprime *antes* de salir —una delegación sin cobertura lo emite por anticipado— y
+la misión puede cambiar después. El papel deja de corresponder **sin que nadie lo anule**.
+
+Lo implementé, tiene sus pruebas de dominio, y al verificarlo vivo daba **`Vigente` siempre**.
+La razón: contrastaba el papel contra la copia congelada del **permiso** — y las dos copias se
+congelan en el mismo acto, así que no pueden diferir. El estado era **inalcanzable**.
+
+Un relevo de motorista dejaba un papel que no ampara a nadie contestando *«documento válido»*
+a quien lo verificara en la carretera, que es exactamente el daño que el estado existe para
+evitar.
+
+**Y al corregirlo apareció el defecto de abajo.** Contrastar contra la reserva de la misión
+seguía dando `Vigente` después de desprogramar, porque `Reserva()` leía la última transición
+con vehículo — y `T-11` **no borra** la reserva anterior: *«liberar es no volver a tomar»*, la
+transición de `T-08` permanece en el diario (`P-3`) y simplemente deja de contar.
+
+`ConsultaDeOcupacion` ya lo sabía y lo tenía escrito: la reserva sólo vale en `PROGRAMADA`,
+`DESPACHADA` o `EN_RUTA`. Mi `Reserva()` no miraba el estado. Corregido con esa misma regla —
+y **también afectaba a `PT-021`**: una misión desprogramada seguía pareciendo programada a la
+hora de firmar el permiso.
+
+La prueba de punta a punta que lo fija hace lo único que lo destapa: emitir, verificar,
+desprogramar, **volver a verificar**.
+
+### Una dependencia nueva, y por qué
+
+`qrcode-generator` (15 KB, sin dependencias transitivas). La alternativa era escribir un
+codificador QR a mano: más código que mantener y el riesgo de un QR sutilmente mal formado que
+un teléfono de gama baja no lea al mediodía en una carretera. **Para un documento cuyo
+propósito entero es ser escaneable, eso no se improvisa.** Se empaqueta en el bundle: no pide
+red en ejecución, que es la condición de un despliegue on-premise.
+
+### Lo que queda abierto
+
+- **El folio es provisional.** No hay rangos de salvoconducto asignados por delegación
+  (`RN-44`, insumo #34). El documento lo declara impreso, con su marca: **un folio inventado
+  que se ve oficial es peor que uno que dice que no lo es.**
+- **`[C]` pendiente G de `RN-25`**: si la institución acepta exponer el punto de verificación
+  en internet o lo deja interno. Es configuración de despliegue, no parte del bloqueo — el
+  documento lleva QR en los dos casos.
+- **`PT-024`, la reemisión** por relevo: hoy se desiste y se abre otro trámite.
+- **`PT-022`, la firma en lote de feriado largo** (`HU-020`).
+- La regla *«sin impresora no se despacha en día inhábil»* (`HU-017`) **no está implementada**:
+  el sistema no sabe si la delegación tiene impresora. Es requisito de despliegue, `[C]`.
+
+---
+
 ## `PT-020` y `PT-021` — el bloqueo que era una puerta sin llave
 
 **1258 pruebas en verde.**

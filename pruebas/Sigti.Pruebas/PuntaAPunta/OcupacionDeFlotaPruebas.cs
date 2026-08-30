@@ -620,6 +620,181 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         Assert.Contains(firmado.GetProperty("folio").GetString()!, motivo);
         Assert.Contains("P-MAXIMA", motivo);
         Assert.Contains("PROVISIONAL-SIN-FERIADOS", motivo);
+
+        // ── El salvoconducto: el papel que el motorista lleva en la mano ─────
+        //
+        // `RN-25`: sin este documento impreso no se despacha en día inhábil, y no hay
+        // excepción. El permiso firmado autoriza; el papel es lo que un agente puede pedir.
+        var emision = await cliente.PostAsJsonAsync($"/permisos/{permiso}/salvoconducto", new
+        {
+            Ejecuta = "P-TRANSPORTE",
+            Momento,
+        });
+
+        Assert.Equal(System.Net.HttpStatusCode.Created, emision.StatusCode);
+
+        var documento = await cliente.GetFromJsonAsync<JsonElement>($"/misiones/{id}/salvoconducto");
+        var folio = documento.GetProperty("folio").GetString()!;
+        var codigo = documento.GetProperty("codigoCorto").GetString()!;
+
+        // Lo IMPRESO se congela al emitir. El papel no cambia cuando cambia la base.
+        var contenido = documento.GetProperty("contenido");
+        Assert.Equal("Choluteca", contenido.GetProperty("destino").GetString());
+        Assert.Contains(
+            "21/03/2026",
+            contenido.GetProperty("tramosInhabiles").EnumerateArray().Select(t => t.GetString()));
+
+        // ── Los dos caminos de verificación ─────────────────────────────────
+        //
+        // Por folio: es a lo que resuelve el QR. Por código corto: es lo que el agente anota
+        // cuando NO PUDO ESCANEAR porque no había señal, y consulta al volver. `RN-25` obliga
+        // a las dos vías — la verificación en línea no puede ser la única en el país que
+        // documenta `NRM-09`.
+        foreach (var entrada in new[] { folio, codigo })
+        {
+            var verificado = await cliente.GetFromJsonAsync<JsonElement>(
+                $"/salvoconductos/verificar/{Uri.EscapeDataString(entrada)}");
+
+            Assert.True(verificado.GetProperty("encontrado").GetBoolean());
+            Assert.Equal("Vigente", verificado.GetProperty("estado").GetString());
+            Assert.Equal(folio, verificado.GetProperty("folio").GetString());
+
+            // El veredicto dice QUÉ HACER. El estado por sí solo no le dice a un agente si
+            // puede dejar pasar el vehículo.
+            Assert.Contains("Compare los cuatro", verificado.GetProperty("veredicto").GetString());
+        }
+
+        // ── Un segundo documento para el mismo permiso: NO ──────────────────
+        //
+        // `RN-04`: dos folios para una misma circulación rompen la conciliación.
+        var repetido = await cliente.PostAsJsonAsync($"/permisos/{permiso}/salvoconducto", new
+        {
+            Ejecuta = "P-TRANSPORTE",
+            Momento,
+        });
+
+        Assert.Equal(System.Net.HttpStatusCode.Conflict, repetido.StatusCode);
+        Assert.Contains("reimprima", await repetido.Content.ReadAsStringAsync());
+
+        // ── La reimpresión conserva folio, contenido y huella ───────────────
+        var salvoconducto = documento.GetProperty("id").GetString()!;
+
+        var reimpreso = await cliente.PostAsJsonAsync(
+            $"/salvoconductos/{salvoconducto}/reimprimir", new
+            {
+                Ejecuta = "P-TRANSPORTE",
+                Motivo = "Extraviado en ruta.",
+                Momento,
+            });
+
+        Assert.Equal(2, (await reimpreso.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("impresion").GetInt32());
+
+        var despues = await cliente.GetFromJsonAsync<JsonElement>($"/misiones/{id}/salvoconducto");
+
+        Assert.Equal(folio, despues.GetProperty("folio").GetString());
+        Assert.Equal(
+            documento.GetProperty("huella").GetString(),
+            despues.GetProperty("huella").GetString());
+
+        // Y el asiento de la reimpresión dice quién, cuándo y por qué. Un contador diría
+        // cuántas y ninguna de las tres cosas que importan.
+        var impresiones = despues.GetProperty("impresiones").EnumerateArray().ToList();
+        Assert.Equal(2, impresiones.Count);
+        Assert.Null(impresiones[0].GetProperty("motivo").GetString());
+        Assert.Equal("Extraviado en ruta.", impresiones[1].GetProperty("motivo").GetString());
+    }
+
+    /// <summary>
+    /// ⚠️ <b>El estado que casi no se puede alcanzar por accidente, y por eso hace falta
+    /// probarlo.</b>
+    ///
+    /// `RN-25` obliga a distinguir <c>Desactualizado</c> de <c>Vigente</c>: el salvoconducto se
+    /// imprime <b>antes</b> de salir —una delegación sin cobertura lo emite por anticipado— y la
+    /// misión puede cambiar después. El papel que el motorista lleva en la mano deja de
+    /// corresponder <b>sin que nadie lo anule</b>.
+    ///
+    /// ── Lo que esta prueba fija ─────────────────────────────────────────────
+    /// La primera implementación contrastaba el papel contra la copia congelada del
+    /// <b>permiso</b>. Las dos copias se congelan en el mismo acto, así que nunca podían
+    /// diferir: <c>Desactualizado</c> era <b>inalcanzable</b>, y un relevo de motorista dejaba un
+    /// papel que no ampara a nadie contestando «documento válido» a quien lo verificara en la
+    /// carretera.
+    ///
+    /// El contraste tiene que ser contra la <b>reserva de la misión</b>, que es lo que cambia.
+    /// </summary>
+    [Fact]
+    public async Task Desprogramar_la_mision_desactualiza_el_salvoconducto_ya_impreso()
+    {
+        var r = await Sembrar("SCDES-001");
+        var id = Ulid.NewUlid().ToString();
+
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        await CrearYAprobarEnFinDeSemana(cliente, id);
+        await Programar(cliente, id, r);
+
+        var apertura = await cliente.PostAsJsonAsync($"/misiones/{id}/permiso", new
+        {
+            Justificacion = "Operativo migratorio de fin de semana.",
+            Solicita = "P-TRANSPORTE",
+            Momento,
+        });
+
+        var permiso = (await apertura.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("id").GetString()!;
+
+        await cliente.PostAsJsonAsync($"/permisos/{permiso}/firmar", new
+        {
+            Ejecuta = "P-MAXIMA",
+            Momento,
+        });
+
+        await cliente.PostAsJsonAsync($"/permisos/{permiso}/salvoconducto", new
+        {
+            Ejecuta = "P-TRANSPORTE",
+            Momento,
+        });
+
+        var doc = await cliente.GetFromJsonAsync<JsonElement>($"/misiones/{id}/salvoconducto");
+        var codigo = doc.GetProperty("codigoCorto").GetString()!;
+
+        // Antes de tocar nada: el papel corresponde.
+        var antes = await cliente.GetFromJsonAsync<JsonElement>(
+            $"/salvoconductos/verificar/{Uri.EscapeDataString(codigo)}");
+
+        Assert.Equal("Vigente", antes.GetProperty("estado").GetString());
+
+        // ── La misión cambia debajo del papel ────────────────────────────────
+        //
+        // Nadie anula el salvoconducto: se desprograma la misión, que es lo que pasa en un
+        // relevo. El papel sigue impreso y en la mano de alguien.
+        var suelta = await cliente.PostAsJsonAsync($"/misiones/{id}/desprogramar", new
+        {
+            Ejecuta = "P-TRANSPORTE",
+            Motivo = "Relevo de motorista por incapacidad.",
+            Momento,
+        });
+
+        Assert.True(suelta.IsSuccessStatusCode, await suelta.Content.ReadAsStringAsync());
+
+        var despues = await cliente.GetFromJsonAsync<JsonElement>(
+            $"/salvoconductos/verificar/{Uri.EscapeDataString(codigo)}");
+
+        Assert.Equal("Desactualizado", despues.GetProperty("estado").GetString());
+
+        // Y el veredicto **no dice «anulado»**: son dos cosas distintas en la carretera. Anulado
+        // significa que el documento nunca debió usarse; desactualizado, que ampara algo que ya
+        // no es el viaje.
+        var veredicto = despues.GetProperty("veredicto").GetString()!;
+        Assert.Contains("YA NO CORRESPONDE", veredicto);
+        Assert.Contains("Consulte con la institución", veredicto);
+
+        // El papel no cambió: sigue diciendo lo que se imprimió.
+        Assert.Equal(
+            doc.GetProperty("contenido").GetProperty("motorista").GetString(),
+            despues.GetProperty("contenido").GetProperty("motorista").GetString());
     }
 
     /// <summary>Del viernes 20 al domingo 22 de marzo de 2026 — cruza el fin de semana.</summary>

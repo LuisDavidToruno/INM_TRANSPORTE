@@ -4,6 +4,7 @@ using Sigti.Aplicacion.M01_Organizacion;
 using Sigti.Aplicacion.M02_Parametros;
 using Sigti.Aplicacion.M03_Flota;
 using Sigti.Aplicacion.M05_Motoristas;
+using Sigti.Aplicacion.M15_Formatos;
 using Sigti.Aplicacion.M16_Sincronizacion;
 using Sigti.Aplicacion.M06_Solicitudes;
 using Sigti.Aplicacion.M08_Bitacora;
@@ -27,6 +28,7 @@ using Sigti.Dominio.M18_Peajes;
 using Sigti.Dominio.Reglas;
 using Sigti.Aplicacion.M06_Solicitudes;
 using Sigti.Dominio.M06_Solicitudes;
+using Sigti.Dominio.M15_Formatos;
 using Sigti.Dominio.M16_Sincronizacion;
 using Sigti.Aplicacion.M17_PersonasExternas;
 using Sigti.Dominio.M17_PersonasExternas;
@@ -68,6 +70,7 @@ constructor.Services.AddScoped<ConsultaDeOcupacion>();
 constructor.Services.AddScoped<ConsultaDeCustodias>();
 constructor.Services.AddScoped<ConsultaDePermisos>();
 constructor.Services.AddScoped<ServicioDePermisos>();
+constructor.Services.AddScoped<ServicioDeSalvoconductos>();
 constructor.Services.AddScoped<ConsultaDelDiaDeDespacho>();
 constructor.Services.AddScoped<ConsultaDeOdometro>();
 constructor.Services.AddScoped<EstadoDeLaFlota>();
@@ -2183,6 +2186,133 @@ misiones.MapGet("/{id}/permisos", async (string id, ServicioDePermisos servicio)
         ampara = f.Estado == EstadoDelPermiso.Firmado,
     }));
 });
+
+
+// ── El salvoconducto: el primer documento FISICO del sistema — RN-25, HU-017 ─
+//
+// El control en carretera es fisico. El destinatario del papel no se autentica, no tiene
+// usuario y no vera nunca el expediente: el agente del TSC o de la DNVT en un operativo no va
+// a consultar un sistema, va a pedir un papel. Y un papel que no se puede verificar vale lo
+// mismo que uno falsificado.
+var salvoconductos = app.MapGroup("/salvoconductos");
+
+/// `PT-023` — emitir. Exige permiso FIRMADO: el salvoconducto no autoriza, materializa.
+permisosDeCirculacion.MapPost("/{id}/salvoconducto", async (
+    string id, EjecutarTransicion peticion, ServicioDeSalvoconductos servicio) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    var emitido = await servicio.EmitirAsync(ulid, new IdPersona(peticion.Ejecuta), peticion.Momento);
+
+    return Results.Created($"/salvoconductos/{emitido}", new { id = emitido.ToString() });
+});
+
+/// `PT-023` — el documento de una mision, para imprimirlo.
+misiones.MapGet("/{id}/salvoconducto", async (string id, ServicioDeSalvoconductos servicio) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    var doc = await servicio.DelExpedienteAsync(ulid);
+
+    // **«No hay documento» es una respuesta, no una ausencia.** Un 204 obliga al cliente a
+    // tratar el caso normal —la mision todavia no emitio salvoconducto— como un caso especial
+    // del transporte, y el que olvide hacerlo va a intentar leer un cuerpo vacio como JSON.
+    return doc is null
+        ? Results.Ok(new { emitido = false })
+        : Results.Ok(Documento(doc));
+});
+
+/// El punto de verificacion al que resuelve el QR — **y al que llega el codigo corto**.
+///
+/// ⚠️ Los dos caminos existen por la misma razon. El QR resuelve al folio; en zona sin senal el
+/// agente NO PUEDE ESCANEAR, anota los ocho caracteres del codigo y consulta al volver. RN-25
+/// obliga a las dos vias porque la verificacion en linea no puede ser la unica en un pais con
+/// la conectividad que documenta NRM-09.
+///
+/// `[C]` pendiente G de RN-25: si la institucion acepta exponer este punto en internet o lo
+/// deja interno. **Es configuracion de despliegue, no parte del bloqueo** — el documento lleva
+/// QR en los dos casos.
+salvoconductos.MapGet("/verificar/{folioOCodigo}", async (
+    string folioOCodigo, ServicioDeSalvoconductos servicio) =>
+{
+    var doc = await servicio.VerificarAsync(folioOCodigo);
+
+    // 404 con cuerpo: quien verifica necesita saber que NO SE ENCONTRO, no recibir una pagina
+    // en blanco que pueda confundirse con un fallo de red.
+    return doc is null
+        ? Results.NotFound(new
+        {
+            encontrado = false,
+            veredicto = "No existe ningun salvoconducto con ese folio ni con ese codigo. " +
+                        "Verifique la transcripcion; si es correcta, el documento no fue " +
+                        "emitido por este sistema.",
+        })
+        : Results.Ok(Documento(doc));
+});
+
+/// Reimprimir: **mismo folio, mismo contenido, misma huella** (RN-04). Lo unico que se agrega
+/// es el asiento de quien, cuando y por que.
+salvoconductos.MapPost("/{id}/reimprimir", async (
+    string id, RechazarMision peticion, ServicioDeSalvoconductos servicio) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    var orden = await servicio.ReimprimirAsync(
+        ulid, new IdPersona(peticion.Ejecuta), peticion.Motivo, peticion.Momento);
+
+    return Results.Ok(new { id, impresion = orden });
+});
+
+static object Documento(SalvoconductoImpreso d) => new
+{
+    encontrado = true,
+    id = d.Id.ToString(),
+    folio = d.Folio,
+
+    // **Verdadero cuando no hay rango asignado a la delegacion.** El documento lo declara: un
+    // folio inventado que se ve oficial es peor que uno que dice que es provisional.
+    folioProvisional = d.FolioProvisional,
+
+    huella = d.Huella,
+
+    // Ocho caracteres para dictar por telefono cuando no hay senal para escanear.
+    codigoCorto = d.CodigoCorto,
+
+    estado = d.Estado.ToString(),
+
+    // El estado por si solo no le dice a un agente si puede dejar pasar el vehiculo.
+    veredicto = d.Veredicto,
+
+    // Lo IMPRESO, congelado al emitir. No se deriva: el papel no cambia cuando cambia la base.
+    contenido = new
+    {
+        folioDelPermiso = d.Contenido.FolioDelPermiso,
+        vehiculo = d.Contenido.Vehiculo,
+        motorista = d.Contenido.Motorista,
+        destino = d.Contenido.Destino,
+        desde = d.Contenido.Desde,
+        hasta = d.Contenido.Hasta,
+        tramosInhabiles = d.Contenido.TramosInhabiles,
+        justificacion = d.Contenido.Justificacion,
+        firmadoPor = d.Contenido.FirmadoPor.Valor,
+        firmadoEn = d.Contenido.FirmadoEn,
+    },
+
+    emitidoPor = d.EmitidoPor.Valor,
+    emitidoEn = d.EmitidoEn,
+
+    // Quien, cuando y por que de cada salida por impresora. Un contador diria cuantas y
+    // ninguna de las tres cosas que importan.
+    impresiones = d.Impresiones.Select(i => new
+    {
+        orden = i.Orden,
+        quien = i.Quien.Valor,
+        momento = i.Momento,
+
+        // Nulo SOLO en la primera, que es la emision misma.
+        motivo = i.Motivo,
+    }),
+};
 
 var auditoria = app.MapGroup("/auditoria");
 

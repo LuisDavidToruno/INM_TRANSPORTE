@@ -1,10 +1,12 @@
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Info, ShieldCheck, Stamp } from 'lucide-react';
+import { FileText, Info, ShieldCheck, Stamp } from 'lucide-react';
 
 import { Boton, Campo, Nota, Panel, Pastilla, avisar } from '../../ui';
 import { BloqueoDuro, pedir } from '../../api/misiones';
+import { useNavigate } from 'react-router';
+
 import { usarQuienEjecuta } from '../../app/puesto';
 
 /**
@@ -34,11 +36,26 @@ export default function TramiteDelPermiso({
 }): ReactElement | null {
   const quienEjecuta = usarQuienEjecuta();
   const cliente = useQueryClient();
+  const ir = useNavigate();
   const [justificacion, setJustificacion] = useState('');
 
   const { data, isPending, isError } = useQuery({
     queryKey: ['permisos', mision],
     queryFn: () => pedir<Permiso[]>(`/misiones/${mision}/permisos`),
+  });
+
+  const emitir = useMutation({
+    mutationFn: (permiso: string) =>
+      pedir<{ id: string }>(`/permisos/${permiso}/salvoconducto`, {
+        method: 'POST',
+        body: JSON.stringify({ ejecuta: quienEjecuta, momento: new Date().toISOString() }),
+      }),
+    onSuccess: () => {
+      avisar.exito('Salvoconducto emitido. Imprímalo: sin el papel no se despacha.');
+      ir(`/misiones/${mision}/salvoconducto`);
+    },
+    onError: (e) =>
+      avisar.error(e instanceof BloqueoDuro ? e.paraMostrar : 'No se pudo emitir el documento.'),
   });
 
   const tramitar = useMutation({
@@ -120,11 +137,31 @@ export default function TramiteDelPermiso({
         )}
 
         {ampara ? (
-          <Nota tono="ok" icono={<ShieldCheck />}>
-            La misión tiene permiso firmado. <b>Ampara este vehículo, este motorista, este
-            destino y esta ventana</b> — un relevo de motorista lo invalida y obliga a
-            reemitirlo.
-          </Nota>
+          <>
+            <Nota tono="ok" icono={<ShieldCheck />}>
+              La misión tiene permiso firmado. <b>Ampara este vehículo, este motorista, este
+              destino y esta ventana</b> — un relevo de motorista lo invalida y obliga a
+              reemitirlo.
+            </Nota>
+
+            {/* ⚠️ El permiso firmado **no basta para salir**: `RN-25` exige el salvoconducto
+                impreso, y no hay excepción. El control en carretera es físico y el agente
+                pide un papel, no consulta un sistema. */}
+            <div className="tw:flex tw:flex-wrap tw:items-center tw:gap-3">
+              <Boton
+                onClick={() => emitir.mutate(vivos.find((p) => p.ampara)!.id)}
+                cargando={emitir.isPending}
+                icono={<FileText />}
+              >
+                Emitir el salvoconducto
+              </Boton>
+
+              <span className="tw:text-xs tw:text-tinta-mid">
+                <b>Sin el papel impreso no se despacha</b> en día u hora inhábil. Si ya lo
+                emitió, ábralo para imprimirlo o reimprimirlo.
+              </span>
+            </div>
+          </>
         ) : (
           <>
             <Campo
