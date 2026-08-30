@@ -414,21 +414,22 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
-## `PT-052` y `PT-055` — ⚠️ SIN VERIFICAR, pruebas pendientes
+## `PT-052` y `PT-055` — el estado que faltaba en `HU-067`
 
-> **Lo primero que hay que hacer al retomar:** correr `dotnet test`. Este bloque se comiteó
-> con autorización del PO **sin haber ejecutado la suite**, porque Smart App Control llevaba
-> hora y media bloqueando el ensamblado recién compilado y no cedió.
+> **Verificado después de comitear.** El bloque se comiteó con autorización del PO sin haber
+> podido correr la suite —Smart App Control llevaba hora y media bloqueando el ensamblado—.
+> Cuando cedió, esto es lo que salió:
 >
-> Todo compila y la migración está aplicada, pero **nada de esto corrió**:
+> | | |
+> |---|---|
+> | **969 pruebas en verde** | Todo el dominio, incluidas las 44 de M-16 |
+> | **191 no se ejecutaron** | ⚠️ **No fallaron: no corrieron.** SAC seguía bloqueando `Sigti.Api.dll`, y son todas las de punta a punta, que lo cargan |
+> | **0 fallos de código** | Se comprobó uno por uno: los 191 mensajes son el mismo `0x800711C7` |
+> | **Snapshot correcto** | Un `migrations add` de prueba salió con `Up()` **vacío**, que es la señal de que el modelo y el snapshot coinciden |
 >
-> - Las **1145 pruebas anteriores** desde que `ResultadoDeSincronizacion` cambió de forma
->   —ganó una cuarta lista, `EnEspera`—, y hay pruebas existentes que lo construyen.
-> - Las **9 pruebas nuevas** de `ReglasDelEnvio`.
-> - El **circuito de retención en vivo**: que un hecho quede retenido, que se aplique solo
->   cuando llegue su expediente, y que pase a la cola si al llegar sigue sin entrar.
-> - El **snapshot escrito a mano** (ver abajo). Se comprueba con un `dotnet ef migrations add`
->   de prueba: si sale con cambios que nadie hizo, el snapshot quedó mal.
+> **Queda pendiente:** las 191 de punta a punta, y el circuito de retención en vivo —que un
+> hecho quede retenido, se aplique solo cuando llegue su expediente, y pase a la cola si al
+> llegar sigue sin entrar—. Las dos necesitan que SAC ceda con `Sigti.Api.dll`.
 
 ### ⚠️ Faltaba un estado que `HU-067` exige
 
@@ -473,8 +474,9 @@ su `Designer` y el bloque del snapshot— **están escritos a mano** con el form
 y la tabla se creó **por SQL directo**, registrándola en `__EFMigrationsHistory` con la misma
 versión de producto que las demás.
 
-La base está correcta. Lo que falta comprobar es el **snapshot**: si quedó mal, la próxima
-migración generada saldría con cambios que nadie hizo.
+La base está correcta **y el snapshot también**: un `migrations add` de prueba salió con
+`Up()` vacío. Lo único que EF corrigió al normalizarlo fue **el orden** — había quedado antes
+de `FilaDeConflicto` y el orden canónico es alfabético. Mismo contenido, sin efecto.
 
 ### Nota sobre el diagnóstico de SAC
 
