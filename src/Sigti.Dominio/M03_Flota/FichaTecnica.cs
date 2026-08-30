@@ -85,7 +85,23 @@ public sealed record FichaTecnica(
     /// —no adivinada— y el vehículo no se puede programar (<c>BD-07</c>). Es la dirección
     /// segura del error: una categoría supuesta cobra mal y nadie lo nota.
     /// </summary>
-    int? NumeroDeEjes = null);
+    int? NumeroDeEjes = null,
+
+    /// <summary>
+    /// Qué combustible usa — diésel, gasolina superior, gasolina regular.
+    ///
+    /// ── Por qué está acá y no en el vale ────────────────────────────────────
+    /// `RN-32` caso límite: <i>«un vale de diésel para un vehículo de gasolina es un error caro
+    /// y perfectamente evitable»</i>. El vale ya declaraba su tipo; lo que faltaba era
+    /// <b>contra qué compararlo</b>, y sin eso el bloqueo se llamaba con nulo y salía por la
+    /// rama de «la ficha no lo declara» en todos los casos.
+    ///
+    /// ⚠️ <b>Nulo sigue siendo un estado válido</b> y no un dato pendiente de rellenar: una
+    /// flota heredada llega sin ficha completa, y la regla ya distingue «no declarado» de
+    /// «coincide». Forzarlo obligaría a inventar el combustible de cada unidad el día de la
+    /// migración, que es exactamente como se cablea un dato falso.
+    /// </summary>
+    string? TipoDeCombustible = null);
 
 /// <summary>
 /// La ventana de la misión. `BD-02` exige vigencia <b>durante todo el rango, incluida la

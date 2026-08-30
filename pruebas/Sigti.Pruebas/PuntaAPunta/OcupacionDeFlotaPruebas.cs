@@ -906,6 +906,100 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         Assert.NotEqual(folioAnulado, papelNuevo.GetProperty("folio").GetString());
     }
 
+    /// <summary>
+    /// `RN-61` — <b>reasignar el vehículo arrastra el salvoconducto</b>.
+    ///
+    /// ── La consecuencia que nadie ve venir ──────────────────────────────────
+    /// Cambiar el vehículo de una misión que circula en franja inhábil <b>deja el salvoconducto
+    /// sin valer</b>: el permiso es nominativo sobre el vehículo. El papel sigue impreso y en la
+    /// mano de alguien, y el permiso nuevo <b>nace sin firma</b> — la misión no puede salir
+    /// hasta que la máxima autoridad firme de nuevo.
+    ///
+    /// Que el sistema lo resuelva no basta: <b>quien reasignó tiene que enterarse</b>, o se irá
+    /// creyendo que cambiar un vehículo es cambiar un vehículo y lo descubrirá el sábado.
+    /// </summary>
+    [Fact]
+    public async Task Reasignar_el_vehiculo_anula_el_salvoconducto_y_lo_dice_en_la_respuesta()
+    {
+        var r = await Sembrar("ARRAS-001");
+        var otro = await Sembrar("ARRAS-002");
+        var id = Ulid.NewUlid().ToString();
+
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        await CrearYAprobarEnFinDeSemana(cliente, id);
+        await Programar(cliente, id, r);
+
+        var apertura = await cliente.PostAsJsonAsync($"/misiones/{id}/permiso", new
+        {
+            Justificacion = "Operativo migratorio de fin de semana.",
+            Solicita = "P-TRANSPORTE",
+            Momento,
+        });
+
+        var permiso = (await apertura.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("id").GetString()!;
+
+        await cliente.PostAsJsonAsync($"/permisos/{permiso}/firmar", new
+        {
+            Ejecuta = "P-MAXIMA",
+            Momento,
+        });
+
+        await cliente.PostAsJsonAsync($"/permisos/{permiso}/salvoconducto", new
+        {
+            Ejecuta = "P-TRANSPORTE",
+            Momento,
+        });
+
+        var papel = await cliente.GetFromJsonAsync<JsonElement>($"/misiones/{id}/salvoconducto");
+        var codigo = papel.GetProperty("codigoCorto").GetString()!;
+
+        // ── La sustitución ───────────────────────────────────────────────────
+        var reasignacion = await cliente.PostAsJsonAsync($"/misiones/{id}/reasignar", new
+        {
+            Ejecuta = "P-TRANSPORTE",
+            Momento,
+            IdVehiculo = otro.Vehiculo,
+            IdConductor = otro.Conductor,
+            Motivo = "VehiculoATaller",
+            Comentario = "El pick-up entró a taller la víspera.",
+        });
+
+        Assert.True(
+            reasignacion.IsSuccessStatusCode,
+            await reasignacion.Content.ReadAsStringAsync());
+
+        var cuerpo = await reasignacion.Content.ReadFromJsonAsync<JsonElement>();
+
+        // ── Lo que la respuesta tiene que decir ─────────────────────────────
+        var arrastre = cuerpo.GetProperty("arrastre");
+
+        // El permiso se reemitió: **es la consecuencia que hay que saber antes de irse**.
+        Assert.False(
+            arrastre.GetProperty("permisoReemitido").ValueKind == JsonValueKind.Null,
+            "La reasignación no reportó que el permiso se reemitió.");
+
+        // ── Y el papel viejo deja de valer, de inmediato ────────────────────
+        //
+        // Mientras siguiera verificando como válido, el motorista podría salir amparado en un
+        // documento que ya no lo ampara — que es el error que un operativo detecta al instante.
+        var verificado = await cliente.GetFromJsonAsync<JsonElement>(
+            $"/salvoconductos/verificar/{Uri.EscapeDataString(codigo)}");
+
+        Assert.Equal("Anulado", verificado.GetProperty("estado").GetString());
+
+        // ── El permiso nuevo NO hereda la firma ─────────────────────────────
+        var permisos = await cliente.GetFromJsonAsync<JsonElement>($"/misiones/{id}/permisos");
+
+        var vigente = permisos.EnumerateArray()
+            .Single(x => x.GetProperty("estado").GetString() == "Solicitado");
+
+        Assert.Null(vigente.GetProperty("firmadoPor").GetString());
+        Assert.False(vigente.GetProperty("ampara").GetBoolean());
+    }
+
     /// <summary>Del viernes 20 al domingo 22 de marzo de 2026 — cruza el fin de semana.</summary>
     private static async Task CrearYAprobarEnFinDeSemana(HttpClient cliente, string id)
     {

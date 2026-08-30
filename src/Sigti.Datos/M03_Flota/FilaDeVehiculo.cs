@@ -62,6 +62,14 @@ public sealed class FilaDeVehiculo
     public decimal? CapacidadDeTanqueGalones { get; init; }
 
     /// <summary>
+    /// Qué combustible usa. <b>Nulo es «la ficha no lo declara»</b>, no un dato pendiente.
+    ///
+    /// Es contra lo que `RN-32` compara el vale: sin esto el bloqueo del vale de diésel en un
+    /// motor de gasolina no puede evaluarse, y se llamaba con nulo en todos los casos.
+    /// </summary>
+    public string? TipoDeCombustible { get; set; }
+
+    /// <summary>
     /// Cuántos ejes tiene. Lo exige la matriz de derivación de categoría de peaje de
     /// <c>RN-33</c>.
     ///
@@ -143,7 +151,7 @@ public sealed class FilaDeVehiculo
     /// <summary>La ficha técnica que `BD-02` necesita, armada desde las columnas.</summary>
     public FichaTecnica Ficha() =>
         new(TipoDeVehiculo, Clase, PesoBrutoKg, CapacidadPasajeros, LlevaRemolque,
-            CapacidadDeTanqueGalones, NumeroDeEjes);
+            CapacidadDeTanqueGalones, NumeroDeEjes, TipoDeCombustible);
 
     /// <summary>La documentación que `BD-03` evalúa. <b>Con fechas reales.</b></summary>
     public DocumentacionDelVehiculo Documentacion() => new()

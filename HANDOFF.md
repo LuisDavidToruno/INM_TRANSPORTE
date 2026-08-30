@@ -414,6 +414,66 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## `RN-32` — el bloqueo que se llamaba siempre con nulo
+
+**1299 pruebas en verde.** Iba a cerrar lo que faltaba de `RN-61` y apareció algo más urgente
+por el camino.
+
+### ⚠️ El hallazgo
+
+`RN-32` tiene un caso límite escrito con estas palabras: *«un vale de diésel para un vehículo
+de gasolina es un error caro y perfectamente evitable»*. La regla existía, era correcta y
+tenía sus pruebas de dominio.
+
+**Y el servicio la llamaba siempre con `null`.** La razón estaba en un comentario del propio
+código, escrito con honestidad y nunca resuelto: *«la ficha del vehículo no declara el
+combustible que usa»*. Sin nada contra qué comparar, el bloqueo salía por la rama de «no
+declarado» **en todos los casos**.
+
+No es fraude: es desperdicio, o un motor arruinado.
+
+| Qué se hizo | |
+|---|---|
+| `TipoDeCombustible` entra a la ficha del vehículo | Nulo sigue siendo válido — «la ficha no lo declara» es un estado real de una flota heredada |
+| El servicio lo **resuelve**, ya no lo recibe | Recibirlo por parámetro dejaba la comparación en manos de quien emite: mandar el mismo valor a los dos lados la vuelve una tautología |
+| La flota sembrada declara diésel | Sin eso, las pruebas de punta a punta seguían sin ejercitar el bloqueo |
+
+La clase de pruebas donde va la nueva ya tenía un hermano suyo, con este comentario: *«la
+prueba que atrapó el defecto real: el servicio pasaba el motorista de la orden a los dos lados
+y la regla comparaba algo consigo mismo»*. **Es el mismo defecto, en la línea de al lado.**
+
+### Y lo que faltaba de `RN-61`, con un lugar propio
+
+Los efectos de la sustitución estaban repartidos: uno en el enrutador. `RN-61` lista **nueve**
+valores derivados en cuatro módulos distintos, y **la forma en que una regla así se rompe es
+que alguien agregue el décimo y no toque las nueve llamadas**. Ahora hay
+`EfectosDeLaSustitucion`, y lo que falta está declarado en el mismo sitio.
+
+| Efecto | |
+|---|---|
+| Estimado de peajes | ✅ recalcula y deja asiento de diferencia |
+| **Salvoconducto** | ✅ el permiso se reemite si dejó de cubrir — el papel anterior queda **anulado de inmediato** |
+| **Vales de combustible** | ✅ se **reportan** los que dejaron de corresponder |
+| Habilitación, compatibilidad, documentación, estado operativo | ✅ ya los revalida `T-10` |
+| Rendimiento esperado | ✅ **no hacía falta**: se resuelve por vehículo a la fecha del hecho, no se congela |
+| Custodia | ⛔ no se traslada con constancia (`RN-22`) |
+| Paquete de identificación en carretera | ⛔ no se re-emite (`RN-65`) |
+
+**Los vales se reportan y no se anulan solos**, a propósito: uno ya entregado tiene dinero
+público fuera de la caja, y anularlo exige el acta de devolución de `RN-27` —un acto con su
+propia persona y su propio momento—. Lo inaceptable era que nadie se enterara.
+
+### Y que se vea, que es la mitad que se olvida
+
+El arrastre viaja en la **respuesta de la reasignación** y la pantalla lo dice de una vez:
+cuánto cambió el peaje, que el salvoconducto quedó anulado y que el permiso nuevo espera
+firma, y qué vales hay que resolver.
+
+Sin eso, quien reasigna **se va creyendo que cambiar un vehículo es cambiar un vehículo**, y
+el sábado descubre que la misión no puede salir.
+
+---
+
 ## `RN-61` — el estimado que quedaba mal en silencio
 
 **1296 pruebas en verde.** Era el hallazgo que yo mismo había levantado el bloque anterior:

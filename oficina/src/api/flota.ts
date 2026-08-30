@@ -197,10 +197,10 @@ export const reasignar = async (
   idConductor: string,
   motivo: MotivoDeReasignacion,
   comentario: string,
-): Promise<void> => {
+): Promise<Arrastre> => {
   // Sin guarda de `BASE`, como el resto de este modulo: la flota no tiene datos de
   // muestra. Una pantalla de asignacion sin servidor no puede fingir que asigno.
-  await pedir(`/misiones/${idExpediente}/reasignar`, {
+  const r = await pedir<{ arrastre?: Arrastre }>(`/misiones/${idExpediente}/reasignar`, {
     method: 'POST',
     body: JSON.stringify({
       ejecuta,
@@ -211,7 +211,43 @@ export const reasignar = async (
       momento: new Date().toISOString(),
     }),
   });
+
+  // ⚠️ **Lo que la sustitución arrastró.** `RN-61`: cambiar el vehículo recalcula el estimado
+  // de peajes, puede reemitir el permiso de circulación —dejando el salvoconducto anulado— y
+  // deja vales que ya no corresponden al combustible del entrante.
+  //
+  // Se devuelve en vez de descartarse porque **quien reasigna se iría creyendo que cambiar un
+  // vehículo es cambiar un vehículo**, y descubriría el sábado que la misión no puede salir.
+  return r.arrastre ?? { peaje: null, permisoReemitido: null, vales: [] };
 };
+
+/** Lo que `RN-61` arrastró al sustituir el vehículo. */
+export interface Arrastre {
+  /** **Nulo si no había estimado congelado** — reasignar antes de aprobar no recongela nada. */
+  peaje: {
+    categoriaAnterior: string | null;
+    categoriaNueva: string | null;
+    totalAnterior: number | null;
+    totalNuevo: number | null;
+    /** Nulo si alguno de los dos totales no se pudo calcular. **No es cero.** */
+    diferencia: number | null;
+  } | null;
+
+  /**
+   * El folio del permiso que se reemitió. **Nulo cuando no había ninguno que lo exigiera.**
+   *
+   * ⚠️ El permiso nuevo **nace sin firma** y el salvoconducto anterior quedó anulado.
+   */
+  permisoReemitido: string | null;
+
+  /** Los vales cuyo combustible ya no es el del vehículo entrante. **Se reportan, no se anulan.** */
+  vales: {
+    folio: string;
+    combustibleDelVale: string;
+    combustibleDelVehiculo: string;
+    estado: string;
+  }[];
+}
 
 /** Una misión en el tablero del día, con los nombres ya resueltos por el servidor. */
 export interface MisionDelDia {

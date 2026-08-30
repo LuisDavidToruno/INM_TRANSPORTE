@@ -70,6 +70,7 @@ constructor.Services.AddScoped<ConsultaDeOcupacion>();
 constructor.Services.AddScoped<ConsultaDeCustodias>();
 constructor.Services.AddScoped<ConsultaDePermisos>();
 constructor.Services.AddScoped<ServicioDePermisos>();
+constructor.Services.AddScoped<EfectosDeLaSustitucion>();
 constructor.Services.AddScoped<ServicioDeSalvoconductos>();
 constructor.Services.AddScoped<ConsultaDelDiaDeDespacho>();
 constructor.Services.AddScoped<ConsultaDeOdometro>();
@@ -5100,10 +5101,11 @@ vales.MapPost("/", async (
         Ulid.Parse(peticion.IdMotoristaReceptor),
         peticion.Monto, peticion.Galones, peticion.Instrumento, peticion.TipoDeCombustible,
 
-        // ⚠️ **La ficha del vehículo no declara el combustible que usa.** No hay columna
-        // para eso en `M-03`, así que `RN-32` no puede comprobar la compatibilidad y lo dice
-        // pasando nulo, en vez de suponer que coincide.
-        combustibleDelVehiculo: null,
+        // ⚠️ **El combustible del vehículo ya NO viaja en la petición.** `RN-32` existía, era
+        // correcta y se llamaba siempre con nulo porque la ficha no lo declaraba: el bloqueo
+        // del vale de diésel en un motor de gasolina no podía dispararse nunca. Ahora la ficha
+        // lo tiene y el servicio lo resuelve — dejárselo al cliente volvía la comparación una
+        // tautología.
 
         parametros.EstadoMinimoParaEmitirCombustible,
         parametros.ToleranciaDeSobregiro,
@@ -5665,15 +5667,14 @@ ConAsignacion("reasignar", null,
     (e, quien, a, m, p, cuando, recursos, reservas, peticion, _, __, ___, ____, _____) =>
         e.Reasignar(quien, a, peticion.Motivo, peticion.Comentario, m, p, cuando, recursos, reservas),
 
-    // `RN-61` — **la sustitucion de vehiculo recalcula y vuelve a congelar el estimado de
-    // peajes**, con asiento de diferencia. Sustituir un pick-up por un camion de dos ejes puede
-    // duplicar el peaje de una ruta larga: sin esto la mision se liquidaria contra una cifra
-    // que ya no corresponde a ningun vehiculo real.
+    // `RN-61` — **todo lo que arrastra sustituir el vehiculo**: el estimado de peajes se
+    // recalcula con asiento de diferencia, el permiso de circulacion se reemite si dejo de
+    // cubrir, y los vales cuyo combustible ya no corresponde se reportan.
     //
-    // Nulo si no habia estimado congelado, y eso NO es un fallo: una mision reasignada antes de
-    // aprobarse no tiene nada que recongelar.
-    async (mision, vehiculo, fechaDelHecho, peticion, peajes) =>
-        await peajes.RecongelarPorSustitucionAsync(
+    // Va junto y no repartido en tres llamadas: la forma en que una regla de nueve efectos se
+    // rompe es que alguien agregue el decimo y no toque las nueve llamadas.
+    async (mision, vehiculo, fechaDelHecho, peticion, arrastre) =>
+        await arrastre.AplicarAsync(
             mision, vehiculo, fechaDelHecho,
             $"{peticion.Motivo} · {peticion.Comentario}".Trim(' ', '·'),
             new IdPersona(peticion.Ejecuta), peticion.Momento));
@@ -5880,7 +5881,7 @@ void ConAsignacion(
     string ruta,
     Funcion? funcion,
     Action<OrdenDeMision, IdPersona, AsignacionDeMision, MatrizDeLicencias, PoliticaDeDocumentacion, DateTimeOffset, RecursosTomados?, IReadOnlyList<ReservaDeRecurso>?, AsignarYTransicionar, CustodiaAlDespachar, CirculacionEnDiaInhabil, EstadoOperativo?, ConflictoPorIndisponibilidad, TituloAlProgramar> aplicar,
-    Func<Ulid, Ulid, DateOnly, AsignarYTransicionar, ServicioDePeajes, Task>? despues = null) =>
+    Func<Ulid, Ulid, DateOnly, AsignarYTransicionar, EfectosDeLaSustitucion, Task<Arrastre>>? despues = null) =>
     misiones.MapPost($"/{{id}}/{ruta}", async (
         string id,
         AsignarYTransicionar peticion,
@@ -5898,7 +5899,7 @@ void ConAsignacion(
         ServicioDeIndisponibilidad indisponibilidad,
         ServicioDeTitulos titulos,
         IParametrosDeLaInstitucion parametros,
-        ServicioDePeajes peajesDeLaMision) =>
+        EfectosDeLaSustitucion arrastre) =>
     {
         // El cliente manda IDENTIFICADORES, no la ficha técnica. Si mandara la ficha,
         // podría declarar 2,800 kg de un camión de 12,000 y BD-02 se evaluaría contra
@@ -6012,18 +6013,60 @@ void ConAsignacion(
         // ⚠️ **Después de la transición, no antes.** Si el bloqueo duro rechazara la
         // reasignación, un recongelamiento hecho antes habría dejado el estimado apuntando a un
         // vehículo que la misión nunca tomó.
-        if (despues is not null)
-        {
-            await despues(
+        var efectos = despues is null
+            ? null
+            : await despues(
                 ulid, idVehiculo,
                 // A la fecha del HECHO: la tabla de tarifas vigente el día de la salida, no la
                 // de hoy (`P-4`, `RN-40`). La SAPP reclasifica por resolución.
                 (await servicio.BuscarAsync(ulid))?.Solicitud.Ventana.Salida
                     ?? DateOnly.FromDateTime(peticion.Momento.UtcDateTime),
-                peticion, peajesDeLaMision);
-        }
+                peticion, arrastre);
 
-        return Results.Ok(new { id, estado = estado.ToString() });
+        if (efectos is null) return Results.Ok(new { id, estado = estado.ToString() });
+
+        // ⚠️ **Lo que la sustitución arrastró va en la respuesta.**
+        //
+        // Que el sistema recalcule el peaje, reemita el permiso y detecte los vales que ya no
+        // corresponden **no sirve de nada si quien reasignó no se entera**: se iria creyendo
+        // que cambiar un vehiculo es cambiar un vehiculo, y el sabado descubriria que la mision
+        // no puede salir porque el salvoconducto quedo anulado.
+        return Results.Ok(new
+        {
+            id,
+            estado = estado.ToString(),
+
+            arrastre = new
+            {
+                // Nulo si no habia estimado congelado — una mision reasignada antes de
+                // aprobarse no tiene nada que recongelar. NO es un fallo.
+                peaje = efectos.Peaje is null ? null : new
+                {
+                    categoriaAnterior = efectos.Peaje.CategoriaAnterior,
+                    categoriaNueva = efectos.Peaje.CategoriaNueva,
+                    totalAnterior = efectos.Peaje.TotalAnterior,
+                    totalNuevo = efectos.Peaje.TotalNuevo,
+
+                    // Nulo si alguno de los totales no se pudo calcular: no es cero.
+                    diferencia = efectos.Peaje.Diferencia,
+                },
+
+                // ⚠️ El permiso nuevo NACE SIN FIRMA y el salvoconducto anterior quedo anulado:
+                // la mision no puede despacharse en franja inhabil hasta que la maxima
+                // autoridad firme de nuevo. Es una consecuencia real, y por eso se dice.
+                permisoReemitido = efectos.PermisoReemitido,
+
+                // Se REPORTAN, no se anulan solos: un vale ya entregado tiene dinero publico
+                // fuera de la caja, y anularlo exige el acta de devolucion de RN-27.
+                vales = efectos.Vales.Select(v => new
+                {
+                    folio = v.Folio,
+                    combustibleDelVale = v.CombustibleDelVale,
+                    combustibleDelVehiculo = v.CombustibleDelVehiculo,
+                    estado = v.Estado,
+                }),
+            },
+        });
     });
 
 void TransicionConMotivo(

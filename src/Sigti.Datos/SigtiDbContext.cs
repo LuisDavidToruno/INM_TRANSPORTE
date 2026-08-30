@@ -497,6 +497,9 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             vehiculo.HasIndex(v => v.BienDelInventario);
             vehiculo.HasIndex(v => v.Chasis);
             vehiculo.Property(v => v.CapacidadDeTanqueGalones).HasColumnType("decimal(9,2)");
+
+            // Contra lo que RN-32 compara el vale. Nulo es «la ficha no lo declara».
+            vehiculo.Property(v => v.TipoDeCombustible).HasMaxLength(40);
             vehiculo.Property(v => v.Clase).HasConversion<string>().HasMaxLength(32).IsRequired();
 
             // Encontrar lo que vence pronto es lo que sostiene RN-17, y sin indice eso

@@ -203,6 +203,14 @@ internal static class FlotaSembrada
         // las pruebas de conciliación ejercerían siempre la rama de «no calculable».
         CapacidadDeTanqueGalones = 60m,
 
+        // ⚠️ **La flota sembrada declara su combustible.**
+        //
+        // Sin esto, RN-32 -«un vale de diesel para un vehiculo de gasolina es un error caro y
+        // perfectamente evitable»- salia por la rama de «la ficha no lo declara» en TODAS las
+        // pruebas de punta a punta, y el bloqueo nunca se ejercitaba. Los vales de prueba son
+        // de diesel, asi que declararlo aca hace que la comparacion ocurra de verdad.
+        TipoDeCombustible = "Diesel",
+
         // Documentación al día: estas pruebas ejercen `BD-02`, no `BD-03`. Las de `BD-03`
         // siembran su propio vehículo con la fecha que necesitan.
         VenceMatricula = new DateOnly(2030, 12, 31),

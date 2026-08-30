@@ -212,6 +212,75 @@ public class CircuitoDeCombustiblePruebas(BaseDePruebas baseDePruebas)
     }
 
     [Fact]
+    public async Task El_vale_NO_puede_ser_de_otro_combustible_que_el_del_vehiculo()
+    {
+        // **El hermano del defecto de arriba, y del mismo tipo.** `RN-32` caso límite dice que
+        // «un vale de diésel para un vehículo de gasolina es un error caro y perfectamente
+        // evitable». La regla existía, era correcta y tenía sus pruebas de dominio — y el
+        // servicio la llamaba **siempre con nulo**, porque la ficha del vehículo no declaraba
+        // qué combustible usa. El bloqueo no podía disparar nunca.
+        //
+        // No es fraude, es desperdicio: el vale se anula y se reemite, y para entonces la
+        // misión ya salió tarde. O peor, alguien lo carga y arruina el motor.
+        var r = await Sembrar("CB-0011");
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        var fondo = await FondoAprobado(cliente, 40_000m);
+        var mision = await MisionDespachada(cliente, r);
+
+        var respuesta = await cliente.PostAsJsonAsync("/combustible", new
+        {
+            Id = Ulid.NewUlid().ToString(),
+            Folio = $"VAL-{Ulid.NewUlid()}",
+            IdFondo = fondo,
+            IdMision = mision,
+            IdMotoristaReceptor = r.Conductor,
+            Ejecuta = "P-TRANSPORTE",
+            Monto = 2_500m,
+            Galones = 50m,
+            Instrumento = "vale",
+
+            // La flota sembrada es de diésel.
+            TipoDeCombustible = "Gasolina superior",
+
+            Momento,
+        });
+
+        Assert.Equal(HttpStatusCode.Conflict, respuesta.StatusCode);
+
+        var cuerpo = await respuesta.Content.ReadAsStringAsync();
+        Assert.Contains("RN-32", cuerpo);
+
+        // El mensaje nombra los dos: sin eso, quien lo lee tiene que ir a averiguar cuál de los
+        // dos está mal.
+        Assert.Contains("Diesel", cuerpo);
+        Assert.Contains("Gasolina superior", cuerpo);
+    }
+
+    /// <summary>
+    /// Y el vale del combustible correcto sí sale — <b>la otra mitad</b>.
+    ///
+    /// Un bloqueo que rechaza todo se ve igual que uno que funciona hasta que alguien intenta
+    /// el caso bueno.
+    /// </summary>
+    [Fact]
+    public async Task El_vale_del_combustible_correcto_si_se_emite()
+    {
+        var r = await Sembrar("CB-0012");
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        var fondo = await FondoAprobado(cliente, 40_000m);
+        var mision = await MisionDespachada(cliente, r);
+
+        // El ayudante ya exige exito: si el bloqueo disparara de mas, esto revienta aca.
+        var vale = await Emitir(cliente, fondo, mision, r, monto: 2_500m);
+
+        Assert.False(string.IsNullOrWhiteSpace(vale));
+    }
+
+    [Fact]
     public async Task No_se_entrega_fondo_a_una_mision_que_solo_esta_PROGRAMADA()
     {
         // `EF-04` y §10.1: `V-02` ocurre **dentro de** `T-12`. `PROGRAMADA` lista expresamente

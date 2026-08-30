@@ -18,6 +18,7 @@ import {
   reasignar,
 } from '../../api/flota';
 import type {
+  Arrastre,
   ConductorDisponible,
   OcupacionDeFlota,
   ResultadoDeAsignacion,
@@ -101,17 +102,59 @@ export default function Asignacion(): ReactElement {
   const quienEjecuta = usarQuienEjecuta();
 
   const programacion = useMutation({
-    mutationFn: () =>
-      reasignando
-        ? reasignar(id, quienEjecuta, idVehiculo, idConductor,
-                    motivo as MotivoDeReasignacion, comentario)
-        : programar(id, quienEjecuta, idVehiculo, idConductor),
-    onSuccess: async () => {
+    // Devuelve el arrastre de RN-61 al reasignar, y nulo al programar: **programar no
+    // sustituye nada**, y por eso no arrastra.
+    mutationFn: async (): Promise<Arrastre | null> => {
+      if (!reasignando) {
+        await programar(id, quienEjecuta, idVehiculo, idConductor);
+        return null;
+      }
+
+      return reasignar(
+        id, quienEjecuta, idVehiculo, idConductor,
+        motivo as MotivoDeReasignacion, comentario,
+      );
+    },
+    onSuccess: async (arrastre) => {
       avisar.exito(
         reasignando
           ? 'Recurso reasignado. El folio de la misión no cambió: es el mismo expediente.'
           : 'Misión programada. El vehículo y el motorista quedaron reservados.',
       );
+
+      // ⚠️ **Lo que la sustitución arrastró, dicho de una vez.**
+      //
+      // `RN-61`: cambiar el vehículo no cambia sólo el vehículo. Sin estos avisos quien
+      // reasigna se va creyendo que sí, y el sábado descubre que la misión no puede salir
+      // porque el salvoconducto quedó anulado y el permiso nuevo espera una firma.
+      if (arrastre !== null) {
+        if (arrastre.permisoReemitido !== null) {
+          avisar.alerta(
+            `El permiso ${arrastre.permisoReemitido} dejó de cubrir y se reemitió: el ` +
+            'salvoconducto anterior quedó ANULADO y el permiso nuevo nace sin firma. La ' +
+            'misión no puede salir en franja inhábil hasta que la máxima autoridad firme.',
+          );
+        }
+
+        if (arrastre.peaje?.diferencia != null && arrastre.peaje.diferencia !== 0) {
+          const d = arrastre.peaje.diferencia;
+          avisar.alerta(
+            `El estimado de peajes cambió ${d > 0 ? '+' : ''}L ${d.toFixed(2)} ` +
+            `(${arrastre.peaje.categoriaAnterior ?? 'sin categoría'} → ` +
+            `${arrastre.peaje.categoriaNueva ?? 'sin categoría'}). Queda el asiento de ` +
+            'diferencia en el desglose del expediente.',
+          );
+        }
+
+        for (const v of arrastre.vales) {
+          avisar.error(
+            `El vale ${v.folio} es de ${v.combustibleDelVale} y el vehículo usa ` +
+            `${v.combustibleDelVehiculo}. Está ${v.estado.toLowerCase()}: resuélvalo antes ` +
+            'de despachar.',
+          );
+        }
+      }
+
       await cliente.invalidateQueries({ queryKey: ['cola-programacion'] });
       await cliente.invalidateQueries({ queryKey: ['cola-programadas'] });
       navegar('/programacion');

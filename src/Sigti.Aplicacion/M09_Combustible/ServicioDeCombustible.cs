@@ -1,3 +1,4 @@
+using Sigti.Aplicacion.M03_Flota;
 using Sigti.Datos;
 using Sigti.Datos.Bitacora;
 using Sigti.Datos.M07_ProgramacionYDespacho;
@@ -30,6 +31,7 @@ public sealed class ServicioDeCombustible(SigtiDbContext contexto)
     private readonly ExpedientesDeMision _expedientes = new(contexto);
     private readonly EscritorDeBitacora _bitacora = new(contexto);
     private readonly AbastecimientosDeLaFlota _abastecimientos = new(contexto);
+    private readonly ConsultaDeFlota _flota = new(contexto);
 
     // ── El fondo ────────────────────────────────────────────────────────────
 
@@ -128,7 +130,6 @@ public sealed class ServicioDeCombustible(SigtiDbContext contexto)
         decimal? galones,
         string instrumento,
         string tipoDeCombustible,
-        string? combustibleDelVehiculo,
         EstadoDeMision estadoMinimoConfigurado,
         decimal toleranciaSobregiro,
         DateTimeOffset momento,
@@ -172,6 +173,18 @@ public sealed class ServicioDeCombustible(SigtiDbContext contexto)
             ?? throw new BloqueoDuro("RN-32",
                 "La misión no tiene vehículo ni motorista reservados, así que no hay contra qué " +
                 "validar el receptor. `INV-11`: aprobar no es programar.");
+
+        // ⚠️ **El combustible del vehículo se RESUELVE acá, no lo manda el cliente.**
+        //
+        // `RN-32` compara el tipo del vale contra el que el vehículo usa —«un vale de diésel
+        // para un vehículo de gasolina es un error caro y perfectamente evitable»—. Recibirlo
+        // por parámetro dejaba la comparación en manos de quien emite: mandar el mismo valor
+        // en los dos lados la vuelve una tautología, y pasar nulo la apaga.
+        //
+        // Nulo acá sí es legítimo: significa que **la ficha no lo declara**, y la regla lo
+        // distingue de «coincide».
+        var combustibleDelVehiculo = (await _flota.PorIdAsync(recursos.Vehiculo, cancelacion))
+            ?.TipoDeCombustible;
 
         var saldo = await _combustible.SaldoAsync(fondoId, cancelacion);
 
