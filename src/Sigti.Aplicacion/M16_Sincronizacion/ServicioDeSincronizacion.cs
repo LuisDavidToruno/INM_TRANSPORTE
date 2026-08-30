@@ -5,6 +5,8 @@ using Sigti.Datos.M07_ProgramacionYDespacho;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
 using Sigti.Dominio.M16_Sincronizacion;
 using Sigti.Aplicacion.M08_Bitacora;
+using Sigti.Aplicacion.M14_Auditoria;
+using Sigti.Dominio.M01_Organizacion;
 using Sigti.Dominio.M08_Bitacora;
 using Sigti.Dominio.Organizacion;
 using Sigti.Datos.M09_Combustible;
@@ -270,6 +272,55 @@ public sealed class ServicioDeSincronizacion(
     }
 
     /// <summary>
+    /// Abre el expediente de hallazgo posterior por un hecho que llegó después del cierre.
+    ///
+    /// ── La fecha del hecho es la del campo, no la de hoy ────────────────────
+    /// `RN-46` y `HU-070`: el abastecimiento ocurrió el 15 aunque haya llegado el 22. Fechar el
+    /// hallazgo el día que sincronizó lo colocaría fuera del período que audita, y el galón
+    /// aparecería en un ejercicio al que no pertenece.
+    /// </summary>
+    private async Task AbrirHallazgoPorLlegadaTardiaAsync(
+        HechoCapturado hecho, OrdenDeMision expediente, string motivo,
+        CancellationToken cancelacion)
+    {
+        var hallazgos = new ServicioDeHallazgosPosteriores(contexto);
+        var ahora = DateTimeOffset.UtcNow;
+
+        await hallazgos.AbrirAsync(
+            Ulid.NewUlid(),
+
+            // Del catálogo `tipo_de_hallazgo_posterior`. El tipo dice **por qué** apareció, que
+            // es lo que un reporte de control interno agrupa.
+            tipo: "registro-de-campo-posterior-al-cierre",
+
+            // La del HECHO, no la de la sincronización.
+            fechaDelHecho: DateOnly.FromDateTime(hecho.OcurridoEn.UtcDateTime),
+            fechaDelDescubrimiento: DateOnly.FromDateTime(ahora.UtcDateTime),
+
+            comoSeDescubrio:
+                $"Un dispositivo sincronizó {hecho.Transicion} con fecha del hecho " +
+                $"{hecho.OcurridoEn:yyyy-MM-dd} sobre una misión ya {expediente.Estado}. " +
+                $"No se aplicó ni se descartó: {motivo}",
+
+            fuente: "sincronizacion-de-campo",
+            documentoAdjunto: null,
+            misiones: [hecho.IdExpediente],
+            vehiculo: null,
+            motorista: null,
+            periodo: null,
+            // Quien descubre es quien capturó en campo. **Su puesto no viaja en el hecho**: el
+            // dispositivo manda la persona, no el puesto que ocupaba ese día. Se declara vacío
+            // en vez de suponer uno — inventarlo pondría en el expediente un puesto que esa
+            // persona pudo no tener en la fecha del hecho.
+            descubre: Autoria.De(
+                new IdPersona(hecho.Ejecuta),
+                new IdPuesto(""),
+                DateOnly.FromDateTime(hecho.OcurridoEn.UtcDateTime)),
+            momento: ahora,
+            cancelacion);
+    }
+
+    /// <summary>
     /// Guarda un hecho que llegó antes que su expediente. <b>Idempotente</b>: el mismo hecho
     /// retenido dos veces es uno solo, o se aplicaría dos veces al cerrarse el hueco.
     /// </summary>
@@ -388,6 +439,22 @@ public sealed class ServicioDeSincronizacion(
         HechoCapturado hecho, OrdenDeMision expediente, string motivo,
         CancellationToken cancelacion)
     {
+        // ⚠️ **Una misión CERRADA no admite conflictos: admite hallazgos.** `HU-070`.
+        //
+        // Mandar a la cola un hecho que llegó tarde a un expediente cerrado le pediría a alguien
+        // que «decida» entre dos versiones de algo que ya no se puede tocar — y la única salida
+        // sería reabrir, que es lo que la historia prohíbe: haría que **un reporte ya emitido
+        // cambie de contenido a espaldas** de quien lo firmó.
+        //
+        // El hecho no se descarta: abre su propio expediente, con ciclo propio, y la misión pasa
+        // a mostrar que tiene hallazgos vinculados sin que su contenido cambie.
+        if (ReglasDeLlegadaTardia.Resolver(expediente.Estado) ==
+            DestinoDeLoTardio.HallazgoPosterior)
+        {
+            await AbrirHallazgoPorLlegadaTardiaAsync(hecho, expediente, motivo, cancelacion);
+            return;
+        }
+
         var ahora = DateTimeOffset.UtcNow;
 
         // El campo que el hecho trae. El odómetro es el caso que `RN-45` nombra y el que

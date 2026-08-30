@@ -203,6 +203,14 @@ export const CONSTRUIDAS: Readonly<Record<string, Construida>> = {
   },
   'PT-053': { ruta: '/conflictos', archivo: 'M16_Sincronizacion/Conflictos.tsx' },
   'PT-055': { ruta: '/conflictos', archivo: 'M16_Sincronizacion/ResolverPorLote.tsx' },
+  'PT-056': {
+    ruta: '/espejos',
+    archivo: 'M16_Sincronizacion/Espejos.tsx',
+    incompleta:
+      'Muestra ARGOS con su antiguedad y declara que el espejo de Talento Humano no existe: ' +
+      'la disponibilidad del motorista no se verifica contra vacaciones ni incapacidades.',
+  },
+  'PT-057': { ruta: '/dispositivos', archivo: 'M16_Sincronizacion/Dispositivos.tsx' },
   'PT-054': { ruta: '/conflictos', archivo: 'M16_Sincronizacion/Conflictos.tsx' },
 
   // ── M-19 Seguimiento en Ruta ──────────────────────────────────────────────

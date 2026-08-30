@@ -2030,6 +2030,61 @@ app.MapGet("/organigrama/antiguedad", async (ConsultaDelOrganigrama organigrama)
     });
 });
 
+/// `PT-056` — el estado de los DOS espejos: ARGOS y Talento Humano.
+///
+/// ── `HU-069`: que nunca diverja **en silencio** ─────────────────────────────
+/// «Para no despachar contra un espejo viejo que dice que el motorista está activo cuando
+/// Talento Humano lo tiene de vacaciones desde el lunes.»
+///
+/// ── Y por qué se declara el que no existe ───────────────────────────────────
+/// El espejo de Talento Humano **todavia no se construyó**, y mostrar sólo el de ARGOS haría
+/// que la pantalla se leyera como completa. Quien mire concluiria que la disponibilidad del
+/// motorista está verificada contra Talento Humano, cuando no se verifica contra nada — que es
+/// el caso exacto que `HU-069` existe para impedir.
+app.MapGet("/espejos", async (ConsultaDelOrganigrama organigrama) =>
+{
+    var antiguedad = await organigrama.AntiguedadDelEspejoAsync(DateTimeOffset.UtcNow);
+
+    return Results.Ok(new
+    {
+        espejos = new object[]
+        {
+            new
+            {
+                fuente = "ARGOS",
+                queEspeja = "Puestos, jerarquía y unidades. Resuelve quién puede autorizar.",
+                existe = true,
+
+                // **Nulo no es cero.** Nunca confirmado y confirmado hace un momento son
+                // opuestos, y los dos se ven como una pantalla sin alarma.
+                nuncaConfirmado = antiguedad is null,
+                diasSinConfirmar = antiguedad?.Days,
+
+                // `RN-50`: superado el umbral se **degrada**, no se bloquea. La operación no
+                // se impide: se marca. El bloqueo por desincronización **no está decidido**.
+                porQue = antiguedad is null
+                    ? "El espejo nunca se confirmó. No hay integración corriendo, que es " +
+                      "distinto de una integración al día."
+                    : $"Confirmado hace {antiguedad.Value.Days} día(s).",
+            },
+            new
+            {
+                fuente = "Talento Humano",
+                queEspeja = "Expediente del empleado, permisos, vacaciones e incapacidades. " +
+                            "Resuelve si el motorista está disponible.",
+
+                // ⚠️ **No existe.** Se dice, en vez de mostrar la pantalla a medias.
+                existe = false,
+                nuncaConfirmado = true,
+                diasSinConfirmar = (int?)null,
+                porQue = "El espejo de Talento Humano no está construido. La disponibilidad " +
+                         "del motorista **no se verifica contra vacaciones, permisos ni " +
+                         "incapacidades** — `BD-10` la evalúa contra lo que hay en el padrón.",
+            },
+        },
+    });
+});
+
 // El estado operativo del vehículo — §10.2. Sin esta puerta, el estado sólo se movía solo
 // y ningún vehículo llegaba nunca a EN_TALLER: `BD-07` existía sin poder bloquear nada.
 //

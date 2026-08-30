@@ -414,6 +414,52 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## `PT-056` y `PT-057` — **sección 2.9 cerrada**, y las 1170 en verde
+
+M-16 completo: las seis pantallas de sincronización y conflictos. Y **SAC cedió del todo**,
+así que corrió la suite entera —incluidas las 191 de punta a punta que la vez pasada no se
+habían podido ejecutar— con **1170 en verde y cero fallos**.
+
+### `PT-057` — el hecho que llega tarde toma uno de dos caminos, y ninguno es el descarte
+
+`RN-45` lo nombra como *«el caso más frecuente y el que más tienta a implementar un descarte
+automático»*. El destino depende **del estado de la misión**, no del hecho:
+
+| La misión está | El hecho va a | Por qué |
+|---|---|---|
+| `LIQUIDADA` | La cola de conflictos | La cifra ya se emitió pero el expediente vive. De ahí sale un asiento de diferencia, y **la liquidación original queda íntegra** |
+| `CERRADA` · `CERRADA_CON_HALLAZGO` | **Hallazgo posterior** | No se reabre. Reabrir haría que *«un reporte ya emitido cambie de contenido a espaldas»* de quien lo firmó |
+| Cualquier otro | La cola | Es una divergencia común |
+
+`CERRADA_CON_HALLAZGO` cuenta igual que `CERRADA`: tener un hallazgo previo no vuelve editable
+el expediente — lo vuelve **un expediente cerrado con más historia**. Tratarlo distinto abriría
+la puerta a reabrir por la vía de acumular hallazgos.
+
+**Antes de esto, ese hecho iba a la cola de conflictos**, donde se le habría pedido a una
+persona que «decida» entre dos versiones de algo que ya no se puede tocar — y la única salida
+habría sido reabrir, que es justo lo prohibido.
+
+Verificado en vivo: un `T-18` con fecha del hecho **15 de mayo** sobre una misión `Cerrada`
+abrió el hallazgo `registro-de-campo-posterior-al-cierre` **fechado el 15 de mayo, no el día
+de la sincronización** —`RN-46`; fecharlo el 30 de agosto lo pondría en un ejercicio al que no
+pertenece— y la cola quedó en cero.
+
+### ⚠️ `PT-056` destapó que falta medio control
+
+El endpoint sólo cubría ARGOS. `PT-056` pide **los dos espejos**, y el de Talento Humano
+**no está construido**: la disponibilidad del motorista **no se verifica contra vacaciones,
+permisos ni incapacidades**. `BD-10` la evalúa contra lo que hay en el padrón.
+
+Eso es exactamente el caso que `HU-069` existe para impedir — *«no despachar contra un espejo
+viejo que dice que el motorista está activo cuando Talento Humano lo tiene de vacaciones desde
+el lunes»*—, sólo que peor: no hay espejo viejo, **no hay espejo**. La pantalla lo declara en
+vez de mostrar sólo el que sí existe, que se leería como si todo estuviera verificado.
+
+Y el espejo **degrada, no bloquea**: `RN-50` no admite lectura —*«la operación no se impide: se
+marca»*—. Una delegación con cuatro días sin enlace tiene que poder seguir operando.
+
+---
+
 ## `PT-052` y `PT-055` — el estado que faltaba en `HU-067`
 
 > **Verificado después de comitear.** El bloque se comiteó con autorización del PO sin haber

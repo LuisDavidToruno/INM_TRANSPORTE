@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { CircleAlert, Clock3, HardDrive, Wifi } from 'lucide-react';
+import { CircleAlert, Clock3, FileWarning, HardDrive, Wifi } from 'lucide-react';
 
 import { Nota, Panel, Pastilla } from '../../ui';
 import { pedir } from '../../api/misiones';
@@ -153,6 +153,38 @@ export default function Dispositivos(): ReactElement {
             ))}
           </ul>
         )}
+      </Panel>
+
+      {/* PT-057. Va acá y no en pantalla propia: es el desenlace de un envío tardío, y quien
+          mira este panel es justamente quien se pregunta dónde quedó su registro. */}
+      <Panel titulo="Lo que llega después de que la oficina cerró">
+        <div className="tw:flex tw:flex-col tw:gap-2 tw:text-sm">
+          <p className="tw:text-tinta-mid">
+            Un equipo que estuvo días sin señal sincroniza hechos que ya ocurrieron. Que la
+            oficina haya avanzado no los borra: <b>el hecho pasó</b>. Según en qué quedó la
+            misión, el registro toma uno de dos caminos — y ninguno es descartarlo.
+          </p>
+
+          <ul className="tw:flex tw:flex-col tw:gap-2">
+            <li className="tw:border-l-2 tw:border-linea tw:pl-3">
+              <b>Si la misión ya se liquidó</b>, va a los registros que no coinciden. De ahí sale
+              un asiento de diferencia: <b>la liquidación original queda intacta</b> y el
+              expediente muestra las dos cosas.
+            </li>
+            <li className="tw:border-l-2 tw:border-riesgo-fg tw:pl-3">
+              <b>Si la misión ya se cerró, no se reabre.</b> Se abre un expediente de hallazgo
+              posterior con su propio ciclo, y la misión pasa a mostrar que tiene hallazgos
+              vinculados. Reabrirla haría que <b>un reporte ya emitido cambie de contenido</b> a
+              espaldas de quien lo firmó.
+            </li>
+          </ul>
+
+          <p className="tw:flex tw:items-start tw:gap-1.5 tw:text-xs tw:text-tinta-mid">
+            <FileWarning className="tw:mt-0.5 tw:size-4 tw:shrink-0" aria-hidden />
+            Tampoco se edita la liquidación cerrada para meterlo: eso reescribiría una cifra que
+            ya se reportó.
+          </p>
+        </div>
       </Panel>
 
       <Nota tono="info" icono={<Wifi />}>
