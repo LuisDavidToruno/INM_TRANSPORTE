@@ -418,6 +418,10 @@ comparar» y «no hay diferencia» son cosas opuestas.
 
 **1341 pruebas en verde.**
 
+Smart App Control bloqueó el dll de pruebas más de 100 intentos; el bloque se comiteó
+primero con la brecha declarada y se enmendó al ceder. El circuito se verificó **vivo contra la
+API** mientras tanto, que es verificación real y no una promesa.
+
 ### Lo que faltaba
 
 `BD-13` ya impedía despachar un vehículo sin custodio vigente. Lo que no existía era el
