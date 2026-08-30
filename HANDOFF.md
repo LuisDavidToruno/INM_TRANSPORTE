@@ -414,6 +414,77 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## El folio institucional y el congelamiento (`PT-006`, M-06)
+
+El folio real **no existía en ninguna parte**: toda pantalla mostraba `PROV-XXXXXX`. Y el
+congelamiento de `HU-004` tampoco. Los dos son de `T-02`, así que van juntos.
+
+### El congelamiento: qué se autorizó, y no qué se ve hoy
+
+> *«En papel, el expediente que firma la jefatura es el que tiene enfrente. En un sistema sin
+> congelamiento, el solicitante puede cambiar el destino, la carga o la fecha después de que
+> la firma quedó registrada, y la autorización pasa a amparar algo que nunca se autorizó.»*
+
+Y no hace falta mala fe: basta con corregir una fecha «para que quede bien». Al enviar se
+calcula la huella del contenido sometido; al autorizar se coteja **antes** de la transición —
+después ya habría un acto de autoridad asentado que habría que reversar.
+
+**Nulo no es «coincide»**: son los expedientes anteriores al congelamiento, y sobre ésos no
+se puede afirmar nada. No bloquean —negarles la autorización detendría trabajo legítimo por
+una función que no existía cuando se capturaron— y el cotejo los declara `SinCongelar`.
+
+Verificado en vivo: se alteró el destino en la base después del envío, y la autorización se
+detuvo con `RN-04` diciendo la salida concreta — devolver para corrección, no editar el
+expediente «para dejarlo como estaba», **que destruiría la evidencia del cambio**.
+
+### El folio: rangos pre-asignados, y el caso que rompe
+
+`RNF-21` fija cuatro ceros —duplicados, reciclados, colisiones, huecos sin explicar— y nombra
+la prueba que *«realmente rompe»*: **tres dispositivos de la misma delegación**, los tres
+desconectados, emitiendo el mismo tipo de documento. La delegación **no alcanza** como unidad
+de reserva: los tres emiten sin verse y la colisión aparece al sincronizar, con el papel ya
+entregado en una caseta. Por eso el rango admite subrango por dispositivo, y hay una prueba
+con ese nombre.
+
+El contador avanza sobre lo **emitido**, no sobre lo vigente: anular el folio 5 no hace que el
+siguiente vuelva a ser 5. *Un correlativo con huecos es normal; uno reutilizado es un
+expediente que sustituye a otro.*
+
+**El formato no se inventa.** `RNF-21` dice que «no se decide por inferencia» (insumo #34):
+sin plantilla configurada no se compone folio, y se sigue mostrando el provisional **marcado**
+como tal. Un `OM-CHO-2026-000123` plausible acabaría citado en un descargo.
+
+### ⚠️ Seis llamadores componían el folio a mano, y divergieron
+
+`FolioProvisional` era `internal` y su propio comentario lo advertía: *«dos copias del mismo
+folio son dos folios que van a divergir el día que llegue el circuito real»*.
+
+**Llegó, y divergieron.** El expediente al que se le emitió `OM-Delegacion de
+Choluteca-2026-000001` seguía apareciendo como `PROV-3MNQS7` en el buscador, el despacho, la
+ocupación y el seguimiento — porque esos seis seguían llamando al provisional. Se detectó
+mirando la pantalla, no el código.
+
+Ahora `FolioProvisional` es **privado** y el único camino es `Folio(fila)`, que sabe cuál de
+los dos corresponde. El compilador impide que vuelva a pasar.
+
+### ⚠️ `ExigirIntacto` estaba escrito y sin llamar
+
+La regla del congelamiento existía en el dominio con su prueba en verde, y **ningún endpoint
+la invocaba**: `aprobar` usaba el helper genérico de transiciones. Una regla probada que nadie
+llama se ve igual de verde que una que funciona. Ahora `T-05` tiene endpoint propio, por lo
+mismo que `T-14` y `T-19`: hace algo más que mover el estado.
+
+**1116 pruebas en verde** (31 nuevas), y el circuito verificado de punta a punta contra la
+base: rango asignado, solape rechazado nombrando el dispositivo, folio emitido, contenido
+congelado, alteración detectada, y `BD-01` llegando con su camino de salida — que cierra
+también la verificación que `PT-004` había dejado pendiente.
+
+`[C]` **Insumo #34** sigue abierto: formato del correlativo y umbral de aviso. Se sembraron
+valores de prueba en desarrollo (`OM-{delegacion}-{anio}-{numero}` y 20 %) **que no son
+decisión de la institución**.
+
+---
+
 ## `PT-004` — el patrón de bloqueo duro. **Sección 2.1 cerrada**
 
 Las cinco transversales están: `PT-001`, `PT-002`, `PT-003`, `PT-004` y `PT-005`.

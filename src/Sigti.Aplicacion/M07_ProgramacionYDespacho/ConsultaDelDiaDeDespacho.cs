@@ -125,7 +125,7 @@ public sealed class ConsultaDelDiaDeDespacho(SigtiDbContext contexto)
 
             var mision = new MisionDelDia(
                 Mision: fila.Id.ToString(),
-                Folio: ConsultaDeMisiones.FolioProvisional(fila.Id),
+                Folio: ConsultaDeMisiones.Folio(fila),
                 Estado: ultima.Destino.ToString(),
                 Dependencia: fila.Dependencia,
                 Destino: fila.Destino,

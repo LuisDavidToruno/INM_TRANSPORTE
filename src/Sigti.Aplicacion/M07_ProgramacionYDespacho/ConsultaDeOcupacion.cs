@@ -118,7 +118,7 @@ public sealed class ConsultaDeOcupacion(SigtiDbContext contexto, EstadoDeLaFlota
 
             lista.Add(new BarraDeOcupacion(
                 Mision: fila.Id.ToString(),
-                Folio: ConsultaDeMisiones.FolioProvisional(fila.Id),
+                Folio: ConsultaDeMisiones.Folio(fila),
                 Destino: fila.Destino,
                 Desde: fila.Salida,
                 Hasta: fila.Retorno,
@@ -210,7 +210,7 @@ public sealed class ConsultaDeOcupacion(SigtiDbContext contexto, EstadoDeLaFlota
 
             reservas.Add(new ReservaDeRecurso(
                 Mision: fila.Id,
-                Folio: ConsultaDeMisiones.FolioProvisional(fila.Id),
+                Folio: ConsultaDeMisiones.Folio(fila),
                 Dependencia: fila.Dependencia,
                 // La franja reservada llega hasta la holgura: es el último día en que el
                 // vehículo podría no estar en el predio.

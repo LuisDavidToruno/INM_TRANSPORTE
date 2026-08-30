@@ -175,6 +175,15 @@ export const CONSTRUIDAS: Readonly<Record<string, Construida>> = {
   // siguiente bloque, mirando el inventario en vez de la lista de pendientes.
   'PT-003': { ruta: '/tareas', archivo: 'M01_Organizacion/Bandeja.tsx' },
 
+  // ── M-06 Solicitudes ──────────────────────────────────────────────────────
+  'PT-006': {
+    ruta: '/solicitudes',
+    archivo: 'M06_Solicitudes/MisSolicitudes.tsx',
+    incompleta:
+      'Muestra el estado de lo pedido, con el alcance Propio aplicado. No se puede capturar ' +
+      'desde acá: PT-007 replica un formato en papel que falta (insumo #2).',
+  },
+
   // ── M-19 Seguimiento en Ruta ──────────────────────────────────────────────
   //
   // Sin cliente de campo todavía: los reportes entran por la API. Las dos pantallas ya

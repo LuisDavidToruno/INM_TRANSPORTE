@@ -192,7 +192,7 @@ public sealed class ServicioDeSeguimiento(SigtiDbContext contexto)
 
             return new MisionEnRuta(
                 x.Fila.Id.ToString(),
-                ConsultaDeMisiones.FolioProvisional(x.Fila.Id),
+                ConsultaDeMisiones.Folio(x.Fila),
                 x.Fila.Dependencia,
                 x.Fila.Destino,
                 x.Fila.ObjetoDelTraslado,
@@ -262,7 +262,7 @@ public sealed class ServicioDeSeguimiento(SigtiDbContext contexto)
 
         return new DetalleEnRuta(
             fila.Id.ToString(),
-            ConsultaDeMisiones.FolioProvisional(fila.Id),
+            ConsultaDeMisiones.Folio(fila),
             fila.Transiciones.MaxBy(t => t.Orden)?.Destino.ToString() ?? "sin diario",
             fila.Dependencia,
             fila.Destino,

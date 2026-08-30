@@ -166,7 +166,7 @@ public sealed class ServicioDelPuesto(SigtiDbContext contexto)
         var encontrados = string.IsNullOrEmpty(busqueda)
             ? dentro
             : [.. dentro.Where(e =>
-                ConsultaDeMisiones.FolioProvisional(e.Id).Contains(busqueda, StringComparison.OrdinalIgnoreCase) ||
+                ConsultaDeMisiones.Folio(e).Contains(busqueda, StringComparison.OrdinalIgnoreCase) ||
                 e.Destino.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ||
                 e.ObjetoDelTraslado.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ||
                 e.Dependencia.Contains(busqueda, StringComparison.OrdinalIgnoreCase) ||
@@ -188,7 +188,7 @@ public sealed class ServicioDelPuesto(SigtiDbContext contexto)
                 .Take(50)
                 .Select(e => new ResultadoDeBusqueda(
                     e.Id.ToString(),
-                    ConsultaDeMisiones.FolioProvisional(e.Id),
+                    ConsultaDeMisiones.Folio(e),
                     e.Transiciones.MaxBy(t => t.Orden)?.Destino.ToString() ?? "sin diario",
                     e.Dependencia,
                     e.Destino,

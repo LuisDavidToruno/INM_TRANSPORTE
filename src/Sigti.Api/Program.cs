@@ -25,6 +25,8 @@ using Sigti.Dominio.M14_Auditoria;
 using Sigti.Dominio.M20_Integraciones;
 using Sigti.Dominio.M18_Peajes;
 using Sigti.Dominio.Reglas;
+using Sigti.Aplicacion.M06_Solicitudes;
+using Sigti.Dominio.M06_Solicitudes;
 using Sigti.Aplicacion.M19_Seguimiento;
 using Sigti.Dominio.M19_Seguimiento;
 using Sigti.Dominio.M01_Organizacion;
@@ -84,6 +86,7 @@ constructor.Services.AddScoped<ServicioDeTareas>();
 constructor.Services.AddScoped<ServicioDeSegregacion>();
 constructor.Services.AddScoped<ServicioDeSeguimiento>();
 constructor.Services.AddScoped<ServicioDelPuesto>();
+constructor.Services.AddScoped<ServicioDeFolios>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -999,8 +1002,105 @@ misiones.MapGet("/{id}", async (string id, ConsultaDeMisiones consulta) =>
         : Results.NotFound(new { mensaje = $"No existe el expediente {id}." });
 });
 
-Transicion("enviar", (e, quien, cuando) => e.Enviar(quien, cuando));
-TransicionConMotivo("aprobar", (e, quien, cuando, motivo) => e.Aprobar(quien, cuando, motivo));
+/// `T-02` — enviar a autorizacion. **Congela el contenido y emite el folio** (`HU-004`).
+///
+/// Ya no usa el helper generico por lo mismo que `T-14` y `T-19`: la transicion hace algo mas
+/// que mover el estado. Aca son dos cosas, y las dos son de auditoria.
+///
+/// ── Por que el folio se emite al ENVIAR ─────────────────────────────────────
+/// Antes de esto es un borrador que su autor puede descartar, y darle folio gastaria numeros
+/// del rango en cosas que nunca existieron — dejando huecos que despues hay que explicar uno
+/// por uno ante el auditor.
+misiones.MapPost("/{id}/enviar", async (
+    string id, EjecutarTransicion peticion,
+    ServicioDeMisiones servicio, ServicioDeFolios folios, SigtiDbContext contexto) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    var fila = await contexto.Expedientes.SingleOrDefaultAsync(e => e.Id == ulid);
+
+    if (fila is null)
+        return Results.NotFound(new { mensaje = $"No existe el expediente {id}." });
+
+    var estado = await servicio.TransicionarAsync(
+        ulid,
+        expediente => expediente.Enviar(new IdPersona(peticion.Ejecuta), peticion.Momento),
+        peticion.Momento);
+
+    // ── El congelamiento ────────────────────────────────────────────────────
+    // Se calcula DESPUES de que la transicion paso: si `T-02` se rechaza, no hay nada que
+    // congelar y guardar la huella dejaria un expediente en borrador con marca de sometido.
+    fila.HuellaCongelada = ReglasDelCongelamiento.Huella(new ContenidoSometido(
+        fila.Dependencia, fila.ObjetoDelTraslado, fila.Destino, fila.SolicitanteDeDerecho,
+        fila.Salida, fila.Retorno, fila.HoraDeSalida, fila.HoraDeRetorno, fila.HolguraDias));
+
+    // ── El folio ────────────────────────────────────────────────────────────
+    // **Nulo no bloquea**: hoy ninguna delegacion tiene rango asignado, y negar el envio a
+    // todas dejaria el sistema inoperante por una configuracion que nadie cargo. Sin rango se
+    // sigue con el provisional, y la pantalla dice que lo es. Lo que si bloquea es el rango
+    // AGOTADO — ahi hay rango, se acabo, y emitir fuera de el pisaria el de otra delegacion.
+    var folio = await folios.EmitirAsync(
+        fila.Dependencia, ServicioDeFolios.TipoOrdenDeMision,
+        DateOnly.FromDateTime(peticion.Momento.UtcDateTime));
+
+    if (folio is not null)
+    {
+        fila.FolioRangoId = folio.RangoId;
+        fila.FolioNumero = folio.Numero;
+        fila.FolioTexto = folio.Texto;
+    }
+
+    await contexto.SaveChangesAsync();
+
+    return Results.Ok(new
+    {
+        id,
+        estado = estado.ToString(),
+        huella = fila.HuellaCongelada,
+
+        // Nulos cuando la delegacion no tiene rango, o cuando no hay plantilla configurada
+        // (insumo #34). La pantalla los distingue del folio real.
+        folio = fila.FolioTexto,
+        folioNumero = fila.FolioNumero,
+    });
+});
+/// `T-05` — aprobar. **Coteja el congelamiento antes de dejar pasar** (`HU-004`).
+///
+/// Deja de usar el helper generico porque hace algo mas que mover el estado, y ese algo es la
+/// razon de ser del congelamiento: **quien autoriza tiene que autorizar el contenido que se
+/// sometio**, no una version editada despues.
+///
+/// El cotejo va ANTES de la transicion. Si fuera despues, la aprobacion ya estaria asentada
+/// cuando se detecta la alteracion, y habria que reversarla — dejando en el diario un acto de
+/// autoridad que nunca debio existir.
+misiones.MapPost("/{id}/aprobar", async (
+    string id, EjecutarTransicion peticion,
+    ServicioDeMisiones servicio, SigtiDbContext contexto) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    var fila = await contexto.Expedientes.AsNoTracking().SingleOrDefaultAsync(e => e.Id == ulid);
+
+    if (fila is null)
+        return Results.NotFound(new { mensaje = $"No existe el expediente {id}." });
+
+    // **Nulo no bloquea**: son los expedientes anteriores al congelamiento, y negarles la
+    // autorizacion dejaria trabajo legitimo detenido por una funcion que no existia cuando se
+    // capturaron. Se autoriza, y el cotejo lo declara — que es lo que el auditor necesita ver.
+    ReglasDelCongelamiento.ExigirIntacto(
+        fila.HuellaCongelada,
+        new ContenidoSometido(
+            fila.Dependencia, fila.ObjetoDelTraslado, fila.Destino, fila.SolicitanteDeDerecho,
+            fila.Salida, fila.Retorno, fila.HoraDeSalida, fila.HoraDeRetorno, fila.HolguraDias));
+
+    var estado = await servicio.TransicionarAsync(
+        ulid,
+        expediente => expediente.Aprobar(
+            new IdPersona(peticion.Ejecuta), peticion.Momento, peticion.Motivo),
+        peticion.Momento);
+
+    return Results.Ok(new { id, estado = estado.ToString() });
+});
 // `T-14` y `T-18` llevan ODOMETRO, y por eso no usan el helper genérico: es el único ancla
 // que el sistema tiene para detectar consumo de combustible sin relación con el uso, y el
 // hallazgo típico del Tribunal Superior de Cuentas en flota es exactamente ése.
@@ -3547,6 +3647,42 @@ app.MapGet("/bloqueos", () => Results.Ok(new
     }),
 }));
 
+
+/// El control de folios de `RNF-21`: rangos, saldo, aviso.
+app.MapGet("/folios", async (ServicioDeFolios folios) =>
+{
+    var control = await folios.ControlAsync(DateOnly.FromDateTime(DateTime.UtcNow));
+
+    return Results.Ok(control.Select(c => new
+    {
+        rango = c.Rango.Id.ToString(),
+        delegacion = c.Rango.Delegacion,
+        tipoDeDocumento = c.Rango.TipoDeDocumento,
+
+        // **Nulo es «toda la delegacion»**, y solo sirve con un equipo emitiendo.
+        dispositivo = c.Rango.Dispositivo,
+
+        desde = c.Rango.Desde,
+        hasta = c.Rango.Hasta,
+        // Incluye los anulados: el folio de un documento anulado no vuelve al rango.
+        emitidos = c.Rango.Emitidos,
+        disponibles = c.Rango.Disponibles,
+
+        grado = c.Aviso.Grado.ToString(),
+        porQue = c.Aviso.PorQue,
+    }));
+});
+
+/// Asigna un rango a una delegacion. Rechaza el solape — `RN-44`.
+app.MapPost("/folios", async (AsignarRango peticion, ServicioDeFolios folios) =>
+{
+    var id = await folios.AsignarAsync(
+        peticion.Delegacion, peticion.TipoDeDocumento, peticion.Desde, peticion.Hasta,
+        new IdPersona(peticion.Asigna), peticion.AsignadoEl, peticion.Dispositivo);
+
+    return Results.Created($"/folios/{id}", new { id = id.ToString() });
+});
+
 var tanques = app.MapGroup("/tanques");
 
 tanques.MapGet("/", async (ServicioDeTanques servicio) =>
@@ -5551,3 +5687,14 @@ public sealed record ReporteEntrante(
     string? SeAtribuyeA = null,
     bool? MotorEncendido = null);
 
+
+/// Un rango de folios que se reserva a una delegacion.
+public sealed record AsignarRango(
+    string Delegacion,
+    string TipoDeDocumento,
+    int Desde,
+    int Hasta,
+    string Asigna,
+    DateOnly AsignadoEl,
+    /// <summary>Nulo es toda la delegacion. Con dos equipos hace falta un subrango a cada uno.</summary>
+    string? Dispositivo = null);

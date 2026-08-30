@@ -142,6 +142,24 @@ public static class ReglasDeLaSalida
             "Jefe de Transporte, que es quien asigna la custodia del vehículo.",
             "docs/01-negocio/reglas/RN-22-custodia-del-vehiculo.md"),
 
+        // ── El congelamiento del contenido — `HU-004` ───────────────────────
+        ["RN-04"] = new("RN-04", "El contenido cambió después de someterse a autorización",
+            "T-05",
+            "Devolver el expediente para corrección. Eso lo regresa a borrador, y al enviarlo " +
+            "de nuevo se congela con su huella nueva — que es lo que quien autorice va a leer. " +
+            "No se edita el expediente «para dejarlo como estaba»: eso destruiría la evidencia " +
+            "de que cambió, que es justamente lo que hay que conservar.",
+            "Quien capturó la solicitud, para corregirla y reenviarla.",
+            "docs/02-requisitos/historias/HU-004-envio-a-autorizacion-con-numero-de-expediente-y-congelamiento.md"),
+
+        // ── Los folios — `RN-44`, `RNF-21` ──────────────────────────────────
+        ["RN-44"] = new("RN-44", "Rango de folios solapado o agotado", "al enviar a autorización",
+            "Si el rango se solapa, se corrige el que se está asignando para que no pise al " +
+            "otro. Si está agotado, hay que reponerlo desde la sede — y **reponer exige " +
+            "conectividad**, así que conviene pedirlo mientras haya enlace.",
+            "Gerencia Administrativa, que es quien asigna los rangos por delegación.",
+            "docs/01-negocio/reglas/RN-44-identificadores-y-folios-en-el-cliente.md"),
+
         // ── El estado operativo del vehículo ────────────────────────────────
         ["§10.2"] = new("§10.2", "Transición de estado operativo del vehículo", "W-01 a W-19",
             "La transición de estado del vehículo que se pidió no existe en §10.2, o el " +

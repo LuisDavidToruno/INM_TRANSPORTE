@@ -104,7 +104,7 @@ public sealed class ConsultaDeMisiones(SigtiDbContext contexto)
 
         return new VistaDeExpediente(
             Id: fila.Id.ToString(),
-            Folio: FolioProvisional(fila.Id),
+            Folio: Folio(fila),
             Estado: diario[^1].Destino.ToString(),
             CapturadaPor: fila.CapturadaPor,
             SolicitanteDeDerecho: fila.SolicitanteDeDerecho,
@@ -132,15 +132,32 @@ public sealed class ConsultaDeMisiones(SigtiDbContext contexto)
     }
 
     /// <summary>
-    /// ⚠️ Provisional. El folio real lo asigna el servidor contra el rango de la
-    /// delegación (`RNF-21`, `ADR-005`), y ese circuito no existe todavía. Lleva
-    /// prefijo `PROV-` para que nadie lo confunda con un folio oficial ni lo cite en
-    /// un descargo.
+    /// El folio provisional, para los expedientes que todavía no tienen uno institucional.
     ///
-    /// <b>Es `internal` y no privado a propósito.</b> Lo necesita también la ocupación de
-    /// flota, y dos copias del mismo folio son dos folios que van a divergir el día que
-    /// llegue el circuito real — la bandeja mostraría uno y el cronograma otro para la
-    /// misma misión.
+    /// Lleva prefijo `PROV-` para que nadie lo confunda con un folio oficial ni lo cite en un
+    /// descargo. Mientras la delegación no tenga rango asignado o la institución no fije su
+    /// formato (insumo #34), <b>no hay folio oficial que mostrar</b>.
+    ///
+    /// ── ⚠️ Es privado, y eso es la corrección de un defecto real ────────────
+    /// Era `internal`, y su propio comentario advertía: <i>«dos copias del mismo folio son dos
+    /// folios que van a divergir el día que llegue el circuito real»</i>. Llegó, y divergieron:
+    /// seis llamadores seguían componiendo el provisional a mano, así que <b>un expediente con
+    /// folio institucional emitido seguía apareciendo como `PROV-` en el buscador, en el
+    /// despacho, en la ocupación y en el seguimiento</b>.
+    ///
+    /// Privado, el compilador obliga a pasar por <see cref="Folio"/>, que es el único lugar que
+    /// sabe cuál de los dos corresponde.
     /// </summary>
-    internal static string FolioProvisional(Ulid id) => $"PROV-{id.ToString()[^6..]}";
+    private static string FolioProvisional(Ulid id) => $"PROV-{id.ToString()[^6..]}";
+
+    /// <summary>
+    /// El folio institucional si el expediente ya lo tiene, y el provisional si no.
+    ///
+    /// El provisional sigue existiendo y sigue llevando su prefijo: mientras la delegacion no
+    /// tenga rango asignado o la institucion no fije su formato, **no hay folio oficial que
+    /// mostrar**, y mostrar uno inventado produciria un numero que alguien citaria en un
+    /// descargo. El prefijo es lo que impide esa confusion.
+    /// </summary>
+    internal static string Folio(Datos.M07_ProgramacionYDespacho.FilaDeExpediente fila) =>
+        fila.FolioTexto ?? FolioProvisional(fila.Id);
 }

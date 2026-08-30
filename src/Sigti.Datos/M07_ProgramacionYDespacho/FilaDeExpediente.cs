@@ -39,6 +39,33 @@ public sealed class FilaDeExpediente
     public TimeOnly? HoraDeRetorno { get; init; }
 
     public required int HolguraDias { get; init; }
+
+    /// <summary>
+    /// La huella del contenido al enviarse a autorización — `HU-004`.
+    ///
+    /// <b>Nula es «se envió sin congelar»</b>, no «coincide»: son los expedientes anteriores al
+    /// congelamiento, y sobre ésos no se puede afirmar nada. Se guarda como columna propia y no
+    /// dentro del diario porque el cotejo la lee en cada autorización.
+    /// </summary>
+    public string? HuellaCongelada { get; set; }
+
+    /// <summary>
+    /// El número consumido del rango. <b>No se recicla</b>, ni al anular el expediente.
+    /// </summary>
+    public int? FolioNumero { get; set; }
+
+    /// <summary>
+    /// El folio ya compuesto según la plantilla de la institución.
+    ///
+    /// <b>Nulo cuando no hay formato configurado</b> (insumo #34) — y entonces la pantalla
+    /// sigue mostrando el provisional diciendo que lo es. Se guarda compuesto, y no se recompone
+    /// al leer: si la plantilla cambia, los folios ya emitidos e impresos <b>no cambian</b>.
+    /// </summary>
+    public string? FolioTexto { get; set; }
+
+    /// <summary>De qué rango salió. Nulo cuando el expediente no llegó a enviarse.</summary>
+    public Ulid? FolioRangoId { get; set; }
+
     public List<FilaDeTransicion> Transiciones { get; } = [];
 }
 

@@ -4,6 +4,7 @@ using Sigti.Datos.M07_ProgramacionYDespacho;
 using Sigti.Datos.M09_Combustible;
 using Sigti.Datos.M03_Flota;
 using Sigti.Datos.M11_Mantenimiento;
+using Sigti.Datos.M06_Solicitudes;
 using Sigti.Datos.M12_Incidentes;
 using Sigti.Datos.M14_Auditoria;
 using Sigti.Datos.M18_Peajes;
@@ -129,6 +130,9 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     /// <summary>Lo que el motorista declara desde la ruta — M-19, `RN-76`.</summary>
     public DbSet<FilaDeReporteDeCampo> ReportesDeCampo => Set<FilaDeReporteDeCampo>();
 
+    /// <summary>Los rangos de folio pre-asignados por delegación — `RN-44`.</summary>
+    public DbSet<FilaDeRango> RangosDeFolio => Set<FilaDeRango>();
+
     /// <summary>
     /// ULID en binary(16) y no en texto: 16 bytes contra 26, y conserva la monotonía que
     /// motiva la elección de `ADR-005`. Un GUID aleatorio como clave agrupada fragmentaría
@@ -206,6 +210,19 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             // que harian que dos horas iguales se comparen distinto.
             expediente.Property(e => e.HoraDeSalida).HasColumnType("time(0)");
             expediente.Property(e => e.HoraDeRetorno).HasColumnType("time(0)");
+
+            // SHA-256 en hexadecimal: 64 caracteres exactos.
+            expediente.Property(e => e.HuellaCongelada).HasMaxLength(64);
+            expediente.Property(e => e.FolioTexto).HasMaxLength(64);
+            expediente.Property(e => e.FolioRangoId)
+                .HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+
+            // El folio compuesto es UNICO en toda la institucion: es la garantia que `RNF-21`
+            // pide en su primer cero. La impone la BASE y no una comprobacion en codigo, porque
+            // dos delegaciones sincronizando a la vez pasarian las dos un `SELECT` previo.
+            expediente.HasIndex(e => e.FolioTexto)
+                .IsUnique()
+                .HasFilter("[FolioTexto] IS NOT NULL");
 
             expediente.HasMany(e => e.Transiciones)
                 .WithOne()
@@ -1456,6 +1473,22 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             abastecimiento.HasIndex(a => a.IdDeCaptura)
                 .IsUnique()
                 .HasFilter("[IdDeCaptura] IS NOT NULL");
+        });
+
+        modelo.Entity<FilaDeRango>(rango =>
+        {
+            rango.ToTable("RangoDeFolio", schema: "mision");
+
+            rango.HasKey(r => r.Id);
+            rango.Property(r => r.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            rango.Property(r => r.Delegacion).HasMaxLength(120).IsRequired();
+            rango.Property(r => r.TipoDeDocumento).HasMaxLength(60).IsRequired();
+            rango.Property(r => r.Dispositivo).HasMaxLength(64);
+            rango.Property(r => r.Asigna).HasMaxLength(64).IsRequired();
+
+            // La consulta del camino critico: «que rango le toca a esta delegacion para este
+            // documento». Corre en cada envio a autorizacion.
+            rango.HasIndex(r => new { r.TipoDeDocumento, r.Delegacion });
         });
 
         modelo.Entity<FilaDeReporteDeCampo>(reporte =>
