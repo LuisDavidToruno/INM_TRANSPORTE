@@ -207,8 +207,11 @@ public sealed class ServicioDePeajes(SigtiDbContext contexto)
         Ulid mision, Estimacion estimacion, IdPersona congela, DateTimeOffset momento,
         CancellationToken cancelacion = default)
     {
+        // ⚠️ **Sólo lo vigente.** Un recongelamiento por sustitución deja las líneas
+        // anteriores en la tabla —`RN-61`: el asiento anterior no se sobrescribe— y sin este
+        // filtro la misión quedaría marcada como «ya congelada» para siempre.
         var yaEsta = await contexto.RutasAutorizadasDePeaje
-            .AnyAsync(r => r.MisionId == mision, cancelacion);
+            .AnyAsync(r => r.MisionId == mision && r.SupersedidaPor == null, cancelacion);
 
         if (yaEsta)
             throw new BloqueoDuro("RN-41",
@@ -233,6 +236,162 @@ public sealed class ServicioDePeajes(SigtiDbContext contexto)
         }
 
         await contexto.SaveChangesAsync(cancelacion);
+    }
+
+    /// <summary>
+    /// `RN-61` — <b>la sustitución de vehículo recalcula y vuelve a congelar el estimado</b>,
+    /// con asiento de diferencia contra el congelamiento anterior.
+    ///
+    /// ── Por qué esto no puede quedar para después ───────────────────────────
+    /// El estimado congelado <b>es lo que el autorizador autorizó</b>. Sustituir un pick-up por
+    /// un camión de dos ejes puede duplicar el peaje de una ruta larga, y sin recalcular la
+    /// misión sigue liquidándose contra una cifra que ya no corresponde a ningún vehículo real:
+    /// la conciliación cuadraría contra un número inventado.
+    ///
+    /// ── Y por qué la ruta NO se vuelve a pedir ──────────────────────────────
+    /// Los puntos y los cruces son de la <b>ruta</b>, no del vehículo: no cambian al sustituir.
+    /// Lo que cambia es la <b>categoría</b>, y con ella la tarifa de cada punto. Volver a pedir
+    /// la ruta abriría la puerta a que una sustitución cambie en silencio lo que se autorizó
+    /// recorrer, que es justo lo que `RN-37` existe para detectar.
+    ///
+    /// ── El asiento anterior no se sobrescribe ───────────────────────────────
+    /// `RN-04`: las líneas viejas quedan marcadas como superadas, no borradas. Un auditor tiene
+    /// que poder contestar qué se autorizó originalmente y cuánto cambió.
+    /// </summary>
+    /// <returns>
+    /// El asiento de diferencia. <b>Nulo cuando no había estimado congelado</b> — y eso no es un
+    /// fallo: una misión que se reasigna antes de aprobarse no tiene nada que recongelar.
+    /// </returns>
+    public async Task<DiferenciaDelRecongelamiento?> RecongelarPorSustitucionAsync(
+        Ulid mision,
+        Ulid vehiculoEntrante,
+        DateOnly fechaDelHecho,
+        string motivo,
+        IdPersona recongela,
+        DateTimeOffset momento,
+        CancellationToken cancelacion = default)
+    {
+        var vigentes = await contexto.RutasAutorizadasDePeaje
+            .Where(r => r.MisionId == mision && r.SupersedidaPor == null)
+            .ToListAsync(cancelacion);
+
+        // Sin estimado congelado no hay nada que recongelar. Devolver nulo y no lanzar: la
+        // reasignación es válida igual, y tratarlo como error la bloquearía por algo que no es
+        // un problema.
+        if (vigentes.Count == 0) return null;
+
+        var anterior = await CategoriaCongeladaAsync(vigentes, cancelacion);
+
+        // La categoría del entrante se resuelve aparte porque el asiento la nombra: decir que
+        // el total subió sin decir de qué categoría a cuál deja la diferencia sin explicación,
+        // que es justo lo que `RN-61` viene a evitar.
+        var nueva = await CategoriaDelVehiculoAsync(vehiculoEntrante, fechaDelHecho, cancelacion);
+
+        var estimacion = await EstimarAsync(
+            [.. vigentes.Select(r => (r.PuntoId, r.Cruces))],
+            vehiculoEntrante,
+            categoriaDelTipo: null,
+            tipoDeVehiculo: "",
+            fechaDelHecho,
+            cancelacion);
+
+        var asiento = Ulid.NewUlid();
+
+        // ⚠️ **La misma regla que `Estimacion.Total`**, y eso importa más que la regla en sí:
+        // el asiento compara dos totales, y si cada lado sumara distinto la diferencia sería
+        // artefacto del cálculo y no del cambio de vehículo.
+        //
+        // Nulo cuando NINGUNA línea se pudo valorar. Nunca cero: cero diría que la ruta no
+        // cuesta peaje, que es una afirmación distinta de «no se pudo calcular».
+        var totalAnterior = vigentes.Count == 0
+            ? 0m
+            : vigentes.All(r => r.Subtotal is null)
+                ? (decimal?)null
+                : vigentes.Sum(r => r.Subtotal ?? 0m);
+
+        foreach (var vieja in vigentes) vieja.SupersedidaPor = asiento;
+
+        foreach (var linea in estimacion.Lineas)
+        {
+            contexto.RutasAutorizadasDePeaje.Add(new FilaDeRutaAutorizada
+            {
+                Id = Ulid.NewUlid(),
+                MisionId = mision,
+                PuntoId = linea.Punto,
+                Cruces = linea.Cruces,
+                Subtotal = linea.Subtotal,
+                TarifaId = linea.IdDeLaTarifa,
+                CongeladoUtc = momento.UtcDateTime,
+                DesfaseMinutos = (int)momento.Offset.TotalMinutes,
+                Congela = recongela.Valor,
+            });
+        }
+
+        var fila = new FilaDeRecongelamiento
+        {
+            Id = asiento,
+            MisionId = mision,
+            VehiculoSaliente = anterior.Vehiculo,
+            VehiculoEntrante = vehiculoEntrante,
+            CategoriaAnterior = anterior.Categoria,
+            CategoriaNueva = nueva.Categoria?.Nombre,
+            TotalAnterior = totalAnterior,
+            TotalNuevo = estimacion.Total,
+            Motivo = motivo,
+            Recongela = recongela.Valor,
+            MomentoUtc = momento.UtcDateTime,
+            DesfaseMinutos = (int)momento.Offset.TotalMinutes,
+        };
+
+        contexto.RecongelamientosDePeaje.Add(fila);
+        await contexto.SaveChangesAsync(cancelacion);
+
+        return new DiferenciaDelRecongelamiento(
+            asiento,
+            anterior.Categoria,
+            nueva.Categoria?.Nombre,
+            totalAnterior,
+            estimacion.Total);
+    }
+
+    /// <summary>Los asientos de diferencia de una misión, del más viejo al más nuevo.</summary>
+    public async Task<IReadOnlyList<DiferenciaDelRecongelamiento>> RecongelamientosDeAsync(
+        Ulid mision, CancellationToken cancelacion = default) =>
+        [.. (await contexto.RecongelamientosDePeaje
+                .AsNoTracking()
+                .Where(r => r.MisionId == mision)
+                .OrderBy(r => r.MomentoUtc)
+                .ToListAsync(cancelacion))
+            .Select(r => new DiferenciaDelRecongelamiento(
+                r.Id, r.CategoriaAnterior, r.CategoriaNueva, r.TotalAnterior, r.TotalNuevo)
+            {
+                Motivo = r.Motivo,
+                Recongela = r.Recongela,
+                Momento = new DateTimeOffset(r.MomentoUtc, TimeSpan.Zero)
+                    .ToOffset(TimeSpan.FromMinutes(r.DesfaseMinutos)),
+            })];
+
+    /// <summary>
+    /// Con qué vehículo y qué categoría se valoró el estimado que está por superarse.
+    ///
+    /// Sale de la <b>tarifa congelada</b>, no del expediente: el expediente ya tiene el vehículo
+    /// entrante cuando esto corre, y leerlo de ahí diría que la categoría no cambió nunca.
+    /// </summary>
+    private async Task<(Ulid? Vehiculo, string? Categoria)> CategoriaCongeladaAsync(
+        IReadOnlyList<FilaDeRutaAutorizada> vigentes, CancellationToken cancelacion)
+    {
+        var idTarifa = vigentes.FirstOrDefault(r => r.TarifaId is not null)?.TarifaId;
+
+        if (idTarifa is null) return (null, null);
+
+        var tarifas = await _peajes.TarifasAsync(cancelacion);
+        var nombres = await _peajes.NombresDeCategoriaAsync(cancelacion);
+
+        var tarifa = tarifas.FirstOrDefault(t => t.Id == idTarifa.Value);
+
+        return (null, tarifa is null
+            ? null
+            : nombres.TryGetValue(tarifa.Categoria, out var nombre) ? nombre : tarifa.Categoria);
     }
 
     /// <summary>
@@ -303,8 +462,11 @@ public sealed class ServicioDePeajes(SigtiDbContext contexto)
 
         // La ruta autorizada sale del estimado congelado. **Nula cuando no lo hay**, y la
         // tercera dimensión queda sin evaluar en vez de marcar toda caseta como fuera de ruta.
+        // ⚠️ **Sólo la ruta vigente.** Una línea superada que siguiera contando haría que
+        // esta pregunta se contestara contra DOS rutas a la vez, y un desvío desaparecería por
+        // coincidir con la ruta vieja — que es exactamente el hallazgo que `RN-37` produce.
         var autorizados = await contexto.RutasAutorizadasDePeaje
-            .Where(r => r.MisionId == mision)
+            .Where(r => r.MisionId == mision && r.SupersedidaPor == null)
             .Select(r => r.PuntoId)
             .ToListAsync(cancelacion);
 
@@ -582,3 +744,30 @@ public sealed class ServicioDePeajes(SigtiDbContext contexto)
 /// fabricaría intervalos imposibles a partir de dos viajes correctos.
 /// </summary>
 public sealed record CoherenciaDeUnVehiculo(Ulid Vehiculo, DictamenDeCoherencia Dictamen);
+
+/// <summary>
+/// El asiento de diferencia de `RN-61`: cuánto cambió el estimado al sustituir el vehículo.
+/// </summary>
+/// <param name="TotalAnterior">
+/// ⚠️ <b>Nulo cuando alguna línea no se pudo valorar</b> —sin tarifa cargada, sin categoría
+/// resuelta—. Nunca cero: un cero diría que la ruta no cuesta, y eso es una afirmación distinta
+/// de «no se pudo calcular».
+/// </param>
+public sealed record DiferenciaDelRecongelamiento(
+    Ulid Id,
+    string? CategoriaAnterior,
+    string? CategoriaNueva,
+    decimal? TotalAnterior,
+    decimal? TotalNuevo)
+{
+    public string? Motivo { get; init; }
+    public string? Recongela { get; init; }
+    public DateTimeOffset? Momento { get; init; }
+
+    /// <summary>
+    /// Cuánto subió o bajó. <b>Nulo cuando alguno de los dos totales no se pudo calcular</b> —
+    /// una diferencia contra un número que no existe no es cero, es desconocida.
+    /// </summary>
+    public decimal? Diferencia =>
+        TotalAnterior is { } a && TotalNuevo is { } b ? b - a : null;
+}

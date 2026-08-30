@@ -382,7 +382,15 @@ public class PeajesPruebas(BaseDePruebas baseDePruebas)
 
         var ahora = DateTime.UtcNow;
 
-        if (!await contexto.CategoriasDePeaje.AnyAsync())
+        // ⚠️ **Por codigo, no «si la tabla esta vacia».**
+        //
+        // El catalogo de categorias es COMPARTIDO por toda la base de pruebas. Con el guardia
+        // de tabla vacia, cualquier otra clase que sembrara una categoria propia dejaba este
+        // bloque sin ejecutarse — y estas pruebas fallaban con «la matriz no esta cargada»
+        // mientras el codigo que las siembra estaba ahi, intacto.
+        //
+        // Es el mismo patron que costo la Maxima Autoridad en la siembra de desarrollo.
+        if (!await contexto.CategoriasDePeaje.AnyAsync(c => c.Codigo == "LIVIANO"))
         {
             contexto.CategoriasDePeaje.AddRange(
                 new FilaDeCategoriaDePeaje { Codigo = "LIVIANO", Nombre = "Liviano/Turismo" },

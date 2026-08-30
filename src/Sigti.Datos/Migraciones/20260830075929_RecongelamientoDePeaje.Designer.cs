@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Sigti.Datos;
 
@@ -12,9 +13,11 @@ using Sigti.Datos;
 namespace Sigti.Datos.Migraciones
 {
     [DbContext(typeof(SigtiDbContext))]
-    partial class SigtiDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260830075929_RecongelamientoDePeaje")]
+    partial class RecongelamientoDePeaje
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -3612,8 +3615,7 @@ namespace Sigti.Datos.Migraciones
                     b.HasKey("Id");
 
                     b.HasIndex("MisionId", "PuntoId")
-                        .IsUnique()
-                        .HasFilter("[SupersedidaPor] IS NULL");
+                        .IsUnique();
 
                     b.ToTable("RutaAutorizada", "peajes");
                 });

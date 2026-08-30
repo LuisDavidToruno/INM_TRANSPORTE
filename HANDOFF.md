@@ -414,6 +414,74 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## `RN-61` — el estimado que quedaba mal en silencio
+
+**1296 pruebas en verde.** Era el hallazgo que yo mismo había levantado el bloque anterior:
+`HU-018` pide que la sustitución de vehículo recalcule los valores congelados y lo remite a
+`CU-04`/`M-07`, y **no estaba hecho en ninguno de los dos**.
+
+### Por qué importa
+
+El estimado congelado **es lo que el autorizador autorizó**. Sustituir un pick-up por un
+camión de dos ejes puede duplicar el peaje de una ruta larga — en la prueba, la misma caseta
+pasa de L 50.00 a L 150.00. Sin recalcular, la misión se liquida contra una cifra que ya no
+corresponde a ningún vehículo real: **la conciliación cuadraría contra un número inventado.**
+
+### Qué quedó construido
+
+| | |
+|---|---|
+| **El recálculo** | Con la tabla vigente a la fecha del hecho (`P-4`). Se dispara solo, en `T-10 Reasignar` |
+| **El asiento de diferencia** | Categoría anterior → nueva, total anterior → nuevo, diferencia, motivo, autor |
+| **Lo anterior se conserva** | `RN-04`: las líneas viejas quedan marcadas como superadas, no borradas |
+| **Y se ve** | En el mismo desglose de peajes del expediente, no en otra pantalla |
+
+La ruta **no se vuelve a pedir**: los puntos y los cruces son de la ruta, no del vehículo. Lo
+que cambia es la categoría. Volver a pedirla abriría la puerta a que una sustitución cambie en
+silencio lo que se autorizó recorrer — que es justo lo que `RN-37` existe para detectar.
+
+### ⚠️ Tres cosas que sólo aparecen al construirlo
+
+**1 · El índice único hacía imposible la regla.** `IX_RutaAutorizada_MisionId_PuntoId` era
+único sobre *todas* las filas, así que conservar el congelamiento anterior junto al nuevo era
+imposible a nivel de base. La restricción **codificaba el supuesto de que una misión se
+congela una vez** — cierto sólo hasta que se sustituye el vehículo. Ahora es filtrado sobre lo
+vigente, que es lo que de verdad se quería decir.
+
+**2 · Tres lectores había que enseñarles a filtrar.** El guardia de doble congelamiento, la
+coherencia de `RN-37` y el desglose del expediente leían todas las filas. Sin el filtro,
+`RN-37` se contestaría contra **dos rutas a la vez** y un desvío desaparecería por coincidir
+con la ruta vieja.
+
+**3 · El mismo defecto de siembra, otra vez.** `PeajesPruebas` sembraba su catálogo con
+`if (!tabla.Any())`, así que mi clase nueva —al insertar su propia categoría— dejaba ese
+bloque sin ejecutarse: **ocho pruebas fallaron con «la matriz no está cargada» mientras el
+código que la siembra estaba ahí, intacto.** Es el mismo patrón que costó la Máxima Autoridad
+esta mañana. Corregido con guardia por código, como ya lo hacía `CoherenciaDePeajesPruebas`.
+
+Y un cuarto, de mi propia prueba: sembré la matriz con `RegistradoDesde` **en el futuro**, y la
+bitemporalidad la descartó correctamente. El sistema tenía razón; la prueba no.
+
+### Lo que `RN-61` pide y sigue sin hacerse
+
+La regla lista **nueve** valores derivados. Se implementó el primero. Los otros:
+
+| Valor derivado | Estado |
+|---|---|
+| Categoría de peaje y estimado | ✅ **hecho** |
+| Habilitación del motorista, compatibilidad, documentación, estado operativo | ✅ ya lo revalida `T-10` |
+| Rendimiento esperado galonaje–kilometraje | ⛔ no se recalcula |
+| Custodia | ⛔ no se traslada con constancia |
+| Salvoconducto de día inhábil | ⚠️ existe la reemisión (`PT-024`) pero **no se dispara sola** al reasignar |
+| Folios de vale de combustible | ⛔ no se anulan ni re-emiten si cambia el tipo |
+| Paquete de identificación en carretera | ⛔ no se re-emite |
+
+El del salvoconducto es el más cercano a cerrarse y el más grave de los que faltan: la
+maquinaria está entera, sólo falta encadenarla al mismo punto donde ahora se recongela el
+peaje.
+
+---
+
 ## `PT-024` — el permiso que dejó de cubrir, dicho antes del sábado
 
 **1293 pruebas en verde.** Cierra la historia del permiso de circulación: tramitar, firmar,

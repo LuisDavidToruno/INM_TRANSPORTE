@@ -81,9 +81,12 @@ public sealed class ConsultaDeLaSolicitud(
 
         if (!existe) return null;
 
+        // ⚠️ **Sólo lo vigente.** Tras una sustitución de vehículo (`RN-61`) conviven el
+        // estimado anterior y el nuevo: mostrar los dos daría un desglose con el doble de
+        // líneas y un total que no es ninguno de los dos.
         var lineas = await contexto.RutasAutorizadasDePeaje
             .AsNoTracking()
-            .Where(r => r.MisionId == mision)
+            .Where(r => r.MisionId == mision && r.SupersedidaPor == null)
             .ToListAsync(cancelacion);
 
         var puntos = await contexto.PuntosDePeaje
@@ -104,6 +107,23 @@ public sealed class ConsultaDeLaSolicitud(
 
         var sinValorar = detalle.Count(l => l.Subtotal is null);
 
+        // ⚠️ **Los asientos de diferencia van con el desglose, no en otra pantalla.**
+        //
+        // `RN-61`: si el vehículo se sustituyó, el total de hoy no es el que se autorizó — y
+        // quien mira el expediente tiene derecho a saber que cambió, de cuánto y por qué sin ir
+        // a buscarlo. Un total que cambió en silencio es indistinguible de uno que siempre fue
+        // ése, y es justo lo que un auditor viene a preguntar.
+        var recongelamientos = await contexto.RecongelamientosDePeaje
+            .AsNoTracking()
+            .Where(r => r.MisionId == mision)
+            .OrderBy(r => r.MomentoUtc)
+            .Select(r => new CambioDelEstimado(
+                r.CategoriaAnterior, r.CategoriaNueva,
+                r.TotalAnterior, r.TotalNuevo, r.Motivo, r.Recongela,
+                new DateTimeOffset(r.MomentoUtc, TimeSpan.Zero)
+                    .ToOffset(TimeSpan.FromMinutes(r.DesfaseMinutos))))
+            .ToListAsync(cancelacion);
+
         return new DesgloseDePeajes(
             // El total suma lo valorado. **Nulo cuando no hay ninguna línea**: no hay estimado
             // congelado todavía, que es distinto de un estimado de cero.
@@ -113,7 +133,9 @@ public sealed class ConsultaDeLaSolicitud(
 
             // Un total parcial presentado como completo subestima el costo, y eso se paga en
             // efectivo faltante a mitad de camino.
-            Parcial: sinValorar > 0);
+            Parcial: sinValorar > 0,
+
+            Cambios: recongelamientos);
     }
 }
 
@@ -146,11 +168,36 @@ public sealed record TramosDeLaVentana(
 /// <b>Nulo cuando no hay estimado congelado</b> — la misión todavía no se programó. Distinto de
 /// un estimado de cero, que diría que la ruta no tiene peajes.
 /// </param>
+/// <param name="Cambios">
+/// Los asientos de diferencia de RN-61: cada sustitucion de vehiculo que recalculo el estimado.
+///
+/// ⚠️ **Vacia es que nunca se sustituyo el vehiculo**, no que no se sepa. Van con el desglose y
+/// no en otra pantalla: un total que cambio en silencio es indistinguible de uno que siempre fue
+/// ese, y quien audita el expediente viene justamente a preguntar por la diferencia.
+/// </param>
 public sealed record DesgloseDePeajes(
     decimal? Total,
     IReadOnlyList<LineaDelDesglose> Lineas,
     int SinValorar,
-    bool Parcial);
+    bool Parcial,
+    IReadOnlyList<CambioDelEstimado> Cambios);
+
+/// <summary>Un recongelamiento por sustitucion de vehiculo — el asiento de diferencia.</summary>
+/// <param name="TotalAnterior">
+/// **Nulo cuando ninguna linea se pudo valorar.** Nunca cero: cero diria que la ruta no cuesta.
+/// </param>
+public sealed record CambioDelEstimado(
+    string? CategoriaAnterior,
+    string? CategoriaNueva,
+    decimal? TotalAnterior,
+    decimal? TotalNuevo,
+    string Motivo,
+    string Recongela,
+    DateTimeOffset Momento)
+{
+    /// <summary>Nulo si alguno de los dos totales no se pudo calcular: no es cero, es desconocida.</summary>
+    public decimal? Diferencia => TotalAnterior is { } a && TotalNuevo is { } b ? b - a : null;
+}
 
 /// <param name="Subtotal">Nulo es «no se pudo valorar». Nunca cero.</param>
 public sealed record LineaDelDesglose(

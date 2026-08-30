@@ -1411,6 +1411,24 @@ misiones.MapGet("/{id}/peajes", async (string id, ConsultaDeLaSolicitud consulta
         parcial = d.Parcial,
         sinValorar = d.SinValorar,
 
+        // RN-61 — los asientos de diferencia. **Vacia es que nunca se sustituyo el vehiculo**,
+        // no que no se sepa: un total que cambio en silencio es indistinguible de uno que
+        // siempre fue ese, y quien audita viene a preguntar por la diferencia.
+        cambios = d.Cambios.Select(c => new
+        {
+            categoriaAnterior = c.CategoriaAnterior,
+            categoriaNueva = c.CategoriaNueva,
+            totalAnterior = c.TotalAnterior,
+            totalNuevo = c.TotalNuevo,
+
+            // Nulo si alguno de los dos totales no se pudo calcular: no es cero, es desconocida.
+            diferencia = c.Diferencia,
+
+            motivo = c.Motivo,
+            recongela = c.Recongela,
+            momento = c.Momento,
+        }),
+
         lineas = d.Lineas.Select(l => new
         {
             punto = l.Punto,
@@ -5643,8 +5661,22 @@ ConAsignacion("despachar", Funcion.Despacha, (e, quien, a, m, p, cuando, _, __, 
 // `BD-02` y `BD-03`. Lo único propio es el motivo, y por eso viaja en la misma petición.
 // `T-10` — **no es ninguna de las cinco funciones**: cambia el recurso de una misión ya
 // programada. Nulo dice eso, y no «se olvidó evaluarla».
-ConAsignacion("reasignar", null, (e, quien, a, m, p, cuando, recursos, reservas, peticion, _, __, ___, ____, _____) =>
-    e.Reasignar(quien, a, peticion.Motivo, peticion.Comentario, m, p, cuando, recursos, reservas));
+ConAsignacion("reasignar", null,
+    (e, quien, a, m, p, cuando, recursos, reservas, peticion, _, __, ___, ____, _____) =>
+        e.Reasignar(quien, a, peticion.Motivo, peticion.Comentario, m, p, cuando, recursos, reservas),
+
+    // `RN-61` — **la sustitucion de vehiculo recalcula y vuelve a congelar el estimado de
+    // peajes**, con asiento de diferencia. Sustituir un pick-up por un camion de dos ejes puede
+    // duplicar el peaje de una ruta larga: sin esto la mision se liquidaria contra una cifra
+    // que ya no corresponde a ningun vehiculo real.
+    //
+    // Nulo si no habia estimado congelado, y eso NO es un fallo: una mision reasignada antes de
+    // aprobarse no tiene nada que recongelar.
+    async (mision, vehiculo, fechaDelHecho, peticion, peajes) =>
+        await peajes.RecongelarPorSustitucionAsync(
+            mision, vehiculo, fechaDelHecho,
+            $"{peticion.Motivo} · {peticion.Comentario}".Trim(' ', '·'),
+            new IdPersona(peticion.Ejecuta), peticion.Momento));
 
 // M-16 — Donde aterriza lo que el dispositivo capturó sin red.
 //
@@ -5837,10 +5869,18 @@ return;
 /// ninguna: cambia el recurso de una misión ya programada, y no es solicitar, autorizar,
 /// despachar, entregar el fondo ni liquidar.
 /// </param>
+/// <param name="despues">
+/// Lo que hay que hacer **una vez que la transicion se consumo**. Nulo en casi todas.
+///
+/// ⚠️ Existe por `RN-61`: sustituir el vehiculo obliga a recalcular y volver a congelar todo
+/// valor derivado de el. Hacerlo ANTES de que la transicion pase dejaria un estimado recongelado
+/// contra una reasignacion que un bloqueo duro pudo haber rechazado.
+/// </param>
 void ConAsignacion(
     string ruta,
     Funcion? funcion,
-    Action<OrdenDeMision, IdPersona, AsignacionDeMision, MatrizDeLicencias, PoliticaDeDocumentacion, DateTimeOffset, RecursosTomados?, IReadOnlyList<ReservaDeRecurso>?, AsignarYTransicionar, CustodiaAlDespachar, CirculacionEnDiaInhabil, EstadoOperativo?, ConflictoPorIndisponibilidad, TituloAlProgramar> aplicar) =>
+    Action<OrdenDeMision, IdPersona, AsignacionDeMision, MatrizDeLicencias, PoliticaDeDocumentacion, DateTimeOffset, RecursosTomados?, IReadOnlyList<ReservaDeRecurso>?, AsignarYTransicionar, CustodiaAlDespachar, CirculacionEnDiaInhabil, EstadoOperativo?, ConflictoPorIndisponibilidad, TituloAlProgramar> aplicar,
+    Func<Ulid, Ulid, DateOnly, AsignarYTransicionar, ServicioDePeajes, Task>? despues = null) =>
     misiones.MapPost($"/{{id}}/{ruta}", async (
         string id,
         AsignarYTransicionar peticion,
@@ -5857,7 +5897,8 @@ void ConAsignacion(
         EstadoDeLaFlota estadoDeLaFlota,
         ServicioDeIndisponibilidad indisponibilidad,
         ServicioDeTitulos titulos,
-        IParametrosDeLaInstitucion parametros) =>
+        IParametrosDeLaInstitucion parametros,
+        ServicioDePeajes peajesDeLaMision) =>
     {
         // El cliente manda IDENTIFICADORES, no la ficha técnica. Si mandara la ficha,
         // podría declarar 2,800 kg de un camión de 12,000 y BD-02 se evaluaría contra
@@ -5967,6 +6008,20 @@ void ConAsignacion(
                         titulo);
             },
             peticion.Momento);
+
+        // ⚠️ **Después de la transición, no antes.** Si el bloqueo duro rechazara la
+        // reasignación, un recongelamiento hecho antes habría dejado el estimado apuntando a un
+        // vehículo que la misión nunca tomó.
+        if (despues is not null)
+        {
+            await despues(
+                ulid, idVehiculo,
+                // A la fecha del HECHO: la tabla de tarifas vigente el día de la salida, no la
+                // de hoy (`P-4`, `RN-40`). La SAPP reclasifica por resolución.
+                (await servicio.BuscarAsync(ulid))?.Solicitud.Ventana.Salida
+                    ?? DateOnly.FromDateTime(peticion.Momento.UtcDateTime),
+                peticion, peajesDeLaMision);
+        }
 
         return Results.Ok(new { id, estado = estado.ToString() });
     });

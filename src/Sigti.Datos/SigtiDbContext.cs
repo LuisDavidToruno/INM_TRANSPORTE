@@ -70,6 +70,7 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     public DbSet<FilaDeCustodia> Custodias => Set<FilaDeCustodia>();
     public DbSet<FilaDePermisoDeCirculacion> Permisos => Set<FilaDePermisoDeCirculacion>();
     public DbSet<FilaDeSalvoconducto> Salvoconductos => Set<FilaDeSalvoconducto>();
+    public DbSet<FilaDeRecongelamiento> RecongelamientosDePeaje => Set<FilaDeRecongelamiento>();
     public DbSet<FilaDeCambioDeEstado> CambiosDeEstado => Set<FilaDeCambioDeEstado>();
     public DbSet<FilaDeFondo> Fondos => Set<FilaDeFondo>();
     public DbSet<FilaDeAsignacion> AsignacionesDeCombustible => Set<FilaDeAsignacion>();
@@ -1380,14 +1381,24 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             ruta.HasKey(r => r.Id);
             ruta.Property(r => r.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
             ruta.Property(r => r.MisionId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            // Nulo es la linea VIGENTE. RN-61: el asiento anterior no se sobrescribe.
+            ruta.Property(r => r.SupersedidaPor).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
             ruta.Property(r => r.PuntoId).HasConversion(UlidABinario).HasColumnType("binary(16)");
             ruta.Property(r => r.TarifaId).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
             ruta.Property(r => r.Subtotal).HasColumnType("decimal(12,2)");
             ruta.Property(r => r.Congela).HasMaxLength(64).IsRequired();
 
-            // **Un punto por mision.** El estimado congelado es uno: congelarlo dos veces
-            // dejaria dos rutas autorizadas y la pregunta de `RN-37` sin respuesta unica.
-            ruta.HasIndex(r => new { r.MisionId, r.PuntoId }).IsUnique();
+            // **Un punto por mision, ENTRE LO VIGENTE.** Dos rutas autorizadas a la vez
+            // dejarian la pregunta de `RN-37` sin respuesta unica.
+            //
+            // ⚠️ El indice era unico sobre TODAS las filas, y eso hacia imposible lo que
+            // `RN-61` exige: conservar el congelamiento anterior junto al nuevo. La restriccion
+            // codificaba el supuesto de que una mision se congela UNA vez — cierto solo hasta
+            // que se sustituye el vehiculo. Filtrado sobre lo vigente dice lo que de verdad se
+            // queria decir.
+            ruta.HasIndex(r => new { r.MisionId, r.PuntoId })
+                .IsUnique()
+                .HasFilter("[SupersedidaPor] IS NULL");
         });
 
         modelo.Entity<FilaDeDesvio>(desvio =>
@@ -1756,6 +1767,31 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             // La bandeja de firma de PT-021 pregunta por estado, y es la consulta que la
             // maxima autoridad abre en el celular: tiene que responder sin recorrer la tabla.
             permiso.HasIndex(p => p.Estado);
+        });
+
+        modelo.Entity<FilaDeRecongelamiento>(re =>
+        {
+            re.ToTable("Recongelamiento", schema: "peajes");
+
+            re.HasKey(x => x.Id);
+            re.Property(x => x.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            re.Property(x => x.MisionId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+
+            // Nulo cuando el congelamiento original se hizo sin vehiculo resuelto.
+            re.Property(x => x.VehiculoSaliente).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+            re.Property(x => x.VehiculoEntrante).HasConversion(UlidABinario).HasColumnType("binary(16)");
+
+            re.Property(x => x.CategoriaAnterior).HasMaxLength(60);
+            re.Property(x => x.CategoriaNueva).HasMaxLength(60);
+
+            // El mismo tipo de columna que el resto del dinero del sistema.
+            re.Property(x => x.TotalAnterior).HasPrecision(12, 2);
+            re.Property(x => x.TotalNuevo).HasPrecision(12, 2);
+
+            re.Property(x => x.Motivo).HasMaxLength(400).IsRequired();
+            re.Property(x => x.Recongela).HasMaxLength(64).IsRequired();
+
+            re.HasIndex(x => x.MisionId);
         });
 
         modelo.Entity<FilaDeSalvoconducto>(salvo =>

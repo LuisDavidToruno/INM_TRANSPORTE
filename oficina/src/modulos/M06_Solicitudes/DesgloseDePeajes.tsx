@@ -103,6 +103,65 @@ export default function DesgloseDePeajes({
             Es el estimado <b>congelado</b> al programar, no uno recalculado: si una tarifa
             cambió después, el número que se autorizó sigue siendo éste.
           </span>
+
+          {/* ── ⚠️ Lo que cambió por sustitución de vehículo — `RN-61` ──────────
+              Va acá y no en otra pantalla: **un total que cambió en silencio es
+              indistinguible de uno que siempre fue ése**, y quien audita el expediente viene
+              justamente a preguntar por la diferencia. */}
+          {data.cambios.length > 0 && (
+            <div className="tw:flex tw:flex-col tw:gap-2 tw:border-t tw:border-borde tw:pt-3">
+              <span className="tw:text-sm tw:font-medium">
+                {data.cambios.length === 1
+                  ? 'El estimado se recalculó una vez'
+                  : `El estimado se recalculó ${data.cambios.length} veces`}
+              </span>
+
+              <p className="tw:text-xs tw:text-tinta-mid">
+                Al sustituir el vehículo, la <b>categoría de peaje</b> cambia y con ella la
+                tarifa de cada caseta. El total de arriba es el vigente; abajo está cómo llegó
+                a serlo.
+              </p>
+
+              <ul className="tw:flex tw:flex-col tw:gap-2">
+                {data.cambios.map((c, i) => (
+                  <li
+                    key={`${c.momento}-${i}`}
+                    className="tw:flex tw:flex-col tw:gap-0.5 tw:border-l-2 tw:border-aviso-fg tw:py-1 tw:pl-3 tw:text-xs"
+                  >
+                    <span className="tw:flex tw:flex-wrap tw:items-baseline tw:gap-2">
+                      <span className="tw:text-tinta-mid">
+                        {c.categoriaAnterior ?? 'sin categoría'} →{' '}
+                        <b className="tw:text-tinta">{c.categoriaNueva ?? 'sin categoría'}</b>
+                      </span>
+
+                      {/* Nulo NO es cero: es que alguno de los dos totales no se pudo
+                          calcular, y decir «L 0.00» ahí afirmaría que no cambió nada. */}
+                      {c.diferencia === null ? (
+                        <span className="tw:text-aviso-fg">diferencia no calculable</span>
+                      ) : (
+                        <b
+                          className={
+                            c.diferencia > 0 ? 'tw:text-riesgo-fg' : 'tw:text-ok-fg'
+                          }
+                        >
+                          {c.diferencia > 0 ? '+' : ''}L {c.diferencia.toFixed(2)}
+                        </b>
+                      )}
+
+                      <span className="tw:text-tinta-mid">
+                        ({fmt(c.totalAnterior)} → {fmt(c.totalNuevo)})
+                      </span>
+                    </span>
+
+                    <span className="tw:text-tinta-mid">
+                      {c.motivo} · {c.recongela} ·{' '}
+                      {new Date(c.momento).toLocaleString('es-HN')}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
     </Panel>
@@ -121,4 +180,23 @@ interface Desglose {
     /** Nulo es «no se pudo valorar», nunca cero. */
     subtotal: number | null;
   }[];
+  /**
+   * Los asientos de diferencia de `RN-61`.
+   *
+   * **Vacía es que nunca se sustituyó el vehículo**, no que no se sepa.
+   */
+  cambios: {
+    categoriaAnterior: string | null;
+    categoriaNueva: string | null;
+    totalAnterior: number | null;
+    totalNuevo: number | null;
+    /** Nulo si alguno de los dos totales no se pudo calcular. **No es cero.** */
+    diferencia: number | null;
+    motivo: string;
+    recongela: string;
+    momento: string;
+  }[];
 }
+
+/** «L 300.00», o lo que hay que decir cuando no se pudo calcular. */
+const fmt = (v: number | null): string => (v === null ? 'sin valorar' : `L ${v.toFixed(2)}`);

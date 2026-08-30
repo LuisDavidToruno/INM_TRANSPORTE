@@ -33,6 +33,21 @@ public sealed class FilaDeRutaAutorizada
 
     public required DateTime CongeladoUtc { get; init; }
 
+    /// <summary>
+    /// Qué recongelamiento la superó. <b>Nulo es la línea vigente</b>, que es el caso normal.
+    ///
+    /// ── Por qué no se borra ni se sobrescribe ───────────────────────────────
+    /// `RN-61` es explícito: <i>«el asiento anterior no se sobrescribe: la asignación original
+    /// se conserva junto a la sustituta»</i> (`RN-04`). Un estimado que se pisa deja al auditor
+    /// sin poder contestar qué se autorizó originalmente ni cuánto cambió — y el estimado es lo
+    /// que el autorizador autorizó, no una cifra de trabajo.
+    ///
+    /// ⚠️ <b>Todo lector tiene que filtrar por esto.</b> Una línea superada que siga contando
+    /// haría que `RN-37` —«¿esta caseta estaba en la ruta aprobada?»— se contestara contra dos
+    /// rutas a la vez, y un desvío desaparecería por coincidir con la ruta vieja.
+    /// </summary>
+    public Ulid? SupersedidaPor { get; set; }
+
     public required int DesfaseMinutos { get; init; }
 
     /// <summary>Quién congeló el estimado. El acto tiene autor como todo lo demás.</summary>
