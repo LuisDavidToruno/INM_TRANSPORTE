@@ -178,6 +178,37 @@ public sealed class ServicioDeConflictos(SigtiDbContext contexto)
         ];
     }
 
+    /// <summary>
+    /// Lo que está esperando un registro anterior — `HU-067`, para `PT-052`.
+    ///
+    /// <b>No son conflictos y no se mezclan con ellos.</b> Un retenido se resuelve solo cuando
+    /// llega el que falta; un conflicto espera a que una persona decida. Ponerlos juntos haría
+    /// que alguien intentara «resolver» un hueco de orden, que no tiene nada que decidir.
+    /// </summary>
+    public async Task<IReadOnlyList<Retenido>> RetenidosAsync(
+        DateTimeOffset ahora, CancellationToken cancelacion = default)
+    {
+        var filas = await contexto.HechosRetenidos.AsNoTracking().ToListAsync(cancelacion);
+
+        return
+        [
+            .. filas
+                .Select(r => new Retenido(
+                    r.IdDeCaptura.ToString(),
+                    r.EsperaExpediente.ToString(),
+                    r.Transicion,
+                    r.Ejecuta,
+                    r.Dispositivo,
+                    new DateTimeOffset(r.OcurridoEnUtc, TimeSpan.Zero)
+                        .ToOffset(TimeSpan.FromMinutes(r.DesfaseMinutos)),
+                    new DateTimeOffset(r.RetenidoUtc, TimeSpan.Zero),
+                    Math.Max(0, (int)(ahora - new DateTimeOffset(r.RetenidoUtc, TimeSpan.Zero)).TotalDays),
+                    r.Intentos))
+                .OrderByDescending(r => r.Intentos)
+                .ThenBy(r => r.RetenidoEl),
+        ];
+    }
+
     private static ConflictoDeSincronizacion Dominio(FilaDeConflicto f) =>
         new(f.Id, f.ExpedienteId, f.Transicion, f.Campo,
             new VersionEnConflicto(
@@ -207,6 +238,22 @@ public sealed class ConflictoNoEncontrado(Ulid id)
 /// </param>
 public sealed record ResultadoDelLote(
     int Resueltos, IReadOnlyList<ConflictoDeSincronizacion> FueraDelLote);
+
+/// <param name="Intentos">
+/// Cuántas veces se intentó aplicarlo desde que quedó esperando. <b>Un retenido con veinte
+/// intentos no espera un predecesor: espera algo que no va a llegar</b>, y eso hay que verlo
+/// antes de que el motorista pregunte por qué su registro nunca entró.
+/// </param>
+public sealed record Retenido(
+    string IdDeCaptura,
+    string EsperaExpediente,
+    string Transicion,
+    string Ejecuta,
+    string? Dispositivo,
+    DateTimeOffset OcurrioEl,
+    DateTimeOffset RetenidoEl,
+    int DiasEsperando,
+    int Intentos);
 
 /// <param name="Dispositivo">
 /// Nulo es «el hecho no dijo de qué equipo vino» — dato faltante del cliente, no un equipo

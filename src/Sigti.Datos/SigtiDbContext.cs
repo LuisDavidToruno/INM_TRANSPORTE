@@ -136,6 +136,12 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     /// </summary>
     public DbSet<FilaDeConflicto> ConflictosDeSincronizacion => Set<FilaDeConflicto>();
 
+    /// <summary>
+    /// Los hechos que llegaron antes que aquello de lo que dependen — `HU-067`. Se retienen y
+    /// se aplican solos cuando llega lo que faltaba.
+    /// </summary>
+    public DbSet<FilaDeHechoRetenido> HechosRetenidos => Set<FilaDeHechoRetenido>();
+
     /// <summary>Los rangos de folio pre-asignados por delegación — `RN-44`.</summary>
     public DbSet<FilaDeRango> RangosDeFolio => Set<FilaDeRango>();
 
@@ -1516,6 +1522,26 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             // La consulta que decide si una mision se puede liquidar (`BD-08`), y la de la
             // cola por mision. Corre en cada intento de liquidacion.
             conflicto.HasIndex(c => new { c.ExpedienteId, c.Estado });
+        });
+
+        modelo.Entity<FilaDeHechoRetenido>(retenido =>
+        {
+            retenido.ToTable("HechoRetenido", schema: "sincronizacion");
+
+            retenido.HasKey(r => r.Id);
+            retenido.Property(r => r.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            retenido.Property(r => r.EsperaExpediente).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            retenido.Property(r => r.Transicion).HasMaxLength(16).IsRequired();
+            retenido.Property(r => r.Ejecuta).HasMaxLength(64).IsRequired();
+            retenido.Property(r => r.Dispositivo).HasMaxLength(64);
+
+            // **El mismo hecho no se retiene dos veces.** El dispositivo va a reenviar, y dos
+            // filas del mismo hecho se aplicarian las dos cuando llegue el predecesor.
+            retenido.Property(r => r.IdDeCaptura).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            retenido.HasIndex(r => r.IdDeCaptura).IsUnique();
+
+            // La consulta que corre en cada lote: «que estaba esperando a este expediente».
+            retenido.HasIndex(r => r.EsperaExpediente);
         });
 
         modelo.Entity<FilaDeRango>(rango =>

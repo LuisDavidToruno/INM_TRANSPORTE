@@ -8,6 +8,7 @@ import { BloqueoDuro, pedir } from '../../api/misiones';
 import { avisar } from '../../ui/avisos';
 import { usarQuienEjecuta } from '../../app/puesto';
 import { diaYHora } from '../M06_Autorizacion/formato';
+import ResolverPorLote from './ResolverPorLote';
 
 /**
  * `PT-053` y `PT-054` — La cola de conflictos y el comparador lado a lado.
@@ -73,6 +74,16 @@ export default function Conflictos(): ReactElement {
   }
 
   const altos = data?.conflictos.filter((c) => c.impacto === 'Alto').length ?? 0;
+
+  // El lote es POR MISIÓN: el criterio «aceptar la versión de campo» sólo tiene sentido dentro
+  // de un expediente. Uno que cruzara misiones sería una regla general sobre hechos que no
+  // tienen nada que ver entre sí.
+  const porExpediente = Object.entries(
+    (data?.conflictos ?? []).reduce<Record<string, number>>((acc, c) => {
+      acc[c.expediente] = (acc[c.expediente] ?? 0) + 1;
+      return acc;
+    }, {}),
+  );
 
   return (
     <div className="tw:flex tw:flex-col tw:gap-5">
@@ -183,6 +194,12 @@ export default function Conflictos(): ReactElement {
               </li>
             ))}
           </ul>
+
+          {/* `PT-055`. Va al final: el lote se decide **después** de haber visto la cola,
+              no antes — ofrecerlo primero invita a resolver sin mirar. */}
+          {porExpediente.map(([expediente, cuantos]) => (
+            <ResolverPorLote key={expediente} expediente={expediente} cuantos={cuantos} />
+          ))}
 
           <Nota tono="info">{data.porQueNoSeCombina}</Nota>
         </>

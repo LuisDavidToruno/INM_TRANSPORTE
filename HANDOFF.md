@@ -414,6 +414,76 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## `PT-052` y `PT-055` — ⚠️ SIN VERIFICAR, pruebas pendientes
+
+> **Lo primero que hay que hacer al retomar:** correr `dotnet test`. Este bloque se comiteó
+> con autorización del PO **sin haber ejecutado la suite**, porque Smart App Control llevaba
+> hora y media bloqueando el ensamblado recién compilado y no cedió.
+>
+> Todo compila y la migración está aplicada, pero **nada de esto corrió**:
+>
+> - Las **1145 pruebas anteriores** desde que `ResultadoDeSincronizacion` cambió de forma
+>   —ganó una cuarta lista, `EnEspera`—, y hay pruebas existentes que lo construyen.
+> - Las **9 pruebas nuevas** de `ReglasDelEnvio`.
+> - El **circuito de retención en vivo**: que un hecho quede retenido, que se aplique solo
+>   cuando llegue su expediente, y que pase a la cola si al llegar sigue sin entrar.
+> - El **snapshot escrito a mano** (ver abajo). Se comprueba con un `dotnet ef migrations add`
+>   de prueba: si sale con cambios que nadie hizo, el snapshot quedó mal.
+
+### ⚠️ Faltaba un estado que `HU-067` exige
+
+La historia enumera **cuatro** respuestas por registro, y una no existía:
+`EN_ESPERA_DE_PREDECESOR`. *«Dado que llegó el registro 41 y no llegó el 40 — **no lo aplica ni
+lo rechaza**.»*
+
+Hoy el hecho cuyo expediente no ha llegado **se rechazaba**, y el propio mensaje admitía que el
+problema era de orden: *«tiene que sincronizarse antes que sus transiciones»*. O sea que
+reintentar **sí** lo arregla — pero el rechazo lo devolvía al dispositivo sin decirle cuándo, y
+el hecho capturado en campo se perdía igual.
+
+**Y con la cola del bloque anterior habría sido peor:** sin distinguirlo, ese caso acabaría
+encolado como conflicto, pidiéndole a una persona que **decida sobre algo que no es una
+discrepancia** — sólo llegó en desorden.
+
+Ahora el hecho se **retiene**, y al llegar lo que faltaba se aplica solo, **en orden del
+hecho** — aplicarlos por orden de llegada produciría un retorno antes que su salida. Si el
+expediente llega y aun así no entra, entonces sí pasa a la cola: ahí ya dejó de ser un hueco
+de orden.
+
+### Los intentos, que es lo que hace útil el panel
+
+**Un registro con veinte intentos no espera un predecesor: espera algo que no va a llegar.**
+Sin ese número, un hueco permanente se ve idéntico a uno que se cierra mañana, y nadie lo mira
+hasta que el motorista pregunta por qué su registro nunca entró.
+
+Por lo mismo, `PT-052` **no mezcla lo retenido con los desacuerdos**: lo primero se resuelve
+solo, lo segundo espera a una persona. Juntarlos haría que alguien intentara «resolver» un
+hueco de orden.
+
+### `PT-055` — el lote va al final, no arriba
+
+Exige criterio escrito —*«hacerlo sin declararlo es sobrescritura con más pasos»*— y se ofrece
+**después** de la cola: ponerlo primero invita a resolver sin mirar. Es por misión, porque
+«aceptar la versión de campo» sólo significa algo dentro de un expediente.
+
+### ⚠️ La migración se escribió a mano
+
+`dotnet ef` no arranca con SAC activo, así que `20260830022000_HechosRetenidos` —la migración,
+su `Designer` y el bloque del snapshot— **están escritos a mano** con el formato que EF genera,
+y la tabla se creó **por SQL directo**, registrándola en `__EFMigrationsHistory` con la misma
+versión de producto que las demás.
+
+La base está correcta. Lo que falta comprobar es el **snapshot**: si quedó mal, la próxima
+migración generada saldría con cambios que nadie hizo.
+
+### Nota sobre el diagnóstico de SAC
+
+Durante la espera, **el propio bucle de reintentos tenía tomado el dll** y hacía fallar la
+compilación con `MSB3021` — «archivo en uso», que **no es SAC** y despista. Si aparece ese
+error, revisar procesos `dotnet` colgados antes de culpar a Control de aplicaciones.
+
+---
+
 ## M-16 — la cola de conflictos (`PT-053`, `PT-054`)
 
 El mapa la llama *«la pantalla más difícil del sistema y la que nadie diseña hasta que ya

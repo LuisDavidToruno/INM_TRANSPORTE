@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Sigti.Datos;
+using Sigti.Datos.M16_Sincronizacion;
 using Sigti.Datos.M07_ProgramacionYDespacho;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
 using Sigti.Dominio.M16_Sincronizacion;
@@ -117,10 +118,22 @@ public sealed record CargaSincronizada(
     string? CausaSinComprobante = null);
 
 /// <summary>Qué pasó con cada hecho. El dispositivo lo necesita para depurar su cola.</summary>
+/// <param name="EnEspera">
+/// Los que llegaron antes que aquello de lo que dependen. <b>Ni aplicados ni rechazados</b>:
+/// `HU-067` los llama `EN_ESPERA_DE_PREDECESOR` y son transitorios — se aplican solos cuando
+/// llega el que falta.
+///
+/// ⚠️ Van en su propia lista porque <b>meterlos entre los rechazados era una mentira
+/// operativa</b>: el dispositivo los daba por perdidos y el motorista no tenía forma de saber
+/// que iban a entrar. `HU-067`: «un sincronizado con éxito que en realidad significa que uno
+/// espera a otro que no llegó es una mentira operativa. El día que se descubra, el motorista
+/// deja de confiar y vuelve al papel».
+/// </param>
 public sealed record ResultadoDeSincronizacion(
     IReadOnlyList<Ulid> Aplicadas,
     IReadOnlyList<Ulid> YaConocidas,
-    IReadOnlyList<HechoRechazado> Rechazadas);
+    IReadOnlyList<HechoRechazado> Rechazadas,
+    IReadOnlyList<Ulid> EnEspera);
 
 /// <param name="Motivo">
 /// Por qué no entró. <b>El dispositivo no lo puede resolver reintentando</b>, y por eso el
@@ -164,6 +177,7 @@ public sealed class ServicioDeSincronizacion(
         var aplicadas = new List<Ulid>();
         var yaConocidas = new List<Ulid>();
         var rechazadas = new List<HechoRechazado>();
+        var enEspera = new List<Ulid>();
 
         var conocidas = await YaRecibidasAsync(hechos, cancelacion);
 
@@ -206,10 +220,14 @@ public sealed class ServicioDeSincronizacion(
 
             if (expediente is null)
             {
-                rechazadas.Add(new HechoRechazado(
-                    hecho.IdDeCaptura,
-                    $"El expediente {hecho.IdExpediente} no existe en el servidor. " +
-                    "Si se creó en el dispositivo, tiene que sincronizarse antes que sus transiciones."));
+                // ⚠️ **Se RETIENE, no se rechaza.** El propio mensaje que había antes lo
+                // reconocía: «tiene que sincronizarse antes que sus transiciones» — o sea, es
+                // un problema de ORDEN, no de contenido, y reintentar sí lo arregla.
+                //
+                // Rechazarlo lo devolvía al dispositivo sin decirle cuándo reintentar, y el
+                // hecho capturado en campo se perdía. `HU-067`: ni se aplica ni se rechaza.
+                await RetenerAsync(hecho, cancelacion);
+                enEspera.Add(hecho.IdDeCaptura);
                 continue;
             }
 
@@ -243,7 +261,115 @@ public sealed class ServicioDeSincronizacion(
             }
         }
 
-        return new ResultadoDeSincronizacion(aplicadas, yaConocidas, rechazadas);
+        // Antes de contestar, se intenta aplicar lo que estaba esperando: puede que en este
+        // mismo lote haya llegado el expediente que faltaba. Sin esto, el hueco se cerraría
+        // recién en el siguiente envío — y en una delegación sin señal, eso es la semana que viene.
+        aplicadas.AddRange(await ReintentarRetenidosAsync(hechos, cancelacion));
+
+        return new ResultadoDeSincronizacion(aplicadas, yaConocidas, rechazadas, enEspera);
+    }
+
+    /// <summary>
+    /// Guarda un hecho que llegó antes que su expediente. <b>Idempotente</b>: el mismo hecho
+    /// retenido dos veces es uno solo, o se aplicaría dos veces al cerrarse el hueco.
+    /// </summary>
+    private async Task RetenerAsync(HechoCapturado hecho, CancellationToken cancelacion)
+    {
+        var yaEsta = await contexto.HechosRetenidos
+            .AnyAsync(r => r.IdDeCaptura == hecho.IdDeCaptura, cancelacion);
+
+        if (yaEsta) return;
+
+        contexto.HechosRetenidos.Add(new FilaDeHechoRetenido
+        {
+            Id = Ulid.NewUlid(),
+            IdDeCaptura = hecho.IdDeCaptura,
+            EsperaExpediente = hecho.IdExpediente,
+            Transicion = hecho.Transicion,
+            Ejecuta = hecho.Ejecuta,
+            OcurridoEnUtc = hecho.OcurridoEn.UtcDateTime,
+            DesfaseMinutos = (int)hecho.OcurridoEn.Offset.TotalMinutes,
+            Odometro = hecho.Odometro,
+            Dispositivo = null,
+            RetenidoUtc = DateTime.UtcNow,
+            Intentos = 0,
+        });
+
+        await contexto.SaveChangesAsync(cancelacion);
+    }
+
+    /// <summary>
+    /// Intenta aplicar lo retenido cuyo expediente <b>ya llegó</b>.
+    ///
+    /// ── Sólo lo que este lote pudo destrabar ────────────────────────────────
+    /// Se miran los expedientes que vinieron en este envío, no toda la tabla. Recorrer todos los
+    /// retenidos en cada sincronización haría el costo proporcional al historial de huecos, y
+    /// una delegación con un expediente perdido lo pagaría en cada envío para siempre.
+    /// </summary>
+    private async Task<IReadOnlyList<Ulid>> ReintentarRetenidosAsync(
+        IReadOnlyList<HechoCapturado> delLote, CancellationToken cancelacion)
+    {
+        var expedientes = delLote.Select(h => h.IdExpediente).Distinct().ToList();
+        var aplicados = new List<Ulid>();
+
+        foreach (var idExpediente in expedientes)
+        {
+            var retenidos = await contexto.HechosRetenidos
+                .Where(r => r.EsperaExpediente == idExpediente)
+                .ToListAsync(cancelacion);
+
+            if (retenidos.Count == 0) continue;
+
+            var expediente = await _expedientes.BuscarAsync(idExpediente, cancelacion);
+
+            if (expediente is null)
+            {
+                // Sigue sin llegar. Se cuenta el intento: **un retenido con veinte intentos no
+                // espera un predecesor, espera algo que no va a llegar**, y el panel tiene que
+                // poder mostrarlo antes de que el motorista pregunte.
+                foreach (var r in retenidos) r.Intentos += 1;
+                await contexto.SaveChangesAsync(cancelacion);
+                continue;
+            }
+
+            // Por orden del hecho: «el hueco se cierra y todo se aplica **en orden**». Aplicarlos
+            // en orden de llegada produciría un retorno antes que su salida.
+            foreach (var r in retenidos.OrderBy(r => r.OcurridoEnUtc))
+            {
+                var hecho = new HechoCapturado(
+                    r.IdDeCaptura, r.EsperaExpediente, r.Transicion, r.Ejecuta,
+                    new DateTimeOffset(r.OcurridoEnUtc, TimeSpan.Zero)
+                        .ToOffset(TimeSpan.FromMinutes(r.DesfaseMinutos)),
+                    r.Odometro);
+
+                try
+                {
+                    var ultima = expediente.Diario
+                        .Where(t => t.Recursos is not null)
+                        .LastOrDefault()?.Recursos is { } recursos
+                        ? await odometros.UltimaLecturaAsync(recursos.Vehiculo, cancelacion)
+                        : null;
+
+                    Aplicar(expediente, hecho, ultima);
+                    await _expedientes.GuardarAsync(expediente, cancelacion);
+
+                    contexto.HechosRetenidos.Remove(r);
+                    aplicados.Add(r.IdDeCaptura);
+                }
+                catch (Exception error) when (error is BloqueoDuro or TransicionInvalida)
+                {
+                    // Llegó el expediente y el hecho sigue sin entrar: **ya no es un hueco de
+                    // orden, es una discrepancia**. Deja de esperar y pasa a la cola, donde una
+                    // persona decide — que es lo que corresponde ahora y no antes.
+                    await EncolarDivergenciaAsync(hecho, expediente, error.Message, cancelacion);
+                    contexto.HechosRetenidos.Remove(r);
+                }
+            }
+
+            await contexto.SaveChangesAsync(cancelacion);
+        }
+
+        return aplicados;
     }
 
     /// <summary>

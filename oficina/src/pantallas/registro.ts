@@ -194,7 +194,15 @@ export const CONSTRUIDAS: Readonly<Record<string, Construida>> = {
   'PT-010': { ruta: '/autorizacion/:id', archivo: 'M06_Solicitudes/TramosInhabiles.tsx' },
 
   // ── M-16 Sincronización ───────────────────────────────────────────────────
+  'PT-052': {
+    ruta: '/dispositivos',
+    archivo: 'M16_Sincronizacion/Dispositivos.tsx',
+    incompleta:
+      'Muestra lo retenido y los desacuerdos por equipo. Falta la ultima sincronizacion de ' +
+      'cada dispositivo: no se registra todavia (HU-066).',
+  },
   'PT-053': { ruta: '/conflictos', archivo: 'M16_Sincronizacion/Conflictos.tsx' },
+  'PT-055': { ruta: '/conflictos', archivo: 'M16_Sincronizacion/ResolverPorLote.tsx' },
   'PT-054': { ruta: '/conflictos', archivo: 'M16_Sincronizacion/Conflictos.tsx' },
 
   // ── M-19 Seguimiento en Ruta ──────────────────────────────────────────────

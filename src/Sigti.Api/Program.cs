@@ -1495,6 +1495,31 @@ conflictos.MapPost("/lote", async (ResolverLote peticion, ServicioDeConflictos s
     });
 });
 
+/// `PT-052` — lo que espera un registro anterior que todavia no llego (`HU-067`).
+///
+/// **No son conflictos y no se mezclan con ellos.** Un retenido se resuelve solo cuando llega
+/// el que falta; un conflicto espera a que una persona decida. Juntarlos haria que alguien
+/// intentara «resolver» un hueco de orden, que no tiene nada que decidir.
+conflictos.MapGet("/en-espera", async (ServicioDeConflictos servicio) =>
+    Results.Ok((await servicio.RetenidosAsync(DateTimeOffset.UtcNow)).Select(r => new
+    {
+        idDeCaptura = r.IdDeCaptura,
+        esperaExpediente = r.EsperaExpediente,
+        transicion = r.Transicion,
+        ejecuta = r.Ejecuta,
+        dispositivo = r.Dispositivo,
+        ocurrioEl = r.OcurrioEl,
+        retenidoEl = r.RetenidoEl,
+        diasEsperando = r.DiasEsperando,
+
+        // **Un retenido con veinte intentos no espera un predecesor: espera algo que no va a
+        // llegar.** Hay que verlo antes de que el motorista pregunte.
+        intentos = r.Intentos,
+
+        // La frase exacta que `HU-067` pone como criterio de aceptacion literal.
+        enPalabras = ReglasDelEnvio.EnPalabras(EstadoDelEnvio.EsperandoUnAnterior),
+    })));
+
 /// `PT-052` — el panel por dispositivo. `RN-45` punto 6.
 ///
 /// «Un dispositivo que genera conflictos con frecuencia es un problema a corregir, no un hecho
@@ -4767,6 +4792,7 @@ app.MapPost("/sincronizacion", async (
         acusadas = resultado.Aplicadas.Concat(resultado.YaConocidas).Select(i => i.ToString()),
         aplicadas = resultado.Aplicadas.Select(i => i.ToString()),
         yaConocidas = resultado.YaConocidas.Select(i => i.ToString()),
+        enEspera = resultado.EnEspera.Select(i => i.ToString()),
         rechazadas = resultado.Rechazadas.Select(r => new
         {
             idDeCaptura = r.IdDeCaptura.ToString(),
