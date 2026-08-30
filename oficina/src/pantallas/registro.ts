@@ -214,6 +214,12 @@ export const CONSTRUIDAS: Readonly<Record<string, Construida>> = {
   'PT-054': { ruta: '/conflictos', archivo: 'M16_Sincronizacion/Conflictos.tsx' },
 
   // ── M-02 Parámetros ───────────────────────────────────────────────────────
+  // Cuelga del expediente, junto al señalamiento de tramos: es ahi donde el problema se
+  // ve, y mandarlo a otra pantalla es como el tramite se posterga hasta el viernes.
+  'PT-020': { ruta: '/autorizacion/:id', archivo: 'M07_Programacion/TramiteDelPermiso.tsx' },
+  'PT-021': { ruta: '/permisos/firmar', archivo: 'M07_Programacion/FirmaDePermisos.tsx' },
+  'PT-099': { ruta: '/parametros/cargar', archivo: 'M02_Parametros/CargarParametro.tsx' },
+  'PT-100': { ruta: '/parametros/aprobar', archivo: 'M02_Parametros/Aprobaciones.tsx' },
   'PT-101': { ruta: '/salud', archivo: 'M02_Parametros/Salud.tsx' },
 
   // ── M-17 Personas externas ────────────────────────────────────────────────

@@ -414,6 +414,75 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## `PT-020` y `PT-021` — el bloqueo que era una puerta sin llave
+
+**1258 pruebas en verde.**
+
+### ⚠️ El hallazgo
+
+`BD-04` bloquea el despacho de toda misión que circule en día u hora inhábil sin permiso de la
+máxima autoridad. Estaba escrito, probado y operando, con un mensaje cuidado que distingue
+*«no hay ningún permiso registrado»* de *«hay permisos y ninguno ampara»*.
+
+**Y nadie podía emitir un permiso.** `contexto.Permisos` sólo se leía: la tabla no tenía
+escritor, ni endpoint, ni servicio. Cualquier misión que tocara un sábado, un domingo o un
+feriado era **indespachable**, y el bloqueo decía «no hay ningún permiso registrado para esta
+misión» sin que existiera forma de registrar uno.
+
+La prueba de punta a punta lo tapaba: insertaba la fila directamente en la base. Ahora
+atraviesa el circuito —abrir, intentar despachar con el trámite abierto, firma rechazada,
+firma concedida, despacho— y por eso el hueco no puede volver.
+
+### Abrir y firmar son dos actos, y ahí estaba la dificultad real
+
+`RN-23` dice dos cosas que **no se cumplen a la vez sobre un solo acto**: el permiso no exige
+que la misión esté programada, y el permiso es nominativo sobre vehículo, ruta y ventana. Si
+naciera firmado habría que exigir el vehículo desde el principio, y el trámite no podría
+adelantarse a la programación — que es justo lo que hay que poder hacer un viernes por la
+tarde para una salida del sábado.
+
+Se separan (resolución `HCU-05` de `CU-03`): **se abre sin vehículo, no se firma sin él.**
+
+Y de ahí sale el invariante que sostiene todo: **un trámite `SOLICITADO` no entra en `BD-04`**
+— `ConsultaDePermisos` filtra por estado. Si entrara, cualquiera destrabaría el domingo
+abriendo un trámite y despachando sin esperar la firma, que es exactamente lo que el permiso
+existe para impedir. Tiene su propia prueba de punta a punta.
+
+### La firma es indelegable, y eso es una decisión, no una omisión
+
+`[C]` insumo #29. Hasta que la institución confirme lo contrario, **el sistema no la permite**.
+No es conservadurismo por comodidad: si se habilitara por defecto y después resultara
+indelegable, cada permiso firmado por delegación sería un vehículo del Estado que circuló un
+domingo sin amparo válido, y **no habría forma de repararlo hacia atrás**. Al revés sí se
+repara — se habilita y se sigue.
+
+### ⚠️ Dos cosas más que salieron por el camino
+
+**No había ninguna máxima autoridad sembrada.** El rol existía en el enum, `RaizDelPuesto` lo
+contemplaba, y ningún puesto lo tenía: nadie podía firmar la única facultad que `RN-23` le
+reserva en exclusiva.
+
+**Y la siembra estaba protegida con `if (!tabla.Any())`**, así que la fila nueva **no llegaba
+nunca** a una base ya sembrada — se agregaba al código, la condición daba falso y no pasaba
+nada. El síntoma es peor que la causa: la prueba fallaba con «no se pudo resolver el puesto de
+quien firma» mientras el código declaraba el puesto. Las tres tablas del organigrama ahora se
+siembran **fila por fila**, comparando por clave, y no sobreescriben lo que ya está.
+
+### Lo que queda abierto
+
+- **`PT-023`, el salvoconducto impreso, no se construyó.** Necesita folio oficial con QR
+  verificable, y ni el rango de folios (`M-01`, insumo #34) ni la impresión (`M-15`) existen.
+  El folio del permiso es **provisional** y va marcado `PC-PROV-…` para que nadie lo confunda
+  con el correlativo del documento físico.
+- **`PT-024`, la reemisión** por relevo de motorista. La regla ya opera —`Ampara` compara el
+  motorista, así que un relevo invalida el permiso— pero **no hay pantalla para reemitirlo**:
+  hoy se desiste y se abre otro trámite.
+- **`PT-022`, la firma en lote de feriado largo** (`HU-020`), sin construir.
+- El destino sigue representando la **ruta** que `RN-23` pide. Dos misiones a Choluteca por
+  caminos distintos se ven iguales — `[C]` con Auditoría Interna, ya declarado en el dominio.
+
+---
+
 ## `PT-099` y `PT-100` — el respaldo que nunca tuvo dónde estar
 
 **1244 pruebas en verde**, y el circuito del parámetro normativo verificado vivo de punta a

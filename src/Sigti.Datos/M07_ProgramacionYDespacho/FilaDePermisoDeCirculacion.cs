@@ -30,11 +30,65 @@ public sealed class FilaDePermisoDeCirculacion
     /// </summary>
     public required string Folio { get; init; }
 
-    /// <summary>`ACT-09` Máxima Autoridad. Identidad de persona.</summary>
-    public required string EmitidoPor { get; init; }
+    /// <summary>
+    /// `SOLICITADO`, `FIRMADO` o `DESISTIDO`. <b>La diferencia es todo `BD-04`</b>: un
+    /// trámite abierto no ampara nada, y si los dos primeros se trataran igual, cualquiera
+    /// destrabaría el despacho de un domingo abriendo un trámite y sin esperar la firma.
+    /// </summary>
+    public required string Estado { get; set; }
 
-    public required Ulid Vehiculo { get; init; }
-    public required Ulid Motorista { get; init; }
+    /// <summary>
+    /// `ACT-09` Máxima Autoridad. Identidad de persona.
+    ///
+    /// <b>Nulo mientras no se firme</b>, y ésa es la razón de que el permiso no ampare: no es
+    /// un dato que falte cargar.
+    /// </summary>
+    public string? EmitidoPor { get; set; }
+
+    /// <summary>
+    /// <b>Nulos mientras la misión no esté programada.</b> `RN-23` dice dos cosas que sólo se
+    /// cumplen a la vez si se separa abrir de firmar: el permiso no exige que la misión esté
+    /// programada, y el permiso es nominativo. Se abre sin ellos; <b>no se firma sin ellos</b>.
+    /// </summary>
+    public Ulid? Vehiculo { get; set; }
+
+    /// <inheritdoc cref="Vehiculo"/>
+    public Ulid? Motorista { get; set; }
+
+    /// <summary>Quién encaminó el trámite — `ACT-04` o `ACT-10`.</summary>
+    public required string Solicita { get; init; }
+
+    public required DateTime SolicitadoEnUtc { get; init; }
+
+    /// <summary>
+    /// Por qué la misión tiene que circular en franja inhábil.
+    ///
+    /// <b>Es lo único que la máxima autoridad tiene para decidir.</b> Sin esto la pantalla de
+    /// firma muestra un vehículo, un destino y unas fechas, y firmar se vuelve un trámite: se
+    /// aprueba lo que aparece, porque no hay nada que juzgar.
+    /// </summary>
+    public required string Justificacion { get; init; }
+
+    /// <summary>
+    /// Los días y franjas inhábiles que el permiso viene a cubrir, separados por ` · `.
+    ///
+    /// Van en el documento porque <b>el agente en carretera lee el papel</b>: un permiso que
+    /// dice «ampara del 1 al 5» sin decir qué días de esos eran inhábiles no le deja verificar
+    /// nada. Se congelan al abrir el trámite —con el calendario vigente a la fecha del hecho,
+    /// `RN-40`— y no se recalculan al firmar.
+    /// </summary>
+    public required string TramosInhabiles { get; init; }
+
+    /// <summary>Nulo mientras no se firme.</summary>
+    public DateTime? FirmadoEnUtc { get; set; }
+
+    /// <summary>
+    /// Por qué se desistió. Nulo salvo en `DESISTIDO`.
+    ///
+    /// <b>El trámite no se borra</b>: que alguien haya pedido circular un domingo es un hecho, y
+    /// que se haya desistido también. Uno desaparecido y uno que nunca existió se ven iguales.
+    /// </summary>
+    public string? MotivoDelDesistimiento { get; set; }
 
     /// <summary>
     /// ⚠️ La <b>ruta</b> que `RN-23` pide, representada por el destino declarado — es lo único

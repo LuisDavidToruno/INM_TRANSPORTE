@@ -34,6 +34,7 @@ import { laDependencia, momentoCompleto } from './formato';
 import Bloqueo from '../../ui/Bloqueo';
 import DesgloseDePeajes from '../M06_Solicitudes/DesgloseDePeajes';
 import TramosInhabiles from '../M06_Solicitudes/TramosInhabiles';
+import TramiteDelPermiso from '../M07_Programacion/TramiteDelPermiso';
 import { usarQuienEjecuta } from '../../app/puesto';
 
 /**
@@ -157,6 +158,12 @@ export default function Expediente(): ReactElement {
               que navegar para verlo autoriza sin verlo. */}
           <DesgloseDePeajes mision={data.id} />
           <TramosInhabiles mision={data.id} />
+
+          {/* Va pegado al señalamiento **porque es ahí donde el problema se ve**. Quien lee
+              «esta misión cruza el sábado 21» tiene que poder pedir el permiso en el mismo
+              sitio: mandarlo a otra pantalla es cómo un trámite se posterga hasta el viernes
+              por la tarde, que es cuando la firma se delega informalmente. */}
+          <TramiteDelPermiso mision={data.id} />
 
           <Panel titulo="Diario del expediente">
             <Diario transiciones={data.diario} />

@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText, LayoutList, IdCard, Scale, Users, ShieldAlert, Inbox, Route as RutaIcono, SlidersHorizontal, Radio, Home, Search, ShieldX, FileStack, Hash, GitCompareArrows, HardDrive, PlugZap, ShieldQuestion, Eye, ScrollText as Lista, Globe, HeartPulse, FilePlus2, ShieldCheck } from 'lucide-react';
+import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText, LayoutList, IdCard, Scale, Users, ShieldAlert, Inbox, Route as RutaIcono, SlidersHorizontal, Radio, Home, Search, ShieldX, FileStack, Hash, GitCompareArrows, HardDrive, PlugZap, ShieldQuestion, Eye, ScrollText as Lista, Globe, HeartPulse, FilePlus2, ShieldCheck, Stamp } from 'lucide-react';
 
 import { Avisos, Nota, Shell, avisar } from '../ui';
 import type { GrupoNav, Miga } from '../ui';
@@ -21,6 +21,7 @@ import Padron from '../modulos/M03_Flota/Padron';
 import PrestamosPantalla from '../modulos/M03_Flota/Prestamos';
 import Titulos from '../modulos/M03_Flota/Titulos';
 import Puestos from '../modulos/M01_Organizacion/Puestos';
+import FirmaDePermisos from '../modulos/M07_Programacion/FirmaDePermisos';
 import BandejaDeTareas from '../modulos/M01_Organizacion/Bandeja';
 import IntentosBloqueados from '../modulos/M14_Auditoria/IntentosBloqueados';
 import Ingreso from '../modulos/M01_Organizacion/Ingreso';
@@ -173,6 +174,15 @@ function Interior(): ReactElement {
           icono: <ClipboardCheck />,
           href: '/autorizacion',
           contador: data?.length,
+          accionable: true,
+        },
+
+        // Va pegado a la bandeja de autorizacion porque es la otra firma del mismo flujo,
+        // y quien firma permisos entra al sistema para esto y para nada mas.
+        {
+          texto: 'Firma de permisos',
+          icono: <Stamp />,
+          href: '/permisos/firmar',
           accionable: true,
         },
       ],
@@ -329,6 +339,7 @@ function Interior(): ReactElement {
         <Route path="/flota" element={<Padron />} />
         <Route path="/tareas" element={<BandejaDeTareas />} />
         <Route path="/organizacion" element={<Puestos />} />
+        <Route path="/permisos/firmar" element={<FirmaDePermisos />} />
         <Route path="/titulos" element={<Titulos />} />
         <Route path="/flota/:id" element={<ExpedienteDeVehiculo />} />
         {/* La matriz va ANTES que el detalle: si no, `/motoristas/matriz` entraría por
@@ -426,6 +437,7 @@ function migasDe(ruta: string): Miga[] {
   if (ruta === '/transparencia') return ['Personas externas', 'Transparencia y depuración'];
   if (ruta === '/parametros/cargar') return ['Parámetros', 'Cargar'];
   if (ruta === '/parametros/aprobar') return ['Parámetros', 'Poner en vigencia'];
+  if (ruta === '/permisos/firmar') return ['Permisos de circulación', 'Firma'];
   if (ruta === '/salud') return ['Qué está mal'];
   if (ruta === '/seguimiento') return ['Seguimiento en ruta'];
   if (ruta.startsWith('/seguimiento/'))

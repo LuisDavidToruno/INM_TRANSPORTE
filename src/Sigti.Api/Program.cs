@@ -67,6 +67,7 @@ constructor.Services.AddScoped<ConsultaDelOrganigrama>();
 constructor.Services.AddScoped<ConsultaDeOcupacion>();
 constructor.Services.AddScoped<ConsultaDeCustodias>();
 constructor.Services.AddScoped<ConsultaDePermisos>();
+constructor.Services.AddScoped<ServicioDePermisos>();
 constructor.Services.AddScoped<ConsultaDelDiaDeDespacho>();
 constructor.Services.AddScoped<ConsultaDeOdometro>();
 constructor.Services.AddScoped<EstadoDeLaFlota>();
@@ -285,27 +286,35 @@ if (app.Environment.IsDevelopment())
     // Los puestos reproducen el caso de §5.4 a propósito: la sede tiene las cinco funciones
     // repartidas, y **la delegación de Choluteca las acumula en una sola persona**. Una
     // siembra donde todo cumple no muestra nunca el problema que el sistema existe para ver.
-    if (!contextoDeSiembra.AsignacionesDePuesto.Any())
-    {
-        contextoDeSiembra.AsignacionesDePuesto.AddRange(
-            OcupacionDeDesarrollo("01JQ8Z000000000000000ASG01", "P-ASISTENTE", "PUE-ASISTENTE-ADMIN"),
-            OcupacionDeDesarrollo("01JQ8Z000000000000000ASG02", "P-JEFATURA", "PUE-JEFATURA-ADMIN"),
-            OcupacionDeDesarrollo("01JQ8Z000000000000000ASG03", "P-TRANSPORTE", "PUE-JEFE-TRANSPORTE"),
-            OcupacionDeDesarrollo("01JQ8Z000000000000000ASG04", "P-DESPACHO", "PUE-DESPACHO-SEDE"),
-            OcupacionDeDesarrollo("01JQ8Z000000000000000ASG05", "P-COMBUSTIBLE", "PUE-COMBUSTIBLE"),
-            OcupacionDeDesarrollo("01JQ8Z000000000000000ASG06", "P-GERENCIA", "PUE-GERENCIA-ADMIN"),
-            OcupacionDeDesarrollo("01JQ8Z000000000000000ASG07", "P-AUDITORIA", "PUE-AUDITORIA-INTERNA"),
+    // ⚠️ **Se siembra fila por fila, no «si la tabla esta vacia».**
+    //
+    // Con el guardia de tabla vacia, una fila NUEVA no llegaba nunca a una base ya sembrada:
+    // se agregaba al codigo, la condicion daba falso y no pasaba nada. Costo el dia que se
+    // sumo la Maxima Autoridad — la prueba de `BD-04` fallaba con «no se pudo resolver el
+    // puesto de quien firma» y el codigo decia que el puesto estaba ahi.
+    Sembrar(contextoDeSiembra, contextoDeSiembra.AsignacionesDePuesto, a => a.Id,
+        OcupacionDeDesarrollo("01JQ8Z000000000000000ASG01", "P-ASISTENTE", "PUE-ASISTENTE-ADMIN"),
+        OcupacionDeDesarrollo("01JQ8Z000000000000000ASG02", "P-JEFATURA", "PUE-JEFATURA-ADMIN"),
+        OcupacionDeDesarrollo("01JQ8Z000000000000000ASG03", "P-TRANSPORTE", "PUE-JEFE-TRANSPORTE"),
+        OcupacionDeDesarrollo("01JQ8Z000000000000000ASG04", "P-DESPACHO", "PUE-DESPACHO-SEDE"),
+        OcupacionDeDesarrollo("01JQ8Z000000000000000ASG05", "P-COMBUSTIBLE", "PUE-COMBUSTIBLE"),
+        OcupacionDeDesarrollo("01JQ8Z000000000000000ASG06", "P-GERENCIA", "PUE-GERENCIA-ADMIN"),
+        OcupacionDeDesarrollo("01JQ8Z000000000000000ASG07", "P-AUDITORIA", "PUE-AUDITORIA-INTERNA"),
 
-            // **El caso de §5.4.** Una persona, un puesto, todas las funciones.
-            OcupacionDeDesarrollo("01JQ8Z000000000000000ASG08", "P-CHOLUTECA", "PUE-DELEGACION-CHOLUTECA"),
+        // ⚠️ **La maxima autoridad no estaba sembrada.** El rol existia en el enum, la raiz
+        // del puesto lo contemplaba, y ningun puesto lo tenia: nadie podia firmar un
+        // permiso de circulacion, que es la unica facultad que RN-23 le reserva en
+        // exclusiva. Una mision que tocara un sabado quedaba indespachable por falta de
+        // una persona que el organigrama de desarrollo nunca declaro.
+        OcupacionDeDesarrollo("01JQ8Z000000000000000ASG11", "P-MAXIMA", "PUE-MAXIMA-AUTORIDAD"),
 
-            // Y la coocupación de un traspaso: dos personas en el mismo puesto a la vez. Es
-            // acotada y se registra, y existe porque el traspaso real dura días.
-            OcupacionDeDesarrollo("01JQ8Z000000000000000ASG09", "P-CUSTODIO", "PUE-CUSTODIO-FLOTA"),
-            OcupacionDeDesarrollo("01JQ8Z000000000000000ASG10", "P-TRANSPORTE", "PUE-CUSTODIO-FLOTA"));
+        // **El caso de §5.4.** Una persona, un puesto, todas las funciones.
+        OcupacionDeDesarrollo("01JQ8Z000000000000000ASG08", "P-CHOLUTECA", "PUE-DELEGACION-CHOLUTECA"),
 
-        contextoDeSiembra.SaveChanges();
-    }
+        // Y la coocupación de un traspaso: dos personas en el mismo puesto a la vez. Es
+        // acotada y se registra, y existe porque el traspaso real dura días.
+        OcupacionDeDesarrollo("01JQ8Z000000000000000ASG09", "P-CUSTODIO", "PUE-CUSTODIO-FLOTA"),
+        OcupacionDeDesarrollo("01JQ8Z000000000000000ASG10", "P-TRANSPORTE", "PUE-CUSTODIO-FLOTA"));
 
     // La estructura de puestos con su jerarquia. **En la institucion la puebla la integracion
     // con ARGOS** y no hay endpoint de escritura; aca se siembra porque sin ella el escalamiento
@@ -315,38 +324,38 @@ if (app.Environment.IsDevelopment())
     // La delegacion de Choluteca cuelga de un Jefe Regional **de su misma unidad**: es lo que
     // hace que el primer salto exista. Y el respaldo de sede se designa aparte, porque no es
     // dato del organigrama sino politica de control interno nuestra.
-    if (!contextoDeSiembra.PuestosEspejo.Any())
-    {
-        contextoDeSiembra.PuestosEspejo.AddRange(
-            PuestoDeDesarrollo("01JQ8Z000000000000000PST01", "PUE-ASISTENTE-ADMIN",
-                "Asistente administrativo", "Unidad de Transporte", "PUE-JEFE-TRANSPORTE", null),
-            PuestoDeDesarrollo("01JQ8Z000000000000000PST02", "PUE-JEFATURA-ADMIN",
-                "Jefatura de la dependencia", "Gerencia Administrativa", "PUE-GERENCIA-ADMIN", null),
-            PuestoDeDesarrollo("01JQ8Z000000000000000PST03", "PUE-JEFE-TRANSPORTE",
-                "Jefe de Transporte", "Unidad de Transporte", null, null),
-            PuestoDeDesarrollo("01JQ8Z000000000000000PST04", "PUE-DESPACHO-SEDE",
-                "Encargado de Despacho", "Unidad de Transporte", "PUE-JEFE-TRANSPORTE", null),
-            PuestoDeDesarrollo("01JQ8Z000000000000000PST05", "PUE-COMBUSTIBLE",
-                "Encargado de Combustible", "Unidad de Transporte", "PUE-JEFE-TRANSPORTE", null),
-            PuestoDeDesarrollo("01JQ8Z000000000000000PST06", "PUE-GERENCIA-ADMIN",
-                "Gerencia Administrativa", "Gerencia Administrativa", null, null),
-            PuestoDeDesarrollo("01JQ8Z000000000000000PST07", "PUE-AUDITORIA-INTERNA",
-                "Auditor Interno", "Auditoria Interna", null, null),
+    Sembrar(contextoDeSiembra, contextoDeSiembra.PuestosEspejo, x => x.Id,
+        PuestoDeDesarrollo("01JQ8Z000000000000000PST01", "PUE-ASISTENTE-ADMIN",
+            "Asistente administrativo", "Unidad de Transporte", "PUE-JEFE-TRANSPORTE", null),
+        PuestoDeDesarrollo("01JQ8Z000000000000000PST02", "PUE-JEFATURA-ADMIN",
+            "Jefatura de la dependencia", "Gerencia Administrativa", "PUE-GERENCIA-ADMIN", null),
+        PuestoDeDesarrollo("01JQ8Z000000000000000PST03", "PUE-JEFE-TRANSPORTE",
+            "Jefe de Transporte", "Unidad de Transporte", null, null),
+        PuestoDeDesarrollo("01JQ8Z000000000000000PST04", "PUE-DESPACHO-SEDE",
+            "Encargado de Despacho", "Unidad de Transporte", "PUE-JEFE-TRANSPORTE", null),
+        PuestoDeDesarrollo("01JQ8Z000000000000000PST05", "PUE-COMBUSTIBLE",
+            "Encargado de Combustible", "Unidad de Transporte", "PUE-JEFE-TRANSPORTE", null),
+        PuestoDeDesarrollo("01JQ8Z000000000000000PST06", "PUE-GERENCIA-ADMIN",
+            "Gerencia Administrativa", "Gerencia Administrativa", null, null),
+        PuestoDeDesarrollo("01JQ8Z000000000000000PST07", "PUE-AUDITORIA-INTERNA",
+            "Auditor Interno", "Auditoria Interna", null, null),
 
-            // El caso de §5.4, ahora con su rama: el delegado cuelga de un jefe regional de su
-            // misma unidad, y por eso el primer salto del escalamiento puede resolver.
-            PuestoDeDesarrollo("01JQ8Z000000000000000PST08", "PUE-DELEGACION-CHOLUTECA",
-                "Encargado de Delegacion", "Delegacion de Choluteca", "PUE-JEFE-REGIONAL",
-                "Choluteca"),
-            PuestoDeDesarrollo("01JQ8Z000000000000000PST09", "PUE-JEFE-REGIONAL",
-                "Jefe Regional de Choluteca", "Delegacion de Choluteca", "PUE-JEFE-TRANSPORTE",
-                "Choluteca"),
+        // El caso de §5.4, ahora con su rama: el delegado cuelga de un jefe regional de su
+        // misma unidad, y por eso el primer salto del escalamiento puede resolver.
+        PuestoDeDesarrollo("01JQ8Z000000000000000PST08", "PUE-DELEGACION-CHOLUTECA",
+            "Encargado de Delegacion", "Delegacion de Choluteca", "PUE-JEFE-REGIONAL",
+            "Choluteca"),
+        PuestoDeDesarrollo("01JQ8Z000000000000000PST09", "PUE-JEFE-REGIONAL",
+            "Jefe Regional de Choluteca", "Delegacion de Choluteca", "PUE-JEFE-TRANSPORTE",
+            "Choluteca"),
 
-            PuestoDeDesarrollo("01JQ8Z000000000000000PST10", "PUE-CUSTODIO-FLOTA",
-                "Custodio de flota", "Unidad de Transporte", "PUE-JEFE-TRANSPORTE", null));
+        PuestoDeDesarrollo("01JQ8Z000000000000000PST10", "PUE-CUSTODIO-FLOTA",
+            "Custodio de flota", "Unidad de Transporte", "PUE-JEFE-TRANSPORTE", null),
 
-        contextoDeSiembra.SaveChanges();
-    }
+        // **Sin superior**: es la maxima autoridad. Que el escalamiento termine aca es
+        // correcto — no hay a quien subir.
+        PuestoDeDesarrollo("01JQ8Z000000000000000PST11", "PUE-MAXIMA-AUTORIDAD",
+            "Maxima Autoridad", "Despacho Superior", null, null));
 
     if (!contextoDeSiembra.RespaldosDeSede.Any())
     {
@@ -362,34 +371,58 @@ if (app.Environment.IsDevelopment())
         contextoDeSiembra.SaveChanges();
     }
 
-    if (!contextoDeSiembra.Competencias.Any())
-    {
-        contextoDeSiembra.Competencias.AddRange(
-            CompetenciaDeDesarrollo("01JQ8Z000000000000000CMP01", "PUE-ASISTENTE-ADMIN",
-                Rol.Solicitante, AlcanceDeDatos.Propio),
-            CompetenciaDeDesarrollo("01JQ8Z000000000000000CMP02", "PUE-JEFATURA-ADMIN",
-                Rol.JefaturaInmediata, AlcanceDeDatos.Dependencia),
-            CompetenciaDeDesarrollo("01JQ8Z000000000000000CMP03", "PUE-JEFE-TRANSPORTE",
-                Rol.JefeDeTransporte, AlcanceDeDatos.Institucion),
-            CompetenciaDeDesarrollo("01JQ8Z000000000000000CMP04", "PUE-DESPACHO-SEDE",
-                Rol.EncargadoDeDespacho, AlcanceDeDatos.Dependencia),
-            CompetenciaDeDesarrollo("01JQ8Z000000000000000CMP05", "PUE-COMBUSTIBLE",
-                Rol.EncargadoDeCombustible, AlcanceDeDatos.Dependencia),
-            CompetenciaDeDesarrollo("01JQ8Z000000000000000CMP06", "PUE-GERENCIA-ADMIN",
-                Rol.GerenciaAdministrativa, AlcanceDeDatos.Institucion),
-            CompetenciaDeDesarrollo("01JQ8Z000000000000000CMP07", "PUE-AUDITORIA-INTERNA",
-                Rol.AuditorInterno, AlcanceDeDatos.Institucion),
-            CompetenciaDeDesarrollo("01JQ8Z000000000000000CMP08", "PUE-CUSTODIO-FLOTA",
-                Rol.CustodioDelVehiculo, AlcanceDeDatos.Propio),
+    Sembrar(contextoDeSiembra, contextoDeSiembra.Competencias, c => c.Id,
+        CompetenciaDeDesarrollo("01JQ8Z000000000000000CMP01", "PUE-ASISTENTE-ADMIN",
+            Rol.Solicitante, AlcanceDeDatos.Propio),
+        CompetenciaDeDesarrollo("01JQ8Z000000000000000CMP02", "PUE-JEFATURA-ADMIN",
+            Rol.JefaturaInmediata, AlcanceDeDatos.Dependencia),
+        CompetenciaDeDesarrollo("01JQ8Z000000000000000CMP03", "PUE-JEFE-TRANSPORTE",
+            Rol.JefeDeTransporte, AlcanceDeDatos.Institucion),
+        CompetenciaDeDesarrollo("01JQ8Z000000000000000CMP04", "PUE-DESPACHO-SEDE",
+            Rol.EncargadoDeDespacho, AlcanceDeDatos.Dependencia),
+        CompetenciaDeDesarrollo("01JQ8Z000000000000000CMP05", "PUE-COMBUSTIBLE",
+            Rol.EncargadoDeCombustible, AlcanceDeDatos.Dependencia),
+        CompetenciaDeDesarrollo("01JQ8Z000000000000000CMP06", "PUE-GERENCIA-ADMIN",
+            Rol.GerenciaAdministrativa, AlcanceDeDatos.Institucion),
+        CompetenciaDeDesarrollo("01JQ8Z000000000000000CMP07", "PUE-AUDITORIA-INTERNA",
+            Rol.AuditorInterno, AlcanceDeDatos.Institucion),
+        CompetenciaDeDesarrollo("01JQ8Z000000000000000CMP08", "PUE-CUSTODIO-FLOTA",
+            Rol.CustodioDelVehiculo, AlcanceDeDatos.Propio),
 
-            // Queda de acumulación vigilada, y es lo correcto: no se puede prohibir de entrada
-            // que la delegación opere, sería inoperante. El bloqueo llega al ejecutar.
-            CompetenciaDeDesarrollo("01JQ8Z000000000000000CMP09", "PUE-DELEGACION-CHOLUTECA",
-                Rol.EncargadoDeDelegacion, AlcanceDeDatos.Delegacion,
-                vigilados: "I-01, I-02, I-03, I-04, I-05, I-06, I-07, I-08, I-09, I-10"));
+        // Queda de acumulación vigilada, y es lo correcto: no se puede prohibir de entrada
+        // que la delegación opere, sería inoperante. El bloqueo llega al ejecutar.
+        CompetenciaDeDesarrollo("01JQ8Z000000000000000CMP09", "PUE-DELEGACION-CHOLUTECA",
+            Rol.EncargadoDeDelegacion, AlcanceDeDatos.Delegacion,
+            vigilados: "I-01, I-02, I-03, I-04, I-05, I-06, I-07, I-08, I-09, I-10"),
 
-        contextoDeSiembra.SaveChanges();
-    }
+        // ACT-09. Firma el permiso de circulacion en dia u hora inhabil (RN-23), y esa
+        // facultad **no es delegable** mientras no se confirme lo contrario — insumo #29.
+        CompetenciaDeDesarrollo("01JQ8Z000000000000000CMP10", "PUE-MAXIMA-AUTORIDAD",
+            Rol.MaximaAutoridad, AlcanceDeDatos.Institucion));
+}
+
+/// <summary>
+/// Siembra <b>solo las filas que faltan</b>, comparando por clave.
+///
+/// ── Por que no vale «si la tabla esta vacia» ────────────────────────────────
+/// Porque una fila agregada despues **no llega nunca** a una base ya sembrada: la condicion da
+/// falso y el bloque entero se salta. El sintoma es peor que la causa — el codigo declara el
+/// puesto, la base no lo tiene, y el error que aparece habla de otra cosa.
+///
+/// No actualiza lo que ya esta: si una fila sembrada difiere de la declarada, gana la base.
+/// Sobreescribirla borraria lo que alguien haya ajustado a mano para probar algo.
+/// </summary>
+static void Sembrar<T>(
+    SigtiDbContext contexto, DbSet<T> tabla, Func<T, Ulid> clave, params T[] filas)
+    where T : class
+{
+    var estan = tabla.Select(clave).ToHashSet();
+    var faltan = filas.Where(f => !estan.Contains(clave(f))).ToList();
+
+    if (faltan.Count == 0) return;
+
+    tabla.AddRange(faltan);
+    contexto.SaveChanges();
 }
 
 /// <summary>
@@ -2008,6 +2041,147 @@ app.MapGet("/salud", async (PanelDeSalud panel) =>
             respaldo = c.Respaldo,
         }),
     });
+});
+
+
+// ── El permiso de circulacion en dia u hora inhabil — RN-23, HU-016 ──────────
+//
+// ⚠️ `BD-04` bloquea el despacho de toda mision que circule en franja inhabil sin permiso de
+// la maxima autoridad, y estaba escrito, probado y operando. **Nadie podia emitir el permiso
+// que lo levanta**: la tabla existia y solo se leia. Cualquier mision que tocara un sabado era
+// indespachable, y el mensaje decia «no hay ningun permiso registrado» sin que existiera forma
+// de registrar uno. Estas rutas son la llave que le faltaba al bloqueo.
+var permisosDeCirculacion = app.MapGroup("/permisos");
+
+/// `PT-021` — la bandeja de firma de la maxima autoridad.
+///
+/// Trae tambien los que NO se pueden firmar todavia por falta de programacion: quien firma
+/// tiene que ver que hay algo esperandola aunque no pueda resolverlo, o creera que no hay nada
+/// y el tramite se descubrira el sabado.
+permisosDeCirculacion.MapGet("/pendientes", async (ServicioDePermisos servicio) =>
+{
+    var filas = await servicio.PendientesAsync();
+
+    return Results.Ok(filas.Select(f => new
+    {
+        id = f.Permiso.Id.ToString(),
+        folio = f.Permiso.Folio,
+        estado = f.Permiso.Estado.ToString(),
+
+        folioDeLaMision = f.FolioDeLaMision,
+        dependencia = f.Dependencia,
+        objetoDelTraslado = f.ObjetoDelTraslado,
+        destino = f.Permiso.Destino,
+
+        desde = f.Permiso.Desde,
+        hasta = f.Permiso.Hasta,
+
+        // Lo unico que la maxima autoridad tiene para DECIDIR. Sin esto la pantalla muestra un
+        // vehiculo, un destino y unas fechas, y firmar se vuelve un tramite.
+        justificacion = f.Permiso.Justificacion,
+
+        // Van en el documento porque **el agente en carretera lee el papel**: un permiso que
+        // dice «ampara del 1 al 5» sin decir que dias eran inhabiles no le deja verificar nada.
+        tramosInhabiles = f.Permiso.TramosInhabiles,
+
+        // **Nulos es que la mision no esta programada**, y esa es la razon de que no se pueda
+        // firmar — no un dato que falte mostrar.
+        vehiculo = f.Vehiculo,
+        motorista = f.Motorista,
+
+        solicita = f.Permiso.Solicita.Valor,
+
+        // Nulo es que si se puede firmar. Se resuelve en el dominio para que la pantalla no
+        // reimplemente la regla y despues diverja.
+        porQueNoSeFirma = f.PorQueNoSeFirma,
+    }));
+});
+
+/// `PT-021` — la firma. **Responde 200 aunque se rechace**: el rechazo no es un error del
+/// sistema, es el control funcionando, y el intento queda asentado igual.
+permisosDeCirculacion.MapPost("/{id}/firmar", async (
+    string id, EjecutarTransicion peticion, ServicioDePermisos servicio) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    var intento = await servicio.FirmarAsync(ulid, new IdPersona(peticion.Ejecuta), peticion.Momento);
+
+    return Results.Ok(new
+    {
+        folio = intento.Folio,
+        concedida = intento.Concedida,
+        motivo = intento.Motivo,
+    });
+});
+
+/// Retirar un tramite que ya no se pide. **No borra**: que alguien haya pedido circular un
+/// domingo es un hecho, y que se haya desistido tambien.
+permisosDeCirculacion.MapPost("/{id}/desistir", async (
+    string id, RechazarMision peticion, ServicioDePermisos servicio) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    await servicio.DesistirAsync(ulid, peticion.Motivo);
+    return Results.Ok(new { id, estado = "Desistido" });
+});
+
+/// `PT-020` — abrir el tramite desde el expediente.
+misiones.MapPost("/{id}/permiso", async (
+    string id, TramitarPermiso peticion, ServicioDePermisos servicio) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    var abierto = await servicio.AbrirAsync(
+        Ulid.NewUlid(), ulid, peticion.Justificacion, new IdPersona(peticion.Solicita),
+        peticion.Momento);
+
+    // **No hacia falta NO es un error.** Decirle «no puede» a quien la respuesta correcta es
+    // «no le hace falta» lo manda a resolver un problema que no tiene.
+    if (abierto.NoHizoFaltaPorque is { } porQue)
+    {
+        return Results.Ok(new
+        {
+            abierto = false,
+            motivo = porQue.Motivo,
+            mensaje = porQue.Detalle,
+        });
+    }
+
+    return Results.Created($"/permisos/{abierto.Id}", new
+    {
+        abierto = true,
+        id = abierto.Id!.Value.ToString(),
+        estado = "Solicitado",
+
+        // Los que el permiso viene a cubrir, congelados con el calendario vigente a la fecha
+        // del hecho (P-4). No se recalculan al firmar.
+        tramosInhabiles = abierto.Tramos,
+    });
+});
+
+/// `PT-020` — los tramites de un expediente, en cualquier estado.
+misiones.MapGet("/{id}/permisos", async (string id, ServicioDePermisos servicio) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    var filas = await servicio.DelExpedienteAsync(ulid);
+
+    return Results.Ok(filas.Select(f => new
+    {
+        id = f.Id.ToString(),
+        folio = f.Folio,
+        estado = f.Estado.ToString(),
+        destino = f.Destino,
+        desde = f.Desde,
+        hasta = f.Hasta,
+        justificacion = f.Justificacion,
+        tramosInhabiles = f.TramosInhabiles,
+        solicita = f.Solicita.Valor,
+
+        // **Nulo es sin firmar, y sin firmar NO AMPARA**: BD-04 solo mira los firmados.
+        firmadoPor = f.FirmadoPor?.Valor,
+        ampara = f.Estado == EstadoDelPermiso.Firmado,
+    }));
 });
 
 var auditoria = app.MapGroup("/auditoria");
@@ -5752,6 +5926,14 @@ internal sealed record CrearMision(
 /// dispositivo que capturó el hecho hace cuatro días sin señal (`ADR-007`).
 /// </summary>
 internal sealed record EjecutarTransicion(string Ejecuta, DateTimeOffset Momento, string? Motivo = null);
+
+/// `PT-020` — abrir el tramite del permiso de circulacion en dia u hora inhabil.
+///
+/// **La justificacion no es opcional.** Es lo unico que la maxima autoridad tiene para decidir:
+/// sin ella la pantalla de firma muestra un vehiculo, un destino y unas fechas, y firmar se
+/// vuelve un tramite — se aprueba lo que aparece porque no hay nada que juzgar.
+internal sealed record TramitarPermiso(
+    string Justificacion, string Solicita, DateTimeOffset Momento);
 
 // ── M-09 Combustible ────────────────────────────────────────────────────────
 

@@ -1727,14 +1727,29 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             permiso.HasKey(p => p.Id);
             permiso.Property(p => p.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
             permiso.Property(p => p.ExpedienteId).HasConversion(UlidABinario).HasColumnType("binary(16)");
-            permiso.Property(p => p.Vehiculo).HasConversion(UlidABinario).HasColumnType("binary(16)");
-            permiso.Property(p => p.Motorista).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            // Nulos hasta que la mision se programe: el permiso se ABRE sin ellos y no se
+            // FIRMA sin ellos. Ver RN-23 y la resolucion HCU-05 de CU-03.
+            permiso.Property(p => p.Vehiculo).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+            permiso.Property(p => p.Motorista).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+
             permiso.Property(p => p.Folio).HasMaxLength(32).IsRequired();
-            permiso.Property(p => p.EmitidoPor).HasMaxLength(64).IsRequired();
+            permiso.Property(p => p.Estado).HasMaxLength(16).IsRequired();
+
+            // Nulo mientras no se firme, **y esa es la razon de que no ampare**.
+            permiso.Property(p => p.EmitidoPor).HasMaxLength(64);
+
             permiso.Property(p => p.Destino).HasMaxLength(120).IsRequired();
+            permiso.Property(p => p.Solicita).HasMaxLength(64).IsRequired();
+            permiso.Property(p => p.Justificacion).HasMaxLength(600).IsRequired();
+            permiso.Property(p => p.TramosInhabiles).HasMaxLength(600).IsRequired();
+            permiso.Property(p => p.MotivoDelDesistimiento).HasMaxLength(300);
 
             // BD-04 pregunta por expediente en el camino critico del despacho.
             permiso.HasIndex(p => p.ExpedienteId);
+
+            // La bandeja de firma de PT-021 pregunta por estado, y es la consulta que la
+            // maxima autoridad abre en el celular: tiene que responder sin recorrer la tabla.
+            permiso.HasIndex(p => p.Estado);
         });
 
         modelo.Entity<FilaDeAdjunto>(adjunto =>

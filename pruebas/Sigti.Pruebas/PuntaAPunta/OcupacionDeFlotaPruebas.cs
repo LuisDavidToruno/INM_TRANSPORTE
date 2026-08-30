@@ -546,23 +546,64 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         Assert.Contains("2026-03-21", cuerpo);
         Assert.Contains("No hay ningún permiso registrado", cuerpo);
 
-        // La máxima autoridad firma el salvoconducto.
-        await using (var contexto = baseDePruebas.Contexto())
+        // ── El trámite, por la API real ──────────────────────────────────────
+        //
+        // ⚠️ Esto se insertaba a mano en la base porque **no existía forma de emitir un
+        // permiso**: la tabla se leía y nadie escribía en ella. El bloqueo era una puerta sin
+        // llave, y la prueba lo tapaba fabricando la fila. Ahora atraviesa el circuito.
+        var apertura = await cliente.PostAsJsonAsync($"/misiones/{id}/permiso", new
         {
-            contexto.Permisos.Add(new FilaDePermisoDeCirculacion
-            {
-                Id = Ulid.NewUlid(),
-                ExpedienteId = Ulid.Parse(id),
-                Folio = "SC-000042",
-                EmitidoPor = "P-MAXIMA-AUTORIDAD",
-                Vehiculo = Ulid.Parse(r.Vehiculo),
-                Motorista = Ulid.Parse(r.Conductor),
-                Destino = "Choluteca",
-                Desde = new DateOnly(2026, 3, 20),
-                Hasta = new DateOnly(2026, 3, 23),
-            });
-            await contexto.SaveChangesAsync();
-        }
+            Justificacion = "Operativo migratorio de fin de semana con la Policía Nacional.",
+            Solicita = "P-JEFE-TRANSPORTE",
+            Momento,
+        });
+
+        Assert.Equal(System.Net.HttpStatusCode.Created, apertura.StatusCode);
+        var abierto = await apertura.Content.ReadFromJsonAsync<JsonElement>();
+        var permiso = abierto.GetProperty("id").GetString()!;
+
+        // Los tramos van en el permiso porque el agente en carretera lee el papel.
+        var tramos = abierto.GetProperty("tramosInhabiles").EnumerateArray()
+            .Select(t => t.GetString()).ToList();
+        Assert.Contains("21/03/2026", tramos);   // sábado
+        Assert.Contains("22/03/2026", tramos);   // domingo
+
+        // ── Y el trámite abierto NO destraba nada ────────────────────────────
+        //
+        // Es la mitad que importa: si un `SOLICITADO` contara, cualquiera destrabaría el
+        // domingo abriendo un trámite y despachando sin esperar la firma.
+        var conTramite = await cliente.PostAsJsonAsync($"/misiones/{id}/despachar", new
+        {
+            Ejecuta = "P-ENCARGADO",
+            Momento,
+            IdVehiculo = r.Vehiculo,
+            IdConductor = r.Conductor,
+        });
+
+        Assert.Equal(System.Net.HttpStatusCode.Conflict, conTramite.StatusCode);
+        Assert.Contains("BD-04", await conTramite.Content.ReadAsStringAsync());
+
+        // ── Quien no es la máxima autoridad no firma ─────────────────────────
+        var deLaGerencia = await cliente.PostAsJsonAsync($"/permisos/{permiso}/firmar", new
+        {
+            Ejecuta = "P-GERENCIA-ADMIN",
+            Momento,
+        });
+
+        var rechazo = await deLaGerencia.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.False(rechazo.GetProperty("concedida").GetBoolean());
+
+        // ── La máxima autoridad firma ────────────────────────────────────────
+        var firma = await cliente.PostAsJsonAsync($"/permisos/{permiso}/firmar", new
+        {
+            Ejecuta = "P-MAXIMA",
+            Momento,
+        });
+
+        var firmado = await firma.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(
+            firmado.GetProperty("concedida").GetBoolean(),
+            firmado.GetProperty("motivo").GetString());
 
         await Despachar(cliente, id, r);
 
@@ -574,7 +615,10 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         var despacho = estado.GetProperty("diario").EnumerateArray()
             .Single(t => t.GetProperty("id").GetString() == "T-12");
         var motivo = despacho.GetProperty("motivo").GetString()!;
-        Assert.Contains("SC-000042", motivo);
+        // El folio real del permiso, no uno cableado: es lo que ata el asiento del despacho
+        // al documento que lo ampara. Sin eso, el diario dice «hubo permiso» y no cual.
+        Assert.Contains(firmado.GetProperty("folio").GetString()!, motivo);
+        Assert.Contains("P-MAXIMA", motivo);
         Assert.Contains("PROVISIONAL-SIN-FERIADOS", motivo);
     }
 
