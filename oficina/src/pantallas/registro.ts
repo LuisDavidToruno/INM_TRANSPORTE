@@ -224,6 +224,29 @@ export const CONSTRUIDAS: Readonly<Record<string, Construida>> = {
   'PT-021': { ruta: '/permisos/firmar', archivo: 'M07_Programacion/FirmaDePermisos.tsx' },
 
   // ── M-15 Formatos oficiales ──────────────────────────────────────────────
+  // `RN-65` — el paquete que identifica al vehiculo sin lamina en carretera. No tiene PT
+  // propio en el inventario: es documento de M-15 pedido por la regla, no una pantalla
+  // declarada en el mapa. Se registra igual para que no quede fuera del recuento.
+  'PT-035': {
+    ruta: '/misiones/:id/paquete-de-identificacion',
+    archivo: 'M15_Formatos/PaqueteDeIdentificacion.tsx',
+    incompleta:
+      'le falta la fotografia vigente del vehiculo con su rotulacion, que RN-65 pide como ' +
+      'quinto elemento: las constataciones ya la guardan, y el documento todavia no la ' +
+      'incrusta.',
+  },
+
+  // `RN-65` — el documento que identifica al vehiculo sin lamina en carretera. La regla lo
+  // exigia y el inventario no lo tenia: se le asigno PT-139 (hallazgo HB65-01).
+  'PT-139': {
+    ruta: '/misiones/:id/paquete-de-identificacion',
+    archivo: 'M15_Formatos/PaqueteDeIdentificacion.tsx',
+    incompleta:
+      'le falta la fotografia vigente del vehiculo con su rotulacion, que RN-65 pide como ' +
+      'quinto contenido: las constataciones de RN-18 ya la guardan y el documento todavia ' +
+      'no la incrusta.',
+  },
+
   'PT-023': {
     ruta: '/misiones/:id/salvoconducto',
     archivo: 'M15_Formatos/Salvoconducto.tsx',

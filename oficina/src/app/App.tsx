@@ -23,6 +23,7 @@ import Titulos from '../modulos/M03_Flota/Titulos';
 import Puestos from '../modulos/M01_Organizacion/Puestos';
 import FirmaDePermisos from '../modulos/M07_Programacion/FirmaDePermisos';
 import Salvoconducto from '../modulos/M15_Formatos/Salvoconducto';
+import PaqueteDeIdentificacion from '../modulos/M15_Formatos/PaqueteDeIdentificacion';
 import Verificacion from '../modulos/M15_Formatos/Verificacion';
 import BandejaDeTareas from '../modulos/M01_Organizacion/Bandeja';
 import IntentosBloqueados from '../modulos/M14_Auditoria/IntentosBloqueados';
@@ -352,6 +353,10 @@ function Interior(): ReactElement {
         <Route path="/organizacion" element={<Puestos />} />
         <Route path="/permisos/firmar" element={<FirmaDePermisos />} />
         <Route path="/misiones/:id/salvoconducto" element={<Salvoconducto />} />
+        <Route
+          path="/misiones/:id/paquete-de-identificacion"
+          element={<PaqueteDeIdentificacion />}
+        />
 
         {/* A esto resuelve el QR del papel. El parámetro es opcional: quien no pudo
             escanear entra sin él y teclea el código corto que anotó. */}
@@ -456,6 +461,8 @@ function migasDe(ruta: string): Miga[] {
   if (ruta === '/parametros/aprobar') return ['Parámetros', 'Poner en vigencia'];
   if (ruta === '/permisos/firmar') return ['Permisos de circulación', 'Firma'];
   if (ruta.startsWith('/verificar')) return ['Verificar salvoconducto'];
+  if (ruta.endsWith('/paquete-de-identificacion'))
+    return [{ texto: 'Bandeja de autorización', href: '/autorizacion' }, 'Identificación'];
   if (ruta.endsWith('/salvoconducto'))
     return [{ texto: 'Bandeja de autorización', href: '/autorizacion' }, 'Salvoconducto'];
   if (ruta === '/salud') return ['Qué está mal'];

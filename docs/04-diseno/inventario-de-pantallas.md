@@ -131,6 +131,24 @@ Las marcadas `Parc.` sí tienen trabajo disponible hoy: la estructura, los contr
 | PT-035 | Emisión del juego documental: **orden de misión**, peajes, advertencias, bitácora | A | `ACT-04` `ACT-10` | CU-05 | HU-031, HU-032, HU-033, HU-034, HU-081 | No | **Sí** |
 | PT-036 | Reimpresión con el mismo folio y marca de reimpresión | A | `ACT-04` | CU-05 | HU-036 | No | **Sí** |
 | PT-037 | Emisión anticipada para delegación sin cobertura | A/C | `ACT-10` | CU-05 | HU-037 | Sí | **Sí** |
+| PT-139 | **Paquete de identificación en carretera** del vehículo sin lámina | A | `ACT-04` `ACT-10` | ⛔ sin CU | [RN-65](../01-negocio/reglas/RN-65-sin-lamina-respaldo-y-paquete-de-identificacion.md) | No | **Sí** |
+
+> ### Hallazgo `HB65-01` — un documento que la regla exige y el inventario no tenía — 2026-08-30
+>
+> [`RN-65`](../01-negocio/reglas/RN-65-sin-lamina-respaldo-y-paquete-de-identificacion.md) dice
+> que el despacho **debe emitir, imprimir y entregar contra acuse** el paquete de identificación
+> en carretera, y enumera sus cinco contenidos. **No tenía pantalla en este inventario.**
+>
+> No es un descuido menor: es el único documento que identifica como bien del Estado a un
+> vehículo sin lámina metálica, y **hay desabastecimiento nacional**. La flota real circula así.
+>
+> Se le asigna `PT-139` y se construye. Queda `⛔ sin CU`: el caso de uso de emisión
+> ([CU-05](../02-requisitos/casos-de-uso/CU-05-emitir-orden-de-mision-y-documentos.md)) no lo
+> menciona, y alinearlo es trabajo del analista.
+>
+> ⚠️ **Le falta el quinto contenido**: la fotografía vigente del vehículo con su rotulación. Las
+> constataciones de [`RN-18`](../01-negocio/reglas/RN-18-rotulacion-del-vehiculo-del-estado.md)
+> ya la guardan —es obligatoria— y el documento todavía no la incrusta.
 
 ### 2.7 M-07 / M-08 Despacho y retorno
 

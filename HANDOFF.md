@@ -414,6 +414,61 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## `RN-18` y el paquete que el inventario no tenía
+
+**1328 pruebas en verde.** Iba a cerrar `RN-65` con su documento impreso y no se podía armar
+honestamente: el quinto contenido que la regla pide es *«fotografía vigente del vehículo con
+su rotulación»*, y la rotulación era **otro booleano**.
+
+### ⚠️ El segundo booleano del día
+
+`IdentificacionInstitucionalVerificada`. Y `CLAUDE.md` lo pone entre las restricciones que
+condicionan el diseño, con estas palabras: *«es campo verificable **con fecha y foto**: es
+hallazgo frecuente de auditoría»*.
+
+Un `true` no dice **cuándo** se miró, ni **quién**, ni deja nada que mostrar. Una constatación
+de hace tres años se veía igual que una de ayer, y ante un operativo lo único que quedaba era
+la palabra de alguien.
+
+| Ahora | |
+|---|---|
+| **Una fila por elemento** | Franjas, leyenda, siglas, correlativo. Un vehículo puede tener las franjas y no la leyenda: **constatar tres no es constatar** |
+| **Con fecha, foto y quién** | La foto es obligatoria y se comprueba que exista — `RN-18`: *«una constatación sin fotografía no debe aceptarse»* |
+| **Caduca** | La pintura se despinta. Y **«caducada» no dice que la rotulación se haya borrado: dice que nadie la ha vuelto a mirar** |
+| **Plazo más corto sin lámina** | Ahí la rotulación es la **única identificación visible**: si caducara al mismo ritmo, el vehículo que más depende de ella sería el que más tiempo pasa sin que nadie la mire |
+
+Y una distinción que el booleano hacía imposible: **un elemento que no está es un hallazgo; uno
+que nunca se miró es una tarea**. Reportar «no constatada» sobre un vehículo con la leyenda
+borrada escondería el hallazgo detrás de la omisión.
+
+### `HB65-01` — un documento que la regla exige y el inventario no tenía
+
+`RN-65` dice que el despacho **debe emitir, imprimir y entregar contra acuse** el paquete de
+identificación en carretera, y enumera sus cinco contenidos. **No tenía pantalla en el
+inventario de 138.**
+
+No es un descuido menor: es el único documento que identifica como bien del Estado a un
+vehículo sin lámina metálica, y **hay desabastecimiento nacional**. Un agente que detiene ese
+vehículo pide la lámina primero; sin ella, lo que queda es este papel o la palabra del
+motorista.
+
+Se le asignó **`PT-139`** y está construido. Queda `⛔ sin CU`: `CU-05` no lo menciona.
+
+**Se arma, no se congela** — a diferencia del salvoconducto, que congela lo que ampara porque
+materializa una firma. Éste no ampara nada: describe. Congelarlo produciría un papel que dice
+que la rotulación se constató en marzo cuando en junio faltaba la leyenda.
+
+### Lo que queda
+
+- **La fotografía todavía no se incrusta** en el paquete. Las constataciones ya la guardan —es
+  obligatoria—, y el documento sólo dice el estado. Declarado en el registro de pantallas.
+- **De `RN-61` queda uno solo**: la custodia, que `RN-22` manda trasladar con constancia al
+  sustituir el vehículo.
+- El acuse de entrega del paquete (`RN-65` pide *«entregar contra acuse»*) **no está**: se
+  imprime y no se registra quién lo recibió.
+
+---
+
 ## `RN-64` y `RN-65` — el booleano que decía «hay una constancia»
 
 **1317 pruebas en verde.** Cierra el penúltimo de los nueve efectos de `RN-61`.

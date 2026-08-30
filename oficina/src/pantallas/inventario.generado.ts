@@ -8,7 +8,7 @@
 
 import type { PantallaInventariada } from './tipos';
 
-/** Las 138 pantallas del inventario, en el orden en que el documento las lista. */
+/** Las 139 pantallas del inventario, en el orden en que el documento las lista. */
 export const INVENTARIO: readonly PantallaInventariada[] = [
   {id:"PT-001",nombre:"Ingreso y selección de puesto vigente",cliente:"A",roles:"todos",cu:"—",hu:"—",sinRed:"No",papel:"No",seccion:"2.1 Transversales"},
   {id:"PT-002",nombre:"Inicio del puesto: pendientes, alertas y accesos",cliente:"A",roles:"todos",cu:"—",hu:"—",sinRed:"No",papel:"No",seccion:"2.1 Transversales"},
@@ -48,6 +48,7 @@ export const INVENTARIO: readonly PantallaInventariada[] = [
   {id:"PT-035",nombre:"Emisión del juego documental: orden de misión, peajes, advertencias, bitácora",cliente:"A",roles:"ACT-04 ACT-10",cu:"CU-05",hu:"HU-031, HU-032, HU-033, HU-034, HU-081",sinRed:"No",papel:"Sí",seccion:"2.6 M-15 Emisión de documentos"},
   {id:"PT-036",nombre:"Reimpresión con el mismo folio y marca de reimpresión",cliente:"A",roles:"ACT-04",cu:"CU-05",hu:"HU-036",sinRed:"No",papel:"Sí",seccion:"2.6 M-15 Emisión de documentos"},
   {id:"PT-037",nombre:"Emisión anticipada para delegación sin cobertura",cliente:"A/C",roles:"ACT-10",cu:"CU-05",hu:"HU-037",sinRed:"Sí",papel:"Sí",seccion:"2.6 M-15 Emisión de documentos"},
+  {id:"PT-139",nombre:"Paquete de identificación en carretera del vehículo sin lámina",cliente:"A",roles:"ACT-04 ACT-10",cu:"⛔ sin CU",hu:"",sinRed:"No",papel:"Sí",seccion:"2.6 M-15 Emisión de documentos"},
   {id:"PT-038",nombre:"Tablero de despacho del día: salidas y retornos previstos",cliente:"A",roles:"ACT-05",cu:"CU-06, CU-10",hu:"HU-038",sinRed:"Deg.",papel:"No",seccion:"2.7 M-07 / M-08 Despacho y retorno"},
   {id:"PT-039",nombre:"Acto de despacho: revalidación, kilometraje de salida e inspección",cliente:"A",roles:"ACT-05",cu:"CU-06",hu:"HU-038, HU-039",sinRed:"Deg.",papel:"Sí",seccion:"2.7 M-07 / M-08 Despacho y retorno"},
   {id:"PT-040",nombre:"Acta de entrega y traslado de custodia",cliente:"A/C",roles:"ACT-05 ACT-13",cu:"CU-06",hu:"HU-040",sinRed:"Sí",papel:"Sí",seccion:"2.7 M-07 / M-08 Despacho y retorno"},

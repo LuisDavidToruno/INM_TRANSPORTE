@@ -29,10 +29,12 @@ const DESTINO = path.join(aqui, '..', 'src', 'pantallas', 'inventario.generado.t
 
 /** Lo que el propio documento declara en su encabezado y en su §5. Si el conteo no da esto,
  *  o el documento cambió —y hay que actualizar estos números— o el parser se rompió. */
+// 139 desde el 2026-08-30: se sumo PT-139, el paquete de identificacion en carretera de
+// RN-65. La regla lo exigia y el inventario no lo tenia -- hallazgo HB65-01.
 const ESPERADO = {
-  total: 138,
-  papel: { No: 99, Sí: 29, 'Parc.': 10 },
-  cliente: { A: 103, 'A/C': 9, C: 25, P: 1 },
+  total: 139,
+  papel: { No: 99, Sí: 30, 'Parc.': 10 },
+  cliente: { A: 104, 'A/C': 9, C: 25, P: 1 },
 };
 
 function extraer() {

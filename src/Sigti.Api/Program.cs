@@ -72,6 +72,8 @@ constructor.Services.AddScoped<ConsultaDePermisos>();
 constructor.Services.AddScoped<ServicioDePermisos>();
 constructor.Services.AddScoped<EfectosDeLaSustitucion>();
 constructor.Services.AddScoped<ServicioDeRespaldoDePlaca>();
+constructor.Services.AddScoped<ServicioDeRotulacion>();
+constructor.Services.AddScoped<PaqueteDeIdentificacion>();
 constructor.Services.AddScoped<ServicioDeSalvoconductos>();
 constructor.Services.AddScoped<ConsultaDelDiaDeDespacho>();
 constructor.Services.AddScoped<ConsultaDeOdometro>();
@@ -2480,6 +2482,165 @@ app.MapGet("/flota/{id}/respaldo-de-placa", async (
         cubre = r.Cubre,
         veredicto = r.Veredicto,
     }));
+});
+
+
+// ── RN-18 — la identificacion del vehiculo del Estado, CON FECHA Y FOTO ──────
+//
+// ⚠️ Era un booleano. Un `true` no dice cuando se miro, ni quien, ni deja nada que mostrar:
+// una constatacion de hace tres anos se veia igual que una de ayer. `CLAUDE.md` lo pone entre
+// las restricciones que condicionan el diseno — «es campo verificable con fecha y foto: es
+// hallazgo frecuente de auditoria».
+
+/// Constatar un elemento. **La fotografia es obligatoria** y se comprueba que exista: RN-18 es
+/// literal en que una constatacion sin fotografia no se acepta.
+app.MapPost("/flota/{id}/rotulacion", async (
+    string id, ConstatarRotulacion peticion, ServicioDeRotulacion servicio) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+    if (!Identificador.Valido(peticion.Fotografia, out var foto, out var errorFoto)) return errorFoto;
+
+    if (!Enum.TryParse<ElementoDeIdentificacion>(peticion.Elemento, ignoreCase: true, out var elemento))
+    {
+        return Results.BadRequest(new
+        {
+            mensaje = $"«{peticion.Elemento}» no es un elemento de identificacion de RN-18.",
+            valores = Enum.GetNames<ElementoDeIdentificacion>(),
+        });
+    }
+
+    var nuevo = await servicio.ConstatarAsync(
+        ulid, elemento, peticion.Presente, peticion.ConstatadoEl, foto,
+        new IdPersona(peticion.Constata), peticion.Observacion, peticion.Momento);
+
+    return Results.Created($"/flota/{id}/rotulacion/{nuevo}", new { id = nuevo.ToString() });
+});
+
+/// En que situacion esta la identificacion del vehiculo **a una fecha**.
+app.MapGet("/flota/{id}/rotulacion", async (
+    string id, DateOnly? fecha, ServicioDeRotulacion servicio) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    var r = await servicio.EvaluarAsync(ulid, fecha ?? DateOnly.FromDateTime(DateTime.UtcNow));
+
+    if (r is null) return Results.NotFound(new { mensaje = $"No existe el vehiculo {id}." });
+
+    return Results.Ok(new
+    {
+        estado = r.Estado.ToString(),
+
+        // ⚠️ Los dos son distintos: **un elemento que NO ESTA es un hallazgo** y uno que nunca
+        // se miro es una tarea. Juntarlos escondería el hallazgo detras de la omision.
+        faltantes = r.Faltantes.Select(ReglasDeLaRotulacion.Texto),
+        sinConstatar = r.SinConstatar.Select(ReglasDeLaRotulacion.Texto),
+
+        // Nulo cuando no hay ninguna constatacion, o cuando la institucion no cargo el plazo.
+        // No es un dato que falte: es que no hay nada que caduque.
+        caducaEl = r.CaducaEl,
+
+        detalle = r.Detalle,
+    });
+});
+
+/// El historial completo, para el expediente del vehiculo.
+app.MapGet("/flota/{id}/rotulacion/historial", async (
+    string id, ServicioDeRotulacion servicio) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    var historial = await servicio.HistorialAsync(ulid);
+
+    return Results.Ok(historial.Select(c => new
+    {
+        elemento = c.Elemento.ToString(),
+        nombre = ReglasDeLaRotulacion.Texto(c.Elemento),
+
+        // Falso NO es «no se constato»: es que se miro y NO ESTA. Que la fila exista los separa.
+        presente = c.Presente,
+
+        constatadoEl = c.ConstatadoEl,
+        fotografia = c.Fotografia.ToString(),
+        constatadoPor = c.ConstatadoPor,
+        observacion = c.Observacion,
+    }));
+});
+
+
+/// `RN-65` — el **paquete de identificacion en carretera** del vehiculo sin lamina.
+///
+/// Un vehiculo del Estado sin lamina que un agente detiene no tiene como identificarse: la
+/// lamina es lo primero que se pide. Sin ella queda este paquete o la palabra del motorista.
+///
+/// **Se arma, no se guarda.** A diferencia del salvoconducto -que congela lo que ampara porque
+/// materializa una firma- este no ampara nada: describe. Congelarlo produciria un papel que
+/// dice que la rotulacion se constato en marzo cuando en junio faltaba la leyenda.
+misiones.MapGet("/{id}/paquete-de-identificacion", async (
+    string id, PaqueteDeIdentificacion servicio) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    var paquete = await servicio.DeLaMisionAsync(ulid);
+
+    // **«No hay paquete» es una respuesta, no una ausencia**: la mision todavia no tiene
+    // vehiculo reservado, y eso no es un fallo.
+    if (paquete is null) return Results.Ok(new { hayVehiculo = false });
+
+    return Results.Ok(new
+    {
+        hayVehiculo = true,
+
+        // Si el vehiculo NECESITA el paquete. Con lamina puesta, no: un paquete emitido a un
+        // vehiculo que lleva su lamina es papel que nadie va a comparar con nada.
+        haceFalta = paquete.HaceFalta,
+
+        // ⚠️ El correlativo PRIMERO. RN-15: la identidad del vehiculo del Estado es el
+        // correlativo, no la placa -- y aca eso deja de ser preferencia de diseno y pasa a ser
+        // lo unico que hay.
+        correlativo = paquete.Correlativo,
+        siglas = paquete.Siglas,
+
+        // Nulos es que la ficha no los tiene. Van igual: son las tres anclas con las que un
+        // agente puede cotejar el vehiculo contra el registro nacional.
+        chasis = paquete.Chasis,
+        motor = paquete.Motor,
+        bienDelInventario = paquete.BienDelInventario,
+
+        // **Nula NO es «sin lamina»**: son los dos datos que RN-64 separa, y un vehiculo puede
+        // tener numero asignado y no tener lamina.
+        placa = paquete.Placa,
+        estadoDePlaca = paquete.EstadoDePlaca.ToString(),
+        estadoDePlacaTexto = ReglasDelRespaldoDePlaca.Texto(paquete.EstadoDePlaca),
+
+        // **Nulo es que NINGUNO cubre la ventana**, y el papel lo dice en vez de imprimir el
+        // mas reciente como si sirviera.
+        respaldo = paquete.Respaldo is null ? null : new
+        {
+            tipo = paquete.Respaldo.Tipo,
+            emisor = paquete.Respaldo.Emisor,
+            folio = paquete.Respaldo.Folio,
+            vigenteDesde = paquete.Respaldo.VigenteDesde,
+            vigenteHasta = paquete.Respaldo.VigenteHasta,
+            adjunto = paquete.Respaldo.Adjunto?.ToString(),
+        },
+
+        dependencia = paquete.Dependencia,
+        motorista = paquete.Motorista,
+        desde = paquete.Desde,
+        hasta = paquete.Hasta,
+        destino = paquete.Destino,
+
+        // RN-18 — el estado de la rotulacion a la fecha de salida. **Nulo es que no se pudo
+        // evaluar**, que es distinto de «esta bien».
+        identificacion = paquete.Identificacion is null ? null : new
+        {
+            estado = paquete.Identificacion.Estado.ToString(),
+            faltantes = paquete.Identificacion.Faltantes.Select(ReglasDeLaRotulacion.Texto),
+            sinConstatar = paquete.Identificacion.SinConstatar.Select(ReglasDeLaRotulacion.Texto),
+            caducaEl = paquete.Identificacion.CaducaEl,
+            detalle = paquete.Identificacion.Detalle,
+        },
+    });
 });
 
 var auditoria = app.MapGroup("/auditoria");
@@ -6315,6 +6476,19 @@ internal sealed record EjecutarTransicion(string Ejecuta, DateTimeOffset Momento
 /// **La justificacion no es opcional.** Es lo unico que la maxima autoridad tiene para decidir:
 /// sin ella la pantalla de firma muestra un vehiculo, un destino y unas fechas, y firmar se
 /// vuelve un tramite — se aprueba lo que aparece porque no hay nada que juzgar.
+/// `RN-18` — una constatacion de un elemento de identificacion.
+///
+/// **La fotografia es obligatoria.** Sin ella lo unico que queda registrado es que alguien dijo
+/// que miro, y eso es exactamente lo que un hallazgo de auditoria discute.
+internal sealed record ConstatarRotulacion(
+    string Elemento,
+    bool Presente,
+    DateOnly ConstatadoEl,
+    string Fotografia,
+    string Constata,
+    string? Observacion,
+    DateTimeOffset Momento);
+
 /// `RN-64` — el estado de la LAMINA fisica, del catalogo `estado_de_placa`.
 internal sealed record DeclararEstadoDePlaca(string Estado);
 

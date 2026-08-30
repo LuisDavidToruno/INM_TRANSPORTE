@@ -72,6 +72,7 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     public DbSet<FilaDeSalvoconducto> Salvoconductos => Set<FilaDeSalvoconducto>();
     public DbSet<FilaDeRecongelamiento> RecongelamientosDePeaje => Set<FilaDeRecongelamiento>();
     public DbSet<FilaDeRespaldoDePlaca> RespaldosDePlaca => Set<FilaDeRespaldoDePlaca>();
+    public DbSet<FilaDeConstatacion> ConstatacionesDeRotulacion => Set<FilaDeConstatacion>();
     public DbSet<FilaDeCambioDeEstado> CambiosDeEstado => Set<FilaDeCambioDeEstado>();
     public DbSet<FilaDeFondo> Fondos => Set<FilaDeFondo>();
     public DbSet<FilaDeAsignacion> AsignacionesDeCombustible => Set<FilaDeAsignacion>();
@@ -508,6 +509,11 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             vehiculo.HasMany(v => v.RespaldosDePlaca)
                 .WithOne()
                 .HasForeignKey(r => r.VehiculoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            vehiculo.HasMany(v => v.Constataciones)
+                .WithOne()
+                .HasForeignKey(c => c.VehiculoId)
                 .OnDelete(DeleteBehavior.Cascade);
             vehiculo.Property(v => v.Clase).HasConversion<string>().HasMaxLength(32).IsRequired();
 
@@ -1779,6 +1785,26 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             // La bandeja de firma de PT-021 pregunta por estado, y es la consulta que la
             // maxima autoridad abre en el celular: tiene que responder sin recorrer la tabla.
             permiso.HasIndex(p => p.Estado);
+        });
+
+        modelo.Entity<FilaDeConstatacion>(constatacion =>
+        {
+            constatacion.ToTable("ConstatacionDeRotulacion", schema: "flota");
+
+            constatacion.HasKey(c => c.Id);
+            constatacion.Property(c => c.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            constatacion.Property(c => c.VehiculoId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+
+            // ⚠️ **NO anulable.** RN-18: una constatacion sin fotografia no se acepta. Sin ella
+            // lo unico que queda registrado es que alguien dijo que miro.
+            constatacion.Property(c => c.Fotografia).HasConversion(UlidABinario).HasColumnType("binary(16)");
+
+            constatacion.Property(c => c.Elemento).HasConversion<string>().HasMaxLength(24);
+            constatacion.Property(c => c.ConstatadoPor).HasMaxLength(64).IsRequired();
+            constatacion.Property(c => c.Observacion).HasMaxLength(400);
+
+            // «Cuando se constato por ultima vez cada elemento de este vehiculo» es LA consulta.
+            constatacion.HasIndex(c => new { c.VehiculoId, c.Elemento, c.ConstatadoEl });
         });
 
         modelo.Entity<FilaDeRespaldoDePlaca>(respaldo =>

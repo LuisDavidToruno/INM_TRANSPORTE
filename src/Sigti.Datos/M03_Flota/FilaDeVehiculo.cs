@@ -133,8 +133,24 @@ public sealed class FilaDeVehiculo
     /// <summary>Igual que la póliza.</summary>
     public DateOnly? VenceRevisionMecanica { get; init; }
 
-    /// <summary>Franjas, leyenda y siglas verificadas — `RN-18`. Hallazgo frecuente.</summary>
+    /// <summary>
+    /// ⚠️ <b>Reemplazado por <see cref="Constataciones"/></b> — `RN-18`.
+    ///
+    /// Un <c>true</c> no decía <b>cuándo</b> se miró, ni <b>quién</b>, ni dejaba nada que
+    /// mostrar. Una constatación de hace tres años se veía igual que una de ayer, y `CLAUDE.md`
+    /// pide el campo <i>«verificable con fecha y foto»</i>.
+    ///
+    /// Se conserva mientras dure la migración de las filas existentes; no lo lea código nuevo.
+    /// </summary>
     public required bool IdentificacionInstitucionalVerificada { get; init; }
+
+    /// <summary>
+    /// Las constataciones de rotulación, con su historial — `RN-18`.
+    ///
+    /// <b>Una fila por elemento</b>: un vehículo puede tener las franjas y no la leyenda, y con
+    /// un solo dato para los cuatro «rotulación verificada» afirma de más sobre tres de ellos.
+    /// </summary>
+    public List<FilaDeConstatacion> Constataciones { get; } = [];
 
     /// <summary>
     /// El servicio exceptuado del vehículo — `RN-24`. Nulo es el caso normal: <b>no</b> está
