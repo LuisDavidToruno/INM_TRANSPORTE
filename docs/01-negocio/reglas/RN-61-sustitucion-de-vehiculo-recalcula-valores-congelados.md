@@ -26,6 +26,28 @@ Toda sustitución de vehículo sobre una Orden de Misión ya `PROGRAMADA` o post
 
 El asiento anterior **no se sobrescribe**: la asignación original se conserva junto a la sustituta ([`RN-04`](RN-04-anulacion-como-asiento-reverso.md)).
 
+## Nota de corrección — hallazgo `HB61-01`, 2026-08-30
+
+> **«`PROGRAMADA` o posterior» no es alcanzable hoy, y la regla es la que dice de más.**
+>
+> El enunciado contempla la sustitución sobre una Orden de Misión ya `PROGRAMADA` **o**
+> **posterior**. La [máquina de estados](../../03-arquitectura/estados/orden-de-mision.md)
+> sólo admite `T-10` de `PROGRAMADA` a `PROGRAMADA`: después de `T-12` despachar no hay
+> transición de reasignación.
+>
+> **Consecuencia concreta y medida:** el efecto sobre la **custodia** —«se traslada con
+> constancia»— **no puede dispararse nunca**. El acta de entrega-recepción de
+> [`RN-22`](RN-22-custodia-del-vehiculo.md) se levanta al despachar, que es después del único
+> punto donde `T-10` existe. Un acta y una reasignación no pueden coexistir.
+>
+> La comprobación está escrita en `EfectosDeLaSustitucion` y es correcta si el acta existiera
+> por cualquier vía — pero hoy es código inalcanzable, y se dice en vez de contarse como
+> hecho.
+>
+> **La autoridad sobre transiciones es la máquina de estados**, no esta regla. O `§10.2` gana
+> una transición de relevo en ruta —que `RN-71` ya contempla con acta y corte de odómetro—, o
+> este enunciado se acota a `PROGRAMADA`. **No se resuelve desde acá.**
+
 ## Justificación
 
 [`RN-14`](RN-14-sustitucion-de-motorista.md) exige revalidar las habilitaciones al sustituir motorista o vehículo, pero **no dice nada de los valores económicos congelados** por [`RN-41`](RN-41-congelamiento-del-valor-al-autorizar.md). El efecto es que una misión que se despacha con un camión de tres ejes en lugar del pickup programado sale con el estimado de peaje de categoría 2 y va a pagar categoría 4 en cada caseta: seis discrepancias falsas ([`RN-36`](RN-36-discrepancia-de-clasificacion-en-caseta.md)) y una liquidación que no cuadra por una razón que nadie va a encontrar.

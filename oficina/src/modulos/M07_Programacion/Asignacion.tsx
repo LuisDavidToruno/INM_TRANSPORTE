@@ -146,6 +146,10 @@ export default function Asignacion(): ReactElement {
           );
         }
 
+        if (arrastre.custodia !== null) {
+          avisar.alerta(arrastre.custodia);
+        }
+
         for (const v of arrastre.vales) {
           avisar.error(
             `El vale ${v.folio} es de ${v.combustibleDelVale} y el vehículo usa ` +

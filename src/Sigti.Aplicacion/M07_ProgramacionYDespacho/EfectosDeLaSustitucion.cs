@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Sigti.Aplicacion.M03_Flota;
 using Sigti.Aplicacion.M18_Peajes;
 using Sigti.Datos;
+using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
 using Sigti.Dominio.M09_Combustible;
 using Sigti.Dominio.Organizacion;
@@ -68,7 +69,18 @@ public sealed class EfectosDeLaSustitucion(
         // ── 3 · Los vales de combustible ────────────────────────────────────
         var vales = await ValesQueDejanDeCorresponderAsync(mision, vehiculoEntrante, cancelacion);
 
-        return new Arrastre(peaje, permisoReemitido, vales);
+        // ── 4 · La custodia ─────────────────────────────────────────────────
+        //
+        // `RN-22`: la custodia <b>se traslada con constancia</b>. Si ya se firmó el acta de
+        // entrega de la unidad anterior, esa acta describe <b>otro vehículo</b>: su odómetro,
+        // su nivel de tanque y su inventario de accesorios no son los del entrante.
+        //
+        // ⚠️ **No se anula sola.** El acta es la constancia de un acto que ocurrió: alguien
+        // entregó y alguien recibió un vehículo, y eso pasó. Lo que hay que hacer es levantar
+        // una nueva, y quien reasignó tiene que saberlo antes de irse.
+        var custodia = await ActaQueYaNoDescribeAsync(mision, vehiculoEntrante, cancelacion);
+
+        return new Arrastre(peaje, permisoReemitido, vales, custodia);
     }
 
     /// <summary>
@@ -91,6 +103,44 @@ public sealed class EfectosDeLaSustitucion(
 
         await permisos.ReemitirAsync(caduco.Permiso.Id, motivo, quien, momento, cancelacion);
         return caduco.Permiso.Folio;
+    }
+
+    /// <summary>
+    /// Si el acta de entrega de custodia dejó de describir al vehículo de la misión.
+    ///
+    /// <b>Nulo cuando no hay acta</b> —la misión no se ha despachado, que es el caso normal al
+    /// reasignar— o cuando el acta ya es del entrante.
+    ///
+    /// ── ⚠️ Hoy esto no se dispara nunca, y no es un descuido ────────────────
+    /// `RN-61` dice <i>«toda sustitución sobre una Orden de Misión ya `PROGRAMADA` <b>o
+    /// posterior</b>»</i>, y §10.2 sólo permite `T-10` de `PROGRAMADA` a `PROGRAMADA`. El acta
+    /// de entrega se levanta al <b>despachar</b>, que es después: bajo la máquina de estados
+    /// vigente, un acta y una reasignación <b>no pueden coexistir</b>.
+    ///
+    /// La comprobación queda porque es correcta si el acta existe por cualquier vía, y porque
+    /// el día que §10.2 admita el relevo en ruta ya está escrita. Pero <b>la autoridad sobre
+    /// transiciones es la máquina de estados</b>, y es `RN-61` la que dice de más — está
+    /// levantado como hallazgo, no resuelto en silencio acá.
+    ///
+    /// ── Por qué se reporta y no se anula ────────────────────────────────────
+    /// El acta es la <b>constancia de un acto que ocurrió</b>: alguien entregó y alguien recibió
+    /// un vehículo. Borrarla haría desaparecer el único registro de quién tuvo la unidad
+    /// anterior, que es justo lo que `RN-22` existe para conservar.
+    /// </summary>
+    private async Task<string?> ActaQueYaNoDescribeAsync(
+        Ulid mision, Ulid vehiculoEntrante, CancellationToken cancelacion)
+    {
+        var acta = await contexto.ActasDeCustodia
+            .AsNoTracking()
+            .Where(a => a.MisionId == mision && a.Tipo == TipoDeActa.Entrega)
+            .Select(a => new { a.VehiculoId, a.Recibe })
+            .SingleOrDefaultAsync(cancelacion);
+
+        if (acta is null || acta.VehiculoId == vehiculoEntrante) return null;
+
+        return $"El acta de entrega de custodia describe otro vehículo —su odómetro, su nivel " +
+               $"de tanque y su inventario de accesorios no son los del entrante— y la recibió " +
+               $"{acta.Recibe}. Levante una nueva antes de despachar (RN-22).";
     }
 
     /// <summary>
@@ -153,10 +203,18 @@ public sealed class EfectosDeLaSustitucion(
 /// dejó de corresponder, o que la ficha del entrante no declara su combustible</b> — y las dos
 /// cosas se distinguen mirando la ficha, no esta lista.
 /// </param>
+/// <param name="Custodia">
+/// Por qué el acta de entrega de custodia dejó de describir al vehículo. <b>Nulo cuando no hay
+/// acta o cuando ya es del entrante.</b>
+///
+/// ⚠️ El acta <b>no se anula sola</b>: es la constancia de un acto que ocurrió, y borrarla haría
+/// desaparecer el único registro de quién tuvo la unidad anterior.
+/// </param>
 public sealed record Arrastre(
     DiferenciaDelRecongelamiento? Peaje,
     string? PermisoReemitido,
-    IReadOnlyList<ValeQueYaNoCorresponde> Vales);
+    IReadOnlyList<ValeQueYaNoCorresponde> Vales,
+    string? Custodia);
 
 /// <param name="Estado">
 /// En qué va el vale. <b>Decide qué se puede hacer con él</b>: uno emitido se anula; uno

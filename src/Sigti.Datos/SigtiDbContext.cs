@@ -73,6 +73,7 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     public DbSet<FilaDeRecongelamiento> RecongelamientosDePeaje => Set<FilaDeRecongelamiento>();
     public DbSet<FilaDeRespaldoDePlaca> RespaldosDePlaca => Set<FilaDeRespaldoDePlaca>();
     public DbSet<FilaDeConstatacion> ConstatacionesDeRotulacion => Set<FilaDeConstatacion>();
+    public DbSet<FilaDeActaDeCustodia> ActasDeCustodia => Set<FilaDeActaDeCustodia>();
     public DbSet<FilaDeCambioDeEstado> CambiosDeEstado => Set<FilaDeCambioDeEstado>();
     public DbSet<FilaDeFondo> Fondos => Set<FilaDeFondo>();
     public DbSet<FilaDeAsignacion> AsignacionesDeCombustible => Set<FilaDeAsignacion>();
@@ -1785,6 +1786,46 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             // La bandeja de firma de PT-021 pregunta por estado, y es la consulta que la
             // maxima autoridad abre en el celular: tiene que responder sin recorrer la tabla.
             permiso.HasIndex(p => p.Estado);
+        });
+
+        modelo.Entity<FilaDeActaDeCustodia>(acta =>
+        {
+            acta.ToTable("ActaDeCustodia", schema: "flota");
+
+            acta.HasKey(a => a.Id);
+            acta.Property(a => a.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            acta.Property(a => a.MisionId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            acta.Property(a => a.VehiculoId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+
+            acta.Property(a => a.Tipo).HasConversion<string>().HasMaxLength(16);
+            acta.Property(a => a.Entrega).HasMaxLength(64).IsRequired();
+            acta.Property(a => a.Recibe).HasMaxLength(64).IsRequired();
+            acta.Property(a => a.EstadoDeLaUnidad).HasMaxLength(600).IsRequired();
+            acta.Property(a => a.Observaciones).HasMaxLength(600);
+
+            // Nulo es «no se leyo», no cero: cero es un tanque vacio.
+            acta.Property(a => a.NivelDeTanque).HasColumnType("decimal(4,2)");
+
+            // **Una de cada clase por mision.** Dos entregas dejarian dos inventarios distintos
+            // del mismo vehiculo, y el cotejo del retorno no sabria contra cual correr.
+            acta.HasIndex(a => new { a.MisionId, a.Tipo }).IsUnique();
+
+            acta.HasMany(a => a.Elementos)
+                .WithOne()
+                .HasForeignKey(e => e.ActaId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelo.Entity<FilaDeElementoDelActa>(elemento =>
+        {
+            elemento.ToTable("ElementoDelActa", schema: "flota");
+
+            elemento.HasKey(e => e.Id);
+            elemento.Property(e => e.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            elemento.Property(e => e.ActaId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+
+            elemento.Property(e => e.Nombre).HasMaxLength(120).IsRequired();
+            elemento.Property(e => e.Observacion).HasMaxLength(300);
         });
 
         modelo.Entity<FilaDeConstatacion>(constatacion =>

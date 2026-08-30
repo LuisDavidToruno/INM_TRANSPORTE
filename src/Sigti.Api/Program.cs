@@ -74,6 +74,7 @@ constructor.Services.AddScoped<EfectosDeLaSustitucion>();
 constructor.Services.AddScoped<ServicioDeRespaldoDePlaca>();
 constructor.Services.AddScoped<ServicioDeRotulacion>();
 constructor.Services.AddScoped<PaqueteDeIdentificacion>();
+constructor.Services.AddScoped<ServicioDeActasDeCustodia>();
 constructor.Services.AddScoped<ServicioDeSalvoconductos>();
 constructor.Services.AddScoped<ConsultaDelDiaDeDespacho>();
 constructor.Services.AddScoped<ConsultaDeOdometro>();
@@ -2642,6 +2643,115 @@ misiones.MapGet("/{id}/paquete-de-identificacion", async (
         },
     });
 });
+
+
+// ── RN-22 — el traslado temporal de custodia al motorista ────────────────────
+//
+// `BD-13` ya impedia despachar un vehiculo sin custodio vigente. Lo que no existia era el
+// TRASLADO: el acto por el cual ese custodio le entrega la unidad al motorista y se la vuelve a
+// recibir, con odometro, nivel, accesorios, estado y constancia.
+//
+// Sin el, el sistema sabia DE QUIEN ES el vehiculo y no QUIEN LO TENIA — y la segunda es la que
+// hace falta cuando falta un gato o aparece un golpe.
+
+/// Registrar el acta. **La devolucion exige que exista la entrega**: sin ella no hay contra que
+/// comparar, y comparar es lo unico para lo que el acta sirve.
+misiones.MapPost("/{id}/acta-de-custodia", async (
+    string id, RegistrarActaDeCustodia peticion, ServicioDeActasDeCustodia servicio) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+    if (!Identificador.Valido(peticion.IdVehiculo, out var vehiculo, out var errorV)) return errorV;
+
+    if (!Enum.TryParse<TipoDeActa>(peticion.Tipo, ignoreCase: true, out var tipo))
+    {
+        return Results.BadRequest(new
+        {
+            mensaje = $"«{peticion.Tipo}» no es un tipo de acta.",
+            valores = Enum.GetNames<TipoDeActa>(),
+        });
+    }
+
+    var nuevo = await servicio.RegistrarAsync(ulid, vehiculo, new ActaDeCustodia(
+        tipo,
+        new IdPersona(peticion.Entrega),
+        new IdPersona(peticion.Recibe),
+        peticion.Momento,
+        peticion.Odometro,
+        peticion.NivelDeTanque,
+        peticion.EstadoDeLaUnidad,
+        [
+            .. (peticion.Elementos ?? []).Select(e =>
+                new ElementoDeLaUnidad(e.Nombre, e.Presente, e.Observacion)),
+        ],
+        peticion.Observaciones));
+
+    return Results.Created($"/misiones/{id}/acta-de-custodia/{nuevo}", new { id = nuevo.ToString() });
+});
+
+/// Las actas de la mision **con el cotejo**, que es el producto: dos listas por separado no las
+/// lee nadie, y el gato que no volvio se ve al restarlas.
+misiones.MapGet("/{id}/acta-de-custodia", async (
+    string id, ServicioDeActasDeCustodia servicio) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    var c = await servicio.DeLaMisionAsync(ulid);
+
+    return Results.Ok(new
+    {
+        entrega = ResumirCustodia(c.Entrega),
+        devolucion = ResumirCustodia(c.Devolucion),
+
+        // ⚠️ **Nulo mientras falte una de las dos actas.** No es un cotejo sin hallazgos: es
+        // que no hay nada que restar todavia, y las dos cosas se leen distinto.
+        cotejo = c.Cotejo is null ? null : new
+        {
+            // El hallazgo, CON NOMBRE: «faltan 2 elementos» no le sirve a nadie que tenga que
+            // deducir responsabilidad.
+            noVolvieron = c.Cotejo.NoVolvieron,
+
+            // Lo que aparece sin constar en la entrega. **No es un hallazgo**: suele ser algo
+            // que se olvido anotar al salir, y a veces algo que el motorista repuso.
+            noSeEntregaron = c.Cotejo.NoSeEntregaron,
+
+            // **Nulo si el odometro retrocedio.** No es cero: es que se reinicio, se sustituyo
+            // o alguien tecleo mal, y las tres exigen mirarlo.
+            kilometrosRecorridos = c.Cotejo.KilometrosRecorridos,
+
+            diferenciaDeTanque = c.Cotejo.DiferenciaDeTanque,
+            veredicto = c.Cotejo.Veredicto,
+        },
+    });
+});
+
+/// El acta de custodia, resumida. Se llama distinto de `ResumirActa` porque esa es la del
+/// cierre de ejercicio: dos actas de dos modulos, y nombrarlas igual invita a confundirlas.
+static object? ResumirCustodia(ActaDeCustodia? a) => a is null ? null : new
+{
+    entrega = a.Entrega.Valor,
+    recibe = a.Recibe.Valor,
+    momento = a.Momento,
+    odometro = a.Odometro,
+
+    // Nulo es «no se leyo», no cero: cero es un tanque vacio.
+    nivelDeTanque = a.NivelDeTanque,
+
+    // Lo que despues distingue un golpe que ya venia de uno que ocurrio en la mision.
+    estadoDeLaUnidad = a.EstadoDeLaUnidad,
+
+    observaciones = a.Observaciones,
+
+    elementos = a.Elementos.Select(e => new
+    {
+        nombre = e.Nombre,
+
+        // Falso NO es «no se miro»: un elemento ausente de la LISTA nunca se miro, y este
+        // dice que se miro y no esta.
+        presente = e.Presente,
+
+        observacion = e.Observacion,
+    }),
+};
 
 var auditoria = app.MapGroup("/auditoria");
 
@@ -6334,6 +6444,11 @@ void ConAsignacion(
                     combustibleDelVehiculo = v.CombustibleDelVehiculo,
                     estado = v.Estado,
                 }),
+
+                // RN-22 — el acta de entrega describe OTRO vehiculo. **No se anula sola**: es la
+                // constancia de un acto que ocurrio, y borrarla haria desaparecer el unico
+                // registro de quien tuvo la unidad anterior.
+                custodia = efectos.Custodia,
             },
         });
     });
@@ -6476,6 +6591,26 @@ internal sealed record EjecutarTransicion(string Ejecuta, DateTimeOffset Momento
 /// **La justificacion no es opcional.** Es lo unico que la maxima autoridad tiene para decidir:
 /// sin ella la pantalla de firma muestra un vehiculo, un destino y unas fechas, y firmar se
 /// vuelve un tramite — se aprueba lo que aparece porque no hay nada que juzgar.
+/// `RN-22` — un acta de entrega-recepcion del vehiculo.
+internal sealed record RegistrarActaDeCustodia(
+    string Tipo,
+    string IdVehiculo,
+    string Entrega,
+    string Recibe,
+    int Odometro,
+
+    /// **Nulo es «no se leyo»**, no cero: cero es un tanque vacio.
+    decimal? NivelDeTanque,
+
+    string EstadoDeLaUnidad,
+    IReadOnlyList<ElementoDelActa>? Elementos,
+    string? Observaciones,
+    DateTimeOffset Momento);
+
+/// Un accesorio o herramienta del acta. **Ausente de la lista no es lo mismo que `Presente`
+/// falso**: uno nunca se miro y el otro se miro y no esta.
+internal sealed record ElementoDelActa(string Nombre, bool Presente, string? Observacion);
+
 /// `RN-18` — una constatacion de un elemento de identificacion.
 ///
 /// **La fotografia es obligatoria.** Sin ella lo unico que queda registrado es que alguien dijo

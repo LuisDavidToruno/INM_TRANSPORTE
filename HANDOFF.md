@@ -414,6 +414,68 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## `RN-22` — el acta que contesta «¿quién lo tenía, y con qué?»
+
+**1341 pruebas en verde.**
+
+### Lo que faltaba
+
+`BD-13` ya impedía despachar un vehículo sin custodio vigente. Lo que no existía era el
+**traslado**: el acto por el cual ese custodio le entrega la unidad al motorista y se la vuelve
+a recibir, con odómetro, nivel, accesorios, estado y constancia.
+
+El sistema sabía **de quién es** el vehículo y no **quién lo tenía** — y la segunda es la que
+hace falta cuando falta un gato o aparece un golpe. Sin cadena de custodia, *«la deducción de
+responsabilidad no tiene sobre quién recaer»*, y ante el TSC eso **agrava en vez de atenuar**.
+
+### El cotejo es el producto
+
+Un acta de entrega con cinco elementos y una devolución con cuatro son, por separado, **dos
+listas que nadie lee**. Al restarlas, el gato que no volvió tiene nombre, fecha y dos personas.
+
+Cuatro decisiones que salen de ahí:
+
+- **Ausente de la lista no es lo mismo que marcado ausente.** El gato que nadie anotó y el que
+  no volvió son dos situaciones distintas.
+- **El cotejo no se confunde por mayúsculas.** Quien llena el acta del retorno escribe «Gato
+  Hidráulico» donde la de salida decía «gato hidráulico», y un cotejo sensible produciría **un
+  faltante y un agregado inventados** — dos hallazgos falsos de una diferencia de caja.
+- **Lo que aparece sin constar en la entrega se dice sin acusar**: suele ser algo que se olvidó
+  anotar al salir, y a veces algo que el motorista repuso de su bolsillo.
+- **Un odómetro que retrocede no son cero kilómetros.** Se reinició, se sustituyó, o alguien
+  tecleó mal, y las tres exigen mirarlo. Devolver cero enterraría el problema dentro de un
+  número que parece normal.
+
+Y sin las dos actas **no hay cotejo**: nulo, no un cotejo vacío. Uno vacío se leería como «no
+faltó nada», que es una afirmación que nadie hizo.
+
+### ⚠️ `HB61-01` — el noveno efecto de `RN-61` es inalcanzable
+
+Al engancharlo apareció la contradicción. `RN-61` dice *«toda sustitución sobre una Orden de
+Misión ya `PROGRAMADA` **o posterior**»*, y `§10.2` sólo admite `T-10` de `PROGRAMADA` a
+`PROGRAMADA`: después de despachar no hay transición de reasignación.
+
+**El acta de entrega se levanta al despachar**, que es después del único punto donde `T-10`
+existe. Un acta y una reasignación **no pueden coexistir**, así que el efecto sobre la custodia
+**no puede dispararse nunca**.
+
+La comprobación queda escrita —es correcta si el acta existiera por cualquier vía, y el día que
+`§10.2` admita el relevo en ruta ya está—, pero **está declarada como inalcanzable**: en el
+código, en la prueba y en la regla. La autoridad sobre transiciones es la máquina de estados, y
+es `RN-61` la que dice de más. **No se resolvió en silencio.**
+
+### Los nueve efectos de `RN-61`, al cierre
+
+| | |
+|---|---|
+| Estimado de peajes, salvoconducto, vales de combustible | ✅ |
+| Habilitación, compatibilidad, documentación, estado operativo | ✅ ya los revalida `T-10` |
+| Rendimiento esperado | ✅ no hacía falta: se resuelve por vehículo a la fecha del hecho |
+| Paquete de identificación | ✅ `PT-139` |
+| **Custodia** | ⚠️ escrito y **inalcanzable** — `HB61-01` |
+
+---
+
 ## `RN-18` y el paquete que el inventario no tenía
 
 **1328 pruebas en verde.** Iba a cerrar `RN-65` con su documento impreso y no se podía armar

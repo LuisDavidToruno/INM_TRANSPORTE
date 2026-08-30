@@ -218,7 +218,7 @@ export const reasignar = async (
   //
   // Se devuelve en vez de descartarse porque **quien reasigna se iría creyendo que cambiar un
   // vehículo es cambiar un vehículo**, y descubriría el sábado que la misión no puede salir.
-  return r.arrastre ?? { peaje: null, permisoReemitido: null, vales: [] };
+  return r.arrastre ?? { peaje: null, permisoReemitido: null, vales: [], custodia: null };
 };
 
 /** Lo que `RN-61` arrastró al sustituir el vehículo. */
@@ -239,6 +239,13 @@ export interface Arrastre {
    * ⚠️ El permiso nuevo **nace sin firma** y el salvoconducto anterior quedó anulado.
    */
   permisoReemitido: string | null;
+
+  /**
+   * Por qué el acta de entrega de custodia dejó de describir al vehículo.
+   *
+   * ⚠️ **El acta no se anula sola**: es la constancia de un acto que ocurrió.
+   */
+  custodia: string | null;
 
   /** Los vales cuyo combustible ya no es el del vehículo entrante. **Se reportan, no se anulan.** */
   vales: {

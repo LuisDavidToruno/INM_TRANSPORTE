@@ -976,6 +976,21 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         // ── Lo que la respuesta tiene que decir ─────────────────────────────
         var arrastre = cuerpo.GetProperty("arrastre");
 
+        // ⚠️ **La custodia viene nula, y eso es correcto — con una contradicción detrás.**
+        //
+        // `RN-61` dice «toda sustitución sobre una Orden de Misión ya PROGRAMADA **o
+        // posterior**», y §10.2 sólo permite `T-10` de PROGRAMADA a PROGRAMADA. El acta de
+        // entrega de custodia se levanta al **despachar**, que es después.
+        //
+        // Resultado: bajo la máquina de estados vigente, un acta de entrega y una reasignación
+        // **no pueden coexistir**, y el efecto sobre la custodia nunca se dispara. La
+        // comprobación queda porque es correcta si el acta existe por cualquier vía —y porque
+        // el día que §10.2 admita el relevo en ruta, ya está—, pero **hoy es inalcanzable**.
+        //
+        // Hallazgo levantado en HANDOFF: la autoridad sobre transiciones es la máquina de
+        // estados, y es `RN-61` la que dice de más.
+        Assert.Equal(JsonValueKind.Null, arrastre.GetProperty("custodia").ValueKind);
+
         // El permiso se reemitió: **es la consecuencia que hay que saber antes de irse**.
         Assert.False(
             arrastre.GetProperty("permisoReemitido").ValueKind == JsonValueKind.Null,
@@ -998,6 +1013,134 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
 
         Assert.Null(vigente.GetProperty("firmadoPor").GetString());
         Assert.False(vigente.GetProperty("ampara").GetBoolean());
+    }
+
+    /// <summary>
+    /// `RN-22` — el <b>traslado temporal de custodia</b>, de punta a punta.
+    ///
+    /// ── La pregunta que esto contesta ───────────────────────────────────────
+    /// <i>«¿Quién tenía el vehículo en ese momento, y con qué?»</i> Aparece cuando algo falta.
+    /// `BD-13` ya sabía <b>de quién es</b> el vehículo; lo que no existía era <b>quién lo
+    /// tenía</b>, y esa es la que hace falta cuando no vuelve el gato.
+    ///
+    /// El cotejo es el producto: dos listas por separado no las lee nadie.
+    /// </summary>
+    [Fact]
+    public async Task El_gato_que_no_volvio_queda_con_nombre_fecha_y_dos_personas()
+    {
+        var r = await Sembrar("ACTA-0001");
+        var id = Ulid.NewUlid().ToString();
+
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        await CrearYAprobar(cliente, id);
+        await Programar(cliente, id, r);
+
+        // ── La entrega, al despachar ─────────────────────────────────────────
+        var entrega = await cliente.PostAsJsonAsync($"/misiones/{id}/acta-de-custodia", new
+        {
+            Tipo = "Entrega",
+            IdVehiculo = r.Vehiculo,
+            Entrega = "P-CUSTODIO",
+            Recibe = r.Conductor,
+            Odometro = 84_580,
+            NivelDeTanque = 1.0m,
+            EstadoDeLaUnidad = "Carrocería sin golpes. Llanta delantera con desgaste.",
+            Elementos = new[]
+            {
+                new { Nombre = "Gato hidráulico", Presente = true, Observacion = (string?)null },
+                new { Nombre = "Llave de ruedas", Presente = true, Observacion = (string?)null },
+                new { Nombre = "Extintor", Presente = true, Observacion = (string?)null },
+            },
+            Observaciones = (string?)null,
+            Momento,
+        });
+
+        Assert.Equal(System.Net.HttpStatusCode.Created, entrega.StatusCode);
+
+        // ── ⚠️ Mientras falte la devolución, NO hay cotejo ───────────────────
+        //
+        // Y eso no es «no faltó nada»: es que no hay nada que restar todavía. Devolver un
+        // cotejo vacío se leería como una afirmación que nadie hizo.
+        var aMedias = await cliente.GetFromJsonAsync<JsonElement>($"/misiones/{id}/acta-de-custodia");
+        Assert.Equal(JsonValueKind.Null, aMedias.GetProperty("cotejo").ValueKind);
+
+        // ── La devolución, sin el gato ───────────────────────────────────────
+        var devolucion = await cliente.PostAsJsonAsync($"/misiones/{id}/acta-de-custodia", new
+        {
+            Tipo = "Devolucion",
+            IdVehiculo = r.Vehiculo,
+            Entrega = r.Conductor,
+            Recibe = "P-CUSTODIO",
+            Odometro = 85_000,
+            NivelDeTanque = 0.25m,
+            EstadoDeLaUnidad = "Sin novedad.",
+            Elementos = new[]
+            {
+                new { Nombre = "Llave de ruedas", Presente = true, Observacion = (string?)null },
+                new { Nombre = "Extintor", Presente = true, Observacion = (string?)null },
+            },
+            Observaciones = (string?)null,
+            Momento,
+        });
+
+        Assert.Equal(System.Net.HttpStatusCode.Created, devolucion.StatusCode);
+
+        // ── El cotejo ────────────────────────────────────────────────────────
+        var custodia = await cliente.GetFromJsonAsync<JsonElement>($"/misiones/{id}/acta-de-custodia");
+        var cotejo = custodia.GetProperty("cotejo");
+
+        var noVolvieron = cotejo.GetProperty("noVolvieron").EnumerateArray()
+            .Select(x => x.GetString()).ToList();
+
+        Assert.Contains("Gato hidráulico", noVolvieron);
+        Assert.Equal(420, cotejo.GetProperty("kilometrosRecorridos").GetInt32());
+
+        // El veredicto **nombra el elemento y dice sobre quién recae**: «faltan 2 elementos» no
+        // le sirve a nadie que tenga que deducir responsabilidad.
+        var veredicto = cotejo.GetProperty("veredicto").GetString()!;
+        Assert.Contains("Gato hidráulico", veredicto);
+        Assert.Contains("RN-22", veredicto);
+
+        // Y las dos personas quedan: quién entregó y quién recibió, en cada extremo.
+        Assert.Equal("P-CUSTODIO", custodia.GetProperty("entrega").GetProperty("entrega").GetString());
+        Assert.Equal(r.Conductor, custodia.GetProperty("entrega").GetProperty("recibe").GetString());
+        Assert.Equal(r.Conductor, custodia.GetProperty("devolucion").GetProperty("entrega").GetString());
+    }
+
+    /// <summary>
+    /// Una devolución sin entrega <b>no se registra</b>: no tiene contra qué compararse, y
+    /// comparar es lo único para lo que el acta sirve.
+    /// </summary>
+    [Fact]
+    public async Task No_se_registra_una_devolucion_sin_entrega()
+    {
+        var r = await Sembrar("ACTA-0002");
+        var id = Ulid.NewUlid().ToString();
+
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        await CrearYAprobar(cliente, id);
+        await Programar(cliente, id, r);
+
+        var respuesta = await cliente.PostAsJsonAsync($"/misiones/{id}/acta-de-custodia", new
+        {
+            Tipo = "Devolucion",
+            IdVehiculo = r.Vehiculo,
+            Entrega = r.Conductor,
+            Recibe = "P-CUSTODIO",
+            Odometro = 85_000,
+            NivelDeTanque = (decimal?)null,
+            EstadoDeLaUnidad = "Sin novedad.",
+            Elementos = Array.Empty<object>(),
+            Observaciones = (string?)null,
+            Momento,
+        });
+
+        Assert.Equal(System.Net.HttpStatusCode.Conflict, respuesta.StatusCode);
+        Assert.Contains("nadie puede decir qué faltó", await respuesta.Content.ReadAsStringAsync());
     }
 
     /// <summary>Del viernes 20 al domingo 22 de marzo de 2026 — cruza el fin de semana.</summary>
