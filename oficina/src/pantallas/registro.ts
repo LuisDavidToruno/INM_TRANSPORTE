@@ -193,6 +193,10 @@ export const CONSTRUIDAS: Readonly<Record<string, Construida>> = {
   },
   'PT-010': { ruta: '/autorizacion/:id', archivo: 'M06_Solicitudes/TramosInhabiles.tsx' },
 
+  // ── M-16 Sincronización ───────────────────────────────────────────────────
+  'PT-053': { ruta: '/conflictos', archivo: 'M16_Sincronizacion/Conflictos.tsx' },
+  'PT-054': { ruta: '/conflictos', archivo: 'M16_Sincronizacion/Conflictos.tsx' },
+
   // ── M-19 Seguimiento en Ruta ──────────────────────────────────────────────
   //
   // Sin cliente de campo todavía: los reportes entran por la API. Las dos pantallas ya

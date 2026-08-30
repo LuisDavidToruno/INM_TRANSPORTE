@@ -414,6 +414,69 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## M-16 — la cola de conflictos (`PT-053`, `PT-054`)
+
+El mapa la llama *«la pantalla más difícil del sistema y la que nadie diseña hasta que ya
+duele»*. No existía nada de M-16 en pantalla.
+
+### ⚠️ El hecho capturado en campo se perdía
+
+La sincronización **ya detectaba** las divergencias y las devolvía como rechazos con motivo
+legible. El comentario de `HechoRechazado` decía, textual: *«el motivo tiene que ser legible:
+alguien va a leerlo en una cola de conflictos»*. Y el `catch` prometía que el hecho *«queda
+declarado para que alguien lo resuelva, en vez de desaparecer sin rastro»*.
+
+**La cola no existía.** El rechazo viajaba en la respuesta HTTP y desaparecía en cuanto el
+dispositivo la procesaba — así que el hecho **sí desaparecía sin rastro**, que es exactamente
+lo que `RN-45` existe para impedir: *«ambas versiones deben conservarse»*.
+
+Es la tercera vez en cuatro bloques que aparece la misma forma: **algo escrito, correcto, y
+sin el otro extremo conectado.** El alcance de datos que no filtraba, `ExigirIntacto` que
+nadie llamaba, y ahora un rechazo sin cola donde caer.
+
+### El caso que define el diseño
+
+> *«El motorista anotó odómetro 93,610 el 16 de mayo con foto del tablero; la delegación
+> digitó 93,061 el 28 de mayo con foto del original. **Los dos son de buena fe. Uno de los dos
+> está mal, y la diferencia son 549 kilómetros** que van a entrar en una conciliación de
+> combustible.»*
+
+Por eso ninguna resolución automática es aceptable, y por eso la pantalla muestra **tres datos
+por versión**: quién la capturó, cuándo ocurrió el hecho y cuándo se registró. La distancia
+entre los dos últimos es *«exactamente lo que permite decidir»* — una versión anotada en el
+momento pesa distinto que una digitada del papel doce días después. En la prueba en vivo esa
+distancia salió de tres meses.
+
+### Las cuatro cosas que la pantalla se niega a hacer
+
+| | Por qué |
+|---|---|
+| **No edita** | `R-6`. Y el usuario **va a buscar ese botón**: está puesto, y al pulsarlo contesta *«no se edita un registro; elija entre las versiones que existen»*. Omitirlo no evita que lo busque, sólo que lo busque más tiempo |
+| **No combina** | Dos versiones que difieren en campos distintos son **dos conflictos**. Fusionarlas produciría un registro que nadie capturó |
+| **No resuelve sola** | Lo que diverge son odómetros, galones y montos |
+| **No habla de datos** | Ni *merge*, ni *timestamp*, ni *hash divergente*. Criterio de aceptación literal de `HU-068`, con prueba que lo verifica: quien la usa «no entiende de sincronización y no tiene por qué» |
+
+### El lote, y lo que nunca entra en él
+
+Resolver mil conflictos uno por uno no lo hace nadie; hacerlo sin declarar el criterio es
+**sobrescritura con más pasos**. Así que el lote existe, exige criterio escrito, y **excluye
+siempre odómetro, monto y autorización** — los tres que terminan en una conciliación contable.
+
+La respuesta los **enumera siempre**, aunque estén vacíos: un lote que dice haber resuelto
+«todo» sin mencionarlos hace creer que la cola quedó limpia, y los que frenan liquidaciones
+siguen ahí sin que nadie los mire.
+
+**1145 pruebas en verde** (29 nuevas). Verificado de punta a punta contra la base: un retorno
+de campo rechazado **entró a la cola** en vez de perderse, se mostró lado a lado, el motivo de
+tres letras se rechazó, la resolución quedó con autor y motivo, y **resolverlo dos veces se
+bloqueó** — porque la segunda decisión pisaría a la primera sin dejar rastro, que es la misma
+sobrescritura silenciosa cometida desde la propia cola.
+
+`PT-052` y `PT-055` tienen su API (`/conflictos/por-dispositivo` y `/conflictos/lote`) y
+**todavía no tienen pantalla**. `PT-056` y `PT-057` no se tocaron.
+
+---
+
 ## `PT-009` y `PT-010` — lo que la jefatura necesita ver antes de firmar
 
 Las dos van **dentro del expediente en decisión**, no en pantallas aparte. El mapa de

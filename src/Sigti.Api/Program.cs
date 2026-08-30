@@ -27,6 +27,7 @@ using Sigti.Dominio.M18_Peajes;
 using Sigti.Dominio.Reglas;
 using Sigti.Aplicacion.M06_Solicitudes;
 using Sigti.Dominio.M06_Solicitudes;
+using Sigti.Dominio.M16_Sincronizacion;
 using Sigti.Aplicacion.M19_Seguimiento;
 using Sigti.Dominio.M19_Seguimiento;
 using Sigti.Dominio.M01_Organizacion;
@@ -88,6 +89,7 @@ constructor.Services.AddScoped<ServicioDeSeguimiento>();
 constructor.Services.AddScoped<ServicioDelPuesto>();
 constructor.Services.AddScoped<ServicioDeFolios>();
 constructor.Services.AddScoped<ConsultaDeLaSolicitud>();
+constructor.Services.AddScoped<ServicioDeConflictos>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -1377,6 +1379,136 @@ misiones.MapGet("/{id}/peajes", async (string id, ConsultaDeLaSolicitud consulta
         }),
     });
 });
+
+
+// ═══ M-16 · La cola de conflictos ═══════════════════════════════════════════
+//
+// **Lenguaje del negocio, cero lenguaje de datos.** `HU-068` lo pone como criterio de
+// aceptacion literal: quien usa esta cola es el Jefe de Transporte, que «no entiende de
+// sincronizacion y no tiene por que». Nada de lo que sale de aca dice *merge*, *timestamp*,
+// *version* ni *hash divergente*.
+var conflictos = app.MapGroup("/conflictos");
+
+/// `PT-053` — la cola, ordenada por impacto y despues por antiguedad.
+conflictos.MapGet("/", async (
+    ServicioDeConflictos servicio, string? expediente, bool? resueltos) =>
+{
+    Ulid? deQuien = null;
+
+    if (expediente is not null)
+    {
+        if (!Identificador.Valido(expediente, out var ulid, out var error)) return error;
+        deQuien = ulid;
+    }
+
+    var cola = await servicio.ColaAsync(deQuien, soloPendientes: resueltos != true);
+    var ahora = DateTimeOffset.UtcNow;
+
+    return Results.Ok(new
+    {
+        // Lo que la pantalla contesta a quien busca el boton de editar. Va a buscarlo: `R-6`
+        // dice que ninguna pantalla edita un hecho pasado, y eso es lo que la hace dificil.
+        porQueNoSeEdita = ReglasDelConflicto.PorQueNoSeEdita,
+        porQueNoSeCombina = ReglasDelConflicto.PorQueNoSeCombina,
+
+        conflictos = cola.Select(c => new
+        {
+            id = c.Id.ToString(),
+            expediente = c.Expediente.ToString(),
+            transicion = c.Transicion,
+            campo = c.Campo,
+
+            // Decide el orden y si el lote lo puede tocar.
+            impacto = c.Impacto.ToString(),
+            diasEsperando = c.DiasEsperando(ahora),
+            estado = c.Estado.ToString(),
+
+            // Las DOS versiones completas, cada una con sus tres datos: quien la capturo,
+            // cuando ocurrio el hecho y cuando se registro. La distincion entre los dos
+            // ultimos es «exactamente lo que permite decidir».
+            delServidor = Version(c.DelServidor),
+            deCampo = Version(c.DeCampo),
+
+            resolucion = c.Resolucion is { } r
+                ? new
+                {
+                    seTomo = r.SeTomo.ToString(),
+                    motivo = r.Motivo,
+                    resuelve = r.Resuelve.Valor,
+                    momento = r.Momento,
+                    // Nulo es «se resolvio una por una», no «sin criterio».
+                    criterio = r.Criterio,
+                }
+                : null,
+        }),
+    });
+});
+
+/// `PT-054` — resolver uno: **elegir cual version describe lo que paso**.
+///
+/// La pregunta no es cual «gana». Y la version descartada **queda integra y consultable**,
+/// vinculada a la decision que la descarto.
+conflictos.MapPost("/{id}/resolver", async (
+    string id, ResolverConflicto peticion, ServicioDeConflictos servicio) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    if (!Enum.TryParse<OrigenElegido>(peticion.SeToma, ignoreCase: true, out var origen))
+        return Results.BadRequest(new
+        {
+            mensaje = "Diga cual version se toma: «Servidor» o «Campo».",
+        });
+
+    await servicio.ResolverAsync(
+        ulid, origen, peticion.Motivo, new IdPersona(peticion.Resuelve), peticion.Momento);
+
+    return Results.Ok(new { id, estado = "Resuelto" });
+});
+
+/// `PT-055` — resolucion por lote **con criterio declarado**.
+///
+/// El lote excluye SIEMPRE odometro, monto y autorizacion, y la respuesta los enumera: un lote
+/// que dice haber resuelto «todo» sin mencionarlos hace creer que la cola quedo vacia.
+conflictos.MapPost("/lote", async (ResolverLote peticion, ServicioDeConflictos servicio) =>
+{
+    if (!Identificador.Valido(peticion.Expediente, out var ulid, out var error)) return error;
+
+    if (!Enum.TryParse<OrigenElegido>(peticion.SeToma, ignoreCase: true, out var origen))
+        return Results.BadRequest(new { mensaje = "Diga cual version se toma." });
+
+    var r = await servicio.ResolverLoteAsync(
+        ulid, origen, peticion.Criterio, new IdPersona(peticion.Resuelve), peticion.Momento);
+
+    return Results.Ok(new
+    {
+        resueltos = r.Resueltos,
+
+        // Se enumeran SIEMPRE, aunque esten vacios: «3 conflictos de alto impacto quedan fuera
+        // del lote y se resuelven uno por uno».
+        fueraDelLote = r.FueraDelLote.Select(c => new
+        {
+            id = c.Id.ToString(),
+            campo = c.Campo,
+            porQue = "Odometro, monto y autorizacion no entran en un lote: son los que " +
+                     "terminan en una conciliacion contable.",
+        }),
+    });
+});
+
+/// `PT-052` — el panel por dispositivo. `RN-45` punto 6.
+///
+/// «Un dispositivo que genera conflictos con frecuencia es un problema a corregir, no un hecho
+/// a tolerar.»
+conflictos.MapGet("/por-dispositivo", async (ServicioDeConflictos servicio) =>
+    Results.Ok((await servicio.PorDispositivoAsync()).Select(d => new
+    {
+        // Nulo es «el hecho no dijo de que equipo vino»: dato faltante del cliente, no un
+        // dispositivo llamado «desconocido».
+        dispositivo = d.Dispositivo,
+        total = d.Total,
+        pendientes = d.Pendientes,
+        deAltoImpacto = d.DeAltoImpacto,
+    })));
 
 var auditoria = app.MapGroup("/auditoria");
 
@@ -4908,6 +5040,22 @@ void Transicion(string ruta, Action<OrdenDeMision, IdPersona, DateTimeOffset> ap
         return Results.Ok(new { id, estado = estado.ToString() });
     });
 
+/// Una version en conflicto, con los TRES datos que permiten decidir: quien la capturo, cuando
+/// ocurrio el hecho, y cuando se registro. Los dos ultimos son distintos, y esa distincion es la
+/// que resuelve el caso: una version anotada en el momento pesa distinto que una digitada del
+/// papel doce dias despues.
+static object Version(VersionEnConflicto v) => new
+{
+    valor = v.Valor,
+    capturadaPor = v.CapturadaPor.Valor,
+    ocurrioEl = v.OcurrioEl,
+    registradoEl = v.RegistradoEl,
+    dispositivo = v.Dispositivo,
+    // Las dos fotos se ven al mismo tiempo, no detras de un clic: la del tablero contra la del
+    // original es, en la practica, lo que resuelve el conflicto.
+    foto = v.Foto?.ToString(),
+};
+
 /// Aplana el camino de salida de `R-3` para el 409. <b>Nulo cuando no hay camino documentado</b>,
 /// y la pantalla lo dice en vez de inventar una instruccion.
 static object? Salida(CaminoDeSalida? c) =>
@@ -5772,3 +5920,11 @@ public sealed record AsignarRango(
     DateOnly AsignadoEl,
     /// <summary>Nulo es toda la delegacion. Con dos equipos hace falta un subrango a cada uno.</summary>
     string? Dispositivo = null);
+
+/// Cual version describe lo que paso. **No cual «gana».**
+public sealed record ResolverConflicto(
+    string SeToma, string Motivo, string Resuelve, DateTimeOffset Momento);
+
+/// El lote, con su criterio declarado — sin el es sobrescritura con mas pasos.
+public sealed record ResolverLote(
+    string Expediente, string SeToma, string Criterio, string Resuelve, DateTimeOffset Momento);

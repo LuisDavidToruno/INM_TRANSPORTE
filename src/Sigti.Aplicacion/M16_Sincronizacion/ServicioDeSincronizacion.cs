@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Sigti.Datos;
 using Sigti.Datos.M07_ProgramacionYDespacho;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
+using Sigti.Dominio.M16_Sincronizacion;
 using Sigti.Aplicacion.M08_Bitacora;
 using Sigti.Dominio.M08_Bitacora;
 using Sigti.Dominio.Organizacion;
@@ -149,7 +150,8 @@ public sealed record HechoRechazado(Ulid IdDeCaptura, string Motivo);
 /// (`campo/nucleo/Conciliacion.ts`); la cola de resolución es de `M-16` y no está
 /// construida.
 /// </summary>
-public sealed class ServicioDeSincronizacion(SigtiDbContext contexto, ConsultaDeOdometro odometros)
+public sealed class ServicioDeSincronizacion(
+    SigtiDbContext contexto, ConsultaDeOdometro odometros, ServicioDeConflictos conflictos)
 {
     private readonly ExpedientesDeMision _expedientes = new(contexto);
     private readonly CombustibleDeLaInstitucion _combustible = new(contexto);
@@ -232,10 +234,76 @@ public sealed class ServicioDeSincronizacion(SigtiDbContext contexto, ConsultaDe
                 // rechace no lo deshace: queda declarado para que alguien lo resuelva, en
                 // vez de desaparecer sin rastro.
                 rechazadas.Add(new HechoRechazado(hecho.IdDeCaptura, error.Message));
+
+                // ⚠️ **Y entra a la cola de `RN-45`.** Antes el rechazo viajaba sólo en la
+                // respuesta HTTP y desaparecía en cuanto el dispositivo la procesaba — con lo
+                // cual el hecho capturado en campo **se perdía**, que es exactamente lo que la
+                // regla existe para impedir: «ambas versiones deben conservarse».
+                await EncolarDivergenciaAsync(hecho, expediente, error.Message, cancelacion);
             }
         }
 
         return new ResultadoDeSincronizacion(aplicadas, yaConocidas, rechazadas);
+    }
+
+    /// <summary>
+    /// Arma el conflicto con <b>las dos versiones completas</b> y lo encola.
+    ///
+    /// ── Un conflicto por campo, no uno por hecho ────────────────────────────
+    /// `RN-45`: dos versiones que difieren en el odómetro y en la hora se presentan <b>campo por
+    /// campo</b>, porque «una fusión automática puede producir un registro que nadie capturó».
+    /// Hoy se encola el campo que el hecho trae y que el servidor puede contrastar.
+    ///
+    /// ⚠️ <b>Cuando no se puede desglosar por campo, se encola como `transicion`</b> y el valor
+    /// es el motivo del rechazo. Es menos útil que un campo concreto y <b>sigue siendo mejor que
+    /// perder el hecho</b>: la persona ve qué llegó, de quién y cuándo, y decide.
+    /// </summary>
+    private async Task EncolarDivergenciaAsync(
+        HechoCapturado hecho, OrdenDeMision expediente, string motivo,
+        CancellationToken cancelacion)
+    {
+        var ahora = DateTimeOffset.UtcNow;
+
+        // El campo que el hecho trae. El odómetro es el caso que `RN-45` nombra y el que
+        // termina en una conciliación de combustible.
+        //
+        // La lectura del servidor sale del DIARIO, no de una propiedad: `P-1` vale también acá,
+        // y una copia se desincroniza del asiento que la registró.
+        string campo, delServidor, deCampo;
+
+        if (hecho.Odometro is { } lectura)
+        {
+            campo = hecho.Transicion == "T-14" ? "odometroSalida" : "odometroRetorno";
+
+            // Nulo cuando el diario no tiene esa lectura todavía. Se dice así y no como cero:
+            // un cero diría que el vehículo salió con el odómetro en cero.
+            delServidor = expediente.Diario
+                .LastOrDefault(t => t.Id == hecho.Transicion)?.Odometro?.ToString()
+                ?? "sin lectura registrada";
+
+            deCampo = lectura.ToString();
+        }
+        else
+        {
+            campo = "transicion";
+            delServidor = expediente.Estado.ToString();
+            deCampo = $"{hecho.Transicion}: {motivo}";
+        }
+
+        // La versión del servidor: quién y cuándo, del último asiento del diario. Sin eso, la
+        // pantalla no puede mostrar los tres datos que permiten decidir.
+        var ultimo = expediente.Diario[^1];
+
+        await conflictos.EncolarAsync(
+            hecho.IdExpediente,
+            hecho.Transicion,
+            campo,
+            hecho.IdDeCaptura,
+            new VersionEnConflicto(
+                delServidor, ultimo.Ejecuta, ultimo.Momento, ultimo.Momento, null, null),
+            new VersionEnConflicto(
+                deCampo, new IdPersona(hecho.Ejecuta), hecho.OcurridoEn, ahora, null, null),
+            cancelacion);
     }
 
     /// <summary>

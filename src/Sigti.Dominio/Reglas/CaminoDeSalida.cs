@@ -152,6 +152,16 @@ public static class ReglasDeLaSalida
             "Quien capturó la solicitud, para corregirla y reenviarla.",
             "docs/02-requisitos/historias/HU-004-envio-a-autorizacion-con-numero-de-expediente-y-congelamiento.md"),
 
+        // ── La cola de conflictos — `RN-45` ─────────────────────────────────
+        ["RN-45"] = new("RN-45", "Dos versiones del mismo registro no coinciden",
+            "al sincronizar y al resolver la cola",
+            "Elija cuál de las dos versiones describe lo que pasó, y escriba por qué. **No se " +
+            "edita el registro y no se combinan las dos**: combinarlas produciría un registro " +
+            "que nadie capturó. Si ya se resolvió y la decisión fue equivocada, lo que " +
+            "corresponde es registrar un asiento nuevo, no volver a decidir sobre el mismo.",
+            "Jefe de Transporte o Encargado de Delegación, según de quién sea la misión.",
+            "docs/01-negocio/reglas/RN-45-cero-sobrescritura-silenciosa.md"),
+
         // ── Los folios — `RN-44`, `RNF-21` ──────────────────────────────────
         ["RN-44"] = new("RN-44", "Rango de folios solapado o agotado", "al enviar a autorización",
             "Si el rango se solapa, se corrige el que se está asignando para que no pise al " +

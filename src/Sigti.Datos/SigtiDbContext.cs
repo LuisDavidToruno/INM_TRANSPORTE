@@ -5,6 +5,7 @@ using Sigti.Datos.M09_Combustible;
 using Sigti.Datos.M03_Flota;
 using Sigti.Datos.M11_Mantenimiento;
 using Sigti.Datos.M06_Solicitudes;
+using Sigti.Datos.M16_Sincronizacion;
 using Sigti.Datos.M12_Incidentes;
 using Sigti.Datos.M14_Auditoria;
 using Sigti.Datos.M18_Peajes;
@@ -129,6 +130,11 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
 
     /// <summary>Lo que el motorista declara desde la ruta — M-19, `RN-76`.</summary>
     public DbSet<FilaDeReporteDeCampo> ReportesDeCampo => Set<FilaDeReporteDeCampo>();
+
+    /// <summary>
+    /// La cola de conflictos de sincronización — `RN-45`. <b>Ninguna versión se pierde.</b>
+    /// </summary>
+    public DbSet<FilaDeConflicto> ConflictosDeSincronizacion => Set<FilaDeConflicto>();
 
     /// <summary>Los rangos de folio pre-asignados por delegación — `RN-44`.</summary>
     public DbSet<FilaDeRango> RangosDeFolio => Set<FilaDeRango>();
@@ -1473,6 +1479,43 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             abastecimiento.HasIndex(a => a.IdDeCaptura)
                 .IsUnique()
                 .HasFilter("[IdDeCaptura] IS NOT NULL");
+        });
+
+        modelo.Entity<FilaDeConflicto>(conflicto =>
+        {
+            conflicto.ToTable("Conflicto", schema: "sincronizacion");
+
+            conflicto.HasKey(c => c.Id);
+            conflicto.Property(c => c.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            conflicto.Property(c => c.ExpedienteId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            conflicto.Property(c => c.IdDeCaptura).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            conflicto.Property(c => c.FotoDelServidor).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+            conflicto.Property(c => c.FotoDeCampo).HasConversion(UlidABinarioNulo).HasColumnType("binary(16)");
+
+            conflicto.Property(c => c.Transicion).HasMaxLength(16).IsRequired();
+            conflicto.Property(c => c.Campo).HasMaxLength(60).IsRequired();
+            conflicto.Property(c => c.ValorDelServidor).HasMaxLength(400).IsRequired();
+            conflicto.Property(c => c.ValorDeCampo).HasMaxLength(400).IsRequired();
+            conflicto.Property(c => c.CapturadaPorServidor).HasMaxLength(64).IsRequired();
+            conflicto.Property(c => c.CapturadaPorCampo).HasMaxLength(64).IsRequired();
+            conflicto.Property(c => c.DispositivoDelServidor).HasMaxLength(64);
+            conflicto.Property(c => c.DispositivoDeCampo).HasMaxLength(64);
+
+            conflicto.Property(c => c.Estado).HasConversion<string>().HasMaxLength(16).IsRequired();
+            conflicto.Property(c => c.SeTomo).HasConversion<string>().HasMaxLength(16);
+            conflicto.Property(c => c.Motivo).HasMaxLength(1000);
+            conflicto.Property(c => c.Resuelve).HasMaxLength(64);
+            conflicto.Property(c => c.CriterioDelLote).HasMaxLength(400);
+
+            // **El mismo reintento no se encola dos veces.** El dispositivo que no supo si el
+            // servidor recibio va a reenviar, y un conflicto duplicado obligaria a decidir dos
+            // veces sobre el mismo hecho. Lo impone la BASE: dos lotes en vuelo pasarian los
+            // dos un `SELECT` previo.
+            conflicto.HasIndex(c => new { c.IdDeCaptura, c.Campo }).IsUnique();
+
+            // La consulta que decide si una mision se puede liquidar (`BD-08`), y la de la
+            // cola por mision. Corre en cada intento de liquidacion.
+            conflicto.HasIndex(c => new { c.ExpedienteId, c.Estado });
         });
 
         modelo.Entity<FilaDeRango>(rango =>
