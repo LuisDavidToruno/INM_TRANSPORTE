@@ -414,6 +414,89 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## Bloque 4: el puesto vigente y su alcance (`PT-001`, `PT-002`, `PT-005`)
+
+Cierra las transversales de la sección 2.1 salvo `PT-004`. Y destapó **la brecha más grande
+que había en el sistema**.
+
+### ⚠️ El alcance de datos estaba modelado y no filtraba nada
+
+`AlcanceDeDatos` existía desde `M-01` con sus cuatro niveles, se otorgaba en cada
+competencia, se guardaba y se podía consultar. **Y no aparecía en una sola consulta de
+expedientes.** Las doce menciones del identificador en la API eran la siembra de
+competencias; ninguna filtraba.
+
+El efecto: **toda pantalla de lista mostraba los 28 expedientes a cualquier puesto**. La
+pantalla que lo destapó es `PT-005`, que en el inventario se llama, literalmente, «Buscador
+de expedientes **con alcance de datos aplicado**» — la última frase del nombre era la que
+faltaba.
+
+Medido en vivo, ya aplicado:
+
+| Puesto | Nivel | Ve | Fuera |
+|---|---|---|---|
+| Jefe de Transporte | `Institucion` | 28 | 0 |
+| Encargado de Delegación Choluteca | `Delegacion` | 9 | 19 |
+| Custodio de flota | `Propio` | 0 | 28 |
+| Jefatura Administrativa | `Dependencia` | 0 | 28 |
+
+### `ReglasDelAlcance` falla cerrado, y esa es toda la clase
+
+Cuando el alcance **no se puede resolver** —el puesto no está en el espejo de `ACT-16`, o
+tiene alcance de delegación y es de sede— devuelve **nada** y dice por qué. Nunca todo.
+
+Un control de acceso que ante la duda abre no es un control: funciona mientras nada falle, y
+lo que falla es justamente el espejo, que viene de otro sistema. **Fallar cerrado hace que
+alguien vea una lista vacía y llame; fallar abierto hace que vea los expedientes de toda la
+institución y nadie se entere.**
+
+Por eso `SePudoResolver` viaja con su `PorQueNo`: «no ve nada por permiso» y «no se pudo
+saber qué ve» se ven idénticos en pantalla —una lista vacía— y sólo uno es correcto.
+
+### ⚠️ `Rolando Discua` estaba cableado en nueve lugares
+
+Cada acción que exige actor pasaba ese nombre **escrito a mano**: autorizar, programar,
+despachar, desprogramar, anular, declarar el estado de un vehículo.
+
+El daño obvio es que nada de lo que el sistema registra decía quién lo hizo. **El que
+importa es otro: dejaba inerte toda la segregación de funciones.** `I-01` a `I-19` comparan
+al actor de un acto contra los actos previos del mismo expediente — y si el actor es siempre
+la misma constante, lo que comparan no es a nadie. Se construyó el control bloqueante
+completo en el bloque de `M-01` y desde la oficina no podía disparar correctamente.
+
+Ahora sale de `usarQuienEjecuta()`, que **lanza** si no hay puesto elegido. Devolver un valor
+por omisión sería volver al mismo problema, y un asiento con el autor equivocado no se
+corrige después: sólo se reversa.
+
+### `PT-001` no finge autenticar
+
+No hay contraseña ni verificación: elegir a otra persona no pide nada. **La pantalla lo dice
+en un aviso**, en vez de disimularlo con una caja de contraseña que no valida. Una pantalla
+que *parece* autenticar es peor que una que declara no hacerlo, porque hace creer que hay un
+control donde no lo hay.
+
+Mientras siga así, **el alcance filtra pero no protege**: el servidor recibe la persona como
+parámetro y la cree.
+
+### Lo que las pantallas declaran en vez de inventar
+
+- **El mapa de navegación no declara raíz** para `ACT-11`, `ACT-13` ni `ACT-14`.
+  `ReglasDeLaRaiz` devuelve nulo y la pantalla lo dice: elegirles una decidiría en el código
+  algo que el diseño no decidió. Se ve en vivo con `P-TRANSPORTE`, que ocupa dos puestos y
+  cuyo puesto de custodio entra sin pantalla propia.
+- **«Pendientes de mi firma» no tiene `PT-xxx`** — el mapa la describe sin darle uno, y no se
+  le inventa: los identificadores los declara el inventario y no se reciclan.
+- **Un puesto con dos competencias tiene dos raíces**, y cuál manda no se decide acá: sería
+  inventar una política de la institución y aplicarla en silencio a todos los puestos.
+
+`[C]` **Insumo #104**: el corte por objeto de §3.3 no está modelado, y lo que hay hoy es
+**más permisivo** que la regla.
+
+**1067 pruebas en verde** (29 nuevas), y el flujo recorrido en el navegador: elegir puesto,
+ver pendientes, y el mismo buscador devolviendo conjuntos distintos según el puesto.
+
+---
+
 ## Bloque 3 de las 63: el seguimiento en ruta (M-19)
 
 **`PT-058` y `PT-059`, con el módulo entero detrás**: no había `M19` en el dominio, ni

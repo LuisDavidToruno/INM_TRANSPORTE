@@ -7,6 +7,7 @@ import { Boton, Campo, Modal, Nota, Panel, Pastilla, Vacio, avisar } from '../..
 import type { Tono } from '../../ui';
 import { BloqueoDuro, pedir } from '../../api/misiones';
 import { diaYHora } from '../M06_Autorizacion/formato';
+import { usarQuienEjecuta } from '../../app/puesto';
 
 /**
  * La bandeja de tareas pendientes — <b>§5.3.B.3</b>.
@@ -187,12 +188,17 @@ function DialogoDeCierre({
   const cliente = useQueryClient();
   const [motivo, setMotivo] = useState('');
 
+  // Quien ejecuta sale del puesto vigente, no de una constante: si fuera
+  // siempre la misma persona, la segregación de `I-01` a `I-19` compararía
+  // al actor contra sí mismo y no bloquearía nunca.
+  const quienEjecuta = usarQuienEjecuta();
+
   const operacion = useMutation({
     mutationFn: (descartar: boolean) =>
       pedir(`/tareas/${tarea.id}/cerrar`, {
         method: 'POST',
         body: JSON.stringify({
-          ejecuta: 'Rolando Discua',
+          ejecuta: quienEjecuta,
           motivo,
           descartar,
           momento: new Date().toISOString(),

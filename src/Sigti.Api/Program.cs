@@ -82,6 +82,7 @@ constructor.Services.AddScoped<ServicioDeCompetencias>();
 constructor.Services.AddScoped<ServicioDeTareas>();
 constructor.Services.AddScoped<ServicioDeSegregacion>();
 constructor.Services.AddScoped<ServicioDeSeguimiento>();
+constructor.Services.AddScoped<ServicioDelPuesto>();
 constructor.Services.AddSingleton<CatalogoProvisionalDeMotivosDeRechazo>();
 // El almacén es un singleton con la raíz configurada: `ADR-004` quiere que la institución
 // pueda moverlo a otro disco sin tocar el esquema, y eso empieza por no cablear la ruta.
@@ -3330,6 +3331,168 @@ seguimiento.MapPost("/{id}/reportes", async (
         cuerpo.CausaDeEspera, cuerpo.SeAtribuyeA, cuerpo.MotorEncendido);
 
     return Results.Created($"/seguimiento/{id}", new { id = nuevo.ToString() });
+});
+
+
+// ═══ El puesto vigente y su alcance ═════════════════════════════════════════
+//
+// `R-1`: **no hay un menu unico, hay una raiz por puesto**. Y `actores-y-roles` §3: el alcance
+// de datos se otorga en la relacion puesto↔rol, no en el rol.
+//
+// ⚠️ **No hay autenticacion.** La persona se pasa como parametro y el servidor no verifica que
+// quien pide sea quien dice ser. Eso hace que el alcance sea hoy **un filtro de presentacion**,
+// no un control de acceso: cualquiera puede pedir el de otro. Se construye igual porque el
+// filtro es la parte que falta y la comprobacion de identidad es una capa aparte — pero
+// quedaria falso llamarlo control mientras no exista.
+var puestos = app.MapGroup("/puesto");
+
+/// Quienes ocupan algun puesto hoy.
+///
+/// ⚠️ **Esto sustituye a la autenticacion que no existe.** No es una lista de usuarios: es el
+/// organigrama, y por eso incluye a cualquiera que ocupe un puesto. Cuando haya autenticacion
+/// real, quien entra sale del token y este endpoint deja de tener sentido en la pantalla de
+/// ingreso — pero sigue sirviendo para el padron.
+puestos.MapGet("/personas", async (SigtiDbContext contexto, DateOnly? fecha) =>
+{
+    var alDia = fecha ?? DateOnly.FromDateTime(DateTime.UtcNow);
+
+    var filas = await contexto.AsignacionesDePuesto.AsNoTracking().ToListAsync();
+
+    return Results.Ok(filas
+        .Where(a => a.Desde <= alDia && (a.Hasta == null || a.Hasta >= alDia))
+        .GroupBy(a => a.Persona)
+        .OrderBy(g => g.Key)
+        .Select(g => new { persona = g.Key, puestos = g.Select(a => a.Puesto).Distinct() }));
+});
+
+/// `PT-001` — que puestos ocupa una persona hoy, y que le da cada uno.
+puestos.MapGet("/de/{persona}", async (
+    string persona, ServicioDelPuesto servicio, DateOnly? fecha) =>
+{
+    var alDia = fecha ?? DateOnly.FromDateTime(DateTime.UtcNow);
+    var suyos = await servicio.DeLaPersonaAsync(new IdPersona(persona), alDia);
+
+    return Results.Ok(new
+    {
+        persona = suyos.Persona,
+        fecha = suyos.Fecha,
+
+        // **Falso no es «no tiene puestos hoy»**: es «nunca tuvo ninguno». Las dos muestran
+        // una lista vacia y solo una significa que alguien escribio mal el identificador.
+        conocida = suyos.Conocida,
+
+        puestos = suyos.Puestos.Select(x => new
+        {
+            puesto = x.Puesto,
+
+            // Nulos cuando el puesto no esta en el espejo. No se sustituyen por el
+            // identificador: eso lo mostraria como si fuera el nombre que la institucion le da.
+            denominacion = x.Denominacion,
+            unidad = x.Unidad,
+            delegacion = x.Delegacion,
+            enElEspejo = x.EnElEspejo,
+
+            competencias = x.Competencias.Select(c => new
+            {
+                rol = c.Rol.ToString(),
+                alcance = c.Alcance.ToString(),
+            }),
+
+            // Puede haber mas de una, y **no se elige por el ocupante**: cual manda es
+            // politica, no codigo.
+            raices = x.Raices.Select(r => new
+            {
+                pantalla = r.Pantalla,
+                nombre = r.Nombre,
+                porQue = r.PorQue,
+            }),
+
+            // Los roles que el mapa de navegacion no cubre. Se nombran: dejan a su ocupante
+            // sin punto de entrada, y eso es una brecha del diseño que conviene ver.
+            rolesSinRaiz = x.RolesSinRaiz.Select(r => r.ToString()),
+        }),
+    });
+});
+
+/// `PT-002` — lo que le toca al puesto ahora. `R-2`: bandeja de trabajo, no tablero.
+puestos.MapGet("/{puesto}/inicio", async (
+    string puesto, string persona, ServicioDelPuesto servicio, DateOnly? fecha) =>
+{
+    var alDia = fecha ?? DateOnly.FromDateTime(DateTime.UtcNow);
+    var inicio = await servicio.InicioAsync(new IdPersona(persona), new IdPuesto(puesto), alDia);
+
+    if (inicio is null)
+        return Results.NotFound(new
+        {
+            mensaje = $"«{persona}» no ocupa el puesto {puesto} al {alDia:yyyy-MM-dd}.",
+        });
+
+    return Results.Ok(new
+    {
+        puesto = inicio.Puesto.Puesto,
+        denominacion = inicio.Puesto.Denominacion,
+        unidad = inicio.Puesto.Unidad,
+        delegacion = inicio.Puesto.Delegacion,
+
+        raices = inicio.Puesto.Raices.Select(r => new
+        {
+            pantalla = r.Pantalla, nombre = r.Nombre, porQue = r.PorQue,
+        }),
+
+        // Cada contador atado a la raiz que lo resuelve: un numero sin destino seria el
+        // tablero decorativo que `R-2` rechaza.
+        pendientes = inicio.Pendientes.Select(x => new
+        {
+            pantalla = x.Pantalla, que = x.Que, cuantos = x.Cuantos,
+        }),
+
+        // **Cero pendientes y alcance sin resolver son cosas distintas.** Las dos se ven como
+        // una bandeja vacia y solo una significa que no hay trabajo.
+        alcanceResuelto = inicio.AlcanceResuelto,
+        porQueNo = inicio.PorQueNoSeResolvio,
+    });
+});
+
+/// `PT-005` — el buscador **con el alcance de datos aplicado**.
+puestos.MapGet("/{puesto}/expedientes", async (
+    string puesto, string persona, ServicioDelPuesto servicio, string? q, DateOnly? fecha) =>
+{
+    var alDia = fecha ?? DateOnly.FromDateTime(DateTime.UtcNow);
+    var r = await servicio.BuscarAsync(new IdPersona(persona), new IdPuesto(puesto), q, alDia);
+
+    if (r is null)
+        return Results.NotFound(new
+        {
+            mensaje = $"«{persona}» no ocupa el puesto {puesto} al {alDia:yyyy-MM-dd}.",
+        });
+
+    return Results.Ok(new
+    {
+        puesto = r.Puesto.Puesto,
+        denominacion = r.Puesto.Denominacion,
+
+        // `R-7` aplicado al alcance: la pantalla dice **con que regla** filtro.
+        nivel = r.Nivel.ToString(),
+        alcanceResuelto = r.AlcanceResuelto,
+        porQueNo = r.PorQueNoSeResolvio,
+
+        // El numero si, los datos no. Saber que hay mas es control interno; verlos seria el
+        // permiso que no se tiene.
+        fueraDelAlcance = r.FueraDelAlcance,
+
+        total = r.Total,
+        resultados = r.Resultados.Select(x => new
+        {
+            mision = x.Mision,
+            folio = x.Folio,
+            estado = x.Estado,
+            dependencia = x.Dependencia,
+            destino = x.Destino,
+            objetoDelTraslado = x.ObjetoDelTraslado,
+            solicitanteDeDerecho = x.SolicitanteDeDerecho,
+            salida = x.Salida,
+        }),
+    });
 });
 
 var tanques = app.MapGroup("/tanques");

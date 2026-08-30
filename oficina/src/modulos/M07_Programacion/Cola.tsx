@@ -28,6 +28,7 @@ import {
 } from '../../api/misiones';
 import type { Expediente, MotivoDeAnulacion } from '../../dominio/mision';
 import { diaYHora, faltanDias, laDependencia, soloFecha } from '../M06_Autorizacion/formato';
+import { usarQuienEjecuta } from '../../app/puesto';
 
 /**
  * `PT-025` — Cola de programación con caducidad de la aprobación.
@@ -308,8 +309,13 @@ function DialogoDeDesprogramacion({
   const cliente = useQueryClient();
   const [motivo, setMotivo] = useState('');
 
+  // Quien ejecuta sale del puesto vigente, no de una constante: si fuera
+  // siempre la misma persona, la segregación de `I-01` a `I-19` compararía
+  // al actor contra sí mismo y no bloquearía nunca.
+  const quienEjecuta = usarQuienEjecuta();
+
   const operacion = useMutation({
-    mutationFn: () => desprogramar(expediente.id, 'Rolando Discua', motivo),
+    mutationFn: () => desprogramar(expediente.id, quienEjecuta, motivo),
     onSuccess: async () => {
       avisar.exito(
         `${expediente.folio} volvió a la cola. El vehículo y el motorista quedaron libres.`,
@@ -421,10 +427,15 @@ function DialogoDeAnulacion({
   const [motivo, setMotivo] = useState<MotivoDeAnulacion | ''>('');
   const [comentario, setComentario] = useState('');
 
+  // Quien ejecuta sale del puesto vigente, no de una constante: si fuera
+  // siempre la misma persona, la segregación de `I-01` a `I-19` compararía
+  // al actor contra sí mismo y no bloquearía nunca.
+  const quienEjecuta = usarQuienEjecuta();
+
   const anulacion = useMutation({
     mutationFn: () =>
       (programada ? anularProgramada : anular)(
-        expediente.id, 'Rolando Discua', motivo as MotivoDeAnulacion, comentario,
+        expediente.id, quienEjecuta, motivo as MotivoDeAnulacion, comentario,
       ),
     onSuccess: async () => {
       avisar.exito(

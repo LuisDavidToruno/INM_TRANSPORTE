@@ -195,6 +195,8 @@ Detectados al corregir los 46 hallazgos de las revisiones de los Bloques 3 y 4. 
 
 | 103 | **Cuáles causas de `causa_de_espera` cuentan como espera improductiva** — clave `seguimiento.causas_improductivas` | `RN-76` distingue la espera de la espera improductiva y sólo la segunda entra al indicador: la carga y descarga es operación normal, las tres horas esperando a que aparezca quien recibe son un costo atribuible. **Quién decide cuál es cuál es la institución, no el equipo** — la clasificación asigna responsabilidad a una dependencia. Sin la clave, ninguna estadía se clasifica y el detalle lo declara; **no se da todo por productivo**, que reportaría cero horas improductivas: la cifra más tranquilizadora posible, y falsa | `RN-76`, `CE-08`, `HU-047` |
 
+| 104 | **El alcance por tipo de objeto de §3.3** — un puesto con alcance `Dependencia` sobre misiones e `Institucion` sobre vehículos | §3.3 lo dice explícito: *«el alcance se resuelve por tipo de objeto, no globalmente»*, y la competencia **no registra sobre qué objeto rige**. Mientras tanto se toma el mayor alcance del puesto, y eso es **más permisivo de lo que la regla quiere**: `ACT-11` tiene institución sobre vehículos y no debe ver solicitudes. Resolverlo es agregar el objeto a la competencia y decidir la matriz rol↔objeto↔alcance — decisión de la institución, no del equipo | `actores-y-roles` §3.3 |
+
 ## Resueltos en la revisión del 2026-08-06
 
 | # | Insumo original | Resolución |

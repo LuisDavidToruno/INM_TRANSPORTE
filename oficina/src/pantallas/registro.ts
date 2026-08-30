@@ -144,6 +144,23 @@ export const CONSTRUIDAS: Readonly<Record<string, Construida>> = {
   },
   'PT-097': { ruta: '/organizacion', archivo: 'M01_Organizacion/Puestos.tsx' },
 
+  // ── M-01, las transversales de `R-1` y `R-2` ──────────────────────────────
+  'PT-001': {
+    ruta: '/ingreso',
+    archivo: 'M01_Organizacion/Ingreso.tsx',
+    incompleta:
+      'Resuelve la selección de puesto vigente de R-1, pero NO autentica: nadie verifica ' +
+      'que quien elige un puesto tenga derecho a ocuparlo.',
+  },
+  'PT-002': { ruta: '/inicio', archivo: 'M01_Organizacion/InicioDelPuesto.tsx' },
+  'PT-005': {
+    ruta: '/buscar',
+    archivo: 'M01_Organizacion/Buscador.tsx',
+    incompleta:
+      'Aplica el alcance de datos, que antes no filtraba nada. Falta el corte por objeto ' +
+      'de §3.3 —alcance distinto sobre misiones y sobre vehículos—, insumo #104.',
+  },
+
   // ── M-01, la bandeja ──────────────────────────────────────────────────────
   //
   // `PT-003` ya estaba construida sin saberlo: la bandeja de tareas escaladas de §5.3.B.3 **es**

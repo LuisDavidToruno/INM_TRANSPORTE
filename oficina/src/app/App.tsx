@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText, LayoutList, IdCard, Scale, Users, ShieldAlert, Inbox, Route as RutaIcono, SlidersHorizontal, Radio } from 'lucide-react';
+import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText, LayoutList, IdCard, Scale, Users, ShieldAlert, Inbox, Route as RutaIcono, SlidersHorizontal, Radio, Home, Search } from 'lucide-react';
 
 import { Avisos, Nota, Shell, avisar } from '../ui';
 import type { GrupoNav, Miga } from '../ui';
@@ -23,6 +23,10 @@ import Titulos from '../modulos/M03_Flota/Titulos';
 import Puestos from '../modulos/M01_Organizacion/Puestos';
 import BandejaDeTareas from '../modulos/M01_Organizacion/Bandeja';
 import IntentosBloqueados from '../modulos/M14_Auditoria/IntentosBloqueados';
+import Ingreso from '../modulos/M01_Organizacion/Ingreso';
+import InicioDelPuesto from '../modulos/M01_Organizacion/InicioDelPuesto';
+import Buscador from '../modulos/M01_Organizacion/Buscador';
+import { ProveedorDelPuesto, usarPuesto } from './puesto';
 import TableroDeSeguimiento from '../modulos/M19_Seguimiento/Tablero';
 import EnRuta from '../modulos/M19_Seguimiento/EnRuta';
 import Pista from '../modulos/M14_Auditoria/Pista';
@@ -65,14 +69,27 @@ const cliente = new QueryClient({
   },
 });
 
-const USUARIO = { nombre: 'Rolando Discua', rol: 'Jefatura Inmediata · ACT-03' };
+// ⚠️ **El usuario ya no está cableado.** Sale del puesto elegido en `PT-001`, que es lo que
+// `R-1` exige: los permisos se otorgan al puesto y de esa elección depende toda la raíz.
+//
+// Antes de esto había una constante acá y nueve pantallas pasando el mismo nombre a mano como
+// autor de cada acto — lo que dejaba **inerte la segregación de funciones**: `I-01` a `I-19`
+// comparan al actor contra los actos previos del expediente, y si el actor es siempre la misma
+// constante, lo que comparan no es a nadie.
+function usuarioDelPuesto(elegido: ReturnType<typeof usarPuesto>['elegido']) {
+  return elegido === null
+    ? { nombre: 'Sin puesto', rol: 'Elija con qué puesto trabaja' }
+    : { nombre: elegido.persona, rol: elegido.denominacion ?? elegido.puesto };
+}
 
 const MARCA = { logo, nombre: 'SIGTI', bajada: 'Transporte institucional' };
 
 export default function App(): ReactElement {
   return (
     <QueryClientProvider client={cliente}>
-      <Interior />
+      <ProveedorDelPuesto>
+        <Interior />
+      </ProveedorDelPuesto>
       <Avisos />
     </QueryClientProvider>
   );
@@ -80,6 +97,7 @@ export default function App(): ReactElement {
 
 function Interior(): ReactElement {
   const { pathname } = useLocation();
+  const { elegido } = usarPuesto();
 
   // El contador del riel sale del mismo dato que la bandeja, no de un conteo
   // aparte: dos fuentes para el mismo número divergen el día que una falla.
@@ -96,6 +114,15 @@ function Interior(): ReactElement {
   });
 
   const grupos: GrupoNav[] = [
+    {
+      // Sin título: son las transversales de `R-1` y `R-2`, no un módulo. El inicio va
+      // primero porque es a donde entra cada puesto a ver qué le toca.
+      titulo: 'Mi puesto',
+      items: [
+        { texto: 'Inicio', icono: <Home />, href: '/inicio' },
+        { texto: 'Buscar expedientes', icono: <Search />, href: '/buscar' },
+      ],
+    },
     {
       // `M-01` va primero porque es la base: sin puesto no hay permiso, y sin competencia no
       // hay quién ejecute ningún acto de los demás módulos.
@@ -231,7 +258,7 @@ function Interior(): ReactElement {
   return (
     <Shell
       marca={MARCA}
-      usuario={USUARIO}
+      usuario={usuarioDelPuesto(elegido)}
       grupos={grupos}
       activo={pathname}
       migas={migasDe(pathname)}
@@ -269,6 +296,9 @@ function Interior(): ReactElement {
         <Route path="/prestamos" element={<PrestamosPantalla />} />
         <Route path="/combustible" element={<Fondos />} />
         <Route path="/peajes" element={<Peajes />} />
+        <Route path="/ingreso" element={<Ingreso />} />
+        <Route path="/inicio" element={<InicioDelPuesto />} />
+        <Route path="/buscar" element={<Buscador />} />
         <Route path="/seguimiento" element={<TableroDeSeguimiento />} />
         <Route path="/seguimiento/:id" element={<EnRuta />} />
         <Route path="/rastro" element={<RastroDelExpediente />} />
@@ -320,6 +350,9 @@ function migasDe(ruta: string): Miga[] {
   if (ruta === '/pantallas') return ['Pantallas'];
   if (ruta === '/prestamos') return ['Flota', 'Préstamos'];
   if (ruta === '/combustible') return ['Combustible'];
+  if (ruta === '/ingreso') return ['Ingreso'];
+  if (ruta === '/inicio') return ['Mi puesto'];
+  if (ruta === '/buscar') return ['Mi puesto', 'Buscar expedientes'];
   if (ruta === '/seguimiento') return ['Seguimiento en ruta'];
   if (ruta.startsWith('/seguimiento/'))
     return [{ texto: 'Seguimiento en ruta', href: '/seguimiento' }, 'Misión'];

@@ -20,6 +20,7 @@ import { BloqueoDuro } from '../../api/misiones';
 import { ESTADOS_DECLARABLES, declararEstado, padronDeFlota } from '../../api/flota';
 import type { VehiculoDelPadron } from '../../api/flota';
 import { soloFecha } from '../M06_Autorizacion/formato';
+import { usarQuienEjecuta } from '../../app/puesto';
 
 /**
  * `PT-072` — El padrón de flota.
@@ -329,8 +330,13 @@ function DialogoDeEstado({
 
   const esTerminal = ESTADOS_DECLARABLES.find((e) => e.valor === estado)?.terminal ?? false;
 
+  // Quien ejecuta sale del puesto vigente, no de una constante: si fuera
+  // siempre la misma persona, la segregación de `I-01` a `I-19` compararía
+  // al actor contra sí mismo y no bloquearía nunca.
+  const quienEjecuta = usarQuienEjecuta();
+
   const operacion = useMutation({
-    mutationFn: () => declararEstado(vehiculo.id, 'Rolando Discua', estado, motivo),
+    mutationFn: () => declararEstado(vehiculo.id, quienEjecuta, estado, motivo),
     onSuccess: async (resultado) => {
       // La advertencia gana al «quedó listo». Cuando el servidor no pudo verificar que el
       // terminal corresponda —porque el vehículo no tiene título de tenencia— el asiento se

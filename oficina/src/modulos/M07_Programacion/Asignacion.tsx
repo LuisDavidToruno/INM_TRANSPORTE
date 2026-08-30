@@ -29,6 +29,7 @@ import type { Expediente, MotivoDeReasignacion } from '../../dominio/mision';
 import { soloFecha, soloHora } from '../M06_Autorizacion/formato';
 import ConflictoDeAgenda from './ConflictoDeAgenda';
 import RechazoPorLicencia from './RechazoPorLicencia';
+import { usarQuienEjecuta } from '../../app/puesto';
 
 /**
  * `PT-026` / `PT-027` — Asignación de vehículo y declaración de quien conduce, con
@@ -94,12 +95,17 @@ export default function Asignacion(): ReactElement {
   // de la selección, el cronograma y la lectura del resultado.
   const reasignando = expedienteQ.data?.estado === 'Programada';
 
+  // Quien ejecuta sale del puesto vigente, no de una constante: si fuera
+  // siempre la misma persona, la segregación de `I-01` a `I-19` compararía
+  // al actor contra sí mismo y no bloquearía nunca.
+  const quienEjecuta = usarQuienEjecuta();
+
   const programacion = useMutation({
     mutationFn: () =>
       reasignando
-        ? reasignar(id, 'Rolando Discua', idVehiculo, idConductor,
+        ? reasignar(id, quienEjecuta, idVehiculo, idConductor,
                     motivo as MotivoDeReasignacion, comentario)
-        : programar(id, 'Rolando Discua', idVehiculo, idConductor),
+        : programar(id, quienEjecuta, idVehiculo, idConductor),
     onSuccess: async () => {
       avisar.exito(
         reasignando

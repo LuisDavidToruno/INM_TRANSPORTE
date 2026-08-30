@@ -31,6 +31,7 @@ import {
 } from '../../dominio/mision';
 import type { Expediente as ExpedienteDto, Validacion } from '../../dominio/mision';
 import { laDependencia, momentoCompleto } from './formato';
+import { usarQuienEjecuta } from '../../app/puesto';
 
 /**
  * `PT-014` — El expediente en decisión, en una sola pantalla.
@@ -55,8 +56,13 @@ export default function Expediente(): ReactElement {
     queryFn: () => traerExpediente(id),
   });
 
+  // Quien ejecuta sale del puesto vigente, no de una constante: si fuera
+  // siempre la misma persona, la segregación de `I-01` a `I-19` compararía
+  // al actor contra sí mismo y no bloquearía nunca.
+  const quienEjecuta = usarQuienEjecuta();
+
   const autorizacion = useMutation({
-    mutationFn: () => autorizar(id, 'Rolando Discua', motivo || undefined),
+    mutationFn: () => autorizar(id, quienEjecuta, motivo || undefined),
     onSuccess: async () => {
       avisar.exito('Expediente autorizado. La constancia quedó en el diario.');
       await cliente.invalidateQueries({ queryKey: ['bandeja-autorizacion'] });
@@ -319,11 +325,16 @@ function PronunciamientoNegativo({
 
   const esRechazo = clase === 'rechazar';
 
+  // Quien ejecuta sale del puesto vigente, no de una constante: si fuera
+  // siempre la misma persona, la segregación de `I-01` a `I-19` compararía
+  // al actor contra sí mismo y no bloquearía nunca.
+  const quienEjecuta = usarQuienEjecuta();
+
   const operacion = useMutation({
     mutationFn: () =>
       esRechazo
-        ? rechazar(expediente.id, 'Rolando Discua', motivo, comentario)
-        : devolverParaCorreccion(expediente.id, 'Rolando Discua', comentario),
+        ? rechazar(expediente.id, quienEjecuta, motivo, comentario)
+        : devolverParaCorreccion(expediente.id, quienEjecuta, comentario),
     onSuccess: async () => {
       avisar.exito(
         esRechazo
