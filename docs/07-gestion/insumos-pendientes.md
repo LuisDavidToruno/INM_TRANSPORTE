@@ -157,7 +157,9 @@ Un requisito no funcional que no se puede medir es una aspiración. Estos son lo
 | # | Insumo | Qué desbloquea | A quién |
 |---|---|---|---|
 | 105 | **¿Qué rol de SIGTI le corresponde a cada cargo de ARGOS?** El espejo del organigrama ya trae los cargos reales del INM y ninguno tiene competencia asignada en SIGTI: **la gente entra, el sistema la reconoce, y no puede hacer nada** | Es lo último que separa al piloto de operar. Sin el mapeo, `competencias: []` para todos — y sin `MaximaAutoridad` nadie puede firmar un permiso de día inhábil (`RN-23`) | **PO.** Ver la tabla de abajo |
-| 106 | **¿Quién es la máxima autoridad, por cargo?** Ninguno de los diez cargos que ARGOS trae lo declara. `RN-23` le reserva una facultad **indelegable** y `ACT-09` la nombra | `RN-23`, `BD-04`, `PT-021`, `PT-022`. Hoy `MaximaAutoridad` no la ocupa nadie en el padrón real | **PO** |
+| 106 | ✅ **CERRADO el 2026-08-31 por decisión del PO.** La ocupa **Lorenzo Ferrer, empleado 45** — el único con rol `DirectorEjecutivo` en ARGOS, y el Director Ejecutivo del INM es su máxima autoridad. ⚠️ Su **cargo** figura como «Oficial de Migración»: la correspondencia es por el **rol institucional**, no por el cargo del contrato, y es otro caso de que un cargo no es un rol | `RN-23` ya tiene quien firme. Verificado en vivo: quien no la ocupa recibe «facultad indelegable»; ella pasa el control de rol | Cerrado |
+
+| 107 | ⚠️ **SIGTI necesita credencial de sistema en ARGOS_API.** El padrón completo paso a exigir **token de sistema** —y con razón: 193 personas con número de identidad y correo no las debe abrir el token de cualquier empleado—. SIGTI hoy reenvía el token de la persona, así que la sincronización del espejo devuelve  | Sin esto el espejo deja de poblarse. El secreto se declara en la configuración de , no en  | **PO** — decidir el secreto; el resto es código |
 
 ### El mapeo que falta — insumo #105
 
