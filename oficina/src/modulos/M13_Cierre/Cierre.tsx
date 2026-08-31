@@ -2,19 +2,23 @@ import type { ReactElement } from 'react';
 import { useState } from "react";
 import { useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CircleAlert, CircleCheck, TriangleAlert } from 'lucide-react';
+import { CircleAlert, CircleCheck, CircleHelp, TriangleAlert } from 'lucide-react';
 
 import { Boton, Campo, Enlace, Nota, Panel, Pastilla, avisar } from '../../ui';
-import { BloqueoDuro, cerrar, devolverLiquidacion, expediente } from '../../api/misiones';
-import type { CriterioDetectado } from '../../api/misiones';
+import {
+  BloqueoDuro,
+  cerrar,
+  devolverLiquidacion,
+  expediente,
+  propuestaDeCierre,
+} from '../../api/misiones';
+import type { CriterioEvaluado } from '../../api/misiones';
 import { ROTULO_ESTADO } from '../../dominio/mision';
 
 import PanelDeVales from '../M09_Combustible/PanelDeVales';
 import PanelDeAbastecimientos from '../M09_Combustible/PanelDeAbastecimientos';
 import PanelDeCoherencia from '../M18_Peajes/PanelDeCoherencia';
 import PanelDeHallazgos from '../M14_Auditoria/PanelDeHallazgos';
-import { valesDeLaMision } from '../../api/combustible';
-import type { Vale } from '../../api/combustible';
 import { soloFecha } from '../M06_Autorizacion/formato';
 
 /**
@@ -40,12 +44,13 @@ export default function Cierre(): ReactElement {
   const [justificacion, setJustificacion] = useState('');
   const [motivoDevolucion, setMotivoDevolucion] = useState('');
 
-  // Los vales, para saber si alguno cerró con desviación. **Es el primer criterio de
-  // `H-01` que el sistema puede detectar de verdad**, y hasta hoy la pantalla afirmaba
-  // que no había ninguno sin haber mirado.
-  const vales = useQuery({
-    queryKey: ['vales', id],
-    queryFn: () => valesDeLaMision(id),
+  // ⚠️ **La propuesta la hace el servidor.** La detección vivía acá y evaluaba uno de los
+  // trece criterios; el cierre mandaba esa lista, así que la precondición de `T-21` la
+  // declaraba la pantalla. Ahora sale de la misma evaluación que el cierre va a usar: si se
+  // calculara acá, se mostraría una cosa y se registraría otra.
+  const propuesta = useQuery({
+    queryKey: ['propuesta-de-cierre', id],
+    queryFn: () => propuestaDeCierre(id),
   });
 
   const { data, isPending, isError, error } = useQuery({
@@ -55,7 +60,7 @@ export default function Cierre(): ReactElement {
 
   const cierre = useMutation({
     mutationFn: () =>
-      cerrar(id, 'P-GERENCIA', criteriosDetectados(vales.data), justificacion.trim() || null),
+      cerrar(id, 'P-GERENCIA', justificacion.trim() || null),
     onSuccess: () => {
       avisar.exito('Expediente cerrado.');
       void clienteDeConsultas.invalidateQueries({ queryKey: ['cola-cierre'] });
@@ -129,10 +134,19 @@ export default function Cierre(): ReactElement {
     );
   }
 
-  const criterios = criteriosDetectados(vales.data);
-  const hayHallazgo = criterios.length > 0;
+  const cumplidos = (propuesta.data?.criterios ?? []).filter((c) => c.resultado === 'SeCumple');
+  const sinVerificar = (propuesta.data?.criterios ?? []).filter(
+    (c) => c.resultado === 'NoVerificado',
+  );
+
+  const hayHallazgo = cumplidos.length > 0;
+
+  // ⚠️ **Mientras la propuesta no llegó, no se cierra.** «Todavía no cargó» no es «no hay
+  // criterios», y habilitar el botón antes ofrecería cerrar limpio sin saberlo.
+  //
   // `T-22` exige justificación; `T-21` no la pide, y pedirla sería ruido.
-  const puedeCerrar = !hayHallazgo || justificacion.trim().length > 0;
+  const puedeCerrar =
+    propuesta.data !== undefined && (!hayHallazgo || justificacion.trim().length > 0);
 
   return (
     <div className="tw:flex tw:flex-col tw:gap-5">
@@ -177,14 +191,30 @@ export default function Cierre(): ReactElement {
           prohibe. */}
       <PanelDeHallazgos mision={id} />
 
-      <Panel titulo={hayHallazgo ? 'Este expediente cierra con hallazgo' : 'Este expediente cierra limpio'}>
+      <Panel
+        titulo={
+          // «Todavia no cargo» no es «cierra limpio». Anunciarlo antes de saberlo es la
+          // afirmacion que esta pantalla existe para no hacer.
+          propuesta.data === undefined
+            ? 'Evaluando los criterios de cierre'
+            : hayHallazgo
+              ? 'Este expediente cierra con hallazgo'
+              : 'Este expediente cierra limpio'
+        }
+      >
         <div className="tw:flex tw:flex-col tw:gap-5">
-          {hayHallazgo ? (
+          {/* ⚠️ **Mientras la propuesta no llegó no se afirma nada.** «Todavía no cargó» no es
+              «no se cumplió ninguno»: el visto verde sobre cero criterios evaluados es
+              exactamente la afirmación que esta pantalla existe para no hacer. */}
+          {propuesta.data === undefined ? (
+            <p className="tw:text-sm tw:text-tinta-mid">Evaluando los criterios de cierre…</p>
+          ) : hayHallazgo ? (
             <>
               <Nota tono="aviso" icono={<TriangleAlert />}>
                 <div className="tw:flex tw:flex-col tw:gap-2">
                   <p className="tw:font-medium">
-                    Se cumplieron {criterios.length === 1 ? 'un criterio' : `${criterios.length} criterios`} de
+                    Se cumplieron{' '}
+                    {cumplidos.length === 1 ? 'un criterio' : `${cumplidos.length} criterios`} de
                     cierre con hallazgo.
                   </p>
                   <p className="tw:text-sm">
@@ -196,14 +226,8 @@ export default function Cierre(): ReactElement {
               </Nota>
 
               <ul className="tw:flex tw:flex-col tw:gap-2">
-                {criterios.map((c) => (
-                  <li
-                    key={c.criterio}
-                    className="tw:flex tw:flex-col tw:gap-0.5 tw:rounded tw:border tw:border-linea tw:px-3 tw:py-2"
-                  >
-                    <span className="tw:font-mono tw:text-xs tw:text-tinta-mid">{c.criterio}</span>
-                    <span className="tw:text-sm">{c.detalle}</span>
-                  </li>
+                {cumplidos.map((c) => (
+                  <ItemDeCriterio key={c.criterio} criterio={c} />
                 ))}
               </ul>
 
@@ -224,24 +248,41 @@ export default function Cierre(): ReactElement {
             </>
           ) : (
             <Nota tono="ok" icono={<CircleCheck />}>
-              <div className="tw:flex tw:flex-col tw:gap-2">
-                <p>
-                  Ningún vale de esta misión cerró con desviación de rendimiento{' '}
-                  (<code className="tw:font-mono tw:text-xs">H-01</code>).
-                </p>
-                {/* Lo que NO se comprobó se dice. Antes esta nota afirmaba cuatro
-                    verificaciones —umbral, ruta, fondo y trazabilidad— y ninguna existía:
-                    un expediente cerrado sobre esa frase parecería revisado y no lo estaba. */}
-                <p className="tw:text-xs">
-                  La coherencia de la ruta contra los peajes <b>sí se evalúa</b>
-                  (<code className="tw:font-mono">RN-37</code>) y su dictamen está arriba, con
-                  las dimensiones que no se pudieron mirar. <b>Todavía no se evalúa</b> la cadena
-                  de trazabilidad completa (<code className="tw:font-mono">M-14</code>). Cerrar
-                  limpio significa que no se detectó ningún criterio <i>de los que hoy se
-                  detectan</i>.
-                </p>
-              </div>
+              <p>
+                No se cumplió ninguno de los{' '}
+                <b>{propuesta.data?.verificados ?? 0} criterios que el sistema evalúa</b>.
+              </p>
             </Nota>
+          )}
+
+          {/* ── ⚠️ Lo que nadie miró ─────────────────────────────────────────
+              Se muestra SIEMPRE, y sobre todo cuando el expediente cierra limpio: es justo
+              entonces cuando ocultarlo haría creer que se verificaron trece cosas.
+
+              Y no produce hallazgo: marcar el expediente por lo que el sistema todavía no
+              sabe mirar acusaría a la institución de una conducta que nadie constató. */}
+          {sinVerificar.length > 0 && (
+            <div className="tw:flex tw:flex-col tw:gap-3">
+              <Nota tono="aviso" icono={<CircleHelp />}>
+                <b>
+                  {sinVerificar.length} de {propuesta.data?.criterios.length} criterios no se
+                  pudieron verificar.
+                </b>{' '}
+                No son criterios limpios: son criterios que nadie miró. Cerrarlo los deja
+                declarados en el expediente, con lo que a cada uno le falta.
+              </Nota>
+
+              <details>
+                <summary className="tw:cursor-pointer tw:text-sm tw:text-tinta-mid">
+                  Ver cuáles y qué les falta
+                </summary>
+                <ul className="tw:mt-2 tw:flex tw:flex-col tw:gap-2">
+                  {sinVerificar.map((c) => (
+                    <ItemDeCriterio key={c.criterio} criterio={c} />
+                  ))}
+                </ul>
+              </details>
+            </div>
           )}
 
           <Boton
@@ -293,34 +334,21 @@ export default function Cierre(): ReactElement {
 }
 
 /**
- * Los criterios de cierre con hallazgo que <b>hoy</b> se pueden detectar.
+ * Un criterio `H-nn` con lo que el sistema contestó sobre él.
  *
- * ── El único que existe, y por qué ahora sí ─────────────────────────────────
- * `H-01` — desviación de consumo fuera de umbral, <b>en cualquier dirección</b>. Sale de
- * `RN-30`, que ya calcula el dictamen: un vale en `ConciliadaConDesviacion` es una desviación
- * que alguien contrastó y tipificó, no una sospecha.
- *
- * ⚠️ <b>Los demás siguen sin existir.</b> La coherencia de la secuencia de casetas es de
- * `M-18` y la cadena de trazabilidad de `M-14`. Que esta función devuelva vacío <b>no</b>
- * significa que el expediente esté limpio en esos dos frentes: significa que nadie miró.
- * Por eso la pantalla lo dice en vez de afirmar cuatro verificaciones que no ocurrieron.
+ * ── Por qué el enunciado y el detalle van los dos ───────────────────────────
+ * El enunciado dice <b>qué se preguntó</b> y el detalle <b>qué se encontró</b> — o, en los que
+ * nadie pudo mirar, <b>qué falta para poder mirarlos</b>. Con sólo el identificador, quien lee
+ * el expediente dentro de dos años tiene que ir a buscar §7.2 para saber qué significaba `H-04`.
  */
-function criteriosDetectados(vales: Vale[] | undefined): CriterioDetectado[] {
-  // Indefinido es «todavía no cargaron», y eso NO es «no hay». Devolver vacío acá haría
-  // que la pantalla ofreciera cerrar limpio antes de saberlo.
-  if (vales === undefined) return [];
-
-  const conDesviacion = vales.filter((v) => v.estado === 'ConciliadaConDesviacion');
-
-  if (conDesviacion.length === 0) return [];
-
-  return [
-    {
-      criterio: 'H-01',
-      detalle:
-        conDesviacion.length === 1
-          ? `El vale ${conDesviacion[0]?.folio} concilió con desviación de rendimiento`
-          : `${conDesviacion.length} vales conciliaron con desviación de rendimiento`,
-    },
-  ];
+function ItemDeCriterio({ criterio }: { criterio: CriterioEvaluado }): ReactElement {
+  return (
+    <li className="tw:flex tw:flex-col tw:gap-0.5 tw:rounded tw:border tw:border-linea tw:px-3 tw:py-2">
+      <span className="tw:flex tw:flex-wrap tw:items-baseline tw:gap-2">
+        <span className="tw:font-mono tw:text-xs tw:text-tinta-mid">{criterio.criterio}</span>
+        <span className="tw:text-xs tw:text-tinta-mid">{criterio.enunciado}</span>
+      </span>
+      <span className="tw:text-sm">{criterio.detalle}</span>
+    </li>
+  );
 }

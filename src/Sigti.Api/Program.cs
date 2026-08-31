@@ -42,6 +42,8 @@ using Sigti.Dominio.M05_Motoristas;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
 using Sigti.Dominio.Organizacion;
 using Sigti.Aplicacion.M04_Documentacion;
+using Sigti.Aplicacion.M13_Cierre;
+using Sigti.Dominio.M13_Cierre;
 using Sigti.Dominio.M04_Documentacion;
 
 var constructor = WebApplication.CreateBuilder(args);
@@ -81,6 +83,7 @@ constructor.Services.AddScoped<LecturaDeAdjuntos>();
 constructor.Services.AddScoped<ServicioDeAcuses>();
 constructor.Services.AddScoped<ServicioDeSalvoconductos>();
 constructor.Services.AddScoped<ServicioDelPeriodo>();
+constructor.Services.AddScoped<ServicioDeLaPropuestaDeCierre>();
 constructor.Services.AddScoped<ConsultaDelDiaDeDespacho>();
 constructor.Services.AddScoped<ConsultaDeOdometro>();
 constructor.Services.AddScoped<EstadoDeLaFlota>();
@@ -6448,18 +6451,62 @@ misiones.MapPost("/{id}/devolver-liquidacion", async (
     return Results.Ok(new { id, estado = estado.ToString() });
 });
 
-// T-21 y T-22 son UN SOLO endpoint a propósito. El cliente manda los criterios
-// detectados; el destino lo decide el dominio. Si fueran dos rutas, quien cierra elegiría
-// —y §7.2 dice exactamente lo contrario: «el criterio decide y él lo confirma».
-misiones.MapPost("/{id}/cerrar", async (
-    string id, CerrarMision peticion,
-    ServicioDeMisiones servicio, ServicioDeCombustible combustible) =>
+/// §7.2 — **la propuesta la hace el sistema**, no quien cierra.
+///
+/// La detección vivia en el navegador y evaluaba uno de los trece criterios. Un `GET` que se
+/// abre antes de cerrar deja ver lo mismo que el `POST` va a evaluar, y **con la misma
+/// consulta**: si la pantalla calculara por su cuenta, mostraria una cosa y el cierre
+/// registraria otra.
+misiones.MapGet("/{id}/propuesta-de-cierre", async (
+    string id, ServicioDeLaPropuestaDeCierre propuestas) =>
 {
-    var criterios = (peticion.Criterios ?? [])
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    var propuesta = await propuestas.DeLaMisionAsync(ulid);
+
+    return Results.Ok(new
+    {
+        // A donde va el expediente. **Lo decide el criterio, no quien cierra** — §7.2.
+        hayHallazgo = propuesta.HayHallazgo,
+        destino = propuesta.HayHallazgo ? "CerradaConHallazgo" : "Cerrada",
+
+        // ⚠️ Se cuentan aparte de los cumplidos porque **son otra cosa**: un criterio que
+        // nadie miro no es un criterio limpio, y sumarlos al total haria que el expediente
+        // afirmara trece verificaciones de las que hizo cuatro.
+        sinVerificar = propuesta.SinVerificar.Count,
+        verificados = propuesta.Verificados.Count,
+
+        criterios = propuesta.Criterios.Select(c => new
+        {
+            criterio = c.Criterio,
+            enunciado = c.Enunciado,
+            resultado = c.Resultado.ToString(),
+
+            // Obligatorio en los tres resultados, y cada uno dice algo distinto: el caso
+            // concreto, contra que se miro, o **que falta** para poder mirarlo.
+            detalle = c.Detalle,
+        }),
+    });
+});
+
+// T-21 y T-22 son UN SOLO endpoint a propósito. **El sistema evalua los criterios y el
+// destino lo decide el dominio**; quien cierra confirma. Si fueran dos rutas, quien cierra
+// elegiría —y §7.2 dice exactamente lo contrario: «el criterio decide y él lo confirma».
+misiones.MapPost("/{id}/cerrar", async (
+    string id, CerrarMision peticion, ServicioDeMisiones servicio,
+    ServicioDeCombustible combustible, ServicioDeLaPropuestaDeCierre propuestas) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    // ⚠️ **Los criterios los evalua el servidor, no llegan en el cuerpo.** La precondicion de
+    // `T-21` es «no se cumple ninguno de los criterios», y una precondicion que declara el
+    // propio llamador no es una precondicion: quien mandara la lista vacia cerraba `CERRADA`,
+    // y el asiento decia que cerro limpio.
+    var propuesta = await propuestas.DeLaMisionAsync(ulid);
+
+    var criterios = propuesta.Cumplidos
         .Select(c => new HallazgoDetectado(c.Criterio, c.Detalle))
         .ToList();
-
-    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
 
     // §10.1: `T-21` y `T-22` exigen que todas las asignaciones estén conciliadas, en
     // cualquiera de las dos formas. Una desviación explicada no impide cerrar; un vale que
@@ -6472,7 +6519,17 @@ misiones.MapPost("/{id}/cerrar", async (
                       peticion.Justificacion, recuento),
         peticion.Momento);
 
-    return Results.Ok(new { id, estado = estado.ToString() });
+    return Results.Ok(new
+    {
+        id,
+        estado = estado.ToString(),
+
+        // Con que se cerro y que no se pudo mirar. Va en la respuesta porque **es lo que
+        // quien cierra acaba de firmar**, y verlo despues del acto es cuando se descubre que
+        // se firmo otra cosa.
+        criterios = criterios.Select(c => new { criterio = c.Criterio, detalle = c.Detalle }),
+        sinVerificar = propuesta.SinVerificar.Select(c => c.Criterio),
+    });
 });
 
 app.Run();
@@ -7149,14 +7206,17 @@ public partial class Program;
 /// El cierre. <b>No lleva estado destino</b>: lo decide el dominio a partir de los
 /// criterios, porque `orden-de-mision.md` §7.2 dice que quien cierra no elige.
 /// </summary>
+/// ⚠️ **Sin criterios.** Los evalua el servidor — §7.2: «el sistema propone la clasificacion».
+/// Aceptarlos en el cuerpo dejaba que quien cerraba declarara la precondicion de `T-21`, que es
+/// lo mismo que no tenerla: con la lista vacia el expediente cerraba `CERRADA` y el asiento
+/// decia que cerro limpio.
+///
+/// Lo que si es de quien cierra es la **justificacion**, que §7.2 exige cuando hay hallazgo:
+/// el criterio lo detecta el sistema, pero que se hizo con el lo declara una persona.
 internal sealed record CerrarMision(
     string Ejecuta,
     DateTimeOffset Momento,
-    IReadOnlyList<CriterioDetectado>? Criterios,
     string? Justificacion);
-
-/// <summary>Un `H-nn` que se cumplió, con el caso concreto que lo demuestra.</summary>
-internal sealed record CriterioDetectado(string Criterio, string Detalle);
 
 /// <summary>
 /// Convierte el identificador de la ruta, o dice por qué no pudo.

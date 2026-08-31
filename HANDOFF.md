@@ -107,7 +107,7 @@ SAC **no tiene lista de exclusiones**: es activo / evaluación / apagado, y de a
 
 **Un defecto que solo apareció al pulsar el botón:** la pantalla seguía mostrando *«Liquidada»* y ofreciendo cerrar un expediente ya cerrado. Corregido — si el expediente dejó `LIQUIDADA`, la pantalla lo dice y ofrece volver a la cola.
 
-**Lo que falta para que esto sirva de verdad:** los criterios `H-01` a `H-13` **no se detectan todavía**. `M-09`, `M-13` y `M-18` no existen, así que no hay conciliación de combustible, ni de peajes, ni cadena que evaluar — y **todo expediente cierra limpio**. La función que los calcula está marcada como provisional y devuelve lista vacía, en lugar de fingir una evaluación que no ocurrió.
+**RESUELTO en parte.** ~~Los criterios `H-01` a `H-13` **no se detectan todavía**.~~ Hoy se evalúan cinco en el servidor y los otros ocho se declaran sin verificar, con lo que le falta a cada uno. Lo que sigue abierto es exactamente esa lista de ocho. Lo que decía el bloque original: `M-09`, `M-13` y `M-18` no existen, así que no hay conciliación de combustible, ni de peajes, ni cadena que evaluar — y **todo expediente cierra limpio**. La función que los calcula está marcada como provisional y devuelve lista vacía, en lugar de fingir una evaluación que no ocurrió.
 
 ### `M-01` arrancó por lo que sostiene todo lo demás: permisos por puesto
 
@@ -413,6 +413,85 @@ leer sin discutir; queda `[C]`.
 medir y el reparo no se activa: estimarlo produciría un remanente inventado que después nadie
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
+
+## §7.2 — el cierre proponía lo que le dijeran
+
+**1405 pruebas en verde.**
+
+### ⚠️ El hallazgo
+
+§7.2 dice que **el sistema propone** la clasificación de cierre, y la precondición de `T-21`
+es *«no se cumple ninguno de los criterios `H-nn`»*.
+
+La detección vivía **en el navegador** y evaluaba **uno** de los trece criterios. El endpoint
+recibía la lista de criterios **en el cuerpo de la petición**: quien llamara con la lista vacía
+cerraba `CERRADA`, y el asiento decía que cerró limpio.
+
+**Una precondición que declara el propio llamador no es una precondición** — es un comentario.
+Y no hacía falta mala fe: la pantalla no sabía mirar doce de los trece, así que la lista salía
+casi siempre vacía por ignorancia, no por elección.
+
+### Cinco criterios evaluados, ocho declarados
+
+| | |
+|---|---|
+| `H-01` desviación de consumo | ✅ sale de `RN-30`, que ya dictamina |
+| `H-03` peaje incompatible con la ruta | ✅ sale de `RN-37` |
+| `H-04` fondo entregado sin devolver | ✅ M-09, `EntregadasSinDevolver` |
+| `H-05` circuló en franja inhábil sin permiso | ✅ calendario × permisos, contra la ventana real |
+| `H-06` incidente sin desenlace | ✅ M-12 |
+| `H-02` `H-07` a `H-13` | ⛔ **no verificado, con lo que le falta a cada uno nombrado** |
+
+**`H-05` no es `BD-04` otra vez.** `BD-04` mira al despachar contra la ventana *solicitada*;
+esto mira al conciliar contra lo que *efectivamente pasó* — una prórroga que metió el sábado,
+un relevo que invalidó el permiso, o una salida que entró por sincronización con el bloqueo
+evaluado en el dispositivo.
+
+### La distinción que hace que esto valga algo
+
+⚠️ **«No se cumple» y «nadie lo miró» no son lo mismo.** Con dos valores se vuelven
+indistinguibles y el expediente cierra `CERRADA` afirmando trece verificaciones de las que hizo
+cinco — que es peor que no verificar nada, porque el auditor lee un expediente revisado.
+
+Tres valores, entonces, y dos consecuencias:
+
+- **Lo no verificado NO produce hallazgo.** Marcar el expediente por lo que el sistema todavía
+  no sabe mirar acusaría a la institución de una conducta que nadie constató.
+- **Lo no verificado se muestra siempre**, sobre todo cuando cierra limpio, y **con lo que le
+  falta**. Un «no verificado» sin motivo es un hueco que nadie va a poder cerrar porque nadie
+  va a saber qué le falta. Va también en la respuesta del cierre: es lo que quien cierra acaba
+  de firmar.
+
+### El defecto que sólo se vio abriendo la pantalla
+
+`H-03` salió declarado *«no verificado: todavía no hay quien juzgue»* — y **M-18 ya juzga**. El
+mismo expediente mostraba arriba *«peaje fuera de la ruta autorizada»* y, dos paneles más abajo,
+que nadie podía juzgar eso. **Dos afirmaciones contradictorias en la misma pantalla, y la
+segunda la había escrito yo.**
+
+Cableado a `RN-37`, el expediente `PROV-78BMFT` de la base de desarrollo **pasó de «cierra
+limpio» a «cierra con hallazgo»**. El hallazgo estaba detectado desde hacía tiempo y no llegaba
+al acto que importa.
+
+Los tres estados salen del propio dictamen, que ya los distinguía: *«sin hallazgos no es lo
+mismo que coherente; un dictamen que no pudo mirar nada no es conformidad, es silencio»*.
+
+### `HB72-01` — §7.1 quedó atrás de su propio catálogo
+
+La precondición de `T-21` dice *«no se cumple ninguno de los criterios **`H-01` a `H-08`**»*, y
+lo mismo los efectos de `T-19` y el resumen de §7.2. Pero **el catálogo tiene trece**: `H-09` a
+`H-13` se agregaron al corregir `HB1-15`, y esa corrección no actualizó las tres menciones.
+
+No es cosmético. `H-09` existe porque [`RN-08`](docs/01-negocio/reglas/RN-08-cadena-de-trazabilidad-para-cierre.md)
+dice textual que con un eslabón faltante *«no debe permitir `CERRADA`, pero sí
+`CERRADA_CON_HALLAZGO`»*. Leída al pie de la letra, la precondición de `T-21` **deja cerrar
+limpio un expediente con la cadena rota** — exactamente lo que `RN-08` prohíbe.
+
+El código evalúa **los trece**, que es lo que el catálogo y las cinco reglas de origen exigen.
+**La máquina de estados es la autoridad y le toca alinear las tres menciones**: levantado ahí,
+no resuelto acá.
+
+---
 
 ## `PT-022` — el jueves santo a las cinco de la tarde
 

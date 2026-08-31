@@ -283,9 +283,47 @@ export const origenDeDatos = BASE ? 'servidor' : 'muestra';
  * **El catálogo no se cablea acá.** `H-01` a `H-13` son parámetro con vigencia (`RN-39`),
  * y quien los detecta es el servidor a partir de la conciliación — no esta pantalla.
  */
-export interface CriterioDetectado {
+/**
+ * Un criterio `H-nn` de §7.2, **tal como el servidor lo evaluó**.
+ *
+ * ⚠️ `resultado` tiene tres valores y el tercero es el que importa: `NoVerificado` no es
+ * `NoSeCumple`. Con dos se vuelven indistinguibles, y el expediente cierra afirmando trece
+ * verificaciones de las que hizo cuatro.
+ */
+export interface CriterioEvaluado {
   criterio: string;
+  enunciado: string;
+  resultado: 'SeCumple' | 'NoSeCumple' | 'NoVerificado';
+  /** Obligatorio en los tres: el caso concreto, contra qué se miró, o **qué falta** para mirarlo. */
   detalle: string;
+}
+
+export interface PropuestaDeCierre {
+  hayHallazgo: boolean;
+  destino: 'Cerrada' | 'CerradaConHallazgo';
+  sinVerificar: number;
+  verificados: number;
+  criterios: CriterioEvaluado[];
+}
+
+/**
+ * §7.2 — **la propuesta la hace el sistema**, no quien cierra.
+ *
+ * Se consulta antes de cerrar y sale de la **misma evaluación** que el `POST` va a usar. Si la
+ * pantalla la calculara por su cuenta, mostraría una cosa y el cierre registraría otra.
+ */
+export async function propuestaDeCierre(id: string): Promise<PropuestaDeCierre> {
+  if (!BASE) {
+    return conRetardo({
+      hayHallazgo: false,
+      destino: 'Cerrada',
+      sinVerificar: 0,
+      verificados: 0,
+      criterios: [],
+    });
+  }
+
+  return pedir<PropuestaDeCierre>(`/misiones/${id}/propuesta-de-cierre`);
 }
 
 /** Los expedientes liquidados esperando cierre. */
@@ -306,13 +344,16 @@ export async function colaDeCierre(): Promise<Expediente[]> {
 export async function cerrar(
   id: string,
   ejecuta: string,
-  criterios: CriterioDetectado[],
   justificacion: string | null,
 ): Promise<void> {
   if (!BASE) return conRetardo(undefined);
   await pedir(`/misiones/${id}/cerrar`, {
     method: 'POST',
-    body: JSON.stringify({ ejecuta, momento: new Date().toISOString(), criterios, justificacion }),
+
+    // ⚠️ **Los criterios no viajan.** Los evalúa el servidor: mandarlos desde acá dejaba que
+    // la pantalla declarara la precondición de `T-21`, y con la lista vacía el expediente
+    // cerraba limpio y el asiento decía que cerró limpio.
+    body: JSON.stringify({ ejecuta, momento: new Date().toISOString(), justificacion }),
   });
 }
 
