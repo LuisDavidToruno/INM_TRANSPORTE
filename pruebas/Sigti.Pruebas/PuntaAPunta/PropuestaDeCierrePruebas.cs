@@ -69,9 +69,8 @@ public class PropuestaDeCierrePruebas(BaseDePruebas baseDePruebas)
 
         Assert.Equal("CerradaConHallazgo", cuerpo.GetProperty("estado").GetString());
 
-        var criterio = cuerpo.GetProperty("criterios").EnumerateArray().Single();
-
-        Assert.Equal("H-06", criterio.GetProperty("criterio").GetString());
+        var criterio = cuerpo.GetProperty("criterios").EnumerateArray()
+            .Single(c => c.GetProperty("criterio").GetString() == "H-06");
 
         // El caso concreto y no «hay un incidente»: un hallazgo sin el hecho que lo produjo no
         // se puede seguir, y seguirlo es para lo que existe el estado.
@@ -169,6 +168,45 @@ public class PropuestaDeCierrePruebas(BaseDePruebas baseDePruebas)
         // ⚠️ **Lo que no se verificó viaja en la respuesta del cierre.** Es lo que quien cierra
         // acaba de firmar, y verlo después del acto es cuando se descubre que se firmó otra cosa.
         Assert.NotEmpty(cuerpo.GetProperty("sinVerificar").EnumerateArray());
+    }
+
+    /// <summary>
+    /// `RN-08` — la cadena viaja con la propuesta, <b>eslabón por eslabón y con su fundamento</b>.
+    ///
+    /// La regla lo manda: <i>«el sistema presenta al liquidador una lista de verificación de la
+    /// cadena, eslabón por eslabón, con su estado: presente, ausente, o no aplicable con
+    /// fundamento»</i>.
+    /// </summary>
+    [Fact]
+    public async Task La_cadena_viaja_con_la_propuesta_y_cada_eslabon_dice_por_que()
+    {
+        var r = await SembrarAsync("PROPUESTA-D");
+
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        var mision = await HastaLiquidarAsync(cliente, r);
+
+        var cadena = (await PropuestaAsync(cliente, mision)).GetProperty("cadena");
+
+        var eslabones = cadena.GetProperty("eslabones").EnumerateArray().ToList();
+
+        Assert.Equal(8, eslabones.Count);
+
+        // Cada uno con su detalle: en los no aplicables ése es el **fundamento** que `RN-08`
+        // exige, y sin él «no aplica» es indistinguible de una omisión.
+        Assert.All(eslabones,
+            e => Assert.False(string.IsNullOrWhiteSpace(e.GetProperty("detalle").GetString())));
+
+        // ⚠️ La misión no movió combustible ni cruzó peajes: **no aplican, y no se dan por
+        // cumplidos**. Marcarlos presentes con consumo cero es lo que `RN-08` prohíbe literal.
+        var combustible = eslabones.Single(e => e.GetProperty("eslabon").GetString() == "Combustible");
+
+        Assert.Equal("NoAplicable", combustible.GetProperty("estado").GetString());
+        Assert.Contains("no se da por cumplido", combustible.GetProperty("detalle").GetString());
+
+        // Y la cadena queda completa: un no aplicable con fundamento no la rompe.
+        Assert.True(cadena.GetProperty("completa").GetBoolean());
     }
 
     // ── Andamios ────────────────────────────────────────────────────────────

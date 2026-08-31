@@ -6,7 +6,7 @@ namespace Sigti.Dominio.M13_Cierre;
 /// ── ⚠️ Tres valores, y el tercero es el que importa ─────────────────────────
 /// «No se cumple» y «nadie pudo mirarlo» <b>no son lo mismo</b>, y con dos valores se vuelven
 /// indistinguibles: un criterio que el sistema no sabe evaluar contaría como limpio, y el
-/// expediente cerraría `CERRADA` afirmando trece verificaciones de las que hizo cinco.
+/// expediente cerraría `CERRADA` afirmando trece verificaciones de las que hizo seis.
 ///
 /// Es la misma disciplina de todo el sistema —nulo ≠ cero ≠ «no se preguntó»— en el lugar
 /// donde más cuesta: el acto que vuelve el expediente inmutable.
@@ -119,6 +119,9 @@ public sealed record PropuestaDeCierre(IReadOnlyList<CriterioEvaluado> Criterios
 ///
 /// Nulo es que no se consultó M-18. Vacía es que la misión no registró ningún paso.
 /// </param>
+/// <param name="Cadena">
+/// La cadena de `RN-08`, ya evaluada. <b>Nula es que no se pudo armar.</b>
+/// </param>
 /// <param name="IncidentesSinResolver">
 /// Los incidentes de la misión que siguen sin desenlace. <b>Nulo es que no se consultó M-12.</b>
 /// </param>
@@ -128,7 +131,8 @@ public sealed record HechosDelCierre(
     IReadOnlyList<DateOnly> DiasInhabilesCirculados,
     bool AmparadaPorPermiso,
     IReadOnlyList<string>? IncidentesSinResolver,
-    IReadOnlyList<DictamenDePeajes>? Peajes);
+    IReadOnlyList<DictamenDePeajes>? Peajes,
+    CadenaDeTrazabilidad? Cadena);
 
 /// <summary>
 /// Lo que `RN-37` dictaminó sobre un vehículo, reducido a lo que `H-03` necesita.
@@ -158,7 +162,7 @@ public sealed record DictamenDePeajes(
 /// que declara el propio llamador no es una precondición.
 ///
 /// ── Lo que todavía no se evalúa se dice, no se calla ────────────────────────
-/// De los trece, hoy se evalúan cinco. Los otros ocho salen como
+/// De los trece, hoy se evalúan seis. Los otros siete salen como
 /// <see cref="ResultadoDelCriterio.NoVerificado"/> <b>con lo que les falta nombrado</b>. Un
 /// expediente que cierra limpio afirmando trece verificaciones que no ocurrieron es peor que
 /// uno que declara cuáles hizo: el segundo se puede auditar, el primero engaña al auditor.
@@ -194,10 +198,7 @@ public static class ReglasDeLaPropuestaDeCierre
                 "La política de comprobantes obligatorios de la institución no está cargada " +
                 "(insumo pendiente), y la resolución de conflictos no marca cuál versión se " +
                 "descartó."),
-            NoVerificado("H-09",
-                "Eslabón faltante de la cadena de trazabilidad al cierre",
-                "`RN-08` enumera los eslabones —acta, autorización, vale, comprobante, " +
-                "descargo— y no hay quien los recorra como cadena. Es de M-14."),
+            H09(hechos),
             NoVerificado("H-10",
                 "Exceso de capacidad de pasajeros o de carga por novedad en ruta",
                 "M-19 registra las novedades y no cuantifica la ocupación resultante contra la " +
@@ -354,6 +355,46 @@ public static class ReglasDeLaPropuestaDeCierre
             $"{string.Join(", ", abiertos)}."),
     };
 
+    /// <summary>
+    /// `H-09` — eslabón faltante de la cadena de trazabilidad — `RN-08`.
+    ///
+    /// ── ⚠️ Lo que está en camino NO es un eslabón faltante ──────────────────
+    /// `RN-08` lo separa a propósito: <i>«no se cierra con hallazgo por falta de datos que están
+    /// en camino. El sistema distingue ausente de pendiente de sincronización»</i>. Marcar de
+    /// hallazgo un expediente cuya bitácora viaja en el teléfono de un motorista en Tocoa es
+    /// acusar a alguien de una omisión que no cometió — y el hallazgo quedaría en el expediente
+    /// para siempre, porque el cierre es inmutable.
+    ///
+    /// Por eso sale <b>no verificado</b> y no <i>no se cumple</i>: la cadena todavía no se puede
+    /// juzgar. Lo que impide cerrar en ese caso es `BD-08`, que es bloqueo y no marca.
+    /// </summary>
+    private static CriterioEvaluado H09(HechosDelCierre hechos)
+    {
+        if (hechos.Cadena is not { } cadena)
+            return NoVerificado("H-09", EnunciadoH09, "No se pudo armar la cadena del expediente.");
+
+        if (cadena.EnCamino.Count > 0)
+        {
+            return NoVerificado("H-09", EnunciadoH09,
+                "La cadena no se puede juzgar todavía: " +
+                string.Join(" · ", cadena.EnCamino.Select(e => e.Nombre)) +
+                " espera(n) sincronización. No se marca hallazgo por datos que están en camino " +
+                "(RN-08, RN-50).");
+        }
+
+        if (cadena.Faltantes.Count == 0)
+        {
+            return new("H-09", EnunciadoH09, ResultadoDelCriterio.NoSeCumple,
+                "La cadena está completa de punta a punta.");
+        }
+
+        // ⚠️ **Identificando cuál falta**, que es lo que `RN-08` exige literalmente. «La cadena
+        // está incompleta» manda a recorrer ocho eslabones a mano.
+        return new("H-09", EnunciadoH09, ResultadoDelCriterio.SeCumple,
+            "Faltan eslabones de la cadena: " +
+            string.Join(" · ", cadena.Faltantes.Select(e => $"{e.Nombre} — {e.Detalle}")));
+    }
+
     private static CriterioEvaluado NoVerificado(string criterio, string enunciado, string queFalta) =>
         new(criterio, enunciado, ResultadoDelCriterio.NoVerificado, queFalta);
 
@@ -362,6 +403,9 @@ public static class ReglasDeLaPropuestaDeCierre
 
     private const string EnunciadoH03 =
         "Paso por peaje incompatible con la ruta autorizada, o secuencia imposible";
+
+    private const string EnunciadoH09 =
+        "Eslabón faltante de la cadena de trazabilidad al cierre";
 
     private const string EnunciadoH04 =
         "Fondo entregado no devuelto ni comprobado al vencer el plazo de liquidación";

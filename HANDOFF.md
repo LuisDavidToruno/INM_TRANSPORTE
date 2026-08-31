@@ -414,6 +414,67 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## `RN-08` — la cadena que nadie recorría
+
+**1418 pruebas en verde.**
+
+`RN-08` es el bloqueo duro que justifica que `CERRADA_CON_HALLAZGO` exista, y **no bloqueaba**:
+`H-09` salía declarado sin verificar porque nadie recorría los eslabones. Ahora se recorren los
+ocho que la regla enumera, en su orden, y la lista de verificación va en la pantalla de cierre
+como `RN-08` manda — *«eslabón por eslabón, con su estado»*.
+
+```
+solicitud → autorización → orden de misión → vehículo y motorista →
+bitácora con odómetros → combustible → peajes → liquidación
+```
+
+### ⚠️ Cuatro estados, y los dos últimos son los que hacen que sirva
+
+| | |
+|---|---|
+| **presente** | está |
+| **ausente** | falta, y **es hallazgo** |
+| **no aplica** | no corresponde — **con fundamento**, que es lo que lo separa de una omisión |
+| **en camino** | los datos vienen. **Impide cerrar y no reprocha nada** |
+
+**«No aplicable» no es «presente».** `RN-08` lo dice literal sobre la misión de cortesía sin
+combustible: *«el eslabón se marca no aplicable con fundamento; lo que no se admite es cerrarlo
+como presente con consumo cero»*. Y el fundamento del «no aplica» de peajes sale de la **ruta
+autorizada congelada**, no de que nadie registrara pasos — deducirlo de la ausencia de pasos
+haría que una misión que cruzó tres casetas sin registrar ninguna se declarara sola como ruta
+sin peajes.
+
+**«En camino» no es «ausente»**, y es la distinción que evita acusar a un inocente. `RN-08`:
+*«no se cierra con hallazgo por falta de datos que están en camino»*. La bitácora de una misión
+larga viaja en el teléfono del motorista, **y el cierre es inmutable**: el hallazgo quedaría ahí
+para siempre. Por eso `H-09` sale *no verificado* —no *limpio*— y lo que impide cerrar es
+`BD-08`, que bloquea sin marcar.
+
+### El defecto que se llevó cuatro pruebas por delante
+
+La cadena preguntaba por el vehículo y el motorista con `ServicioDePermisos.Reserva`, que
+contesta **otra pregunta**: *«¿qué tiene tomado este expediente ahora?»*. Devuelve nulo en
+cuanto la misión deja de sostener la reserva —o sea, al retornar—, así que **toda misión daba
+«sin vehículo ni motorista» al cerrar**: el eslabón faltaba siempre y `H-05` decía que ningún
+permiso amparaba nada.
+
+La pregunta del cierre es la otra: *«¿qué tomó esta misión mientras corría?»*, y eso no caduca.
+**Es el mismo defecto que ya costó dos veces en `RN-32`** —reusar una función que contesta algo
+parecido pero no lo mismo— y volvió a costar acá. Lo delató `HiloDeMisionPruebas`, que cerraba
+limpio desde hace semanas y empezó a devolver 409.
+
+### Y uno que la prueba roja evitó publicar
+
+Marqué el folio ausente cuando no había folio oficial. Pero **hoy ninguna delegación tiene rango
+asignado** —insumo #34— y el sistema decidió a propósito que eso no bloquee: habría puesto un
+hallazgo en **todos** los expedientes por una tabla que nadie cargó. Un control que produce
+hallazgos falsos en masa muere en tres meses, que es lo que `RN-37` advierte para su propio caso.
+
+Queda **presente**, y el detalle dice que el folio es provisional y por qué. El documento existe;
+su numeración oficial espera configuración.
+
+---
+
 ## §7.2 — el cierre proponía lo que le dijeran
 
 **1405 pruebas en verde.**
@@ -440,7 +501,8 @@ casi siempre vacía por ignorancia, no por elección.
 | `H-04` fondo entregado sin devolver | ✅ M-09, `EntregadasSinDevolver` |
 | `H-05` circuló en franja inhábil sin permiso | ✅ calendario × permisos, contra la ventana real |
 | `H-06` incidente sin desenlace | ✅ M-12 |
-| `H-02` `H-07` a `H-13` | ⛔ **no verificado, con lo que le falta a cada uno nombrado** |
+| `H-09` cadena de trazabilidad | ✅ **cerrado en el bloque de arriba** — `RN-08` |
+| `H-02` `H-07` `H-08` `H-10` a `H-13` | ⛔ **no verificado, con lo que le falta a cada uno nombrado** |
 
 **`H-05` no es `BD-04` otra vez.** `BD-04` mira al despachar contra la ventana *solicitada*;
 esto mira al conciliar contra lo que *efectivamente pasó* — una prórroga que metió el sábado,

@@ -309,7 +309,25 @@ public class ReglasDeLaPropuestaDeCierrePruebas
         // Un dictamen de peajes que miró las cuatro dimensiones y no encontró nada. Sin las
         // cuatro, `H-03` quedaría sin verificar y las pruebas de los otros criterios estarían
         // midiendo un reporte a medias.
-        Peajes: [new DictamenDePeajes(0, true, [])]);
+        Peajes: [new DictamenDePeajes(0, true, [])],
+
+        // Y la cadena entera. Sin ella `H-09` quedaría sin verificar y las pruebas de los
+        // otros criterios estarían midiendo un reporte a medias.
+        Cadena: CadenaCompleta());
+
+    private static CadenaDeTrazabilidad CadenaCompleta() =>
+        ReglasDeLaCadena.Evaluar(new HechosDeLaCadena(
+            Autorizada: true,
+            Folio: "OM-CHO-2026-000031",
+            FolioOficial: true,
+            ConVehiculoYMotorista: true,
+            OdometroDeSalida: 10_000,
+            OdometroDeRetorno: 10_450,
+            ValesDeLaMision: 1,
+            CrucesAutorizados: 2,
+            PasosRegistrados: 2,
+            Liquidada: true,
+            HechosSinSincronizar: 0));
 
     private static CriterioEvaluado De(PropuestaDeCierre propuesta, string criterio) =>
         propuesta.Criterios.Single(c => c.Criterio == criterio);

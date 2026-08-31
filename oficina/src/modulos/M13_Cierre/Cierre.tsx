@@ -12,7 +12,7 @@ import {
   expediente,
   propuestaDeCierre,
 } from '../../api/misiones';
-import type { CriterioEvaluado } from '../../api/misiones';
+import type { CriterioEvaluado, EslabonDeLaCadena } from '../../api/misiones';
 import { ROTULO_ESTADO } from '../../dominio/mision';
 
 import PanelDeVales from '../M09_Combustible/PanelDeVales';
@@ -191,6 +191,21 @@ export default function Cierre(): ReactElement {
           prohibe. */}
       <PanelDeHallazgos mision={id} />
 
+      {/* ── ⚠️ La lista de verificación de la cadena ─────────────────────
+          `RN-08` la manda presentar al liquidador eslabón por eslabón, y va ANTES del
+          pronunciamiento porque es su insumo: `H-09` sale de esta misma lista. El auditor
+          del TSC no pide comprobantes sueltos — pide recorrer la cadena de una punta a la
+          otra sobre un expediente concreto. */}
+      {propuesta.data?.cadena != null && (
+        <Panel titulo="Cadena de trazabilidad">
+          <ul className="tw:flex tw:flex-col tw:gap-2">
+            {propuesta.data.cadena.eslabones.map((e) => (
+              <ItemDeEslabon key={e.eslabon} eslabon={e} />
+            ))}
+          </ul>
+        </Panel>
+      )}
+
       <Panel
         titulo={
           // «Todavia no cargo» no es «cierra limpio». Anunciarlo antes de saberlo es la
@@ -332,6 +347,43 @@ export default function Cierre(): ReactElement {
     </div>
   );
 }
+
+/**
+ * Un eslabón de la cadena, con el estado que el sistema le encontró.
+ *
+ * ── Por qué cada estado tiene su propio tono ────────────────────────────────
+ * Son cuatro cosas distintas y se leen de un vistazo o no se leen: <b>presente</b> está,
+ * <b>ausente</b> falta y es hallazgo, <b>no aplica</b> no corresponde —con su fundamento al
+ * lado, que es lo que lo separa de una omisión—, y <b>en camino</b> impide cerrar sin
+ * reprochar nada.
+ */
+function ItemDeEslabon({ eslabon }: { eslabon: EslabonDeLaCadena }): ReactElement {
+  const { tono, rotulo } = ROTULO_ESLABON[eslabon.estado];
+
+  return (
+    <li className="tw:flex tw:flex-col tw:gap-0.5 tw:rounded tw:border tw:border-linea tw:px-3 tw:py-2">
+      <span className="tw:flex tw:flex-wrap tw:items-center tw:gap-2">
+        <b className="tw:text-sm">{eslabon.nombre}</b>
+        <Pastilla tono={tono}>{rotulo}</Pastilla>
+      </span>
+      <span className="tw:text-xs tw:text-tinta-mid">{eslabon.detalle}</span>
+    </li>
+  );
+}
+
+/**
+ * ⚠️ El estado se decide SIEMPRE por su identificador y nunca por su texto — regla del
+ * vocabulario compartido. Y «no aplica» no lleva tono de riesgo: no es una falta.
+ */
+const ROTULO_ESLABON: Record<
+  EslabonDeLaCadena['estado'],
+  { tono: 'ok' | 'riesgo' | 'neutro' | 'aviso'; rotulo: string }
+> = {
+  Presente: { tono: 'ok', rotulo: 'presente' },
+  Ausente: { tono: 'riesgo', rotulo: 'falta' },
+  NoAplicable: { tono: 'neutro', rotulo: 'no aplica' },
+  PendienteDeSincronizacion: { tono: 'aviso', rotulo: 'en camino' },
+};
 
 /**
  * Un criterio `H-nn` con lo que el sistema contestó sobre él.

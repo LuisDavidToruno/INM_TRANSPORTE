@@ -298,7 +298,32 @@ export interface CriterioEvaluado {
   detalle: string;
 }
 
+/**
+ * Un eslabón de la cadena de `RN-08`.
+ *
+ * ⚠️ Cuatro estados, y los dos últimos son los que hacen que la lista sirva:
+ * `NoAplicable` no es `Presente` —«lo que no se admite es cerrarlo como presente con consumo
+ * cero»— y `PendienteDeSincronizacion` no es `Ausente`: los datos están en camino, y marcar
+ * hallazgo acusaría de una omisión que nadie cometió.
+ */
+export interface EslabonDeLaCadena {
+  eslabon: string;
+  nombre: string;
+  estado: 'Presente' | 'Ausente' | 'NoAplicable' | 'PendienteDeSincronizacion';
+  /** En los no aplicables, esto es el **fundamento** que `RN-08` exige. */
+  detalle: string;
+}
+
+export interface CadenaDeTrazabilidad {
+  completa: boolean;
+  /** Los que esperan sincronización. **Bloquean, no marcan.** */
+  enCamino: number;
+  eslabones: EslabonDeLaCadena[];
+}
+
 export interface PropuestaDeCierre {
+  /** `RN-08` — la lista de verificación eslabón por eslabón. Nula si no se pudo armar. */
+  cadena: CadenaDeTrazabilidad | null;
   hayHallazgo: boolean;
   destino: 'Cerrada' | 'CerradaConHallazgo';
   sinVerificar: number;
@@ -320,6 +345,7 @@ export async function propuestaDeCierre(id: string): Promise<PropuestaDeCierre> 
       sinVerificar: 0,
       verificados: 0,
       criterios: [],
+      cadena: null,
     });
   }
 

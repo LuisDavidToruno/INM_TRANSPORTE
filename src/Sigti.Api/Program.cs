@@ -6462,7 +6462,7 @@ misiones.MapGet("/{id}/propuesta-de-cierre", async (
 {
     if (!Identificador.Valido(id, out var ulid, out var error)) return error;
 
-    var propuesta = await propuestas.DeLaMisionAsync(ulid);
+    var (propuesta, cadena) = await propuestas.DeLaMisionAsync(ulid);
 
     return Results.Ok(new
     {
@@ -6475,6 +6475,30 @@ misiones.MapGet("/{id}/propuesta-de-cierre", async (
         // afirmara trece verificaciones de las que hizo cuatro.
         sinVerificar = propuesta.SinVerificar.Count,
         verificados = propuesta.Verificados.Count,
+
+        // ⚠️ **La lista de verificacion de la cadena** que `RN-08` manda presentar al
+        // liquidador, eslabon por eslabon. Va con la propuesta y no en otra ruta: `H-09` sale
+        // de esta misma lista, y consultarlas por separado dejaria la pantalla mostrando una
+        // cadena y el criterio juzgando otra.
+        cadena = cadena is null ? null : new
+        {
+            completa = cadena.Completa,
+
+            // Bloquean el cierre y **no marcan hallazgo**: los datos estan en camino y
+            // cerrar ahora fabricaria una falta que nadie cometio (`RN-50`).
+            enCamino = cadena.EnCamino.Count,
+
+            eslabones = cadena.Eslabones.Select(e => new
+            {
+                eslabon = e.Eslabon.ToString(),
+                nombre = e.Nombre,
+                estado = e.Estado.ToString(),
+
+                // En los no aplicables esto es el **fundamento**, que `RN-08` exige: sin el,
+                // «no aplica» es indistinguible de una omision.
+                detalle = e.Detalle,
+            }),
+        },
 
         criterios = propuesta.Criterios.Select(c => new
         {
@@ -6502,7 +6526,7 @@ misiones.MapPost("/{id}/cerrar", async (
     // `T-21` es «no se cumple ninguno de los criterios», y una precondicion que declara el
     // propio llamador no es una precondicion: quien mandara la lista vacia cerraba `CERRADA`,
     // y el asiento decia que cerro limpio.
-    var propuesta = await propuestas.DeLaMisionAsync(ulid);
+    var (propuesta, _) = await propuestas.DeLaMisionAsync(ulid);
 
     var criterios = propuesta.Cumplidos
         .Select(c => new HallazgoDetectado(c.Criterio, c.Detalle))

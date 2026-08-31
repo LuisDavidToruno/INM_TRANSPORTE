@@ -5,6 +5,7 @@ using Sigti.Aplicacion.M07_ProgramacionYDespacho;
 using Sigti.Aplicacion.M09_Combustible;
 using Sigti.Aplicacion.M18_Peajes;
 using Sigti.Datos;
+using Sigti.Datos.M07_ProgramacionYDespacho;
 using Sigti.Dominio.M09_Combustible;
 using Sigti.Dominio.M13_Cierre;
 
@@ -34,7 +35,14 @@ public sealed class ServicioDeLaPropuestaDeCierre(
     ServicioDePeajes peajes,
     IParametrosDeLaInstitucion parametros)
 {
-    public async Task<PropuestaDeCierre> DeLaMisionAsync(
+    /// <summary>
+    /// La propuesta y <b>la cadena entera</b>.
+    ///
+    /// Van juntas y en una sola consulta porque `RN-08` manda presentar al liquidador la lista de
+    /// verificación eslabón por eslabón, y `H-09` sale de esa misma lista: resolverlas por
+    /// separado dejaría la pantalla mostrando una cadena y el criterio juzgando otra.
+    /// </summary>
+    public async Task<(PropuestaDeCierre Propuesta, CadenaDeTrazabilidad? Cadena)> DeLaMisionAsync(
         Ulid mision, CancellationToken cancelacion = default)
     {
         var expediente = await misiones.BuscarAsync(mision, cancelacion)
@@ -43,7 +51,16 @@ public sealed class ServicioDeLaPropuestaDeCierre(
         var vales = await combustible.DeLaMisionAsync(mision, cancelacion);
         var recuento = await combustible.RecuentoDeLaMisionAsync(mision, cancelacion);
 
-        return ReglasDeLaPropuestaDeCierre.Evaluar(new HechosDelCierre(
+        // El diario entero, una sola vez: la cadena y `H-05` lo miran los dos, y dos consultas
+        // del mismo expediente pueden devolver cosas distintas si algo cambia en medio.
+        var fila = await contexto.Expedientes
+            .AsNoTracking()
+            .Include(e => e.Transiciones)
+            .SingleOrDefaultAsync(e => e.Id == mision, cancelacion);
+
+        var cadena = fila is null ? null : await CadenaDeAsync(mision, fila, vales.Count, cancelacion);
+
+        var propuesta = ReglasDeLaPropuestaDeCierre.Evaluar(new HechosDelCierre(
             ValesConDesviacion:
             [
                 .. vales
@@ -54,10 +71,14 @@ public sealed class ServicioDeLaPropuestaDeCierre(
             FondoEntregadoSinDevolver: recuento.EntregadasSinDevolver,
 
             DiasInhabilesCirculados: InhabilesDe(expediente),
-            AmparadaPorPermiso: await AmparadaAsync(mision, expediente, cancelacion),
+            AmparadaPorPermiso: fila is not null && await AmparadaAsync(fila, expediente, cancelacion),
 
             IncidentesSinResolver: await IncidentesAbiertosAsync(mision, cancelacion),
-            Peajes: await PeajesDeAsync(mision, cancelacion)));
+            Peajes: await PeajesDeAsync(mision, cancelacion),
+
+            Cadena: cadena));
+
+        return (propuesta, cadena);
     }
 
     /// <summary>
@@ -83,27 +104,99 @@ public sealed class ServicioDeLaPropuestaDeCierre(
     /// defecto que ya costó dos veces en `RN-32`.
     /// </summary>
     private async Task<bool> AmparadaAsync(
-        Ulid mision, Dominio.M07_ProgramacionYDespacho.OrdenDeMision expediente,
+        FilaDeExpediente fila, Dominio.M07_ProgramacionYDespacho.OrdenDeMision expediente,
         CancellationToken cancelacion)
     {
-        var fila = await contexto.Expedientes
-            .AsNoTracking()
-            .Include(e => e.Transiciones)
-            .SingleOrDefaultAsync(e => e.Id == mision, cancelacion);
-
-        if (fila is null) return false;
-
-        var (vehiculo, motorista) = ServicioDePermisos.Reserva(fila);
+        var (vehiculo, motorista) = Tomados(fila);
 
         // Sin vehículo ni motorista no hay nada que un permiso pueda amparar. Al conciliar eso
         // no debería pasar —la misión circuló—, y si pasa, decir «amparada» sería lo peor.
         if (vehiculo is null || motorista is null) return false;
 
-        var firmados = await permisos.DeExpedienteAsync(mision, cancelacion);
+        var firmados = await permisos.DeExpedienteAsync(fila.Id, cancelacion);
 
         return firmados.Any(p => p.Ampara(
             vehiculo.Value, motorista.Value,
             expediente.Solicitud.Destino, expediente.Solicitud.Ventana));
+    }
+
+    /// <summary>
+    /// La cadena de `RN-08` del expediente, eslabón por eslabón.
+    ///
+    /// ── ⚠️ Los hechos se leen del diario, no de una columna ─────────────────
+    /// `P-1`: el estado es proyección del diario. Preguntarle a una columna «¿está autorizada?»
+    /// funcionaría hasta el día que una anulación la deje desincronizada, y el eslabón diría que
+    /// sí sobre un expediente que no.
+    /// </summary>
+    private async Task<CadenaDeTrazabilidad> CadenaDeAsync(
+        Ulid mision, FilaDeExpediente fila, int vales, CancellationToken cancelacion)
+    {
+        var reserva = Tomados(fila);
+
+        // Los cruces salen de la **ruta autorizada congelada**, no de los pasos: deducir «no hay
+        // casetas» de que nadie registró ninguna haría que una misión que cruzó tres y no
+        // registró ninguna se declarara sola como ruta sin peajes.
+        var cruces = await contexto.RutasAutorizadasDePeaje
+            .AsNoTracking()
+            .Where(r => r.MisionId == mision && r.SupersedidaPor == null)
+            .SumAsync(r => r.Cruces, cancelacion);
+
+        var pasos = await contexto.PasosPorCaseta
+            .AsNoTracking()
+            .CountAsync(p => p.MisionId == mision, cancelacion);
+
+        // `RN-50` — lo que todavía viaja. Se cuentan las dos cosas: lo retenido esperando su
+        // antecedente y las divergencias sin resolver. Las dos significan «hay datos de campo de
+        // esta misión que no están completos», que es lo que decide entre ausente y en camino.
+        var retenidos = await contexto.HechosRetenidos
+            .AsNoTracking()
+            .CountAsync(h => h.EsperaExpediente == mision, cancelacion);
+
+        var conflictos = await contexto.ConflictosDeSincronizacion
+            .AsNoTracking()
+            .CountAsync(c => c.ExpedienteId == mision && c.ResueltoUtc == null, cancelacion);
+
+        return ReglasDeLaCadena.Evaluar(new HechosDeLaCadena(
+            Autorizada: fila.Transiciones.Any(t => t.Transicion == "T-05"),
+            // El provisional sigue identificando el documento. Lo que se marca aparte es si
+            // consumio folio del rango, que es configuracion pendiente y no omision de nadie.
+            Folio: ConsultaDeMisiones.Folio(fila),
+            FolioOficial: fila.FolioTexto is not null,
+            ConVehiculoYMotorista: reserva is { Vehiculo: not null, Motorista: not null },
+
+            OdometroDeSalida: fila.Transiciones
+                .FirstOrDefault(t => t.Transicion == "T-14")?.Odometro,
+            OdometroDeRetorno: fila.Transiciones
+                .FirstOrDefault(t => t.Transicion == "T-18")?.Odometro,
+
+            ValesDeLaMision: vales,
+            CrucesAutorizados: cruces,
+            PasosRegistrados: pasos,
+            Liquidada: fila.Transiciones.Any(t => t.Transicion == "T-19"),
+            HechosSinSincronizar: retenidos + conflictos));
+    }
+
+    /// <summary>
+    /// Los recursos que la misión <b>tomó</b>, leídos del diario.
+    ///
+    /// ── ⚠️ Por qué no sirve <c>ServicioDePermisos.Reserva</c> ───────────────
+    /// Esa contesta otra pregunta: <i>«¿qué tiene tomado este expediente <b>ahora</b>?»</i>, y
+    /// por eso devuelve nulo en cuanto la misión deja de sostener la reserva — que es
+    /// exactamente lo que pasa al retornar. Al cierre <b>toda</b> misión daría «sin vehículo ni
+    /// motorista»: el eslabón de la cadena faltaría siempre, y `H-05` diría que ningún permiso
+    /// ampara nada.
+    ///
+    /// La pregunta del cierre es la otra: <i>«¿qué tomó esta misión mientras corría?»</i>, y eso
+    /// no caduca. Reutilizar la primera para contestar la segunda es el defecto que ya costó dos
+    /// veces en `RN-32`, y volvió a costar acá.
+    /// </summary>
+    private static (Ulid? Vehiculo, Ulid? Motorista) Tomados(FilaDeExpediente fila)
+    {
+        var reserva = fila.Transiciones
+            .Where(t => t.VehiculoTomado is not null)
+            .MaxBy(t => t.Orden);
+
+        return (reserva?.VehiculoTomado, reserva?.ConductorTomado);
     }
 
     /// <summary>
