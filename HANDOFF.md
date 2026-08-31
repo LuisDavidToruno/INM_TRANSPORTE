@@ -414,6 +414,145 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## La identidad deja de ser una declaración del cliente
+
+**El cambio más grande del proyecto**, y el que separaba a SIGTI de poder usarse.
+
+### ⚠️ Lo que había
+
+El actor de cada acto viajaba **en el cuerpo de la petición**. Cada endpoint recibía un campo
+`Ejecuta` y le creía. Eso convertía en decorado el aparato de control entero:
+
+- `BD-06` comparaba a quien liquidó contra quien cierra — **dos cadenas que mandaba la misma**
+  **persona**.
+- `RN-23` reservaba la firma del permiso a la máxima autoridad, y bastaba escribir su
+  identificador en un JSON para firmar veinte permisos.
+- La bitácora encadenada e inmutable registraba, con hash y todo, **lo que el llamador dijo**
+  **ser**. Un rastro perfectamente íntegro de una ficción.
+
+La pantalla de ingreso lo decía sin rodeos: *«esto no es un inicio de sesión»*. Era honesta, y
+describía un sistema donde la segregación de funciones del MARCI no existía.
+
+### Lo que hay ahora
+
+```
+ARGOS_API  ──JWT──▶  SIGTI  ──claim sigti:persona──▶  IdentidadDelLlamador
+```
+
+`Ejecuta` no existe en ningún record. Los 40 usos salen de `identidad.Persona`, que lee el
+claim del token y **no acepta respaldo al cuerpo** — un respaldo deja el agujero abierto igual
+y encima escondido detrás de algo que parece resuelto.
+
+La autenticación es **política por omisión**, no endpoint por endpoint: con 202 rutas, la que
+se olvide de pedirla no falla — **atiende**, y nadie lo nota. El único anónimo es la
+verificación del salvoconducto, y tiene que serlo: el agente del TSC en un operativo no tiene
+usuario en este sistema y nunca lo va a tener.
+
+### El caso que el barrido casi rompe
+
+`HechoDelDispositivo.Ejecuta` **sí viaja en el cuerpo, y debe hacerlo**. No es quien sincroniza:
+es **quien ejecutó el hecho en el campo**, horas antes y sin red. Un lote trae hechos de
+personas distintas —el motorista registró la salida, el encargado entregó el combustible— y
+tomarlo del token le habría atribuido todo el lote a quien apretó «sincronizar».
+
+Los campos que nombran a terceros —`SolicitanteDeDerecho`, `Custodio`, `IdMotoristaReceptor`—
+quedaron intactos, verificados uno por uno.
+
+### Verificado en vivo
+
+| | |
+|---|---|
+| Sin token, lectura y escritura | **401** |
+| Token firmado con otra clave | **401** |
+| Token válido | **200** |
+| Verificación de salvoconducto sin token | responde |
+| **Cuerpo dice `P-MAXIMA`, token dice `P-ASISTENTE`** | **el diario registró `P-ASISTENTE`** |
+
+La última línea es la prueba entera.
+
+### ⚠️ Lo que NO está verificado
+
+**Las 1422 pruebas no se corrieron contra este cambio.** Smart App Control lleva ~400 intentos
+bloqueando `Sigti.Pruebas.dll`. Los dos commits lo dicen en su mensaje.
+
+> **Y un error de método que costó un diagnóstico falso:** conté «0 errores» de compilación
+> filtrando sólo `error CS`, lo que **ocultó un `MSB3027`** de dll tomado por el API corriendo.
+> Probé contra un binario viejo y concluí que el endpoint no existía. La regla de bajar lo
+> levantado antes de compilar **también aplica al conteo de errores**.
+
+### La clave es simétrica, y eso tiene fecha de vencimiento
+
+Firmar y validar son la misma capacidad. Cualquier consumidor que tenga la clave **puede emitir**
+**tokens a nombre de cualquiera** — de hecho así se verificó el camino positivo sin conocer
+ninguna contraseña. Con un solo consumidor el riesgo es acotado; **deja de serlo con el**
+**segundo**. La salida es RS256: el emisor firma con la privada, los consumidores validan con la
+pública.
+
+---
+
+## `ARGOS_API` — el servicio de datos institucionales
+
+Repositorio nuevo e independiente: [`Documents/GitHub/ARGOS_API`](../ARGOS_API). **57 pruebas**
+contra el esquema real de `SICOVBD`.
+
+Nace aparte porque el API móvil vive **dentro** de la solución del portal y comparte su
+`ApplicationDbContext`: sirve bien a la app móvil, que es parte del mismo producto, y mal a
+terceros — obliga a arrastrar la solución completa de ARGOS y a que cada despliegue del portal
+sea también un despliegue del contrato de integración.
+
+| Ruta | Qué da |
+|---|---|
+| `POST /api/v1/auth/token` | JWT validado contra `AspNetUsers` |
+| `GET /api/v1/organizacion/empleados` | Padrón con puesto y asignación vigentes |
+| `GET /api/v1/organizacion/estructura` | Gerencias, unidades (con `AportaTransporte`), oficinas |
+| `GET /api/v1/calendario/feriados` | Los feriados reales |
+
+**Dos reglas que no se negocian**, y están escritas en su `CLAUDE.md`:
+
+1. **Solo lectura sobre `SICOVBD`**, en tres capas: usuario de BD con sólo `SELECT`,
+   `ApplicationIntent=ReadOnly`, y **una prueba que verifica sobre el fuente** que no existe una
+   sola sentencia de escritura. Un `UPDATE` por descuido en un servicio de integración no se
+   descubre revisando el servicio: se descubre cuando a alguien no le cuadra una liquidación.
+2. **El esquema es de otro y va a cambiar sin avisar.** Las pruebas de contrato son la alarma
+   que reemplaza al compilador, y **se omiten —no pasan en falso— cuando no hay base**.
+
+> Un defecto que se corrigió en el camino: el rechazo de credenciales devolvía `401` genérico
+> para tres situaciones distintas. Una cuenta **sin empleado asociado** se veía igual que una
+> contraseña equivocada, y la primera persona que lo probó concluyó que había olvidado su clave
+> — la había escrito bien. Ahora se calla **antes** de verificar la contraseña, y se explica
+> **después**: quien llegó hasta ahí ya probó que la cuenta es suya.
+
+---
+
+## `M-20` — el espejo del organigrama sale de ARGOS
+
+Lo que une las dos mitades. **193 personas espejadas, 193 con puesto vigente, 10 cargos**, y
+SIGTI ya reconoce a una persona real: `persona 1 · Técnico/a · Unidad de Desarrollo ·
+Delegación San Pedro Sula`.
+
+- `IEspejoDeOrganizacion` es interfaz, y la implementación que habla con ARGOS se registra **en**
+  **una sola línea**. SIGTI es genérico: en otra institución el dueño del padrón es otro.
+- **Se reenvía el token** de quien pidió la sincronización, no una credencial de servicio. Del
+  otro lado queda a nombre de quién se leyó el padrón — y una credencial de servicio compartida
+  es la que nadie revoca: se crea una vez, se pone en tres ambientes y sobrevive a todo el mundo.
+- ⚠️ **Un padrón vacío no se aplica.** Borrar el espejo dejaría a la institución entera sin
+  competencias, y el sistema se vería «funcionando» mientras nadie puede hacer nada.
+- ⚠️ **Lo que ya no está en la fuente no se borra: se cierra con fecha.** `RN-100` juzga cada
+  acto contra la ocupación a la fecha del hecho.
+
+### El hueco que esto destapó — insumos #105 y #106
+
+**La gente entra, el sistema la reconoce, y no puede hacer nada.** Los diez cargos que ARGOS
+trae no tienen competencia asignada en SIGTI: `competencias: []` para todos. Y ninguno declara
+`MaximaAutoridad`, que `RN-23` necesita para firmar un permiso de día inhábil.
+
+**No se mapeó nada por parecido de nombre.** Un rol asignado por analogía otorga competencias
+que nadie concedió. Y hay un problema de fondo: **un cargo no es un rol** — 154 inspectores de
+migración no comparten una función de transporte. Las dos salidas están escritas en
+[`insumos-pendientes.md`](docs/07-gestion/insumos-pendientes.md), y la decisión es del PO.
+
+---
+
 ## `H-13` — el combustible que quedó en el vehículo sustituido
 
 **1422 pruebas en verde.** Siete de los trece criterios se evalúan; seis se declaran sin

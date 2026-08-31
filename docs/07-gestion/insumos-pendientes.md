@@ -152,6 +152,51 @@ Un requisito no funcional que no se puede medir es una aspiración. Estos son lo
 | 81 | **¿Habrá lectura RFID de placa en las estaciones de peaje, y será el dato accesible a la institución?** El IP distribuye placas con RFID desde el último trimestre de 2026, con puntos de lectura en retenes, fronteras y casetas | Sería una fuente de paso por caseta **independiente de lo que declare el motorista** — el tipo de evidencia que el auditor prefiere. **No se diseña nada hoy**; se registra para no rehacer el modelo de M-18 y M-19 después | Instituto de la Propiedad. **Vigilancia, no bloqueo** |
 | 82 | **¿Quedan los vehículos del Estado incluidos, exceptuados o priorizados en el reemplazo de placas?** | Con **990,000 vehículos sin identificación (27 % del parque)**, define cuánto tiempo más el estado *"sin placa metálica"* seguirá siendo el caso normal y no la excepción | Instituto de la Propiedad / unidad de Bienes |
 
+## Abiertos — surgidos de la integración con ARGOS del 2026-08-31
+
+| # | Insumo | Qué desbloquea | A quién |
+|---|---|---|---|
+| 105 | **¿Qué rol de SIGTI le corresponde a cada cargo de ARGOS?** El espejo del organigrama ya trae los cargos reales del INM y ninguno tiene competencia asignada en SIGTI: **la gente entra, el sistema la reconoce, y no puede hacer nada** | Es lo último que separa al piloto de operar. Sin el mapeo, `competencias: []` para todos — y sin `MaximaAutoridad` nadie puede firmar un permiso de día inhábil (`RN-23`) | **PO.** Ver la tabla de abajo |
+| 106 | **¿Quién es la máxima autoridad, por cargo?** Ninguno de los diez cargos que ARGOS trae lo declara. `RN-23` le reserva una facultad **indelegable** y `ACT-09` la nombra | `RN-23`, `BD-04`, `PT-021`, `PT-022`. Hoy `MaximaAutoridad` no la ocupa nadie en el padrón real | **PO** |
+
+### El mapeo que falta — insumo #105
+
+Los diez cargos que el padrón real del INM trae hoy, con cuánta gente los ocupa:
+
+| Cargo en ARGOS | Personas | Rol en SIGTI |
+|---|---|---|
+| Inspector/a de Migración | 154 | `[C]` |
+| Analista | 11 | `[C]` |
+| Técnico/a | 10 | `[C]` |
+| **Motorista** | 4 | `Motorista` — es el único que no admite duda |
+| Oficial de Migración | 3 | `[C]` |
+| Gerente | 3 | `[C]` ¿`GerenciaAdministrativa`? |
+| Asistente Administrativo/a | 3 | `[C]` ¿`Solicitante`? |
+| Jefe/a de Área | 2 | `[C]` ¿`JefaturaInmediata`? |
+| Delegado/a | 2 | `[C]` ¿`EncargadoDeDelegacion`? |
+| Jefe/a de Oficina | 1 | `[C]` |
+
+**Los signos de interrogación son propuestas, no supuestos aplicados.** El código no mapea nada
+hasta que el PO decida: un rol asignado por parecido de nombre otorga competencias que nadie
+concedió, y `RN-01` —quien solicita ≠ quien autoriza ≠ quien despacha— deja de significar algo
+si los roles se reparten por analogía.
+
+⚠️ **Y hay un problema de fondo que el mapeo no resuelve.** Un cargo **no es un rol**: 154
+inspectores de migración no comparten una función de transporte, y `Técnico/a` describe a gente
+de unidades distintas haciendo cosas distintas. `RN-100` concede el permiso **al puesto**, y el
+puesto que ARGOS conoce es el cargo del contrato — no el papel que la persona juega en la
+gestión de flota.
+
+Las dos salidas posibles, y hay que elegir una:
+
+1. **Mapear cargo → rol**, aceptando que un cargo numeroso otorgue una competencia a mucha
+   gente. Es rápido y grueso.
+2. **Otorgar competencias por persona en SIGTI**, sobre el puesto que el espejo trae. Es lo que
+   `RN-129` («otorgar rol al puesto con alcance y vigencia») ya describe, y lo que el padrón de
+   competencias del sistema ya soporta — sólo que hoy está sembrado a mano.
+
+La segunda respeta lo que el sistema ya modela. La primera es más barata hoy y más cara después.
+
 ## Reducidos o reencuadrados en la ronda del 2026-08-24
 
 Ninguno de estos se cierra del todo — se documenta qué se consiguió y qué queda.
