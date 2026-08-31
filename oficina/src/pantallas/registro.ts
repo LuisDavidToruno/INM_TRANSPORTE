@@ -241,9 +241,6 @@ export const CONSTRUIDAS: Readonly<Record<string, Construida>> = {
   'PT-139': {
     ruta: '/misiones/:id/paquete-de-identificacion',
     archivo: 'M15_Formatos/PaqueteDeIdentificacion.tsx',
-    incompleta:
-      'le falta el acuse de entrega: RN-65 pide «emitir, imprimir y ENTREGAR CONTRA ACUSE», ' +
-      'y hoy se imprime sin registrar quien lo recibio.',
   },
 
   'PT-023': {

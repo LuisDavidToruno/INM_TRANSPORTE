@@ -74,6 +74,7 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     public DbSet<FilaDeRespaldoDePlaca> RespaldosDePlaca => Set<FilaDeRespaldoDePlaca>();
     public DbSet<FilaDeConstatacion> ConstatacionesDeRotulacion => Set<FilaDeConstatacion>();
     public DbSet<FilaDeActaDeCustodia> ActasDeCustodia => Set<FilaDeActaDeCustodia>();
+    public DbSet<FilaDeAcuse> AcusesDeEntrega => Set<FilaDeAcuse>();
     public DbSet<FilaDeCambioDeEstado> CambiosDeEstado => Set<FilaDeCambioDeEstado>();
     public DbSet<FilaDeFondo> Fondos => Set<FilaDeFondo>();
     public DbSet<FilaDeAsignacion> AsignacionesDeCombustible => Set<FilaDeAsignacion>();
@@ -1786,6 +1787,25 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             // La bandeja de firma de PT-021 pregunta por estado, y es la consulta que la
             // maxima autoridad abre en el celular: tiene que responder sin recorrer la tabla.
             permiso.HasIndex(p => p.Estado);
+        });
+
+        modelo.Entity<FilaDeAcuse>(acuse =>
+        {
+            acuse.ToTable("AcuseDeEntrega", schema: "mision");
+
+            acuse.HasKey(a => a.Id);
+            acuse.Property(a => a.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            acuse.Property(a => a.MisionId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+
+            acuse.Property(a => a.Documento).HasConversion<string>().HasMaxLength(32);
+            acuse.Property(a => a.Folio).HasMaxLength(40);
+            acuse.Property(a => a.Entrega).HasMaxLength(64).IsRequired();
+            acuse.Property(a => a.Recibe).HasMaxLength(64).IsRequired();
+            acuse.Property(a => a.Observaciones).HasMaxLength(400);
+
+            // **Uno por documento y mision.** Dos acuses del mismo papel dejarian dos personas
+            // declarando haberlo recibido, y ninguna de las dos se podria sostener.
+            acuse.HasIndex(a => new { a.MisionId, a.Documento }).IsUnique();
         });
 
         modelo.Entity<FilaDeActaDeCustodia>(acta =>

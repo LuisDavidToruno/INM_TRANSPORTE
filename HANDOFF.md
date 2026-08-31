@@ -414,6 +414,63 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## `INV-19` — el permiso firmado y el papel que quedó en el escritorio
+
+**1355 pruebas en verde.**
+
+### ⚠️ El hallazgo
+
+El invariante de `DESPACHADA` dice: *«existe el permiso de la máxima autoridad **y su**
+**salvoconducto impreso** — `BD-04`»*.
+
+`BD-04` comprobaba el permiso **y nada más**. Una misión podía salir en franja inhábil con la
+firma registrada en el sistema y **sin papel en la guantera** — que es lo único que un agente
+en carretera puede pedir.
+
+### Y por eso el acuse no es una formalidad
+
+`RN-65` pide *«emitir, imprimir y **entregar contra acuse**»*, y sólo lo primero existía.
+Emitir e imprimir son actos de oficina: entre la impresora y el vehículo el papel se pierde —
+queda en el escritorio, se despacha antes de que salga la impresión, o se entrega a quien
+pasaba por ahí.
+
+**El acuse separa «el sistema emitió el papel» de «el motorista lo tiene»**, y en un operativo
+sólo la segunda importa. `§10.2` describe `DESPACHADA` diciendo que *«el motorista ya tiene en
+la mano … los documentos del vehículo … Firmó la recepción»*: esto es esa firma.
+
+Tres cosas que el acuse rechaza:
+
+- **No se acusa lo que no se emitió.** Una firma sobre un papel inexistente deja constancia de
+  una entrega que no ocurrió — peor que no tener constancia.
+- **No lo acusa alguien distinto del motorista de la orden.** El documento es nominativo: a
+  otro nombre no prueba nada, y el papel viaja igual sin que conste quién lo lleva.
+- **No se acusa dos veces.** Dejaría dos personas declarando haberlo recibido, y ninguna se
+  podría sostener.
+
+Y la comparación es **contra el motorista de la reserva**, no contra el del propio acuse: si se
+comparara consigo mismo el bloqueo no dispararía nunca, que es el defecto que ya costó dos
+veces en `RN-32`.
+
+### `HB19-01` — cuatro invariantes de `DESPACHADA` sin bloqueo
+
+`INV-19` quedó implementado. **Los otros cuatro no tienen quien los sostenga:**
+
+| | |
+|---|---|
+| `INV-17` acta de entrega del vehículo firmada | ⛔ el acta existe desde `RN-22` y **`T-12` no la exige** |
+| `INV-18` folio consumido y hash del impreso | ⛔ |
+| `INV-20` fondo de combustible `ENTREGADA` con firma | ⛔ |
+| `INV-22` un dispositivo portador designado | ⛔ |
+| `INV-21` paquete normativo congelado — `EF-03` | ✅ nombra su bloqueo |
+| `INV-23` segregación al despachar — `BD-06` | ✅ |
+
+**No les inventé un `BD-nn` desde el código.** A diferencia de `INV-19`, que nombra el bloqueo
+que lo hace cumplir, éstos no nombran ninguno — y los identificadores de bloqueo los asigna la
+máquina de estados, que es la autoridad. Lo que falta decidir es si cada uno es bloqueo duro o
+advertencia registrada, y con qué número. Levantado ahí, no resuelto acá.
+
+---
+
 ## Los adjuntos entraban y no salían nunca
 
 **1348 pruebas en verde.**

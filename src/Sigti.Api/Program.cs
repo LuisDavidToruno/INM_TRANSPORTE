@@ -76,6 +76,7 @@ constructor.Services.AddScoped<ServicioDeRotulacion>();
 constructor.Services.AddScoped<PaqueteDeIdentificacion>();
 constructor.Services.AddScoped<ServicioDeActasDeCustodia>();
 constructor.Services.AddScoped<LecturaDeAdjuntos>();
+constructor.Services.AddScoped<ServicioDeAcuses>();
 constructor.Services.AddScoped<ServicioDeSalvoconductos>();
 constructor.Services.AddScoped<ConsultaDelDiaDeDespacho>();
 constructor.Services.AddScoped<ConsultaDeOdometro>();
@@ -2811,6 +2812,50 @@ app.MapGet("/adjuntos/{id}", async (
     http.Response.Headers["X-Huella"] = abierto.Hash;
 
     return Results.File(abierto.Contenido, abierto.Tipo);
+});
+
+
+/// `RN-65` — **entregar contra acuse**. Es lo que separa «el sistema emitio el papel» de «el
+/// motorista lo tiene», y en un operativo solo la segunda importa.
+misiones.MapPost("/{id}/acuse", async (
+    string id, RegistrarAcuse peticion, ServicioDeAcuses servicio) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    if (!Enum.TryParse<DocumentoEntregado>(peticion.Documento, ignoreCase: true, out var doc))
+    {
+        return Results.BadRequest(new
+        {
+            mensaje = $"«{peticion.Documento}» no es un documento entregable.",
+            valores = Enum.GetNames<DocumentoEntregado>(),
+        });
+    }
+
+    var nuevo = await servicio.AcusarAsync(
+        ulid, doc, new IdPersona(peticion.Entrega), new IdPersona(peticion.Recibe),
+        peticion.Observaciones, peticion.Momento);
+
+    return Results.Created($"/misiones/{id}/acuse/{nuevo}", new { id = nuevo.ToString() });
+});
+
+/// Los acuses de la mision, para el expediente.
+misiones.MapGet("/{id}/acuse", async (string id, ServicioDeAcuses servicio) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    return Results.Ok((await servicio.DeLaMisionAsync(ulid)).Select(a => new
+    {
+        documento = a.Documento.ToString(),
+
+        // Nulo en el paquete de identificacion, que NO lleva folio: se arma en cada impresion
+        // y no se congela.
+        folio = a.Folio,
+
+        entrega = a.Entrega,
+        recibe = a.Recibe,
+        momento = a.Momento,
+        observaciones = a.Observaciones,
+    }));
 });
 
 var auditoria = app.MapGroup("/auditoria");
@@ -6332,7 +6377,8 @@ void ConAsignacion(
         ServicioDeIndisponibilidad indisponibilidad,
         ServicioDeTitulos titulos,
         IParametrosDeLaInstitucion parametros,
-        EfectosDeLaSustitucion arrastre) =>
+        EfectosDeLaSustitucion arrastre,
+        ServicioDeAcuses acuses) =>
     {
         // El cliente manda IDENTIFICADORES, no la ficha técnica. Si mandara la ficha,
         // podría declarar 2,800 kg de un camión de 12,000 y BD-02 se evaluaría contra
@@ -6381,6 +6427,11 @@ void ConAsignacion(
         // ninguno» de «hay pero ninguno ampara» es lo que hace accionable el bloqueo, y ese
         // juicio es de la regla.
         var permisosDelExpediente = await permisos.DeExpedienteAsync(ulid);
+
+        // `INV-19`: el permiso **y su salvoconducto impreso**. Se consulta siempre y no solo
+        // cuando BD-04 aplica, por la misma razon que la custodia: una consulta condicional
+        // obligaria al enrutador a saber cual transicion la necesita.
+        var salvoconductoEnLaMano = await acuses.SalvoconductoEnLaManoAsync(ulid);
 
         // `BD-07`: solo se programa desde DISPONIBLE. Nulo es «nadie le declaro estado», y
         // el dominio lo dice en el diario en vez de darlo por disponible.
@@ -6438,7 +6489,16 @@ void ConAsignacion(
                             parametros.CalendarioVigenteAl(salida),
                             idVehiculo, idConductor,
                             vehiculo.Excepcion(),
-                            permisosDelExpediente),
+                            permisosDelExpediente,
+
+                            // ⚠️ **La otra mitad de `INV-19`.** El invariante de DESPACHADA
+                            // pide el permiso Y SU SALVOCONDUCTO IMPRESO; BD-04 comprobaba solo
+                            // el permiso, asi que una mision podia salir en franja inhabil con
+                            // la firma registrada en el sistema y sin papel en la guantera.
+                            //
+                            // Emitido Y acusado, no una de las dos: emitir es un acto de
+                            // oficina, y entre la impresora y el vehiculo el papel se pierde.
+                            salvoconductoEnLaMano),
                         estadoDelVehiculo,
                         conflicto,
 
@@ -6651,6 +6711,17 @@ internal sealed record EjecutarTransicion(string Ejecuta, DateTimeOffset Momento
 /// **La justificacion no es opcional.** Es lo unico que la maxima autoridad tiene para decidir:
 /// sin ella la pantalla de firma muestra un vehiculo, un destino y unas fechas, y firmar se
 /// vuelve un tramite — se aprueba lo que aparece porque no hay nada que juzgar.
+/// `RN-65` — el acuse de recepcion de un documento impreso.
+///
+/// **Quien recibe tiene que ser el motorista de la orden**: el documento es nominativo, y un
+/// acuse a nombre de otro no prueba nada.
+internal sealed record RegistrarAcuse(
+    string Documento,
+    string Entrega,
+    string Recibe,
+    string? Observaciones,
+    DateTimeOffset Momento);
+
 /// `RN-22` — un acta de entrega-recepcion del vehiculo.
 internal sealed record RegistrarActaDeCustodia(
     string Tipo,

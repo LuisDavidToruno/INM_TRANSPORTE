@@ -186,6 +186,29 @@ Este es el estado de mayor exposición: hay recursos entregados y todavía no ha
 | **No se puede** | Cambiar de vehículo o motorista sin revertir primero a `PROGRAMADA` mediante devolución de lo entregado. Reimprimir la Orden con el mismo folio |
 | **Ejecuta en campo** | La salida sí, sin conectividad |
 
+> ### Hallazgo abierto `HB19-01` — dos invariantes de `DESPACHADA` sin bloqueo que los sostenga — 2026-08-31
+>
+> **`INV-19` quedó implementado.** Decía <i>«existe el permiso de la máxima autoridad **y su**
+> **salvoconducto impreso** — `BD-04`»</i>, y `BD-04` comprobaba sólo el permiso: una misión
+> podía salir en franja inhábil con la firma registrada en el sistema y **sin papel en la**
+> **guantera**, que es lo único que un agente en carretera puede pedir. Hoy `BD-04` exige el
+> salvoconducto **emitido y acusado** — porque emitir es un acto de oficina y entre la
+> impresora y el vehículo el papel se pierde.
+>
+> **`INV-17` sigue sin bloqueo.** Dice <i>«existe acta de entrega del vehículo firmada, con
+> odómetro, nivel de combustible, herramientas, llanta de repuesto y documentos a bordo»</i>.
+> El acta existe desde `RN-22` y **`T-12` no la exige**: se puede llegar a `DESPACHADA`
+> violando el invariante.
+>
+> **No se le inventó un `BD-nn` desde el código.** A diferencia de `INV-19`, que nombra el
+> bloqueo que lo hace cumplir, `INV-17` no nombra ninguno — y los identificadores de bloqueo
+> los asigna este documento, que es la autoridad en materia de transiciones. Lo que hace falta
+> es decidir si es bloqueo duro o advertencia registrada, y con qué número.
+>
+> **`INV-18`, `INV-20` y `INV-22` están en la misma situación**: el folio consumido con hash
+> del impreso, el fondo de combustible en `ENTREGADA` con firma, y el dispositivo portador
+> designado. Ninguno tiene bloqueo. `INV-21` y `INV-23` sí — `EF-03` y `BD-06`.
+
 ### EN_RUTA
 
 **Qué es en la operación real.** El vehículo salió. A partir de aquí el expediente vive en el dispositivo del motorista y **el servidor puede no saber absolutamente nada durante días**. La bitácora está abierta y cada evento — parada, arribo, espera en sitio, carga de combustible, paso por caseta, incidente, falla — se registra contra el reloj del dispositivo.

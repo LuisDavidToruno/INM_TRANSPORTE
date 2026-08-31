@@ -969,7 +969,22 @@ public sealed class OrdenDeMision
                     : $"Hay {circulacion.Permisos.Count} permiso(s) registrado(s), ninguno que ampare " +
                       "esta combinación — un relevo de motorista invalida el permiso."));
 
+        // ⚠️ **La otra mitad de `INV-19`.** El invariante de `DESPACHADA` pide el permiso
+        // <b>y su salvoconducto impreso</b>, y esto comprobaba sólo el permiso: la misión podía
+        // salir con la firma registrada en el sistema y **sin papel en la guantera**, que es lo
+        // único que un agente en carretera puede pedir.
+        //
+        // Va después de encontrar el permiso a propósito: «no hay permiso» y «hay permiso y no
+        // hay papel» son dos problemas con dos arreglos distintos, y el segundo es de minutos.
+        if (!circulacion.SalvoconductoEnLaMano)
+            throw new BloqueoDuro("BD-04",
+                $"El permiso {permiso.Folio} está firmado y su salvoconducto no está impreso y " +
+                "entregado. Sin el papel en la mano del motorista, el permiso existe sólo " +
+                "dentro del sistema — y en la carretera se pide el papel. Emítalo, imprímalo y " +
+                "registre el acuse de recepción (INV-19, RN-25).");
+
         return $" · BD-04 verificada · permiso {permiso.Folio} de {permiso.EmitidoPor.Valor} · " +
+               "salvoconducto entregado · " +
                $"{dias} · calendario {circulacion.Calendario.Version}{sinEvaluar}";
     }
 

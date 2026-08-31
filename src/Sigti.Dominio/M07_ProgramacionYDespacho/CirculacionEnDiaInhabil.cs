@@ -31,4 +31,18 @@ public sealed record CirculacionEnDiaInhabil(
     Ulid Vehiculo,
     Ulid Motorista,
     ServicioExceptuado? Excepcion,
-    IReadOnlyList<PermisoDeCirculacion> Permisos);
+    IReadOnlyList<PermisoDeCirculacion> Permisos,
+
+    /// <summary>
+    /// Si el salvoconducto del permiso <b>está emitido y en la mano del motorista</b>.
+    ///
+    /// ── ⚠️ La otra mitad de `INV-19`, que faltaba ──────────────────────────
+    /// El invariante de `DESPACHADA` dice: <i>«existe el permiso de la máxima autoridad <b>y su
+    /// salvoconducto impreso</b> — `BD-04`»</i>. `BD-04` comprobaba el permiso y nada más, así
+    /// que una misión podía salir en franja inhábil con la firma registrada en el sistema y
+    /// <b>sin papel en la guantera</b> — que es lo único que un agente en carretera puede pedir.
+    ///
+    /// <c>false</c> cuando no se emitió, o cuando se emitió y nadie firmó su recepción: emitir
+    /// es un acto de oficina, y entre la impresora y el vehículo el papel se pierde.
+    /// </summary>
+    bool SalvoconductoEnLaMano = true);

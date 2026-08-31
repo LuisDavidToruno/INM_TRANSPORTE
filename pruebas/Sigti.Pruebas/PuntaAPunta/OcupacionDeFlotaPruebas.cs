@@ -605,21 +605,23 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
             firmado.GetProperty("concedida").GetBoolean(),
             firmado.GetProperty("motivo").GetString());
 
-        await Despachar(cliente, id, r);
+        // ── ⚠️ Firmado NO alcanza: falta el papel en la mano ─────────────────
+        //
+        // `INV-19` pide el permiso <b>y su salvoconducto impreso</b>. Con la firma registrada
+        // en el sistema y sin papel en la guantera, el agente en carretera pide algo que quedó
+        // en el escritorio.
+        var soloFirmado = await cliente.PostAsJsonAsync($"/misiones/{id}/despachar", new
+        {
+            Ejecuta = "P-ENCARGADO",
+            Momento,
+            IdVehiculo = r.Vehiculo,
+            IdConductor = r.Conductor,
+        });
 
-        var estado = await cliente.GetFromJsonAsync<JsonElement>($"/misiones/{id}");
-        Assert.Equal("Despachada", estado.GetProperty("estado").GetString());
-
-        // El diario cita el permiso y el calendario contra el que se juzgó: sin las dos
-        // cosas, reconstruir la decisión dentro de dos años es imposible.
-        var despacho = estado.GetProperty("diario").EnumerateArray()
-            .Single(t => t.GetProperty("id").GetString() == "T-12");
-        var motivo = despacho.GetProperty("motivo").GetString()!;
-        // El folio real del permiso, no uno cableado: es lo que ata el asiento del despacho
-        // al documento que lo ampara. Sin eso, el diario dice «hubo permiso» y no cual.
-        Assert.Contains(firmado.GetProperty("folio").GetString()!, motivo);
-        Assert.Contains("P-MAXIMA", motivo);
-        Assert.Contains("PROVISIONAL-SIN-FERIADOS", motivo);
+        Assert.Equal(System.Net.HttpStatusCode.Conflict, soloFirmado.StatusCode);
+        Assert.Contains(
+            "salvoconducto no está impreso y entregado",
+            await soloFirmado.Content.ReadAsStringAsync());
 
         // ── El salvoconducto: el papel que el motorista lleva en la mano ─────
         //
@@ -703,6 +705,41 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         Assert.Equal(2, impresiones.Count);
         Assert.Null(impresiones[0].GetProperty("motivo").GetString());
         Assert.Equal("Extraviado en ruta.", impresiones[1].GetProperty("motivo").GetString());
+
+        // ── El acuse levanta el bloqueo ──────────────────────────────────────
+        //
+        // `RN-65`: emitir, imprimir y **entregar contra acuse**. Es lo que separa «el sistema
+        // emitió el papel» de «el motorista lo tiene», y `INV-19` pide la segunda.
+        var acuse = await cliente.PostAsJsonAsync($"/misiones/{id}/acuse", new
+        {
+            Documento = "Salvoconducto",
+            Entrega = "P-TRANSPORTE",
+            Recibe = r.Conductor,
+            Observaciones = (string?)null,
+            Momento,
+        });
+
+        Assert.Equal(System.Net.HttpStatusCode.Created, acuse.StatusCode);
+
+        await Despachar(cliente, id, r);
+
+        var estado = await cliente.GetFromJsonAsync<JsonElement>($"/misiones/{id}");
+        Assert.Equal("Despachada", estado.GetProperty("estado").GetString());
+
+        // El diario cita el permiso y el calendario contra el que se juzgó: sin las dos
+        // cosas, reconstruir la decisión dentro de dos años es imposible.
+        var despacho = estado.GetProperty("diario").EnumerateArray()
+            .Single(t => t.GetProperty("id").GetString() == "T-12");
+        var motivo = despacho.GetProperty("motivo").GetString()!;
+
+        // El folio real del permiso, no uno cableado: es lo que ata el asiento del despacho
+        // al documento que lo ampara. Sin eso, el diario dice «hubo permiso» y no cual.
+        Assert.Contains(firmado.GetProperty("folio").GetString()!, motivo);
+        Assert.Contains("P-MAXIMA", motivo);
+        Assert.Contains("PROVISIONAL-SIN-FERIADOS", motivo);
+
+        // Y deja dicho que el papel se entregó, no sólo que existe.
+        Assert.Contains("salvoconducto entregado", motivo);
     }
 
     /// <summary>
