@@ -293,6 +293,57 @@ public class ReglasDeLaPropuestaDeCierrePruebas
         Assert.Contains(propuesta.Cumplidos, c => c.Criterio == "H-06");
     }
 
+    // ── `H-13` · combustible entregado fuera de la orden ────────────────────
+
+    /// <summary>
+    /// ⚠️ <b>No es `RN-32` otra vez.</b> `RN-32` bloquea al entregar; `H-13` existe porque la
+    /// entrega <b>puede haber ocurrido igual</b> — el vale entró por sincronización con el
+    /// bloqueo evaluado contra una reserva que ya había cambiado, o la misión se sustituyó
+    /// después y el combustible quedó cargado al vehículo anterior.
+    /// </summary>
+    [Fact]
+    public void Un_vale_fuera_de_la_orden_dispara_H13()
+    {
+        var propuesta = ReglasDeLaPropuestaDeCierre.Evaluar(Limpio() with
+        {
+            ValesFueraDeLaOrden = ["VAL-CHO-2026-000418 (vehículo distinto del de la orden)"],
+        });
+
+        var h13 = De(propuesta, "H-13");
+
+        Assert.Equal(ResultadoDelCriterio.SeCumple, h13.Resultado);
+
+        // Con el folio y **qué** difiere: vehículo y motorista son dos hechos distintos con dos
+        // explicaciones distintas, y «no coincide» a secas convierte la diferencia en una
+        // investigación.
+        Assert.Contains("VAL-CHO-2026-000418", h13.Detalle);
+        Assert.Contains("vehículo distinto", h13.Detalle);
+    }
+
+    /// <summary>
+    /// <b>Sin umbral</b> — §7.2 lo declara así, y con razón: medio galón entregado a un vehículo
+    /// que no es el de la orden es el mismo hecho que veinte.
+    /// </summary>
+    [Fact]
+    public void Con_todos_los_vales_en_la_orden_el_criterio_se_declara_verificado()
+    {
+        var propuesta = ReglasDeLaPropuestaDeCierre.Evaluar(
+            Limpio() with { ValesFueraDeLaOrden = [] });
+
+        Assert.Equal(ResultadoDelCriterio.NoSeCumple, De(propuesta, "H-13").Resultado);
+    }
+
+    /// <summary>La misma disciplina: no haber podido contrastar no es haber contrastado bien.</summary>
+    [Fact]
+    public void Sin_poder_contrastar_los_vales_H13_queda_sin_verificar()
+    {
+        var propuesta = ReglasDeLaPropuestaDeCierre.Evaluar(
+            Limpio() with { ValesFueraDeLaOrden = null });
+
+        Assert.Equal(ResultadoDelCriterio.NoVerificado, De(propuesta, "H-13").Resultado);
+        Assert.False(propuesta.HayHallazgo);
+    }
+
     // ── Andamios ────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -313,7 +364,10 @@ public class ReglasDeLaPropuestaDeCierrePruebas
 
         // Y la cadena entera. Sin ella `H-09` quedaría sin verificar y las pruebas de los
         // otros criterios estarían midiendo un reporte a medias.
-        Cadena: CadenaCompleta());
+        Cadena: CadenaCompleta(),
+
+        // Contrastados y todos coinciden. Nulo sería «no se pudo contrastar», que es otra cosa.
+        ValesFueraDeLaOrden: []);
 
     private static CadenaDeTrazabilidad CadenaCompleta() =>
         ReglasDeLaCadena.Evaluar(new HechosDeLaCadena(

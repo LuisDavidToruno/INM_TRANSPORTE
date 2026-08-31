@@ -6,7 +6,7 @@ namespace Sigti.Dominio.M13_Cierre;
 /// ── ⚠️ Tres valores, y el tercero es el que importa ─────────────────────────
 /// «No se cumple» y «nadie pudo mirarlo» <b>no son lo mismo</b>, y con dos valores se vuelven
 /// indistinguibles: un criterio que el sistema no sabe evaluar contaría como limpio, y el
-/// expediente cerraría `CERRADA` afirmando trece verificaciones de las que hizo seis.
+/// expediente cerraría `CERRADA` afirmando trece verificaciones de las que hizo siete.
 ///
 /// Es la misma disciplina de todo el sistema —nulo ≠ cero ≠ «no se preguntó»— en el lugar
 /// donde más cuesta: el acto que vuelve el expediente inmutable.
@@ -119,6 +119,11 @@ public sealed record PropuestaDeCierre(IReadOnlyList<CriterioEvaluado> Criterios
 ///
 /// Nulo es que no se consultó M-18. Vacía es que la misión no registró ningún paso.
 /// </param>
+/// <param name="ValesFueraDeLaOrden">
+/// Los vales cuyo vehículo o receptor no es el que la misión tomó, descritos con el folio y qué
+/// difiere. <b>Nula es que no se pudo contrastar</b>; vacía es que se contrastaron y todos
+/// coinciden.
+/// </param>
 /// <param name="Cadena">
 /// La cadena de `RN-08`, ya evaluada. <b>Nula es que no se pudo armar.</b>
 /// </param>
@@ -132,7 +137,8 @@ public sealed record HechosDelCierre(
     bool AmparadaPorPermiso,
     IReadOnlyList<string>? IncidentesSinResolver,
     IReadOnlyList<DictamenDePeajes>? Peajes,
-    CadenaDeTrazabilidad? Cadena);
+    CadenaDeTrazabilidad? Cadena,
+    IReadOnlyList<string>? ValesFueraDeLaOrden);
 
 /// <summary>
 /// Lo que `RN-37` dictaminó sobre un vehículo, reducido a lo que `H-03` necesita.
@@ -162,7 +168,7 @@ public sealed record DictamenDePeajes(
 /// que declara el propio llamador no es una precondición.
 ///
 /// ── Lo que todavía no se evalúa se dice, no se calla ────────────────────────
-/// De los trece, hoy se evalúan seis. Los otros siete salen como
+/// De los trece, hoy se evalúan siete. Los otros seis salen como
 /// <see cref="ResultadoDelCriterio.NoVerificado"/> <b>con lo que les falta nombrado</b>. Un
 /// expediente que cierra limpio afirmando trece verificaciones que no ocurrieron es peor que
 /// uno que declara cuáles hizo: el segundo se puede auditar, el primero engaña al auditor.
@@ -211,10 +217,7 @@ public static class ReglasDeLaPropuestaDeCierre
                 "Digitación diferida sin adjunto del original, vencido el plazo",
                 "`RN-47` fija el plazo por parámetro y no está cargado; los adjuntos tampoco " +
                 "distinguen todavía el original en papel de la evidencia de campo."),
-            NoVerificado("H-13",
-                "Entrega de combustible a vehículo o motorista distintos de los de la orden",
-                "M-09 guarda el vehículo y el receptor de cada asignación; falta contrastarlos " +
-                "contra los de la reserva vigente al momento de la entrega."),
+            H13(hechos),
         ]);
 
     /// <summary>
@@ -395,6 +398,44 @@ public static class ReglasDeLaPropuestaDeCierre
             string.Join(" · ", cadena.Faltantes.Select(e => $"{e.Nombre} — {e.Detalle}")));
     }
 
+    /// <summary>
+    /// `H-13` — combustible entregado a vehículo o motorista <b>distintos de los de la orden</b>.
+    ///
+    /// ── ⚠️ No es `RN-32` otra vez ───────────────────────────────────────────
+    /// `RN-32` es bloqueo duro <b>en el momento de entregar</b>: compara al receptor y al
+    /// vehículo contra la reserva y no deja emitir el vale. `H-13` existe porque <b>la entrega
+    /// puede haber ocurrido igual</b>, y §7.2 lo dice así — <i>«hecho consumado, constatado al
+    /// conciliar»</i>.
+    ///
+    /// Las dos formas en que ocurre son reales: el vale entró por <b>sincronización</b> con el
+    /// bloqueo evaluado en el dispositivo contra una reserva que ya había cambiado, o la misión
+    /// se <b>sustituyó después</b> —`RN-61`— y el combustible quedó cargado al vehículo anterior.
+    ///
+    /// ── Y por qué se compara contra lo que la misión TOMÓ ───────────────────
+    /// No contra lo que tiene reservado hoy, que al liquidar es nada. Compararlo contra sí mismo
+    /// no dispararía nunca, que es el defecto que ya costó tres veces en este circuito.
+    /// </summary>
+    private static CriterioEvaluado H13(HechosDelCierre hechos)
+    {
+        if (hechos.ValesFueraDeLaOrden is null)
+        {
+            return NoVerificado("H-13", EnunciadoH13,
+                "No se pudieron contrastar los vales contra los recursos de la orden.");
+        }
+
+        if (hechos.ValesFueraDeLaOrden.Count == 0)
+        {
+            return new("H-13", EnunciadoH13, ResultadoDelCriterio.NoSeCumple,
+                "Todo el combustible se entregó al vehículo y al motorista de la orden.");
+        }
+
+        // Sin umbral: `§7.2` lo declara así, y con razón — medio galón entregado a un vehículo
+        // que no es el de la orden es el mismo hecho que veinte.
+        return new("H-13", EnunciadoH13, ResultadoDelCriterio.SeCumple,
+            "Combustible entregado fuera de la orden: " +
+            string.Join(" · ", hechos.ValesFueraDeLaOrden));
+    }
+
     private static CriterioEvaluado NoVerificado(string criterio, string enunciado, string queFalta) =>
         new(criterio, enunciado, ResultadoDelCriterio.NoVerificado, queFalta);
 
@@ -406,6 +447,9 @@ public static class ReglasDeLaPropuestaDeCierre
 
     private const string EnunciadoH09 =
         "Eslabón faltante de la cadena de trazabilidad al cierre";
+
+    private const string EnunciadoH13 =
+        "Entrega de combustible a vehículo o motorista distintos de los de la orden";
 
     private const string EnunciadoH04 =
         "Fondo entregado no devuelto ni comprobado al vencer el plazo de liquidación";

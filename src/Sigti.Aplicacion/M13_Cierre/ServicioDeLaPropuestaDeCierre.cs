@@ -76,7 +76,11 @@ public sealed class ServicioDeLaPropuestaDeCierre(
             IncidentesSinResolver: await IncidentesAbiertosAsync(mision, cancelacion),
             Peajes: await PeajesDeAsync(mision, cancelacion),
 
-            Cadena: cadena));
+            Cadena: cadena,
+
+            // Nula cuando no hay expediente que consultar: sin recursos tomados no hay contra
+            // qué comparar, y una lista vacía diría que todos los vales coinciden.
+            ValesFueraDeLaOrden: fila is null ? null : ValesFueraDeLaOrden(vales, Tomados(fila))));
 
         return (propuesta, cadena);
     }
@@ -174,6 +178,42 @@ public sealed class ServicioDeLaPropuestaDeCierre(
             PasosRegistrados: pasos,
             Liquidada: fila.Transiciones.Any(t => t.Transicion == "T-19"),
             HechosSinSincronizar: retenidos + conflictos));
+    }
+
+    /// <summary>
+    /// Los vales cuyo vehículo o receptor <b>no es el que la misión tomó</b> — `H-13`.
+    ///
+    /// ── ⚠️ Se compara contra lo que la misión TOMÓ ──────────────────────────
+    /// No contra lo que el propio vale trae, que sería compararlo consigo mismo y no dispararía
+    /// nunca. Y no contra la reserva vigente, que al liquidar ya no existe.
+    ///
+    /// ── Y se dice QUÉ difiere, no que difiere ───────────────────────────────
+    /// Vehículo y motorista son dos hechos distintos con dos explicaciones distintas: uno huele
+    /// a sustitución que no se propagó al vale, el otro a combustible entregado en la ventanilla
+    /// a quien pasaba por ahí. Un mensaje que sólo diga «no coincide» convierte la diferencia en
+    /// una investigación.
+    /// </summary>
+    private static IReadOnlyList<string> ValesFueraDeLaOrden(
+        IReadOnlyList<AsignacionDeCombustible> vales, (Ulid? Vehiculo, Ulid? Motorista) tomados)
+    {
+        // Sin recursos tomados no hay contra qué comparar. Devolver vacía diría que todos
+        // coinciden, y lo que pasa es que no se pudo mirar — eso lo dice el nulo.
+        if (tomados is not { Vehiculo: { } vehiculo, Motorista: { } motorista }) return [];
+
+        var fuera = new List<string>();
+
+        foreach (var vale in vales)
+        {
+            var diferencias = new List<string>();
+
+            if (vale.Vehiculo != vehiculo) diferencias.Add("vehículo distinto del de la orden");
+            if (vale.Receptor != motorista) diferencias.Add("receptor distinto del motorista de la orden");
+
+            if (diferencias.Count > 0)
+                fuera.Add($"{vale.Folio} ({string.Join(" y ", diferencias)})");
+        }
+
+        return fuera;
     }
 
     /// <summary>

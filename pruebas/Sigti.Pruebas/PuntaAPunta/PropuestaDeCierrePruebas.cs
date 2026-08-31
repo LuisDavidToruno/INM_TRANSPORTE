@@ -209,6 +209,77 @@ public class PropuestaDeCierrePruebas(BaseDePruebas baseDePruebas)
         Assert.True(cadena.GetProperty("completa").GetBoolean());
     }
 
+    /// <summary>
+    /// ⚠️ `H-13` — <b>el combustible quedó cargado al vehículo anterior.</b>
+    ///
+    /// `RN-32` bloquea al entregar: compara al receptor y al vehículo contra la reserva y no
+    /// deja emitir el vale. Este caso pasa <b>por el otro lado</b>: el vale se emitió cuando
+    /// todo coincidía, y después la misión se <b>sustituyó</b> — `RN-61`. Nadie hizo nada mal en
+    /// el momento, y al conciliar hay combustible público cargado a un vehículo que no hizo la
+    /// misión.
+    ///
+    /// Es exactamente lo que §7.2 llama <i>«hecho consumado, constatado al conciliar»</i>, y lo
+    /// que `RN-32` no puede ver desde donde está.
+    /// </summary>
+    [Fact]
+    public async Task El_combustible_que_quedo_en_el_vehiculo_sustituido_dispara_H13()
+    {
+        var original = await SembrarAsync("PROPUESTA-E");
+
+        using var aplicacion = Aplicacion();
+        using var cliente = aplicacion.CreateClient();
+
+        var mision = await ProgramadaAsync(cliente, original);
+
+        // El vale se emite con todo en orden: `RN-32` lo deja pasar porque en este momento el
+        // vehículo y el motorista son los de la orden.
+        var fondo = await FondoAprobadoAsync(cliente);
+
+        var vale = await cliente.PostAsJsonAsync("/combustible", new
+        {
+            Id = Ulid.NewUlid().ToString(),
+            Folio = $"VAL-H13-{Ulid.NewUlid().ToString()[^6..]}",
+            IdFondo = fondo,
+            IdMision = mision,
+            IdMotoristaReceptor = original.Conductor,
+            Ejecuta = "P-COMBUSTIBLE",
+            Monto = 2_000m,
+            Galones = 40m,
+            Instrumento = "vale",
+            TipoDeCombustible = "Diesel",
+            Momento,
+        });
+
+        Assert.True(vale.IsSuccessStatusCode, await vale.Content.ReadAsStringAsync());
+
+        // Y después se sustituye la unidad. El vale no se mueve — no se puede: es un hecho
+        // económico ya ocurrido.
+        var relevo = await SembrarAsync("PROPUESTA-E2");
+
+        var reasignada = await cliente.PostAsJsonAsync($"/misiones/{mision}/reasignar", new
+        {
+            Ejecuta = "P-TRANSPORTE",
+            Momento,
+            IdVehiculo = relevo.Vehiculo,
+            IdConductor = relevo.Conductor,
+            Motivo = "VehiculoATaller",
+            Comentario = "La unidad original quedó en taller la mañana de la salida.",
+        });
+
+        Assert.True(reasignada.IsSuccessStatusCode, await reasignada.Content.ReadAsStringAsync());
+
+        var h13 = (await PropuestaAsync(cliente, mision))
+            .GetProperty("criterios").EnumerateArray()
+            .Single(c => c.GetProperty("criterio").GetString() == "H-13");
+
+        Assert.Equal("SeCumple", h13.GetProperty("resultado").GetString());
+
+        // Y dice **qué** difiere: vehículo y motorista son dos hechos distintos con dos
+        // explicaciones distintas, y «no coincide» a secas convierte la diferencia en una
+        // investigación.
+        Assert.Contains("vehículo distinto", h13.GetProperty("detalle").GetString());
+    }
+
     // ── Andamios ────────────────────────────────────────────────────────────
 
     private WebApplicationFactory<Program> Aplicacion() =>
@@ -228,19 +299,62 @@ public class PropuestaDeCierrePruebas(BaseDePruebas baseDePruebas)
         return await FlotaSembrada.ParaProgramarAsync(contexto, prefijo);
     }
 
+    /// <summary>La misión creada, aprobada y programada. Sin despachar: `H-13` no lo necesita.</summary>
+    private static async Task<string> ProgramadaAsync(
+        HttpClient cliente, FlotaSembrada.ParaProgramar r)
+    {
+        var id = await CrearYAprobarAsync(cliente);
+
+        var programada = await cliente.PostAsJsonAsync($"/misiones/{id}/programar", new
+        {
+            Ejecuta = "P-TRANSPORTE",
+            Momento,
+            IdVehiculo = r.Vehiculo,
+            IdConductor = r.Conductor,
+        });
+
+        Assert.True(programada.IsSuccessStatusCode, await programada.Content.ReadAsStringAsync());
+        return id;
+    }
+
+    private static async Task<string> FondoAprobadoAsync(HttpClient cliente)
+    {
+        var id = Ulid.NewUlid().ToString();
+
+        await cliente.PostAsJsonAsync("/fondos", new
+        {
+            Id = id,
+            Ambito = "Dependencia",
+            AmbitoDeclarado = "Delegacion de Choluteca",
+            Desde = new DateOnly(2026, 3, 1),
+            Hasta = new DateOnly(2026, 3, 31),
+            Solicita = "P-TRANSPORTE",
+            Monto = 20_000m,
+            Justificacion = "Operación ordinaria de marzo.",
+            Momento,
+        });
+
+        var aprobado = await cliente.PostAsJsonAsync($"/fondos/{id}/aprobar", new
+        {
+            Ejecuta = "P-GERENCIA", Monto = 20_000m, Partida = "12-01-001-4-31200", Momento,
+        });
+
+        Assert.True(aprobado.IsSuccessStatusCode, await aprobado.Content.ReadAsStringAsync());
+        return id;
+    }
+
     private static async Task<JsonElement> PropuestaAsync(HttpClient cliente, string mision) =>
         await cliente.GetFromJsonAsync<JsonElement>($"/misiones/{mision}/propuesta-de-cierre");
 
     /// <summary>
-    /// La misión completa hasta `LIQUIDADA`, en franja hábil para que `H-05` no se dispare por
-    /// el camino — lo que esta prueba mide es de dónde salen los criterios, no cuáles.
+    /// La misión creada, enviada y aprobada. <b>Del martes 17 al jueves 19 de marzo de 2026</b>:
+    /// ningún día inhábil, para que `H-05` no se dispare por el camino — lo que estas pruebas
+    /// miden es de dónde salen los criterios, no cuáles.
     /// </summary>
-    private static async Task<string> HastaLiquidarAsync(
-        HttpClient cliente, FlotaSembrada.ParaProgramar r)
+    private static async Task<string> CrearYAprobarAsync(HttpClient cliente)
     {
         var id = Ulid.NewUlid().ToString();
 
-        // Del martes 17 al jueves 19 de marzo de 2026: ningún día inhábil.
         await cliente.PostAsJsonAsync("/misiones", new
         {
             Id = id,
@@ -262,6 +376,15 @@ public class PropuestaDeCierrePruebas(BaseDePruebas baseDePruebas)
 
         await cliente.PostAsJsonAsync($"/misiones/{id}/aprobar",
             new { Ejecuta = "P-JEFATURA", Momento });
+
+        return id;
+    }
+
+    /// <summary>La misión completa hasta `LIQUIDADA`.</summary>
+    private static async Task<string> HastaLiquidarAsync(
+        HttpClient cliente, FlotaSembrada.ParaProgramar r)
+    {
+        var id = await CrearYAprobarAsync(cliente);
 
         var programada = await cliente.PostAsJsonAsync($"/misiones/{id}/programar", new
         {

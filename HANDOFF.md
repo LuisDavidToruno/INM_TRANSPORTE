@@ -414,6 +414,56 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## `H-13` — el combustible que quedó en el vehículo sustituido
+
+**1422 pruebas en verde.** Siete de los trece criterios se evalúan; seis se declaran sin
+verificar, con lo que le falta a cada uno.
+
+### Por qué no es `RN-32` otra vez
+
+`RN-32` es bloqueo duro **en el momento de entregar**: compara al receptor y al vehículo contra
+la reserva y no deja emitir el vale. `H-13` existe porque **la entrega puede haber ocurrido**
+**igual** — §7.2 lo llama *«hecho consumado, constatado al conciliar»*.
+
+Las dos formas en que pasa son reales y ninguna supone mala fe:
+
+- El vale entró por **sincronización**, con el bloqueo evaluado en el dispositivo contra una
+  reserva que ya había cambiado.
+- La misión se **sustituyó después** —`RN-61`—, y el combustible quedó cargado al vehículo
+  anterior. **Nadie hizo nada mal en el momento**, y al conciliar hay combustible público
+  cargado a un vehículo que no hizo la misión.
+
+Ése es el caso que fija la prueba de punta a punta: vale emitido con todo en orden, sustitución
+después, `H-13` se cumple. `RN-32` no puede verlo desde donde está.
+
+### Y se dice QUÉ difiere
+
+Vehículo y motorista son dos hechos distintos con dos explicaciones distintas: uno huele a
+sustitución que no se propagó al vale, el otro a combustible entregado en la ventanilla a quien
+pasaba por ahí. **Sin umbral** —§7.2 lo declara así, y con razón: medio galón entregado a un
+vehículo que no es el de la orden es el mismo hecho que veinte.
+
+La comparación es contra **lo que la misión tomó**, no contra lo que el vale trae —eso sería
+compararlo consigo mismo— ni contra la reserva vigente, que al liquidar ya no existe.
+
+### ⚠️ `HB13-01` — el alcance de datos está declarado y no se ejecuta
+
+Se buscó como candidato a bloque y **no se implementó a propósito**. `AlcanceDeDatos` —
+`Institucion`, `Dependencia`, `Delegacion`, `Propio`— está declarado en las diez competencias
+sembradas, expuesto en un catálogo, y **ninguna consulta filtra por él**: hoy cualquiera ve los
+expedientes de todas las delegaciones.
+
+**No se implementó porque hoy no se puede implementar de verdad.** La API no tiene
+autenticación: quién ejecuta viaja en el cuerpo de cada petición. Un filtro de alcance sobre eso
+sería **declarado por el propio llamador** — exactamente el defecto que se acaba de sacar del
+cierre, donde los criterios `H-nn` los mandaba el cliente. Construirlo ahora daría la apariencia
+del control sin el control.
+
+El orden correcto es autenticación primero, alcance después. Levantado para que la decisión sea
+del PO y no un olvido.
+
+---
+
 ## `RN-08` — la cadena que nadie recorría
 
 **1418 pruebas en verde.**
@@ -502,7 +552,8 @@ casi siempre vacía por ignorancia, no por elección.
 | `H-05` circuló en franja inhábil sin permiso | ✅ calendario × permisos, contra la ventana real |
 | `H-06` incidente sin desenlace | ✅ M-12 |
 | `H-09` cadena de trazabilidad | ✅ **cerrado en el bloque de arriba** — `RN-08` |
-| `H-02` `H-07` `H-08` `H-10` a `H-13` | ⛔ **no verificado, con lo que le falta a cada uno nombrado** |
+| `H-13` combustible fuera de la orden | ✅ **cerrado en el bloque de arriba** |
+| `H-02` `H-07` `H-08` `H-10` `H-11` `H-12` | ⛔ **no verificado, con lo que le falta a cada uno nombrado** |
 
 **`H-05` no es `BD-04` otra vez.** `BD-04` mira al despachar contra la ventana *solicitada*;
 esto mira al conciliar contra lo que *efectivamente pasó* — una prórroga que metió el sábado,
