@@ -532,15 +532,15 @@ Delegación San Pedro Sula`.
 
 - `IEspejoDeOrganizacion` es interfaz, y la implementación que habla con ARGOS se registra **en**
   **una sola línea**. SIGTI es genérico: en otra institución el dueño del padrón es otro.
-- **Se reenvía el token** de quien pidió la sincronización, no una credencial de servicio. Del
-  otro lado queda a nombre de quién se leyó el padrón — y una credencial de servicio compartida
-  es la que nadie revoca: se crea una vez, se pone en tres ambientes y sobrevive a todo el mundo.
+- ⚠️ **Se presenta como sistema, y esto se invirtió** — ver «la credencial de sistema» más
+  abajo. Al principio reenviaba el token de la persona; el padrón completo son 193 personas con
+  número de identidad y correo, y eso no lo abre la cuenta de quien sólo quería pedir un vehículo.
 - ⚠️ **Un padrón vacío no se aplica.** Borrar el espejo dejaría a la institución entera sin
   competencias, y el sistema se vería «funcionando» mientras nadie puede hacer nada.
 - ⚠️ **Lo que ya no está en la fuente no se borra: se cierra con fecha.** `RN-100` juzga cada
   acto contra la ocupación a la fecha del hecho.
 
-### El hueco que esto destapó — insumos #105 y #106
+### El hueco que esto destapó — insumo #105 (el #106 ya cerró)
 
 **La gente entra, el sistema la reconoce, y no puede hacer nada.** Los diez cargos que ARGOS
 trae no tienen competencia asignada en SIGTI: `competencias: []` para todos. Y ninguno declara
@@ -550,6 +550,91 @@ trae no tienen competencia asignada en SIGTI: `competencias: []` para todos. Y n
 que nadie concedió. Y hay un problema de fondo: **un cargo no es un rol** — 154 inspectores de
 migración no comparten una función de transporte. Las dos salidas están escritas en
 [`insumos-pendientes.md`](docs/07-gestion/insumos-pendientes.md), y la decisión es del PO.
+
+**El #106 ya cerró**: la máxima autoridad la ocupa **Lorenzo Ferrer, empleado 45**. El #105 sigue
+abierto — los otros nueve cargos siguen sin competencia.
+
+---
+
+## La credencial de sistema, y la primera persona real con competencia
+
+Tres cosas que se cerraron juntas porque son la misma: que SIGTI pueda bajar el padrón, que
+alguien pueda firmar, y que asignarle un puesto a una persona no contradiga `RNF-14`.
+
+### ⚠️ Bajar el padrón dejó de ser cosa del token de la persona
+
+`ARGOS_API` pasó a exigir **token de sistema** en `/api/v1/organizacion/empleados`, y tiene
+razón. Es la distinción que separa la ficha propia del padrón completo: **un endpoint que
+devuelve datos de terceros exige credencial de sistema; uno que devuelve los datos de quien
+pregunta, no.** Los 193 empleados con número de identidad y correo no los baja la cuenta de
+quien sólo quería pedir un vehículo.
+
+SIGTI se presenta ahora con `Argos:Cliente` y `Argos:Secreto`, y `CredencialDeSistema` cachea
+el token con **un minuto de margen** antes del vencimiento: un token que vence *durante* una
+sincronización de 193 filas produce un `401` a mitad de camino, y el mensaje habla de
+autorización cuando el problema es de reloj.
+
+**Lo que se quería conservar no se perdió.** El argumento original para reenviar el token era
+que quedara registrado a nombre de quién se leyó el padrón. Eso lo registra SIGTI de su lado,
+con el token de la persona que apretó el botón — `laPidio: "45"` en la respuesta.
+
+⚠️ **El costo hay que decirlo:** una credencial de sistema es la que nadie revoca. Contra eso
+hay dos cosas concretas y ninguna es suficiente sola: **vive sólo en la configuración local**,
+que ni se versiona ni viaja en el paquete de `dotnet publish`, y **se rota sin tocar código**
+—es una línea en dos archivos—. El día que esto salga de desarrollo, se rota.
+
+Un `403` del padrón tiene mensaje propio: no es que el servicio esté caído, es que la credencial
+no sirve, y el arreglo es otro. Y `EspejoNoDisponible` ya no devuelve 500 sino **502**: no es
+una falla de SIGTI.
+
+### El defecto que la sincronización tenía, y que sólo se vio con datos propios
+
+La sincronización cerraba **toda** asignación que no viniera en el padrón — y las de SIGTI no
+vienen en el padrón. La primera corrida cerró las once asignaciones sembradas de desarrollo con
+`Hasta = hoy`, y `Organigrama.VigenteAl` acepta `fecha <= Hasta`: **seguían vigentes ese día y
+dejaban de estarlo al siguiente.** Un sistema que se rompe mañana y hoy se ve perfecto.
+
+Peor: la antigüedad del espejo contaba esas filas, así que el espejo se veía **recién
+confirmado** justo cuando estaba peor.
+
+La columna `Origen` —`Espejo` o `Propia`— arregla las dos: el barrido sólo toca las del espejo,
+la antigüedad sólo mira las del espejo, y `CerrarAsync` **se niega a cerrar una fila espejada**
+citando `RN-48` — un dato de otro sistema no se edita acá. Las once de desarrollo se repararon
+a mano; verificado corriendo la sincronización dos veces seguidas con las 14 propias intactas.
+
+⚠️ La migración clasifica lo existente por el prefijo `PUE-%`, que es un criterio frágil. Corre
+una sola vez y está dicho en su propio comentario.
+
+### Las competencias van al puesto, nunca a la persona
+
+`RNF-14` es literal: *«Permisos asignados directamente a una persona: **0**. El modelo no ofrece
+la operación.»* Así que asignar competencias no fue asignárselas a Lorenzo Ferrer: fue **crear un
+puesto de SIGTI** —`PUE-MAXIMA-AUTORIDAD`— con la competencia, y **asignarle la persona al
+puesto**. Si mañana la ocupa otro, se cierra una asignación y se abre otra; la competencia no se
+mueve, y `RN-100` sigue juzgando cada acto contra quién ocupaba el puesto **a la fecha del
+hecho**.
+
+Eso importa más de lo que parece acá: `NRM-09` `[V]` documenta la rotación alta del sector
+público, y el patrón que destruye la trazabilidad es copiarle los permisos del saliente al
+entrante.
+
+La persona la eligió el PO: **Lorenzo Ferrer, empleado 45**, el único con rol `DirectorEjecutivo`
+en ARGOS. ⚠️ Su **cargo** en ARGOS figura como «Oficial de Migración» — la correspondencia es por
+el **rol institucional**, no por el cargo del contrato. Otra vez: un cargo no es un rol.
+
+### Verificado en vivo, porque las de punta a punta siguen bloqueadas
+
+| Qué | Resultado |
+|---|---|
+| `POST /api/v1/auth/sistema` | Token con `sub: sigti`, `argos:alcance: sistema` |
+| `POST /organigrama/sincronizar` | 193 personas · 193 con puesto · 10 puestos |
+| Sincronizar dos veces seguidas | Las 14 asignaciones propias, intactas |
+| `POST /puesto/asignar` | 201; `I-12` bloquea; `I-08` se admite y se vigila |
+| Firmar permiso de día inhábil | Sólo la 45; a los demás, «facultad indelegable» |
+
+⚠️ **El `I-08` que se admite no es un descuido.** Su alcance es `MismoExpediente`: `RN-01` lo
+admite en la asignación y lo bloquea en la ejecución. Escribí la prueba esperando que bloqueara
+al asignar, y **corregí la prueba, no la regla**.
 
 ---
 

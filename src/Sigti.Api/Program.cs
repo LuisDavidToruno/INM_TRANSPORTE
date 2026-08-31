@@ -61,6 +61,10 @@ constructor.Services.AgregarAutenticacionInstitucional(constructor.Configuration
 // ⚠️ **La implementacion concreta se registra ACA y en ningun otro lado.** `IEspejoDeOrganizacion`
 // es lo que el resto del sistema conoce; que hoy sea ARGOS es una decision del piloto del INM.
 // En otra institucion se cambia esta linea y nada mas — ninguna regla de negocio se entera.
+constructor.Services.AddHttpClient<CredencialDeSistema>((servicios, cliente) =>
+    cliente.BaseAddress = new Uri(
+        constructor.Configuration["Argos:Url"]
+        ?? throw new InvalidOperationException("Falta «Argos:Url».")));
 constructor.Services.AddHttpClient<IEspejoDeOrganizacion, PadronDesdeArgos>((servicios, cliente) =>
 {
     cliente.BaseAddress = new Uri(
@@ -68,9 +72,7 @@ constructor.Services.AddHttpClient<IEspejoDeOrganizacion, PadronDesdeArgos>((ser
         ?? throw new InvalidOperationException(
             "Falta «Argos:Url»: es donde vive el servicio de identidad institucional, y sin el " +
             "el espejo del organigrama no se puede poblar."));
-})
-.AddHttpMessageHandler(servicios => new ReenviarElToken(
-    servicios.GetRequiredService<IHttpContextAccessor>()));
+});
 
 constructor.Services.AddScoped<SincronizacionDelEspejo>();
 constructor.Services.AddScoped<ServicioDeAsignacionDePuesto>();
@@ -185,8 +187,13 @@ app.UseExceptionHandler(rama => rama.Run(async contexto =>
         // **Nulo cuando no esta documentado.** Rellenarlo con «comuniquese con el
         // administrador» convertiria el silencio en una instruccion, y seria falsa: `ACT-01`
         // no tiene acceso al negocio y no puede resolver un bloqueo de negocio.
+        // ⚠️ **502, no 500.** El sistema del que SIGTI depende no contesto o no lo dejo pasar:
+        // no es una falla de SIGTI, y decirle 500 a quien lo opera lo manda a buscar el error
+        // donde no esta. El mensaje ya dice que hay que mirar del otro lado.
+        EspejoNoDisponible espejo => (StatusCodes.Status502BadGateway,
+            (object)new { mensaje = espejo.Message, dependencia = "servicio de identidad institucional" }),
         BloqueoDuro b => (StatusCodes.Status409Conflict,
-            (object)new
+            new
             {
                 precondicion = b.Precondicion,
                 mensaje = b.Message,
