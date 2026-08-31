@@ -140,7 +140,14 @@ public sealed class SincronizacionDelEspejo(SigtiDbContext contexto, IEspejoDeOr
     private async Task ReemplazarAsignacionesAsync(
         IReadOnlyList<PersonaDelPadron> padron, DateTime ahora, CancellationToken cancelacion)
     {
-        var existentes = await contexto.AsignacionesDePuesto.ToListAsync(cancelacion);
+        // ⚠️ **Solo las espejadas.** Las propias de SIGTI —el puesto funcional en la gestion
+        // de flota— no vienen de esta fuente y nunca van a venir: ARGOS no gestiona flota.
+        // Incluirlas aca las cerraria en la primera sincronizacion nocturna, y el sintoma
+        // seria «ayer podia y hoy no» sin nada que apunte a la causa.
+        var existentes = await contexto.AsignacionesDePuesto
+            .Where(a => a.Origen == OrigenDeLaAsignacion.Espejo)
+            .ToListAsync(cancelacion);
+
         var hoy = DateOnly.FromDateTime(ahora);
 
         var vigentes = padron.Where(p => p.Puesto is not null).ToList();
@@ -168,6 +175,7 @@ public sealed class SincronizacionDelEspejo(SigtiDbContext contexto, IEspejoDeOr
                 // enero se juzgue con una competencia que nadie puede demostrar.
                 Desde = p.Desde ?? hoy,
                 Hasta = p.Hasta,
+                Origen = OrigenDeLaAsignacion.Espejo,
                 ConfirmadoAlUtc = ahora,
             });
         }

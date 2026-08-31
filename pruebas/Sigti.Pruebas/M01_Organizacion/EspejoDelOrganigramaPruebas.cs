@@ -89,6 +89,10 @@ public class EspejoDelOrganigramaPruebas(BaseDePruebas baseDePruebas)
             Id = Ulid.NewUlid(),
             Persona = Jefa.Valor,
             Puesto = Jefatura.Valor,
+
+            // Esta prueba mide la ANTIGUEDAD del espejo: es una fila que llego del sistema
+            // dueno del padron, no un puesto funcional otorgado dentro de SIGTI.
+            Origen = OrigenDeLaAsignacion.Espejo,
             Desde = new DateOnly(2025, 1, 15),
             Hasta = new DateOnly(2026, 2, 28),
             // Nueve días antes del momento de la prueba.

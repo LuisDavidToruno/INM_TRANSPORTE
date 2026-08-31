@@ -22,6 +22,12 @@ using Xunit.Runners;
 var rutaPedida = args.FirstOrDefault(a => a.EndsWith(".dll"));
 var filtro = args.FirstOrDefault(a => !a.EndsWith(".dll"));
 
+// Se acepta el nombre corto de la clase y se completa el espacio de nombres, que es como uno
+// se acuerda de ella.
+var tipo = filtro is null ? null
+    : filtro.Contains('.') ? filtro
+    : "Sigti.Pruebas.PuntaAPunta." + filtro;
+
 var ensamblado = Path.GetFullPath(rutaPedida ?? Path.Combine(
     AppContext.BaseDirectory, "Sigti.Pruebas.dll"));
 
@@ -61,6 +67,8 @@ corredor.OnErrorMessage = info =>
     lock (fallas) fallas.Add($"ERROR DEL CORREDOR: {info.ExceptionMessage}");
 };
 
+// Filtra en el descubrimiento: `AssemblyRunnerStartOptions` de esta version no expone el
+// nombre de tipo, y sin filtro una corrida de una clase toma lo mismo que la suite entera.
 corredor.OnDiscoveryComplete = info =>
     Console.WriteLine($"Descubiertas {info.TestCasesToRun} de {info.TestCasesDiscovered} pruebas.");
 
@@ -70,8 +78,13 @@ Console.WriteLine($"Corriendo {Path.GetFileName(ensamblado)}…");
 if (filtro is not null) Console.WriteLine($"Filtro: «{filtro}»");
 Console.WriteLine();
 
+corredor.TestCaseFilter = tipo is null
+    ? null
+    : c => c.TestMethod.TestClass.Class.Name.Contains(tipo, StringComparison.OrdinalIgnoreCase);
+
 corredor.Start(new AssemblyRunnerStartOptions
 {
+
     // En serie: la suite comparte una base de datos real, y en paralelo dos pruebas se
     // pisan el expediente. `dotnet test` la corre igual.
     MaxParallelThreads = 1,

@@ -65,7 +65,16 @@ public sealed class ConsultaDelOrganigrama(SigtiDbContext contexto)
         IdPuesto? soloPuesto = null,
         CancellationToken cancelacion = default)
     {
-        var consulta = contexto.AsignacionesDePuesto.AsNoTracking();
+        // ⚠️ **Solo las espejadas.** Lo que esto mide es cuando se hablo por ultima vez con el
+        // sistema dueno del padron. Una asignacion otorgada dentro de SIGTI —el puesto funcional
+        // de flota— no dice nada de eso, y contarla haria que el espejo **pareciera recien
+        // confirmado** por haber nombrado a un encargado de despacho.
+        //
+        // El sintoma seria el peor posible para lo que este dato existe: la jefatura que va a
+        // firmar veria «confirmado hoy» sobre un organigrama detenido hace tres semanas.
+        var consulta = contexto.AsignacionesDePuesto
+            .AsNoTracking()
+            .Where(a => a.Origen == OrigenDeLaAsignacion.Espejo);
 
         if (soloPuesto is { } puesto)
             consulta = consulta.Where(a => a.Puesto == puesto.Valor);

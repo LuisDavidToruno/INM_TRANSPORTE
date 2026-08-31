@@ -1,16 +1,24 @@
 namespace Sigti.Datos;
 
 /// <summary>
-/// Una asignación de puesto — <b>espejo, no maestro</b>.
+/// Quién ocupa qué puesto, y desde cuándo.
 ///
-/// ── Lo que esta clase NO es ──────────────────────────────────────────────────
-/// No es el organigrama de la institución. `DP-001`: la estructura de puestos es
-/// <b>propiedad de ARGOS y Talento Humano</b>, y `RN-48` es taxativo — los datos de otro
-/// dueño se almacenan como espejo marcado como tal, y <b>ninguna pantalla ni operación de
-/// SIGTI debe permitir editarlos</b>.
+/// ── ⚠️ Dos orígenes que no se mezclan — ver <see cref="OrigenDeLaAsignacion"/> ──
+/// Esta tabla lleva dos clases de fila y confundirlas rompe las dos:
 ///
-/// Por eso <b>no hay endpoint de escritura</b>. Se puebla por la integración, y si alguien
-/// necesita corregir un puesto, lo corrige en ARGOS.
+/// <list type="bullet">
+/// <item><b>Espejadas.</b> El cargo del contrato, que es de ARGOS y Talento Humano. `RN-48`
+/// es taxativo: los datos de otro dueño se almacenan marcados como espejo y <b>ninguna
+/// pantalla de SIGTI debe permitir editarlos</b>. Quien necesite corregir un cargo lo corrige
+/// allá.</item>
+/// <item><b>Propias.</b> El puesto <i>funcional en la gestión de flota</i> —Jefe de Transporte,
+/// Encargado de Despacho—, que <b>ARGOS no modela</b> y por lo tanto no es dato de otro dueño.
+/// SIGTI es su dueño y las administra.</item>
+/// </list>
+///
+/// Que la competencia siga viviendo en el <b>puesto</b> y no en la persona es lo que `RNF-14`
+/// exige —<i>«permisos asignados directamente a una persona: 0»</i>— y lo que hace que la
+/// rotación sea cerrar una fila: el siguiente ocupante hereda las competencias sin tocarlas.
 ///
 /// ── Por qué lleva `ConfirmadoAl`, que un maestro no necesitaría ──────────────
 /// <b>Un espejo envejece.</b> Y la antigüedad no es un detalle técnico: es lo que `HU-009`
@@ -23,6 +31,12 @@ public sealed class FilaDeAsignacionDePuesto
 
     /// <summary>Identidad de <b>persona</b>, la que `BD-01` compara. No de usuario.</summary>
     public required string Persona { get; init; }
+
+    /// <summary>
+    /// De dónde viene esta fila. <b>Decide quién la puede tocar</b>, y sobre todo decide qué
+    /// hace la sincronización con ella.
+    /// </summary>
+    public required OrigenDeLaAsignacion Origen { get; init; }
 
     public required string Puesto { get; init; }
 
@@ -47,4 +61,33 @@ public sealed class FilaDeAsignacionDePuesto
     /// uno recién sincronizado.
     /// </summary>
     public required DateTime ConfirmadoAlUtc { get; set; }
+}
+
+/// <summary>
+/// Quién es dueño de una asignación de puesto.
+///
+/// ── ⚠️ Por qué hace falta distinguirlas ─────────────────────────────────────
+/// La sincronización con el sistema dueño del padrón <b>cierra las filas que la fuente ya no
+/// trae</b> — así es como una persona que dejó la institución deja de tener competencias sin
+/// que nadie se acuerde de quitárselas.
+///
+/// Sin esta marca, esa misma lógica <b>cerraría también los puestos funcionales de SIGTI</b>,
+/// que ARGOS no conoce y nunca va a traer. El Jefe de Transporte perdería su rol en la primera
+/// sincronización nocturna, y el síntoma —«ayer podía y hoy no»— no señalaría a la causa.
+/// </summary>
+public enum OrigenDeLaAsignacion
+{
+    /// <summary>
+    /// El cargo del contrato, copiado del sistema dueño. <b>SIGTI no lo edita</b> (`RN-48`):
+    /// la sincronización lo refresca, y lo que la fuente deja de traer se cierra con fecha.
+    /// </summary>
+    Espejo,
+
+    /// <summary>
+    /// El puesto funcional en la gestión de flota, otorgado dentro de SIGTI.
+    ///
+    /// <b>No es dato de otro dueño</b>: ARGOS no modela «Encargado de Despacho», porque no
+    /// gestiona flota. La sincronización no las toca.
+    /// </summary>
+    Propia,
 }

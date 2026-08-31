@@ -324,6 +324,10 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             asignacion.HasKey(a => a.Id);
             asignacion.Property(a => a.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
             asignacion.Property(a => a.Persona).HasMaxLength(64).IsRequired();
+
+            // Se guarda por su nombre y no por su numero: una fila que dice `Espejo`
+            // se entiende leyendo la tabla, y un `0` obliga a ir a buscar el enumerado.
+            asignacion.Property(a => a.Origen).HasConversion<string>().HasMaxLength(16).IsRequired();
             asignacion.Property(a => a.Puesto).HasMaxLength(64).IsRequired();
 
             // Las dos preguntas que se hacen: quien ocupa un puesto, y que puestos tiene

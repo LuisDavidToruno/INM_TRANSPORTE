@@ -404,8 +404,17 @@ public class PeajesPruebas(BaseDePruebas baseDePruebas)
                 });
         }
 
-        var zambrano = await PuntoConTarifa(contexto, "Zambrano", ahora);
-        var comayagua = await PuntoConTarifa(contexto, "Comayagua", ahora);
+        // ⚠️ **Con nombre propio de esta clase, y no «Zambrano» a secas.**
+        //
+        // La base de pruebas es compartida y `CoherenciaDePeajesPruebas` planta puntos llamados
+        // exactamente «Zambrano» y «Comayagua», uno por cada una de sus pruebas y sin guarda.
+        // Como acá el punto se reencuentra POR NOMBRE para reusarlo entre pruebas, la búsqueda
+        // daba varias filas y reventaba con «Sequence contains more than one element».
+        //
+        // El síntoma no señalaba a la causa: fallaban trece pruebas de esta clase por lo que
+        // sembraba otra, y sólo cuando esa otra corría antes. Correrlas por separado pasaba.
+        var zambrano = await PuntoConTarifa(contexto, "Zambrano · M-18", ahora);
+        var comayagua = await PuntoConTarifa(contexto, "Comayagua · M-18", ahora);
 
         await contexto.SaveChangesAsync();
 

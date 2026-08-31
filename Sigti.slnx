@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/pruebas/">
+    <Project Path="pruebas/Sigti.Corredor/Sigti.Corredor.csproj" />
     <Project Path="pruebas/Sigti.Pruebas/Sigti.Pruebas.csproj" />
   </Folder>
   <Folder Name="/src/">

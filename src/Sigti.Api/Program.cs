@@ -73,6 +73,7 @@ constructor.Services.AddHttpClient<IEspejoDeOrganizacion, PadronDesdeArgos>((ser
     servicios.GetRequiredService<IHttpContextAccessor>()));
 
 constructor.Services.AddScoped<SincronizacionDelEspejo>();
+constructor.Services.AddScoped<ServicioDeAsignacionDePuesto>();
 
 
 constructor.Services.AddDbContext<SigtiDbContext>(opciones =>
@@ -488,6 +489,11 @@ static FilaDeAsignacionDePuesto OcupacionDeDesarrollo(string id, string persona,
     Id = Ulid.Parse(id),
     Persona = persona,
     Puesto = puesto,
+
+    // Los puestos sembrados son los FUNCIONALES de SIGTI —jefe de transporte, despacho,
+    // custodia—, que ARGOS no modela ni va a traer. Marcarlos espejo haria que la primera
+    // sincronizacion nocturna los cerrara, y el sintoma seria «ayer podia y hoy no».
+    Origen = OrigenDeLaAsignacion.Propia,
     Desde = new DateOnly(2026, 1, 1),
     Hasta = null,
 
@@ -6665,6 +6671,59 @@ app.MapPost("/organigrama/sincronizar", async (
     });
 });
 
+// ── Quien ocupa un puesto funcional de SIGTI — HU-129, RN-100 ───────────────
+//
+// ⚠️ **Esto NO otorga un permiso a una persona.** `RNF-14` es taxativo —«permisos asignados
+// directamente a una persona: 0»— y aca no se ofrece: la competencia sigue viviendo en el
+// puesto. Lo que esta ruta hace es decir quien lo ocupa.
+//
+// La diferencia no es formal: cuando esa persona rota, se cierra su asignacion y el siguiente
+// ocupante hereda las competencias del puesto sin tocarlas.
+app.MapPost("/puesto/asignar", async (
+    AsignarPuesto peticion, ServicioDeAsignacionDePuesto servicio, IdentidadDelLlamador identidad) =>
+{
+    var otorgada = await servicio.AsignarAsync(
+        new IdPersona(peticion.Persona),
+        new IdPuesto(peticion.Puesto),
+        peticion.Desde,
+        peticion.Hasta,
+        identidad.Persona,
+        peticion.Momento);
+
+    return Results.Created($"/puesto/de/{peticion.Persona}", new
+    {
+        id = otorgada.Id.ToString(),
+        persona = otorgada.Persona,
+        puesto = otorgada.Puesto,
+
+        // Lo que la persona pasa a poder hacer. Va en la respuesta porque es **la consecuencia
+        // del acto**, y verla despues obliga a ir a buscarla a otra pantalla.
+        roles = otorgada.Roles.Select(r => r.ToString()),
+
+        // ⚠️ Acumulaciones que `RN-01` admite y **vigila**. No bloquean, y por eso mismo hay
+        // que mostrarlas: una acumulacion vigilada que nadie ve es una acumulacion sin vigilar.
+        vigilados = otorgada.Vigilados.Select(v => new
+        {
+            par = v.Par,
+            una = v.Una,
+            otra = v.Otra,
+            porQue = v.PorQue,
+        }),
+    });
+});
+
+/// Cierra la ocupacion. **No borra** — `RN-04`: los actos que la persona ejecuto bajo ese
+/// puesto siguen siendo suyos y siguen siendo validos.
+app.MapPost("/puesto/asignaciones/{id}/cerrar", async (
+    string id, CerrarAsignacion peticion, ServicioDeAsignacionDePuesto servicio) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    await servicio.CerrarAsync(ulid, peticion.Hasta, peticion.Motivo, peticion.Momento);
+
+    return Results.Ok(new { id, hasta = peticion.Hasta });
+});
+
 app.Run();
 return;
 
@@ -7993,3 +8052,15 @@ public sealed record FirmarLote(
 public sealed record ConfirmarResguardo(
     string Vehiculo, DateOnly Desde, DateOnly Hasta, string Predio,
     string Evidencia, DateOnly ConfirmadoEl, string Confirma, DateTimeOffset Momento);
+
+/// Quien ocupa un puesto funcional de SIGTI.
+///
+/// ⚠️ **No lleva rol ni alcance.** Los roles son del PUESTO —`RNF-14`— y ya estan otorgados;
+/// esto solo dice quien lo ocupa. Aceptar un rol aca convertiria la operacion en «dar un
+/// permiso a una persona», que es exactamente la que el modelo no ofrece.
+internal sealed record AsignarPuesto(
+    string Persona, string Puesto, DateOnly Desde, DateOnly? Hasta, DateTimeOffset Momento);
+
+/// El motivo es obligatorio: sin el, dentro de un año nadie va a poder decir si fue una
+/// rotacion, una sancion o un error de carga.
+internal sealed record CerrarAsignacion(DateOnly Hasta, string Motivo, DateTimeOffset Momento);
