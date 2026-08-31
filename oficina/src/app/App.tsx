@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText, LayoutList, IdCard, Scale, Users, ShieldAlert, Inbox, Route as RutaIcono, SlidersHorizontal, Radio, Home, Search, ShieldX, FileStack, Hash, GitCompareArrows, HardDrive, PlugZap, ShieldQuestion, Eye, ScrollText as Lista, Globe, HeartPulse, FilePlus2, ShieldCheck, Stamp, ScanLine } from 'lucide-react';
+import { CalendarClock, CalendarX2, ClipboardCheck, FileCheck2, Palette, LayoutDashboard, Truck, Fuel, Milestone, FileSearch, Archive, TriangleAlert, HandCoins, ScrollText, LayoutList, IdCard, Scale, Users, ShieldAlert, Inbox, Route as RutaIcono, SlidersHorizontal, Radio, Home, Search, ShieldX, FileStack, Hash, GitCompareArrows, HardDrive, PlugZap, ShieldQuestion, Eye, ScrollText as Lista, Globe, HeartPulse, FilePlus2, ShieldCheck, Stamp, ScanLine, CalendarOff } from 'lucide-react';
 
 import { Avisos, Nota, Shell, avisar } from '../ui';
 import type { GrupoNav, Miga } from '../ui';
@@ -22,6 +22,7 @@ import PrestamosPantalla from '../modulos/M03_Flota/Prestamos';
 import Titulos from '../modulos/M03_Flota/Titulos';
 import Puestos from '../modulos/M01_Organizacion/Puestos';
 import FirmaDePermisos from '../modulos/M07_Programacion/FirmaDePermisos';
+import FeriadoLargo from '../modulos/M04_Documentacion/FeriadoLargo';
 import Salvoconducto from '../modulos/M15_Formatos/Salvoconducto';
 import PaqueteDeIdentificacion from '../modulos/M15_Formatos/PaqueteDeIdentificacion';
 import Verificacion from '../modulos/M15_Formatos/Verificacion';
@@ -189,6 +190,15 @@ function Interior(): ReactElement {
           accionable: true,
         },
 
+        // El feriado largo tiene entrada propia porque **se prepara antes**, no el jueves
+        // santo: el operativo del TSC en Semana Santa es el pico anual de riesgo y es
+        // predecible. Escondido dentro de la bandeja de firma se abriria cuando ya es tarde.
+        {
+          texto: 'Antes del feriado largo',
+          icono: <CalendarOff />,
+          href: '/periodos/feriado',
+        },
+
         // El punto de verificación vive en el riel porque **también se usa desde adentro**:
         // quien recibe una llamada de un agente en carretera teclea acá el código que le
         // dictan. El QR entra por la misma ruta sin pasar por el riel.
@@ -352,6 +362,7 @@ function Interior(): ReactElement {
         <Route path="/tareas" element={<BandejaDeTareas />} />
         <Route path="/organizacion" element={<Puestos />} />
         <Route path="/permisos/firmar" element={<FirmaDePermisos />} />
+        <Route path="/periodos/feriado" element={<FeriadoLargo />} />
         <Route path="/misiones/:id/salvoconducto" element={<Salvoconducto />} />
         <Route
           path="/misiones/:id/paquete-de-identificacion"
@@ -460,6 +471,7 @@ function migasDe(ruta: string): Miga[] {
   if (ruta === '/parametros/cargar') return ['Parámetros', 'Cargar'];
   if (ruta === '/parametros/aprobar') return ['Parámetros', 'Poner en vigencia'];
   if (ruta === '/permisos/firmar') return ['Permisos de circulación', 'Firma'];
+  if (ruta === '/periodos/feriado') return ['Permisos de circulación', 'Antes del feriado largo'];
   if (ruta.startsWith('/verificar')) return ['Verificar salvoconducto'];
   if (ruta.endsWith('/paquete-de-identificacion'))
     return [{ texto: 'Bandeja de autorización', href: '/autorizacion' }, 'Identificación'];

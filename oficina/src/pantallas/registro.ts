@@ -223,6 +223,12 @@ export const CONSTRUIDAS: Readonly<Record<string, Construida>> = {
   'PT-024': { ruta: '/autorizacion/:id', archivo: 'M07_Programacion/TramiteDelPermiso.tsx' },
   'PT-021': { ruta: '/permisos/firmar', archivo: 'M07_Programacion/FirmaDePermisos.tsx' },
 
+  // El feriado largo. **Ruta propia y no una pestaña de PT-021**: la bandeja de firma
+  // contesta «que hay pendiente hoy», y esta contesta «que hace cada vehiculo de la flota
+  // durante el feriado» — incluidos los que NO salen, que es la mitad que un operativo del
+  // TSC viene a mirar.
+  'PT-022': { ruta: '/periodos/feriado', archivo: 'M04_Documentacion/FeriadoLargo.tsx' },
+
   // ── M-15 Formatos oficiales ──────────────────────────────────────────────
   // `RN-65` — el paquete que identifica al vehiculo sin lamina en carretera. No tiene PT
   // propio en el inventario: es documento de M-15 pedido por la regla, no una pantalla

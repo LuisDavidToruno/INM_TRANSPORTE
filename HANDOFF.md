@@ -1,6 +1,6 @@
 # Estado del trabajo
 
-**Última actualización: 2026-08-29.**
+**Última actualización: 2026-08-31.**
 
 Punto único de entrada para saber en qué va el proyecto. Si algo figura acá como abierto, está abierto; si se cierra, se saca de la lista el mismo día.
 
@@ -414,6 +414,84 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## `PT-022` — el jueves santo a las cinco de la tarde
+
+**1384 pruebas en verde.**
+
+`HU-020` cerrada. Era la última pantalla del hilo del permiso que faltaba, y la que
+figuraba abierta en cuatro bloques seguidos.
+
+### Por qué no es una comodidad
+
+El Tribunal Superior de Cuentas hace operativos de fiscalización vehicular **específicamente
+en Semana Santa**. Es el pico anual de riesgo, y es **predecible** — lo que lo vuelve el caso
+más fácil de resolver bien y el más caro de resolver mal.
+
+Un flujo que le exige a la máxima autoridad abrir veinte expedientes uno por uno a las cinco
+de la tarde del jueves santo produce una de dos cosas: **permisos que no se firman y misiones
+que salen sin amparo, o la clave prestada a un asistente**. La segunda es la que el sistema
+entero está diseñado para evitar, y por eso el lote **rechaza de una vez** a quien no es la
+máxima autoridad en lugar de dejar veinte intentos idénticos en la bitácora.
+
+### Y por qué el reporte tiene tres listas
+
+Un reporte que liste sólo los que circulan **deja al resto invisible**, y un vehículo del que
+nadie confirmó dónde está es exactamente lo que un operativo encuentra. Las tres listas
+—circulan, resguardados, exceptuados— **suman la flota entera y son excluyentes**: ésa es la
+propiedad que hace útil el reporte, no un detalle de presentación, y tiene su comprobación
+propia que sale en la respuesta.
+
+Tres decisiones que sostienen eso:
+
+- **Los incompletos no detienen a los completos.** Se firman los que están y **se nombra el
+  que no, con folio y motivo**. «4 de 5 firmados» sin decir cuál faltó deja a quien firma
+  buscando el que quedó, que es el que va a salir sin amparo.
+- **Los no confirmados van arriba.** El orden es la mitad del valor: una lista alfabética de
+  dieciocho obliga a buscar los tres que importan, y el jueves santo nadie los busca.
+- **Sin evidencia fechada no se confirma un resguardo.** Misma disciplina de `RN-18`: sin ella
+  lo único que queda registrado es que alguien dijo que el vehículo estaba ahí.
+
+### El defecto que sólo apareció contra la base real
+
+Las pruebas pasaban y el reporte cuadraba. Contra la base de desarrollo aparecieron dos
+vehículos **dados de baja y retirados de flota** pidiendo confirmación de resguardo.
+
+Pedirle a alguien que vaya a mirar dónde quedó un bien que ya se descargó del registro es
+mandarlo a una tarea que puede ser imposible. **El daño no es la tarea de más**: cada uno de
+esos infla «sin confirmar», y en una institución con años de historia son decenas — los tres
+que de verdad nadie fue a mirar quedan enterrados entre ellos. Es el mismo defecto que el
+orden de la lista existe para evitar, entrando por la otra puerta.
+
+Quedan fuera los **dos estados terminales de §10.2** y nada más. `PRESTADO` sigue siendo bien
+nuestro y devenga responsabilidad patrimonial; `EN_TALLER` es un lugar, y un vehículo que
+nadie ubica no deja de estar perdido porque haya una orden de trabajo abierta. Y **nulo entra**:
+«nunca se declaró estado» no es «no es flota».
+
+⚠️ La mitad que se rompe sola es la otra: **listar con un criterio y contar con otro** haría
+que la comprobación de que el reporte cuadra fallara siempre, o —peor— que pasara escondiendo
+un vehículo. Por eso el conteo de la flota vive en el servicio junto al criterio, no en la
+ruta, y hay una prueba de punta a punta que lo fija.
+
+### El otro: «firmado» y «no se puede firmar» decían lo mismo
+
+Un permiso ya firmado **seguía contando en «permisos que puede firmar hoy»**. La cifra no
+bajaba al firmar, y la sesión de firma no termina nunca: quien firma vuelve a abrirla creyendo
+que quedaron pendientes y encuentra los mismos.
+
+La causa es que **los dos hechos entraban por el mismo campo**. `PorQueNoSeFirma` rechaza el
+firmado por su cuenta —«ya está firmado, una segunda firma no agrega amparo»— y eso es cierto,
+pero **decir eso ahí pinta de rojo, con mensaje de bloqueo, justamente lo que ya se resolvió**.
+Son dos cosas opuestas: una es el problema y la otra es el resultado.
+
+Quedaron separadas. `Firmado` es bandera propia; `PorQueNoSeFirma` es sólo lo accionable —y en
+un permiso firmado, eso es «ya no cubre», que se arregla reemitiendo, no volviendo a firmar.
+
+Los dos defectos son el mismo patrón: **un campo contestando dos preguntas distintas**. Ninguno
+lo veía una prueba de dominio; el primero salió contra la base real y el segundo leyendo el
+camino que la pantalla iba a recorrer.
+
+---
+
 ## `INV-19` — el permiso firmado y el papel que quedó en el escritorio
 
 **1355 pruebas en verde.**
@@ -524,7 +602,7 @@ al vehículo y no permite compararlo»*.
 
 - El **acuse de entrega** del paquete y del salvoconducto. `RN-65` pide *«emitir, imprimir y
   entregar contra acuse»*: se imprimen y no se registra quién los recibió.
-- **`PT-022`**, la firma en lote de feriado largo (`HU-020`).
+- ~~**`PT-022`**, la firma en lote de feriado largo (`HU-020`).~~ **RESUELTO.**
 
 ---
 
@@ -901,7 +979,7 @@ todos están anulados devuelve el último — la pantalla tiene que poder decir 
   congelar los valores derivados —el estimado de peajes cambia con la categoría por ejes—,
   con asiento de diferencia. `HU-018` lo pide y su propia sección de alcance lo remite a
   `CU-04` y `M-07`. **No está hecho en ninguno de los dos.**
-- **`PT-022`, la firma en lote de feriado largo** (`HU-020`), sigue sin construir.
+- ~~**`PT-022`, la firma en lote de feriado largo** (`HU-020`).~~ **RESUELTO.**
 - El hallazgo de `HU-018` sobre las tres redacciones de lo que el permiso ampara —`BD-04`
   dice dos elementos, `PC-03` tres y `RN-23` cuatro— **se resolvió a favor de `RN-23`** en el
   código: `Ampara` y `PorQueYaNoCubre` comparan los cuatro. La máquina de estados sigue
@@ -971,7 +1049,7 @@ red en ejecución, que es la condición de un despliegue on-premise.
   en internet o lo deja interno. Es configuración de despliegue, no parte del bloqueo — el
   documento lleva QR en los dos casos.
 - **`PT-024`, la reemisión** por relevo: hoy se desiste y se abre otro trámite.
-- **`PT-022`, la firma en lote de feriado largo** (`HU-020`).
+- ~~**`PT-022`, la firma en lote de feriado largo** (`HU-020`).~~ **RESUELTO.**
 - La regla *«sin impresora no se despacha en día inhábil»* (`HU-017`) **no está implementada**:
   el sistema no sabe si la delegación tiene impresora. Es requisito de despliegue, `[C]`.
 
@@ -1040,7 +1118,7 @@ siembran **fila por fila**, comparando por clave, y no sobreescriben lo que ya e
 - **`PT-024`, la reemisión** por relevo de motorista. La regla ya opera —`Ampara` compara el
   motorista, así que un relevo invalida el permiso— pero **no hay pantalla para reemitirlo**:
   hoy se desiste y se abre otro trámite.
-- **`PT-022`, la firma en lote de feriado largo** (`HU-020`), sin construir.
+- ~~**`PT-022`, la firma en lote de feriado largo** (`HU-020`).~~ **RESUELTO.**
 - El destino sigue representando la **ruta** que `RN-23` pide. Dos misiones a Choluteca por
   caminos distintos se ven iguales — `[C]` con Auditoría Interna, ya declarado en el dominio.
 

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Sigti.Datos.M07_ProgramacionYDespacho;
 using Sigti.Datos.M09_Combustible;
 using Sigti.Datos.M03_Flota;
+using Sigti.Datos.M04_Documentacion;
 using Sigti.Datos.M11_Mantenimiento;
 using Sigti.Datos.M06_Solicitudes;
 using Sigti.Datos.M15_Formatos;
@@ -75,6 +76,7 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
     public DbSet<FilaDeConstatacion> ConstatacionesDeRotulacion => Set<FilaDeConstatacion>();
     public DbSet<FilaDeActaDeCustodia> ActasDeCustodia => Set<FilaDeActaDeCustodia>();
     public DbSet<FilaDeAcuse> AcusesDeEntrega => Set<FilaDeAcuse>();
+    public DbSet<FilaDeResguardo> ResguardosDeFeriado => Set<FilaDeResguardo>();
     public DbSet<FilaDeCambioDeEstado> CambiosDeEstado => Set<FilaDeCambioDeEstado>();
     public DbSet<FilaDeFondo> Fondos => Set<FilaDeFondo>();
     public DbSet<FilaDeAsignacion> AsignacionesDeCombustible => Set<FilaDeAsignacion>();
@@ -1787,6 +1789,25 @@ public sealed class SigtiDbContext(DbContextOptions<SigtiDbContext> opciones) : 
             // La bandeja de firma de PT-021 pregunta por estado, y es la consulta que la
             // maxima autoridad abre en el celular: tiene que responder sin recorrer la tabla.
             permiso.HasIndex(p => p.Estado);
+        });
+
+        modelo.Entity<FilaDeResguardo>(resguardo =>
+        {
+            resguardo.ToTable("ResguardoDeFeriado", schema: "flota");
+
+            resguardo.HasKey(r => r.Id);
+            resguardo.Property(r => r.Id).HasConversion(UlidABinario).HasColumnType("binary(16)");
+            resguardo.Property(r => r.VehiculoId).HasConversion(UlidABinario).HasColumnType("binary(16)");
+
+            // ⚠️ NO anulable: sin evidencia lo unico que queda registrado es que alguien dijo
+            // que el vehiculo estaba ahi. Misma disciplina que RN-18.
+            resguardo.Property(r => r.Evidencia).HasConversion(UlidABinario).HasColumnType("binary(16)");
+
+            resguardo.Property(r => r.Predio).HasMaxLength(160).IsRequired();
+            resguardo.Property(r => r.ConfirmadoPor).HasMaxLength(64).IsRequired();
+
+            // «Que vehiculos quedaron confirmados en este periodo» es LA consulta del reporte.
+            resguardo.HasIndex(r => new { r.VehiculoId, r.Desde });
         });
 
         modelo.Entity<FilaDeAcuse>(acuse =>

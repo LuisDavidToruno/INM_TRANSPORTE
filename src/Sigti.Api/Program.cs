@@ -41,6 +41,8 @@ using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M05_Motoristas;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
 using Sigti.Dominio.Organizacion;
+using Sigti.Aplicacion.M04_Documentacion;
+using Sigti.Dominio.M04_Documentacion;
 
 var constructor = WebApplication.CreateBuilder(args);
 
@@ -78,6 +80,7 @@ constructor.Services.AddScoped<ServicioDeActasDeCustodia>();
 constructor.Services.AddScoped<LecturaDeAdjuntos>();
 constructor.Services.AddScoped<ServicioDeAcuses>();
 constructor.Services.AddScoped<ServicioDeSalvoconductos>();
+constructor.Services.AddScoped<ServicioDelPeriodo>();
 constructor.Services.AddScoped<ConsultaDelDiaDeDespacho>();
 constructor.Services.AddScoped<ConsultaDeOdometro>();
 constructor.Services.AddScoped<EstadoDeLaFlota>();
@@ -2265,6 +2268,140 @@ permisosDeCirculacion.MapPost("/{id}/reemitir", async (
         // parece una correccion del anterior, y es un acto nuevo que necesita firma nueva.
         mensaje = "El permiso nuevo NO hereda la firma. Encaminelo a la maxima autoridad, y " +
                   "emita el salvoconducto de nuevo: el anterior quedo anulado.",
+    });
+});
+
+
+// ── El feriado largo: el reporte previo y la firma en lote — HU-020, PT-022 ──
+//
+// ⚠️ El TSC hace operativos de fiscalizacion vehicular **especificamente en Semana Santa** `[V]`.
+// Es el pico anual de riesgo, y es **predecible**. Un flujo que le exige a la maxima autoridad
+// abrir veinte expedientes uno por uno a las cinco de la tarde del jueves santo produce una de
+// dos cosas: permisos sin firmar y misiones que salen sin amparo, o **la clave prestada a un
+// asistente**. La segunda es la que el sistema entero esta disenado para evitar.
+var periodos = app.MapGroup("/periodos");
+
+/// El reporte previo. **Las tres listas suman la flota entera**, y esa es la propiedad que lo
+/// hace util: un reporte que liste solo los que circulan deja al resto invisible, y un vehiculo
+/// del que nadie confirmo donde esta es exactamente lo que un operativo encuentra.
+periodos.MapGet("/reporte", async (
+    DateOnly desde, DateOnly hasta, ServicioDelPeriodo servicio) =>
+{
+    // El corte de conocimiento se sella **aca y una sola vez** (RN-94): si cada consulta lo
+    // tomara por su cuenta, dos lecturas del mismo reporte darian resultados distintos sin que
+    // nada dijera por que.
+    var corte = DateTimeOffset.UtcNow;
+
+    var reporte = await servicio.ReporteAsync(desde, hasta, corte);
+    var flota = await servicio.VehiculosDeLaFlotaAsync();
+
+    return Results.Ok(new
+    {
+        desde = reporte.Desde,
+        hasta = reporte.Hasta,
+        corteDeConocimiento = reporte.CorteDeConocimiento,
+
+        // Las dos cifras que se leen antes que la tabla. **«Cinco propuestos» y «cinco
+        // firmables» no son lo mismo**: quien firma necesita saber cuantos va a resolver antes
+        // de sentarse.
+        firmables = reporte.Firmables,
+        sinConfirmar = reporte.SinConfirmar,
+
+        // ⚠️ Nulo es que cuadra. **No es una advertencia decorativa**: si aparece, hay
+        // vehiculos que el reporte no esta mostrando.
+        noCuadraPorque = ReglasDelReporteDelPeriodo.PorQueNoCuadra(reporte, flota),
+
+        circulan = reporte.Circulan.Select(v => new
+        {
+            vehiculo = v.Vehiculo.ToString(),
+            identificacion = v.Identificacion,
+            mision = v.Mision,
+            permiso = v.Permiso?.ToString(),
+            folio = v.FolioDelPermiso,
+
+            // Nulo es que si se puede firmar. Sale del dominio para que la pantalla no
+            // reimplemente la regla y despues diverja.
+            porQueNoSeFirma = v.PorQueNoSeFirma,
+
+            // ⚠️ **Va aparte del motivo, y no es redundante.** Los dos dicen «no se puede
+            // firmar» y son cosas opuestas: uno es el problema y el otro es el resultado. Sin
+            // esto la pantalla pinta de rojo el permiso que la maxima autoridad ya resolvio.
+            firmado = v.Firmado,
+        }),
+
+        // Con los **no confirmados primero**: el orden es la mitad del valor. Un reporte
+        // alfabetico obliga a buscar los tres que importan, y el jueves santo nadie los busca.
+        resguardados = reporte.Resguardados.Select(v => new
+        {
+            vehiculo = v.Vehiculo.ToString(),
+            identificacion = v.Identificacion,
+            resguardo = v.Resguardo.ToString(),
+            confirmadoEl = v.ConfirmadoEl,
+            predio = v.Predio,
+        }),
+
+        // `RN-24`. Van aparte y **sin permiso a firmar**: meterlos entre los que se firman
+        // haria que la maxima autoridad firmara permisos que la regla dice que no hacen falta.
+        exceptuados = reporte.Exceptuados.Select(v => new
+        {
+            vehiculo = v.Vehiculo.ToString(),
+            identificacion = v.Identificacion,
+        }),
+    });
+});
+
+/// La firma en lote. **Responde 200 aunque alguno no se firme**: `HU-020` es explicita en que
+/// los incompletos no detienen a los completos, y abortar el lote por uno haria que la maxima
+/// autoridad tuviera que volver.
+periodos.MapPost("/firmar-lote", async (FirmarLote peticion, ServicioDelPeriodo servicio) =>
+{
+    var ids = new List<Ulid>();
+
+    foreach (var crudo in peticion.Permisos)
+    {
+        if (!Identificador.Valido(crudo, out var ulid, out var error)) return error;
+        ids.Add(ulid);
+    }
+
+    var resultado = await servicio.FirmarLoteAsync(
+        ids, new IdPersona(peticion.Firma),
+        DateOnly.FromDateTime(peticion.Momento.UtcDateTime), peticion.Momento);
+
+    // El rechazo del lote entero es 403: no es que los permisos esten mal, es que quien pidio
+    // firmarlos no es quien puede.
+    if (resultado.Rechazado is { } porQue) return Results.Json(new { motivo = porQue }, statusCode: 403);
+
+    return Results.Ok(new
+    {
+        firmados = resultado.Firmados,
+
+        // ⚠️ **Nombrados uno por uno con su motivo.** «4 de 5 firmados» sin decir cual falto
+        // deja a quien firma buscando el que quedo, que es el que va a salir sin amparo.
+        noFirmados = resultado.NoFirmados.Select(n => new
+        {
+            id = n.Id.ToString(),
+            folio = n.Folio,
+            motivo = n.Motivo,
+        }),
+    });
+});
+
+/// Confirmar donde quedo resguardado un vehiculo que no circula. **Con evidencia fechada o no
+/// vale** — misma disciplina de `RN-18`: sin ella lo unico que queda registrado es que alguien
+/// dijo que el vehiculo estaba ahi.
+periodos.MapPost("/resguardos", async (ConfirmarResguardo peticion, ServicioDelPeriodo servicio) =>
+{
+    if (!Identificador.Valido(peticion.Vehiculo, out var vehiculo, out var error)) return error;
+    if (!Identificador.Valido(peticion.Evidencia, out var evidencia, out var otro)) return otro;
+
+    var id = await servicio.ConfirmarResguardoAsync(
+        vehiculo, peticion.Desde, peticion.Hasta, peticion.Predio, evidencia,
+        peticion.ConfirmadoEl, new IdPersona(peticion.Confirma), peticion.Momento);
+
+    return Results.Created($"/periodos/resguardos/{id}", new
+    {
+        id = id.ToString(),
+        resguardo = "Confirmado",
     });
 });
 
@@ -7644,3 +7781,19 @@ public sealed record Rectificar(
 public sealed record Depurar(
     DateTimeOffset Momento, bool Simular = true, DateTimeOffset? AvisadoEl = null,
     IReadOnlyList<string>? Segmentos = null);
+/// El lote de permisos que la maxima autoridad firma de una sentada — `HU-020`.
+///
+/// Los identificadores vienen **explicitos**, no «todos los pendientes del periodo». Firmar una
+/// lista que el servidor arma sola dejaria a quien firma sin saber que firmo, y `RN-23` exige
+/// que la facultad se ejerza sobre permisos concretos.
+public sealed record FirmarLote(
+    IReadOnlyList<string> Permisos, string Firma, DateTimeOffset Momento);
+
+/// Donde quedo un vehiculo que no circula durante el feriado — `HU-020`.
+///
+/// `Evidencia` es obligatoria: sin ella lo unico que queda registrado es que alguien dijo que el
+/// vehiculo estaba ahi. `ConfirmadoEl` es la fecha del hecho —cuando alguien fue a mirar—, no la
+/// de captura (`P-4`).
+public sealed record ConfirmarResguardo(
+    string Vehiculo, DateOnly Desde, DateOnly Hasta, string Predio,
+    string Evidencia, DateOnly ConfirmadoEl, string Confirma, DateTimeOffset Momento);
