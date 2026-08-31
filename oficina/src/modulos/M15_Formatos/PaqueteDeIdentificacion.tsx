@@ -5,6 +5,7 @@ import { CircleAlert, Printer, TriangleAlert } from 'lucide-react';
 
 import { Boton, Nota, Vacio } from '../../ui';
 import { pedir } from '../../api/misiones';
+import { usarQuienEjecuta } from '../../app/puesto';
 
 /**
  * `RN-65` — el <b>paquete de identificación en carretera</b> del vehículo sin lámina.
@@ -23,6 +24,10 @@ import { pedir } from '../../api/misiones';
  */
 export default function PaqueteDeIdentificacion(): ReactElement {
   const { id = '' } = useParams();
+
+  // ⚠️ Va en la URL de la foto porque **leer un adjunto es un acceso**: `RN-52` exige que quede
+  // asentado quién lo miró, y un adjunto servido sin eso deja el hábeas data sin contestarse.
+  const quienEjecuta = usarQuienEjecuta();
 
   const { data, isPending, isError } = useQuery({
     queryKey: ['paquete-de-identificacion', id],
@@ -171,11 +176,23 @@ export default function PaqueteDeIdentificacion(): ReactElement {
           </Renglon>
         </section>
 
-        {/* ── La rotulación ───────────────────────────────────────────────────
-            `RN-18`. Va impreso porque es lo que el agente mira: las franjas, la leyenda,
-            las siglas y el correlativo son lo que distingue a la vista un vehículo del
-            Estado de uno particular. */}
-        <section className="tw:mt-5 tw:text-sm">
+        {/* ── La rotulación, con su fotografía ────────────────────────────────
+            `RN-18` y el quinto contenido de `RN-65`. Va impreso porque es lo que el agente
+            mira: las franjas, la leyenda, las siglas y el correlativo son lo que distingue a
+            la vista un vehículo del Estado de uno particular.
+
+            Y la **foto** es lo que le permite comparar: sin ella, el papel afirma que la
+            rotulación se constató y no le muestra contra qué. */}
+        <section className="tw:mt-5 tw:flex tw:gap-4 tw:text-sm">
+          {p.fotografia !== null && (
+            <img
+              src={`${import.meta.env.VITE_API ?? ''}/adjuntos/${p.fotografia}?quien=${encodeURIComponent(quienEjecuta)}&rol=impresion-de-paquete`}
+              alt="Fotografía del vehículo con su rotulación institucional"
+              className="tw:h-32 tw:w-auto tw:shrink-0 tw:border tw:border-black tw:object-cover"
+            />
+          )}
+
+          <div>
           <p className="tw:text-[10px] tw:uppercase tw:tracking-wide">
             Identificación institucional constatada
           </p>
@@ -193,6 +210,15 @@ export default function PaqueteDeIdentificacion(): ReactElement {
               )}
             </>
           )}
+
+          {/* Se dice cuando NO hay foto: un papel que afirma que la rotulación se constató
+              sin mostrar contra qué compararla vale menos de lo que aparenta. */}
+          {p.fotografia === null && (
+            <p className="tw:mt-1 tw:font-bold">
+              ⚠️ Sin fotografía: este documento describe al vehículo y no permite compararlo.
+            </p>
+          )}
+          </div>
         </section>
 
         <footer className="tw:mt-8 tw:border-t tw:border-black tw:pt-2 tw:text-[9px]">
@@ -255,6 +281,13 @@ interface Paquete {
   desde: string;
   hasta: string;
   destino: string;
+  /**
+   * La foto de la constatación más reciente — **el quinto contenido de `RN-65`**.
+   *
+   * **Nula cuando nunca se constató.** Un paquete sin foto no identifica al vehículo: lo
+   * describe, que es menos.
+   */
+  fotografia: string | null;
   /** **Nulo es que no se pudo evaluar**, distinto de «está bien». */
   identificacion: {
     estado: string;

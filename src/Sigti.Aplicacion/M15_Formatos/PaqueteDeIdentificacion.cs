@@ -77,6 +77,17 @@ public sealed class PaqueteDeIdentificacion(
         var identificacion = await rotulacion.EvaluarAsync(
             idVehiculo, ventana.Salida, cancelacion);
 
+        // ⚠️ **El quinto contenido de `RN-65`**: <i>«fotografía vigente del vehículo con su
+        // rotulación»</i>. Se toma la de la constatación más reciente — es obligatoria por
+        // `RN-18`, así que si hay constatación hay foto.
+        //
+        // Nula cuando nunca se constató, y el documento lo dice: un paquete sin foto no
+        // identifica al vehículo, sólo lo describe.
+        var fotografia = (await rotulacion.HistorialAsync(idVehiculo, cancelacion))
+            .OrderByDescending(c => c.ConstatadoEl)
+            .FirstOrDefault()
+            ?.Fotografia;
+
         return new Paquete(
             // ⚠️ **El correlativo institucional primero.** `RN-15`: la identidad del vehículo
             // del Estado es el correlativo, no la placa — y en este documento eso deja de ser
@@ -98,7 +109,8 @@ public sealed class PaqueteDeIdentificacion(
             ventana.Salida,
             ventana.FinDelRango,
             expediente.Destino,
-            identificacion);
+            identificacion,
+            fotografia);
     }
 }
 
@@ -118,6 +130,12 @@ public sealed class PaqueteDeIdentificacion(
 /// El estado de la rotulación a la fecha de salida — `RN-18`. <b>Nulo es que no se pudo
 /// evaluar</b>, que es distinto de «está bien».
 /// </param>
+/// <param name="Fotografia">
+/// La foto de la constatación más reciente — <b>el quinto contenido de `RN-65`</b>.
+///
+/// <b>Nula cuando nunca se constató.</b> Un paquete sin foto no identifica al vehículo: lo
+/// describe, que es menos.
+/// </param>
 public sealed record Paquete(
     string Correlativo,
     string Siglas,
@@ -132,7 +150,8 @@ public sealed record Paquete(
     DateOnly Desde,
     DateOnly Hasta,
     string Destino,
-    IdentificacionDelVehiculo? Identificacion)
+    IdentificacionDelVehiculo? Identificacion,
+    Ulid? Fotografia)
 {
     /// <summary>
     /// Si el vehículo <b>necesita</b> este paquete. Con lámina puesta, no.

@@ -53,6 +53,38 @@ public sealed class AlmacenDeArchivos
     }
 
     /// <summary>
+    /// Lee un adjunto por su ruta relativa. <b>Nulo cuando el archivo no está.</b>
+    ///
+    /// ── ⚠️ Este método no existía ───────────────────────────────────────────
+    /// El almacén sólo sabía guardar, así que <b>todo lo que el sistema exige adjuntar entraba
+    /// y no salía nunca</b>: el respaldo documental del parámetro normativo —que `HU-145`
+    /// manda poder abrir antes de aprobar—, la fotografía obligatoria de la constatación de
+    /// rotulación, el documento de respaldo de placa que el agente pide en carretera, y el
+    /// paquete de evidencia que un auditor viene a ver.
+    ///
+    /// ── Nulo y no excepción ─────────────────────────────────────────────────
+    /// La fila puede estar y el archivo no: es lo que `ADR-004` avisó al separar el binario de
+    /// la base. Un almacén movido, restaurado a medias o montado en la ruta equivocada produce
+    /// exactamente eso, y <b>quien llama tiene que poder decirlo con la ruta</b> en vez de
+    /// recibir un fallo genérico.
+    /// </summary>
+    public async Task<byte[]?> LeerAsync(string relativa, CancellationToken cancelacion = default)
+    {
+        // ⚠️ Se resuelve y se comprueba que quede DENTRO de la raíz. La ruta viene de la base,
+        // pero una fila con `..\..\` serviría cualquier archivo del servidor: el almacén no
+        // decide en quién confiar, y por eso no confía.
+        var completa = Path.GetFullPath(Path.Combine(_raiz, relativa));
+        var raiz = Path.GetFullPath(_raiz);
+
+        if (!completa.StartsWith(raiz + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            return null;
+
+        return File.Exists(completa)
+            ? await File.ReadAllBytesAsync(completa, cancelacion)
+            : null;
+    }
+
+    /// <summary>
     /// La extensión sale del tipo declarado, no del nombre de origen.
     ///
     /// Es lista corta a propósito: lo que el cliente de campo produce hoy son fotografías

@@ -414,6 +414,63 @@ medir y el reparo no se activa: estimarlo produciría un remanente inventado que
 podría distinguir de uno medido. Y escalas distintas devuelven **nulo, no falso** — «no se puede
 comparar» y «no hay diferencia» son cosas opuestas.
 
+## Los adjuntos entraban y no salían nunca
+
+**1348 pruebas en verde.**
+
+### ⚠️ El hallazgo
+
+Iba a incrustar la fotografía en el paquete de identificación y no se podía: `AlmacenDeArchivos`
+tenía `GuardarAsync` **y nada más**. No hay ruta, ni servicio, ni método que lea un adjunto.
+
+Todo lo que el sistema exige adjuntar quedaba escrito y **fuera de alcance**:
+
+| Lo que se exige adjuntar | Y no se podía abrir |
+|---|---|
+| El respaldo documental del parámetro normativo | `HU-145`: *«quien aprueba tiene que poder abrir el documento»* — **bloqueé la aprobación sin él esta mañana**, y no había forma de abrirlo |
+| La fotografía de la constatación de rotulación | Obligatoria por `RN-18` — *«sin fotografía no debe aceptarse»* |
+| El documento de respaldo de placa | Lo que el agente pide en carretera |
+| El paquete de evidencia de una misión | Lo que un auditor viene a ver |
+
+El primero es mío, de hace unas horas. Puse un bloqueo que exige que el adjunto **exista**, y
+el motivo escrito era que quien aprueba pudiera **verlo**. No podía.
+
+### Leer no es simétrico de escribir
+
+Escribir un adjunto es un hecho del dispositivo. **Leerlo es un acceso**, y algunos llevan
+datos personales: `RN-52` exige que la consulta quede asentada **antes** de mostrar. Un almacén
+que devolviera bytes sin más convertiría el registro de consultas en una formalidad que se
+salta pidiendo la foto directamente.
+
+- **Lo desconocido cuenta como dato personal.** Una clasificación que nadie reconoce es un
+  adjunto del que no se sabe qué contiene, y servirlo sin registrar sería decidir por omisión
+  que no importa.
+- **La respuesta dice que el acceso quedó asentado** (`X-Acceso-Registrado`). Quien consulta
+  tiene derecho a saberlo ahora, no a descubrirlo después en un reporte.
+- **La ruta no se confía aunque venga de la base.** Una fila con `..\..\` serviría cualquier
+  archivo del servidor: la cadena de conexión, una clave. El almacén no decide en quién confiar.
+
+### Y dos respuestas que decían 500
+
+Pedir un adjunto sin decir quién, y pedir uno inexistente, devolvían **500** — que no le dice
+nada a quien llama. Ahora son 400 y 404. Y la fila que existe con el archivo ausente devuelve
+**502**, no 404: **no es «no existe»**, es el almacén mal montado o restaurado a medias
+(`ADR-004`), y un 404 mandaría a buscar un adjunto que sí está registrado.
+
+### Lo que esto cerró
+
+El **quinto contenido de `RN-65`** —la fotografía del vehículo con su rotulación— ya está en el
+paquete impreso. Y cuando no hay, el papel lo dice: *«sin fotografía: este documento describe
+al vehículo y no permite compararlo»*.
+
+### Lo que sigue abierto
+
+- El **acuse de entrega** del paquete y del salvoconducto. `RN-65` pide *«emitir, imprimir y
+  entregar contra acuse»*: se imprimen y no se registra quién los recibió.
+- **`PT-022`**, la firma en lote de feriado largo (`HU-020`).
+
+---
+
 ## `RN-22` — el acta que contesta «¿quién lo tenía, y con qué?»
 
 **1341 pruebas en verde.**

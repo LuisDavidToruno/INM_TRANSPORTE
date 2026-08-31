@@ -75,6 +75,7 @@ constructor.Services.AddScoped<ServicioDeRespaldoDePlaca>();
 constructor.Services.AddScoped<ServicioDeRotulacion>();
 constructor.Services.AddScoped<PaqueteDeIdentificacion>();
 constructor.Services.AddScoped<ServicioDeActasDeCustodia>();
+constructor.Services.AddScoped<LecturaDeAdjuntos>();
 constructor.Services.AddScoped<ServicioDeSalvoconductos>();
 constructor.Services.AddScoped<ConsultaDelDiaDeDespacho>();
 constructor.Services.AddScoped<ConsultaDeOdometro>();
@@ -175,6 +176,15 @@ app.UseExceptionHandler(rama => rama.Run(async contexto =>
             new { motivo = c.Motivo.ToString(), mensaje = c.Message }),
         ExpedienteNoEncontrado n => (StatusCodes.Status404NotFound,
             new { mensaje = n.Message }),
+
+        AdjuntoNoEncontrado ad => (StatusCodes.Status404NotFound,
+            new { mensaje = ad.Message }),
+
+        // ⚠️ **502 y no 404.** La fila existe: lo que falta es el archivo, y eso NO es «no
+        // existe» — es el almacen mal montado o restaurado a medias (ADR-004). Un 404 mandaria
+        // a buscar un adjunto que si esta registrado, y el problema es de despliegue.
+        AdjuntoSinArchivo asa => (StatusCodes.Status502BadGateway,
+            new { mensaje = asa.Message }),
         FondoNoEncontrado f => (StatusCodes.Status404NotFound,
             new { mensaje = f.Message }),
         AsignacionNoEncontrada an => (StatusCodes.Status404NotFound,
@@ -2631,6 +2641,10 @@ misiones.MapGet("/{id}/paquete-de-identificacion", async (
         hasta = paquete.Hasta,
         destino = paquete.Destino,
 
+        // El quinto contenido de RN-65. **Nula cuando nunca se constato**: un paquete sin
+        // foto no identifica al vehiculo, lo describe -- que es menos.
+        fotografia = paquete.Fotografia?.ToString(),
+
         // RN-18 — el estado de la rotulacion a la fecha de salida. **Nulo es que no se pudo
         // evaluar**, que es distinto de «esta bien».
         identificacion = paquete.Identificacion is null ? null : new
@@ -2752,6 +2766,52 @@ static object? ResumirCustodia(ActaDeCustodia? a) => a is null ? null : new
         observacion = e.Observacion,
     }),
 };
+
+
+/// **El camino que no existia**: leer un adjunto.
+///
+/// ⚠️ `AlmacenDeArchivos` solo sabia guardar, asi que todo lo que el sistema exige adjuntar
+/// entraba y no salia nunca -- el respaldo documental del parametro normativo, que `HU-145`
+/// manda poder abrir ANTES de aprobar; la fotografia obligatoria de la constatacion de
+/// rotulacion; el documento de respaldo de placa que el agente pide en carretera; y el paquete
+/// de evidencia que un auditor viene a ver.
+///
+/// **Leer no es simetrico de escribir.** Escribir un adjunto es un hecho del dispositivo; leerlo
+/// es un ACCESO, y algunos llevan datos personales: `RN-52` exige que la consulta quede asentada
+/// ANTES de mostrar. Servir bytes sin mas convertiria el registro de consultas en una formalidad
+/// que se salta pidiendo la foto directamente.
+app.MapGet("/adjuntos/{id}", async (
+    // ⚠️ `quien` es **anulable en la firma y obligatorio en la regla**, a proposito: si fuera
+    // `string` el enlazador rechazaria la peticion con un 500 generico antes de llegar aca, y
+    // quien la hizo no sabria que lo que falta es decir quien pide el adjunto.
+    string id, string? quien, string? rol, string? necesidad,
+    LecturaDeAdjuntos servicio, HttpContext http) =>
+{
+    if (!Identificador.Valido(id, out var ulid, out var error)) return error;
+
+    if (string.IsNullOrWhiteSpace(quien))
+    {
+        return Results.BadRequest(new
+        {
+            mensaje = "Diga quien pide el adjunto. Uno con dato personal que se sirve sin saber " +
+                      "quien lo miro deja el habeas data sin poder contestarse (RN-52).",
+        });
+    }
+
+    var abierto = await servicio.AbrirAsync(
+        ulid, new IdPersona(quien), rol ?? "(sin rol declarado)", necesidad,
+        DateTimeOffset.UtcNow, http.Connection.RemoteIpAddress?.ToString());
+
+    // Se dice en la cabecera que el acceso quedo asentado: quien consulta tiene derecho a
+    // saberlo AHORA y no a descubrirlo despues en un reporte de accesos.
+    if (abierto.LlevaDatoPersonal) http.Response.Headers["X-Acceso-Registrado"] = "si";
+
+    // La huella viaja tambien: es lo que permite comprobar que el archivo servido es el mismo
+    // que se recibio, sin volver a calcularlo contra nada.
+    http.Response.Headers["X-Huella"] = abierto.Hash;
+
+    return Results.File(abierto.Contenido, abierto.Tipo);
+});
 
 var auditoria = app.MapGroup("/auditoria");
 

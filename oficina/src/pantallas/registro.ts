@@ -242,9 +242,8 @@ export const CONSTRUIDAS: Readonly<Record<string, Construida>> = {
     ruta: '/misiones/:id/paquete-de-identificacion',
     archivo: 'M15_Formatos/PaqueteDeIdentificacion.tsx',
     incompleta:
-      'le falta la fotografia vigente del vehiculo con su rotulacion, que RN-65 pide como ' +
-      'quinto contenido: las constataciones de RN-18 ya la guardan y el documento todavia ' +
-      'no la incrusta.',
+      'le falta el acuse de entrega: RN-65 pide «emitir, imprimir y ENTREGAR CONTRA ACUSE», ' +
+      'y hoy se imprime sin registrar quien lo recibio.',
   },
 
   'PT-023': {
