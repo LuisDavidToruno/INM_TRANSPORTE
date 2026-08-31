@@ -33,19 +33,10 @@ public class AdjuntosPruebas(BaseDePruebas baseDePruebas) : IDisposable
 {
     private readonly string _almacen = Path.Combine(Path.GetTempPath(), $"sigti-adj-{Ulid.NewUlid()}");
 
+    // Igual que las demas, mas la raiz del almacen de archivos que esta prueba necesita.
     private WebApplicationFactory<Program> Aplicacion() =>
-        new WebApplicationFactory<Program>().WithWebHostBuilder(constructor =>
-        {
-            constructor.UseSetting("Adjuntos:Raiz", _almacen);
-            constructor.ConfigureServices(servicios =>
-            {
-                servicios.RemoveAll(typeof(DbContextOptions<SigtiDbContext>));
-                servicios.AddDbContext<SigtiDbContext>(opciones =>
-                    opciones.UseSqlServer(
-                        baseDePruebas.CadenaDeConexion,
-                        sql => sql.UseCompatibilityLevel(120)));
-            });
-        });
+        FabricaDeSigti.Crear(baseDePruebas, constructor =>
+            constructor.UseSetting("Adjuntos:Raiz", _almacen));
 
     [Fact]
     public async Task El_binario_va_al_sistema_de_archivos_y_la_base_guarda_su_rastro()

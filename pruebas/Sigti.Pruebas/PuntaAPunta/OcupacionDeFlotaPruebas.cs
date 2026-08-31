@@ -43,16 +43,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
     private const string Desde = "2026-03-14";
     private const string Hasta = "2026-03-20";
 
-    private WebApplicationFactory<Program> Aplicacion() =>
-        new WebApplicationFactory<Program>().WithWebHostBuilder(constructor =>
-            constructor.ConfigureServices(servicios =>
-            {
-                servicios.RemoveAll(typeof(DbContextOptions<SigtiDbContext>));
-                servicios.AddDbContext<SigtiDbContext>(opciones =>
-                    opciones.UseSqlServer(
-                        baseDePruebas.CadenaDeConexion,
-                        sql => sql.UseCompatibilityLevel(120)));
-            }));
+    private WebApplicationFactory<Program> Aplicacion() => FabricaDeSigti.Crear(baseDePruebas);
 
     [Fact]
     public async Task Programar_ocupa_el_vehiculo_y_la_ocupacion_lo_dice()

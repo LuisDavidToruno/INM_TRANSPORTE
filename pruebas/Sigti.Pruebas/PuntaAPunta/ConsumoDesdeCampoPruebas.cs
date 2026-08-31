@@ -35,16 +35,7 @@ public class ConsumoDesdeCampoPruebas(BaseDePruebas baseDePruebas)
     private static readonly DateTimeOffset EnLaEstacion =
         new(2026, 3, 16, 11, 20, 0, TimeSpan.FromHours(-6));
 
-    private WebApplicationFactory<Program> Aplicacion() =>
-        new WebApplicationFactory<Program>().WithWebHostBuilder(constructor =>
-            constructor.ConfigureServices(servicios =>
-            {
-                servicios.RemoveAll(typeof(DbContextOptions<SigtiDbContext>));
-                servicios.AddDbContext<SigtiDbContext>(opciones =>
-                    opciones.UseSqlServer(
-                        baseDePruebas.CadenaDeConexion,
-                        sql => sql.UseCompatibilityLevel(120)));
-            }));
+    private WebApplicationFactory<Program> Aplicacion() => FabricaDeSigti.Crear(baseDePruebas);
 
     [Fact]
     public async Task El_consumo_capturado_sin_red_entra_con_sus_cinco_datos()

@@ -24,16 +24,7 @@ public class SaldoDeAperturaPruebas(BaseDePruebas baseDePruebas)
     private static readonly DateTimeOffset Ahora =
         new(2027, 1, 5, 9, 0, 0, TimeSpan.FromHours(-6));
 
-    private WebApplicationFactory<Program> Aplicacion() =>
-        new WebApplicationFactory<Program>().WithWebHostBuilder(constructor =>
-            constructor.ConfigureServices(servicios =>
-            {
-                servicios.RemoveAll(typeof(DbContextOptions<SigtiDbContext>));
-                servicios.AddDbContext<SigtiDbContext>(opciones =>
-                    opciones.UseSqlServer(
-                        baseDePruebas.CadenaDeConexion,
-                        sql => sql.UseCompatibilityLevel(120)));
-            }));
+    private WebApplicationFactory<Program> Aplicacion() => FabricaDeSigti.Crear(baseDePruebas);
 
     [Fact]
     public async Task El_inventario_declara_TODAS_las_fuentes_incluidas_las_que_no_puede_contar()

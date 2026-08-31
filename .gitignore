@@ -36,3 +36,8 @@ oficina/dist/
 # Variables locales del cliente de oficina
 oficina/.env.local
 src/Sigti.Api/adjuntos/
+
+# ⚠️ Nunca se versiona: lleva la clave con que se valida el token del servicio de identidad
+# institucional. Una clave de firma en el repositorio permite emitir tokens validos a nombre de
+# cualquiera, a cualquiera que lo clone.
+appsettings.local.json

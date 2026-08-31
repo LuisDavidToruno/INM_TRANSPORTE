@@ -25,16 +25,7 @@ public class ExistenciasDelTanquePruebas(BaseDePruebas baseDePruebas)
     private static readonly DateTimeOffset Momento =
         new(2026, 3, 16, 9, 0, 0, TimeSpan.FromHours(-6));
 
-    private WebApplicationFactory<Program> Aplicacion() =>
-        new WebApplicationFactory<Program>().WithWebHostBuilder(constructor =>
-            constructor.ConfigureServices(servicios =>
-            {
-                servicios.RemoveAll(typeof(DbContextOptions<SigtiDbContext>));
-                servicios.AddDbContext<SigtiDbContext>(opciones =>
-                    opciones.UseSqlServer(
-                        baseDePruebas.CadenaDeConexion,
-                        sql => sql.UseCompatibilityLevel(120)));
-            }));
+    private WebApplicationFactory<Program> Aplicacion() => FabricaDeSigti.Crear(baseDePruebas);
 
     [Fact]
     public async Task El_abastecimiento_desde_el_tanque_DESCUENTA_de_las_existencias()

@@ -28,16 +28,7 @@ public class HallazgoPosteriorPuntaAPuntaPruebas(BaseDePruebas baseDePruebas)
     private static readonly DateTimeOffset Ahora =
         new(2026, 11, 20, 10, 0, 0, TimeSpan.FromHours(-6));
 
-    private WebApplicationFactory<Program> Aplicacion() =>
-        new WebApplicationFactory<Program>().WithWebHostBuilder(constructor =>
-            constructor.ConfigureServices(servicios =>
-            {
-                servicios.RemoveAll(typeof(DbContextOptions<SigtiDbContext>));
-                servicios.AddDbContext<SigtiDbContext>(opciones =>
-                    opciones.UseSqlServer(
-                        baseDePruebas.CadenaDeConexion,
-                        sql => sql.UseCompatibilityLevel(120)));
-            }));
+    private WebApplicationFactory<Program> Aplicacion() => FabricaDeSigti.Crear(baseDePruebas);
 
     [Fact]
     public async Task El_expediente_lleva_las_DOS_fechas_y_la_antiguedad_sale_del_hecho()

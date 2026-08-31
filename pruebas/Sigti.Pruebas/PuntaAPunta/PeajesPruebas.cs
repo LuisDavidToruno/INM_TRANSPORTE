@@ -30,16 +30,7 @@ public class PeajesPruebas(BaseDePruebas baseDePruebas)
     private static readonly DateTimeOffset Momento =
         new(2026, 4, 10, 9, 30, 0, TimeSpan.FromHours(-6));
 
-    private WebApplicationFactory<Program> Aplicacion() =>
-        new WebApplicationFactory<Program>().WithWebHostBuilder(constructor =>
-            constructor.ConfigureServices(servicios =>
-            {
-                servicios.RemoveAll(typeof(DbContextOptions<SigtiDbContext>));
-                servicios.AddDbContext<SigtiDbContext>(opciones =>
-                    opciones.UseSqlServer(
-                        baseDePruebas.CadenaDeConexion,
-                        sql => sql.UseCompatibilityLevel(120)));
-            }));
+    private WebApplicationFactory<Program> Aplicacion() => FabricaDeSigti.Crear(baseDePruebas);
 
     [Fact]
     public async Task Un_pickup_de_dos_ejes_estima_como_LIVIANO_y_no_como_vehiculo_de_2_ejes()

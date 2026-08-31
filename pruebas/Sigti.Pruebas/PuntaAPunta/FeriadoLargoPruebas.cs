@@ -307,16 +307,7 @@ public class FeriadoLargoPruebas(BaseDePruebas baseDePruebas)
 
     // ── Andamios ────────────────────────────────────────────────────────────
 
-    private WebApplicationFactory<Program> Aplicacion() =>
-        new WebApplicationFactory<Program>().WithWebHostBuilder(constructor =>
-            constructor.ConfigureServices(servicios =>
-            {
-                servicios.RemoveAll(typeof(DbContextOptions<SigtiDbContext>));
-                servicios.AddDbContext<SigtiDbContext>(opciones =>
-                    opciones.UseSqlServer(
-                        baseDePruebas.CadenaDeConexion,
-                        sql => sql.UseCompatibilityLevel(120)));
-            }));
+    private WebApplicationFactory<Program> Aplicacion() => FabricaDeSigti.Crear(baseDePruebas);
 
     /// <summary>
     /// Lo descarga del registro de bienes. Es terminal: deja de ser flota, y el reporte del

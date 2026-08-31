@@ -4,7 +4,10 @@
     {
       "name": "oficina",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "cwd": "oficina",
       "port": 5180
     },
@@ -20,6 +23,18 @@
         "http://localhost:5199"
       ],
       "port": 5199
+    },
+    {
+      "name": "argos-api",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": [
+        "run",
+        "--project",
+        "C:/Users/David/Documents/GitHub/ARGOS_API/src/Argos.Api",
+        "--urls",
+        "http://localhost:5293"
+      ],
+      "port": 5293
     }
   ]
 }

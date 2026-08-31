@@ -19,16 +19,7 @@ namespace Sigti.Pruebas.PuntaAPunta;
 [Collection(ColeccionDeBaseDeDatos.Nombre)]
 public class PrestamosPruebas(BaseDePruebas baseDePruebas)
 {
-    private WebApplicationFactory<Program> Aplicacion() =>
-        new WebApplicationFactory<Program>().WithWebHostBuilder(constructor =>
-            constructor.ConfigureServices(servicios =>
-            {
-                servicios.RemoveAll(typeof(DbContextOptions<SigtiDbContext>));
-                servicios.AddDbContext<SigtiDbContext>(opciones =>
-                    opciones.UseSqlServer(
-                        baseDePruebas.CadenaDeConexion,
-                        sql => sql.UseCompatibilityLevel(120)));
-            }));
+    private WebApplicationFactory<Program> Aplicacion() => FabricaDeSigti.Crear(baseDePruebas);
 
     /// <summary>
     /// `RN-63`: <i>«cuando el vehículo se cede con motorista de la institución propietaria, sí es

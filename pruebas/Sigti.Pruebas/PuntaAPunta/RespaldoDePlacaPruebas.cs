@@ -155,16 +155,7 @@ public class RespaldoDePlacaPruebas(BaseDePruebas baseDePruebas)
 
     // ── Andamios ────────────────────────────────────────────────────────────
 
-    private WebApplicationFactory<Program> Aplicacion() =>
-        new WebApplicationFactory<Program>().WithWebHostBuilder(constructor =>
-            constructor.ConfigureServices(servicios =>
-            {
-                servicios.RemoveAll(typeof(DbContextOptions<SigtiDbContext>));
-                servicios.AddDbContext<SigtiDbContext>(opciones =>
-                    opciones.UseSqlServer(
-                        baseDePruebas.CadenaDeConexion,
-                        sql => sql.UseCompatibilityLevel(120)));
-            }));
+    private WebApplicationFactory<Program> Aplicacion() => FabricaDeSigti.Crear(baseDePruebas);
 
     private async Task<FlotaSembrada.ParaProgramar> SembrarSinLaminaAsync(string prefijo)
     {

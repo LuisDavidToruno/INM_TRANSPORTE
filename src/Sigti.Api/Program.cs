@@ -41,12 +41,20 @@ using Sigti.Dominio.M03_Flota;
 using Sigti.Dominio.M05_Motoristas;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
 using Sigti.Dominio.Organizacion;
+using Sigti.Api.Seguridad;
 using Sigti.Aplicacion.M04_Documentacion;
 using Sigti.Aplicacion.M13_Cierre;
 using Sigti.Dominio.M13_Cierre;
 using Sigti.Dominio.M04_Documentacion;
 
 var constructor = WebApplication.CreateBuilder(args);
+
+// La clave de firma vive en `appsettings.local.json`, que no se versiona.
+constructor.Configuration.AddJsonFile("appsettings.local.json", optional: true, reloadOnChange: true);
+
+// SIGTI no tiene padron de contrasenas propio: valida el token que emite el servicio de
+// identidad institucional. Ver `Seguridad/Autenticacion.cs`.
+constructor.Services.AgregarAutenticacionInstitucional(constructor.Configuration);
 
 constructor.Services.AddDbContext<SigtiDbContext>(opciones =>
     opciones.UseSqlServer(
@@ -130,6 +138,9 @@ constructor.Services.AddCors(o => o.AddDefaultPolicy(p =>
 constructor.Services.AddOpenApi();
 
 var app = constructor.Build();
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
 {
