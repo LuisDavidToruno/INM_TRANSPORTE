@@ -42,6 +42,7 @@ using Sigti.Dominio.M05_Motoristas;
 using Sigti.Dominio.M07_ProgramacionYDespacho;
 using Sigti.Dominio.Organizacion;
 using Sigti.Api.Seguridad;
+using Sigti.Aplicacion.M20_Integraciones;
 using Sigti.Aplicacion.M04_Documentacion;
 using Sigti.Aplicacion.M13_Cierre;
 using Sigti.Dominio.M13_Cierre;
@@ -55,6 +56,24 @@ constructor.Configuration.AddJsonFile("appsettings.local.json", optional: true, 
 // SIGTI no tiene padron de contrasenas propio: valida el token que emite el servicio de
 // identidad institucional. Ver `Seguridad/Autenticacion.cs`.
 constructor.Services.AgregarAutenticacionInstitucional(constructor.Configuration);
+// ── El espejo del organigrama ───────────────────────────────────────────────
+//
+// ⚠️ **La implementacion concreta se registra ACA y en ningun otro lado.** `IEspejoDeOrganizacion`
+// es lo que el resto del sistema conoce; que hoy sea ARGOS es una decision del piloto del INM.
+// En otra institucion se cambia esta linea y nada mas — ninguna regla de negocio se entera.
+constructor.Services.AddHttpClient<IEspejoDeOrganizacion, PadronDesdeArgos>((servicios, cliente) =>
+{
+    cliente.BaseAddress = new Uri(
+        constructor.Configuration["Argos:Url"]
+        ?? throw new InvalidOperationException(
+            "Falta «Argos:Url»: es donde vive el servicio de identidad institucional, y sin el " +
+            "el espejo del organigrama no se puede poblar."));
+})
+.AddHttpMessageHandler(servicios => new ReenviarElToken(
+    servicios.GetRequiredService<IHttpContextAccessor>()));
+
+constructor.Services.AddScoped<SincronizacionDelEspejo>();
+
 
 constructor.Services.AddDbContext<SigtiDbContext>(opciones =>
     opciones.UseSqlServer(
@@ -6614,6 +6633,35 @@ misiones.MapPost("/{id}/cerrar", async (
         // se firmo otra cosa.
         criterios = criterios.Select(c => new { criterio = c.Criterio, detalle = c.Detalle }),
         sinVerificar = propuesta.SinVerificar.Select(c => c.Criterio),
+    });
+});
+
+// ── El espejo del organigrama — RN-48, M-20 ─────────────────────────────────
+//
+// ⚠️ **Esto es lo que une las dos mitades.** SIGTI resuelve competencias contra su espejo del
+// organigrama, y ese espejo estaba sembrado a mano con identificadores de desarrollo. Quien
+// entrara con su cuenta institucional traia un identificador que el espejo no conocia, y el
+// sistema le decia —con razon— que el organigrama no sabia quien era.
+app.MapPost("/organigrama/sincronizar", async (
+    SincronizacionDelEspejo sincronizacion, IdentidadDelLlamador identidad) =>
+{
+    // Se registra quien la pidio: un espejo es un dato de otro dueno, y saber quien lo trajo y
+    // cuando es parte de poder confiar en el.
+    var resultado = await sincronizacion.EjecutarAsync(DateTimeOffset.UtcNow);
+
+    return Results.Ok(new
+    {
+        fuente = resultado.Fuente,
+        momento = resultado.Momento,
+        laPidio = identidad.Persona.Valor,
+
+        personas = resultado.Personas,
+
+        // ⚠️ **Se cuentan aparte.** Una persona sin puesto vigente existe, se espeja, y no
+        // puede ejercer ninguna competencia — y esa diferencia es la que explica por que
+        // alguien entra y no ve nada.
+        conPuesto = resultado.ConPuesto,
+        puestosDistintos = resultado.PuestosDistintos,
     });
 });
 

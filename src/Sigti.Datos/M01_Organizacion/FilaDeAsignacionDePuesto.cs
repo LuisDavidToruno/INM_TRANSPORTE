@@ -32,7 +32,11 @@ public sealed class FilaDeAsignacionDePuesto
     /// Nulo es <b>indefinido, no eterno</b>. Un `Hasta` obligatorio obligaría a inventar
     /// una fecha de salida el día del nombramiento.
     /// </summary>
-    public DateOnly? Hasta { get; init; }
+    /// Es <b>mutable</b> porque una asignación se cierra: la persona deja el puesto y la fila
+    /// no se borra. `RN-100` juzga cada acto contra la ocupación <b>a la fecha del hecho</b>, y
+    /// borrar la del que se fue haría que un expediente de febrero pareciera autorizado por
+    /// alguien sin competencia — indefendible ante el auditor, y por un artefacto del sistema.
+    public DateOnly? Hasta { get; set; }
 
     /// <summary>
     /// Cuándo se confirmó esta fila contra el sistema dueño.
@@ -42,5 +46,5 @@ public sealed class FilaDeAsignacionDePuesto
     /// siendo cierto. Sin este campo, un espejo detenido hace dos semanas se ve idéntico a
     /// uno recién sincronizado.
     /// </summary>
-    public required DateTime ConfirmadoAlUtc { get; init; }
+    public required DateTime ConfirmadoAlUtc { get; set; }
 }
