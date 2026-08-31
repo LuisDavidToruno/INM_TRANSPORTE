@@ -37,7 +37,7 @@ public class PeajesPruebas(BaseDePruebas baseDePruebas)
     {
         var (vehiculo, zambrano, _) = await SembrarCatalogo("PJ-0001", ejes: 2, camion: false);
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var e = await Estimar(cliente, vehiculo, [(zambrano, 2)]);
 
@@ -51,7 +51,7 @@ public class PeajesPruebas(BaseDePruebas baseDePruebas)
     {
         var (vehiculo, zambrano, _) = await SembrarCatalogo("PJ-0002", ejes: 2, camion: true);
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var e = await Estimar(cliente, vehiculo, [(zambrano, 2)]);
 
@@ -66,7 +66,7 @@ public class PeajesPruebas(BaseDePruebas baseDePruebas)
         // un cruce.
         var (vehiculo, zambrano, comayagua) = await SembrarCatalogo("PJ-0003", 2, camion: false);
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var e = await Estimar(cliente, vehiculo, [(zambrano, 2), (comayagua, 2)]);
 
@@ -86,7 +86,7 @@ public class PeajesPruebas(BaseDePruebas baseDePruebas)
         // con el estimado marcado como no disponible y su causa.
         var (vehiculo, zambrano, _) = await SembrarCatalogo("PJ-0004", ejes: null, camion: true);
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var categoria = await Leer(cliente, $"/peajes/categoria/{vehiculo}");
 
@@ -108,7 +108,7 @@ public class PeajesPruebas(BaseDePruebas baseDePruebas)
         // después como si lo fuera.
         var (vehiculo, _, _) = await SembrarCatalogo("PJ-0005", 2, camion: false);
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var categoria = await Leer(cliente, $"/peajes/categoria/{vehiculo}");
 
@@ -125,7 +125,7 @@ public class PeajesPruebas(BaseDePruebas baseDePruebas)
         var huerfano = await SembrarPuntoSinTarifa("Villa de San Antonio");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var e = await Estimar(cliente, vehiculo, [(huerfano, 2)]);
 
@@ -143,7 +143,7 @@ public class PeajesPruebas(BaseDePruebas baseDePruebas)
         await SembrarExoneracion(vehiculo, zambrano);
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var e = await Estimar(cliente, vehiculo, [(zambrano, 2)]);
 
@@ -162,7 +162,7 @@ public class PeajesPruebas(BaseDePruebas baseDePruebas)
         // El caso de la SAPP, exacto: liviano cobrado como vehículo de 2 ejes, L 90 por L 22.
         var (vehiculo, zambrano, _) = await SembrarCatalogo("PJ-0008", 2, camion: false);
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var paso = Ulid.NewUlid().ToString();
 
@@ -201,9 +201,9 @@ public class PeajesPruebas(BaseDePruebas baseDePruebas)
     {
         var (vehiculo, zambrano, _) = await SembrarCatalogo("PJ-0009", 2, camion: false);
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
-        var respuesta = await cliente.PostAsJsonAsync("/peajes/pasos", new
+        var respuesta = await cliente.PostComoAsync("/peajes/pasos", new
         {
             Id = Ulid.NewUlid().ToString(),
             IdPunto = zambrano,
@@ -228,7 +228,7 @@ public class PeajesPruebas(BaseDePruebas baseDePruebas)
         // justificarse.
         var (vehiculo, zambrano, _) = await SembrarCatalogo("PJ-0010", 2, camion: false);
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var paso = Ulid.NewUlid().ToString();
 
@@ -258,7 +258,7 @@ public class PeajesPruebas(BaseDePruebas baseDePruebas)
         // duplicado infla el gasto y produce una discrepancia inventada por el sistema.
         var (vehiculo, zambrano, _) = await SembrarCatalogo("PJ-0011", 2, camion: false);
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var captura = Ulid.NewUlid().ToString();
         var mision = Ulid.NewUlid().ToString();
@@ -291,7 +291,7 @@ public class PeajesPruebas(BaseDePruebas baseDePruebas)
         // Descartar el paso perdería el gasto y la evidencia de que la caseta existe.
         var (vehiculo, _, _) = await SembrarCatalogo("PJ-0012", 2, camion: false);
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var mision = Ulid.NewUlid().ToString();
 
@@ -323,9 +323,9 @@ public class PeajesPruebas(BaseDePruebas baseDePruebas)
     {
         var (vehiculo, _, _) = await SembrarCatalogo("PJ-0013", 2, camion: false);
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
-        var respuesta = await cliente.PostAsJsonAsync("/peajes/pasos", new
+        var respuesta = await cliente.PostComoAsync("/peajes/pasos", new
         {
             Id = Ulid.NewUlid().ToString(),
             IdPunto = (string?)null,
@@ -496,7 +496,7 @@ public class PeajesPruebas(BaseDePruebas baseDePruebas)
     private static async Task<JsonElement> Estimar(
         HttpClient cliente, string vehiculo, (string Punto, int Cruces)[] cruces)
     {
-        var respuesta = await cliente.PostAsJsonAsync("/peajes/estimacion", new
+        var respuesta = await cliente.PostComoAsync("/peajes/estimacion", new
         {
             Cruces = cruces.Select(c => new { IdPunto = c.Punto, c.Cruces }),
             IdVehiculo = vehiculo,
@@ -527,7 +527,7 @@ public class PeajesPruebas(BaseDePruebas baseDePruebas)
 
     private static async Task Post(HttpClient cliente, string ruta, object cuerpo)
     {
-        var respuesta = await cliente.PostAsJsonAsync(ruta, cuerpo);
+        var respuesta = await cliente.PostComoAsync(ruta, cuerpo);
 
         if (!respuesta.IsSuccessStatusCode)
             throw new Xunit.Sdk.XunitException(

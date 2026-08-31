@@ -30,9 +30,9 @@ public class PrestamosPruebas(BaseDePruebas baseDePruebas)
     public async Task Ceder_el_vehiculo_con_motorista_propio_NO_abre_expediente_de_prestamo()
     {
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
-        var respuesta = await cliente.PostAsJsonAsync(
+        var respuesta = await cliente.PostComoAsync(
             "/prestamos", Cuerpo(conMotoristaPropio: true));
 
         Assert.False(respuesta.IsSuccessStatusCode);
@@ -51,9 +51,9 @@ public class PrestamosPruebas(BaseDePruebas baseDePruebas)
     public async Task Quien_autoriza_el_prestamo_no_puede_ser_el_receptor()
     {
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
-        var respuesta = await cliente.PostAsJsonAsync(
+        var respuesta = await cliente.PostComoAsync(
             "/prestamos", Cuerpo(autoriza: "Ana Discua", receptor: "Ana Discua"));
 
         Assert.False(respuesta.IsSuccessStatusCode);
@@ -68,7 +68,7 @@ public class PrestamosPruebas(BaseDePruebas baseDePruebas)
     public async Task El_sistema_responde_quien_respondia_por_la_unidad_en_cada_fecha()
     {
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var vehiculo = Ulid.NewUlid().ToString();
         var id = Ulid.NewUlid().ToString();
@@ -102,7 +102,7 @@ public class PrestamosPruebas(BaseDePruebas baseDePruebas)
         var corte = new DateOnly(anio, 12, 31);
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var id = Ulid.NewUlid().ToString();
 
@@ -129,7 +129,7 @@ public class PrestamosPruebas(BaseDePruebas baseDePruebas)
         Assert.Equal(239, renglon.GetProperty("antiguedadEnDias").GetInt32());
 
         // ── Y el bloqueo dispara ────────────────────────────────────────────
-        var bloqueado = await cliente.PostAsJsonAsync("/saldo-de-apertura", Saldo(anio, corte));
+        var bloqueado = await cliente.PostComoAsync("/saldo-de-apertura", Saldo(anio, corte));
 
         Assert.False(bloqueado.IsSuccessStatusCode);
         Assert.Contains("PrestamoVencido", await bloqueado.Content.ReadAsStringAsync());
@@ -143,12 +143,12 @@ public class PrestamosPruebas(BaseDePruebas baseDePruebas)
     public async Task El_acta_de_devolucion_no_la_firma_quien_recibio()
     {
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var id = Ulid.NewUlid().ToString();
         await Post(cliente, "/prestamos", Cuerpo(id: id));
 
-        var autodeclarada = await cliente.PostAsJsonAsync($"/prestamos/{id}/devolver", new
+        var autodeclarada = await cliente.PostComoAsync($"/prestamos/{id}/devolver", new
         {
             Fecha = new DateOnly(2026, 5, 4),
             Odometro = 92_800,
@@ -163,7 +163,7 @@ public class PrestamosPruebas(BaseDePruebas baseDePruebas)
         Assert.Contains("autodeclaración", await autodeclarada.Content.ReadAsStringAsync());
 
         // ── El odómetro tampoco retrocede ────────────────────────────────────
-        var retrocede = await cliente.PostAsJsonAsync($"/prestamos/{id}/devolver", new
+        var retrocede = await cliente.PostComoAsync($"/prestamos/{id}/devolver", new
         {
             Fecha = new DateOnly(2026, 5, 4),
             Odometro = 90_000,
@@ -210,13 +210,13 @@ public class PrestamosPruebas(BaseDePruebas baseDePruebas)
     public async Task Un_vehiculo_no_se_presta_dos_veces_a_la_vez()
     {
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var vehiculo = Ulid.NewUlid().ToString();
 
         await Post(cliente, "/prestamos", Cuerpo(vehiculo: vehiculo));
 
-        var segundo = await cliente.PostAsJsonAsync("/prestamos", Cuerpo(vehiculo: vehiculo));
+        var segundo = await cliente.PostComoAsync("/prestamos", Cuerpo(vehiculo: vehiculo));
 
         Assert.False(segundo.IsSuccessStatusCode);
         Assert.Contains("ya está prestado", await segundo.Content.ReadAsStringAsync());
@@ -287,7 +287,7 @@ public class PrestamosPruebas(BaseDePruebas baseDePruebas)
 
     private static async Task Post(HttpClient cliente, string ruta, object cuerpo)
     {
-        var respuesta = await cliente.PostAsJsonAsync(ruta, cuerpo);
+        var respuesta = await cliente.PostComoAsync(ruta, cuerpo);
 
         if (!respuesta.IsSuccessStatusCode)
             throw new Xunit.Sdk.XunitException(

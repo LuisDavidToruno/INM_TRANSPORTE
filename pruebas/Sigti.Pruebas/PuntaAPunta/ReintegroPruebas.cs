@@ -32,7 +32,7 @@ public class ReintegroPruebas(BaseDePruebas baseDePruebas)
     {
         var r = await Sembrar("RI-0001");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await Nominar(cliente, r.Conductor, 3_400m);
 
@@ -57,7 +57,7 @@ public class ReintegroPruebas(BaseDePruebas baseDePruebas)
     {
         var r = await Sembrar("RI-0002");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await Nominar(cliente, r.Conductor, 3_400m);
         var (fondo, mision) = await MisionProgramada(cliente, r);
@@ -91,7 +91,7 @@ public class ReintegroPruebas(BaseDePruebas baseDePruebas)
     {
         var r = await Sembrar("RI-0003");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await Nominar(cliente, r.Conductor, 900m);
         var (fondo, mision) = await MisionProgramada(cliente, r);
@@ -117,7 +117,7 @@ public class ReintegroPruebas(BaseDePruebas baseDePruebas)
     {
         var r = await Sembrar("RI-0004");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var obligacion = await Nominar(cliente, r.Conductor, 3_400m);
 
@@ -159,7 +159,7 @@ public class ReintegroPruebas(BaseDePruebas baseDePruebas)
     {
         var r = await Sembrar("RI-0005");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await Nominar(cliente, r.Conductor, 3_400m);
 
@@ -185,7 +185,7 @@ public class ReintegroPruebas(BaseDePruebas baseDePruebas)
         // un sistema de control: es un sistema de cobro».
         var r = await Sembrar("RI-0006");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await Post(cliente, "/reintegros", new
         {
@@ -225,7 +225,7 @@ public class ReintegroPruebas(BaseDePruebas baseDePruebas)
         // inventarle un plazo a la institución.
         var r = await Sembrar("RI-0007");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var (fondo, mision) = await MisionProgramada(cliente, r);
         var vale = await Emitir(cliente, fondo, mision, r.Conductor);
@@ -337,7 +337,7 @@ public class ReintegroPruebas(BaseDePruebas baseDePruebas)
 
     private static Task<HttpResponseMessage> IntentarEmitir(
         HttpClient cliente, string fondo, string mision, string conductor) =>
-        cliente.PostAsJsonAsync("/combustible", new
+        cliente.PostComoAsync("/combustible", new
         {
             Id = Ulid.NewUlid().ToString(),
             Folio = $"VAL-{Ulid.NewUlid()}",
@@ -389,7 +389,7 @@ public class ReintegroPruebas(BaseDePruebas baseDePruebas)
 
     private static async Task Post(HttpClient cliente, string ruta, object cuerpo)
     {
-        var respuesta = await cliente.PostAsJsonAsync(ruta, cuerpo);
+        var respuesta = await cliente.PostComoAsync(ruta, cuerpo);
 
         if (!respuesta.IsSuccessStatusCode)
             throw new Xunit.Sdk.XunitException(

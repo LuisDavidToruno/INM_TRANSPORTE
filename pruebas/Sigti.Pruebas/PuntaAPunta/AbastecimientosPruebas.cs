@@ -40,7 +40,7 @@ public class AbastecimientosPruebas(BaseDePruebas baseDePruebas)
         // instrumento; el abastecimiento cuenta el galón.
         var r = await Sembrar("AB-0001");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var (mision, vale) = await MisionEnRuta(cliente, r);
 
@@ -66,7 +66,7 @@ public class AbastecimientosPruebas(BaseDePruebas baseDePruebas)
         // imposible. Con los 40 del tanque de la sede contados, da 15 — que es lo que ocurrió.
         var r = await Sembrar("AB-0002");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var (mision, vale) = await MisionEnRuta(cliente, r);
 
@@ -118,7 +118,7 @@ public class AbastecimientosPruebas(BaseDePruebas baseDePruebas)
         // «Un galón sin precio sigue siendo un galón en el denominador.»
         var r = await Sembrar("AB-0003");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var (mision, _) = await MisionEnRuta(cliente, r);
 
@@ -148,7 +148,7 @@ public class AbastecimientosPruebas(BaseDePruebas baseDePruebas)
     {
         var r = await Sembrar("AB-0004");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var (mision, _) = await MisionEnRuta(cliente, r);
 
@@ -181,9 +181,9 @@ public class AbastecimientosPruebas(BaseDePruebas baseDePruebas)
         // que no descontó saldo de ningún folio.
         var r = await Sembrar("AB-0005");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
-        var respuesta = await cliente.PostAsJsonAsync("/abastecimientos", new
+        var respuesta = await cliente.PostComoAsync("/abastecimientos", new
         {
             Id = Ulid.NewUlid().ToString(),
             IdVehiculo = r.Vehiculo,
@@ -207,11 +207,11 @@ public class AbastecimientosPruebas(BaseDePruebas baseDePruebas)
         var otro = await Sembrar("AB-0007");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var (mision, _) = await MisionEnRuta(cliente, uno);
 
-        var respuesta = await cliente.PostAsJsonAsync("/abastecimientos", new
+        var respuesta = await cliente.PostComoAsync("/abastecimientos", new
         {
             Id = Ulid.NewUlid().ToString(),
             IdVehiculo = otro.Vehiculo,
@@ -235,7 +235,7 @@ public class AbastecimientosPruebas(BaseDePruebas baseDePruebas)
         // reabastecimiento de rutina en el predio no tiene expediente al que colgarse.
         var r = await Sembrar("AB-0008");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await Post(cliente, "/abastecimientos", new
         {
@@ -257,7 +257,7 @@ public class AbastecimientosPruebas(BaseDePruebas baseDePruebas)
         // casilla que alguien olvida marcar deja pasar un cálculo que no significa nada.
         var r = await Sembrar("AB-0009");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var (mision, vale) = await MisionEnRuta(cliente, r, nivelDeSalida: 1m);
 
@@ -301,7 +301,7 @@ public class AbastecimientosPruebas(BaseDePruebas baseDePruebas)
         // remanente inventado que después nadie podría distinguir de uno medido.
         var r = await Sembrar("AB-0010");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var (mision, vale) = await MisionEnRuta(cliente, r, nivelDeSalida: 1m);
 
@@ -338,7 +338,7 @@ public class AbastecimientosPruebas(BaseDePruebas baseDePruebas)
         // desaparezca del expediente.»
         var r = await Sembrar("RM-0001");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var (mision, vale) = await MisionEnRuta(cliente, r, nivelDeSalida: 0.25m);
 
@@ -382,7 +382,7 @@ public class AbastecimientosPruebas(BaseDePruebas baseDePruebas)
         // consumidos exceden a los cargados». Sin el nivel, ese exceso no se ve.
         var r = await Sembrar("RM-0002");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var (mision, vale) = await MisionEnRuta(cliente, r, nivelDeSalida: 1m);
 
@@ -422,7 +422,7 @@ public class AbastecimientosPruebas(BaseDePruebas baseDePruebas)
         // y **la evidencia dice que no es lo mismo que un remanente de cero**.
         var r = await Sembrar("RM-0003");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var (mision, vale) = await MisionEnRuta(cliente, r, nivelDeSalida: 1m);
 
@@ -550,7 +550,7 @@ public class AbastecimientosPruebas(BaseDePruebas baseDePruebas)
 
     private static async Task Post(HttpClient cliente, string ruta, object cuerpo)
     {
-        var respuesta = await cliente.PostAsJsonAsync(ruta, cuerpo);
+        var respuesta = await cliente.PostComoAsync(ruta, cuerpo);
 
         if (!respuesta.IsSuccessStatusCode)
             throw new Xunit.Sdk.XunitException(

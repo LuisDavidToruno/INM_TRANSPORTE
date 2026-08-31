@@ -35,14 +35,14 @@ public class EstadoDelVehiculoPruebas(BaseDePruebas baseDePruebas)
         var id = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await Habilitar(cliente, r.Vehiculo);
         await Declarar(cliente, r.Vehiculo, "EnTaller", "Orden de trabajo 2026-0044, frenos");
 
         await CrearYAprobar(cliente, id);
 
-        var respuesta = await cliente.PostAsJsonAsync($"/misiones/{id}/programar", new
+        var respuesta = await cliente.PostComoAsync($"/misiones/{id}/programar", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
@@ -68,7 +68,7 @@ public class EstadoDelVehiculoPruebas(BaseDePruebas baseDePruebas)
         var id = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await Habilitar(cliente, r.Vehiculo);
         await Declarar(cliente, r.Vehiculo, "EnTaller", "Orden de trabajo 2026-0045");
@@ -76,7 +76,7 @@ public class EstadoDelVehiculoPruebas(BaseDePruebas baseDePruebas)
 
         await CrearYAprobar(cliente, id);
 
-        var respuesta = await cliente.PostAsJsonAsync($"/misiones/{id}/programar", new
+        var respuesta = await cliente.PostComoAsync($"/misiones/{id}/programar", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
@@ -95,9 +95,9 @@ public class EstadoDelVehiculoPruebas(BaseDePruebas baseDePruebas)
         var r = await Sembrar("EV-0003");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
-        var respuesta = await cliente.PostAsJsonAsync($"/flota/{r.Vehiculo}/estado", new
+        var respuesta = await cliente.PostComoAsync($"/flota/{r.Vehiculo}/estado", new
         {
             Ejecuta = "P-TRANSPORTE",
             Estado = "Asignado",
@@ -118,12 +118,12 @@ public class EstadoDelVehiculoPruebas(BaseDePruebas baseDePruebas)
         var id = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearYAprobar(cliente, id);
         await Programar(cliente, id, r);
 
-        var respuesta = await cliente.PostAsJsonAsync($"/flota/{r.Vehiculo}/estado", new
+        var respuesta = await cliente.PostComoAsync($"/flota/{r.Vehiculo}/estado", new
         {
             Ejecuta = "P-GERENCIA",
             Estado = "DadoDeBaja",
@@ -141,14 +141,14 @@ public class EstadoDelVehiculoPruebas(BaseDePruebas baseDePruebas)
         var r = await Sembrar("EV-0005");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         // `W-18` — fin de tenencia. Sólo se alcanza desde `NO_DISPONIBLE`: el vehículo se
         // inhabilita primero y después se devuelve, que es el orden real de los actos.
         await Declarar(cliente, r.Vehiculo, "NoDisponible", "Fin del comodato, pendiente de devolver");
         await Declarar(cliente, r.Vehiculo, "RetiradoDeFlota", "Acta de devolución de comodato 2026-03");
 
-        var respuesta = await cliente.PostAsJsonAsync($"/flota/{r.Vehiculo}/estado", new
+        var respuesta = await cliente.PostComoAsync($"/flota/{r.Vehiculo}/estado", new
         {
             Ejecuta = "P-GERENCIA",
             Estado = "Disponible",
@@ -168,9 +168,9 @@ public class EstadoDelVehiculoPruebas(BaseDePruebas baseDePruebas)
         var r = await Sembrar("EV-0006");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
-        var respuesta = await cliente.PostAsJsonAsync($"/flota/{r.Vehiculo}/estado", new
+        var respuesta = await cliente.PostComoAsync($"/flota/{r.Vehiculo}/estado", new
         {
             Ejecuta = "P-TRANSPORTE",
             Estado = "NoDisponible",
@@ -189,7 +189,7 @@ public class EstadoDelVehiculoPruebas(BaseDePruebas baseDePruebas)
         var r = await Sembrar("EV-0007");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await Habilitar(cliente, r.Vehiculo);
         await Declarar(cliente, r.Vehiculo, "EnTaller", "Orden 2026-0050, transmisión");
@@ -218,7 +218,7 @@ public class EstadoDelVehiculoPruebas(BaseDePruebas baseDePruebas)
         var id = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearYAprobar(cliente, id);
         await Programar(cliente, id, r);
@@ -249,7 +249,7 @@ public class EstadoDelVehiculoPruebas(BaseDePruebas baseDePruebas)
 
     private static async Task Declarar(HttpClient cliente, string vehiculo, string estado, string motivo)
     {
-        var r = await cliente.PostAsJsonAsync($"/flota/{vehiculo}/estado", new
+        var r = await cliente.PostComoAsync($"/flota/{vehiculo}/estado", new
         {
             Ejecuta = "P-MANTENIMIENTO",
             Estado = estado,
@@ -262,7 +262,7 @@ public class EstadoDelVehiculoPruebas(BaseDePruebas baseDePruebas)
 
     private static async Task Programar(HttpClient cliente, string id, FlotaSembrada.ParaProgramar r)
     {
-        var respuesta = await cliente.PostAsJsonAsync($"/misiones/{id}/programar", new
+        var respuesta = await cliente.PostComoAsync($"/misiones/{id}/programar", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
@@ -281,7 +281,7 @@ public class EstadoDelVehiculoPruebas(BaseDePruebas baseDePruebas)
 
     private static async Task CrearYAprobar(HttpClient cliente, string id)
     {
-        await cliente.PostAsJsonAsync("/misiones", new
+        await cliente.PostComoAsync("/misiones", new
         {
             Id = id,
             CapturadaPor = "P-ASISTENTE",
@@ -297,7 +297,7 @@ public class EstadoDelVehiculoPruebas(BaseDePruebas baseDePruebas)
             Momento,
         });
 
-        await cliente.PostAsJsonAsync($"/misiones/{id}/enviar", new { Ejecuta = "P-ASISTENTE", Momento });
-        await cliente.PostAsJsonAsync($"/misiones/{id}/aprobar", new { Ejecuta = "P-JEFATURA", Momento });
+        await cliente.PostComoAsync($"/misiones/{id}/enviar", new { Ejecuta = "P-ASISTENTE", Momento });
+        await cliente.PostComoAsync($"/misiones/{id}/aprobar", new { Ejecuta = "P-JEFATURA", Momento });
     }
 }

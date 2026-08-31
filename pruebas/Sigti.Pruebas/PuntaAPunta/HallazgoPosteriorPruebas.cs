@@ -34,7 +34,7 @@ public class HallazgoPosteriorPuntaAPuntaPruebas(BaseDePruebas baseDePruebas)
     public async Task El_expediente_lleva_las_DOS_fechas_y_la_antiguedad_sale_del_hecho()
     {
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var id = await Abrir(cliente, [Ulid.NewUlid().ToString()]);
         var h = await Leer(cliente, $"/hallazgos/{id}");
@@ -55,7 +55,7 @@ public class HallazgoPosteriorPuntaAPuntaPruebas(BaseDePruebas baseDePruebas)
         // orden. **La ausencia de misión es el hallazgo** (`RN-59`).
         var v = await Sembrar("HP-0002");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var id = await Abrir(cliente, [], vehiculo: v.Id);
         var h = await Leer(cliente, $"/hallazgos/{id}");
@@ -69,7 +69,7 @@ public class HallazgoPosteriorPuntaAPuntaPruebas(BaseDePruebas baseDePruebas)
     public async Task El_reverso_muestra_los_TRES_valores_y_no_toca_el_original()
     {
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var id = await Abrir(cliente, [Ulid.NewUlid().ToString()]);
         await Revertir(cliente, id, "V-04-HP0003", -1_760m);
@@ -91,11 +91,11 @@ public class HallazgoPosteriorPuntaAPuntaPruebas(BaseDePruebas baseDePruebas)
     public async Task Quien_produjo_el_asiento_no_puede_autorizar_su_reverso()
     {
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var id = await Abrir(cliente, [Ulid.NewUlid().ToString()]);
 
-        var respuesta = await cliente.PostAsJsonAsync($"/hallazgos/{id}/reverso", Reverso(
+        var respuesta = await cliente.PostComoAsync($"/hallazgos/{id}/reverso", Reverso(
             "V-04-HP0004", -900m, autoriza: "P-MOTORISTA", autorOriginal: "P-MOTORISTA"));
 
         Assert.False(respuesta.IsSuccessStatusCode);
@@ -110,12 +110,12 @@ public class HallazgoPosteriorPuntaAPuntaPruebas(BaseDePruebas baseDePruebas)
         // corrección de más no la va a poder rastrear nadie. Lo impone la base, no una
         // comprobación que el próximo endpoint pueda olvidar.
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var id = await Abrir(cliente, [Ulid.NewUlid().ToString()]);
         await Revertir(cliente, id, "V-04-HP0005", -500m);
 
-        var respuesta = await cliente.PostAsJsonAsync($"/hallazgos/{id}/reverso",
+        var respuesta = await cliente.PostComoAsync($"/hallazgos/{id}/reverso",
             Reverso("V-04-HP0005", -500m));
 
         Assert.False(respuesta.IsSuccessStatusCode);
@@ -127,7 +127,7 @@ public class HallazgoPosteriorPuntaAPuntaPruebas(BaseDePruebas baseDePruebas)
         // `RN-93` punto 3: no se recalculan los históricos ya publicados; se ajusta el período
         // corriente y se muestra el ajuste como capa identificada.
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var id = await Abrir(cliente, [Ulid.NewUlid().ToString()]);
         await Revertir(cliente, id, "V-04-HP0006", -777m, imputacion: "2099-01");
@@ -144,7 +144,7 @@ public class HallazgoPosteriorPuntaAPuntaPruebas(BaseDePruebas baseDePruebas)
         // posteriores vinculados». Se consulta desde el hallazgo — guardar una marca en el
         // expediente cerrado sería modificarlo.
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var mision = Ulid.NewUlid().ToString();
         var id = await Abrir(cliente, [mision]);
@@ -160,7 +160,7 @@ public class HallazgoPosteriorPuntaAPuntaPruebas(BaseDePruebas baseDePruebas)
     public async Task El_error_del_propio_descubridor_se_CIERRA_no_se_borra()
     {
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var id = await Abrir(cliente, [Ulid.NewUlid().ToString()]);
 
@@ -188,7 +188,7 @@ public class HallazgoPosteriorPuntaAPuntaPruebas(BaseDePruebas baseDePruebas)
         // Igual que una misión cerrada no se reabre: lo que aparezca después es un hallazgo
         // nuevo, no una corrección de éste.
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var id = await Abrir(cliente, [Ulid.NewUlid().ToString()]);
 
@@ -201,7 +201,7 @@ public class HallazgoPosteriorPuntaAPuntaPruebas(BaseDePruebas baseDePruebas)
             Momento = Ahora,
         });
 
-        var respuesta = await cliente.PostAsJsonAsync($"/hallazgos/{id}/reverso",
+        var respuesta = await cliente.PostComoAsync($"/hallazgos/{id}/reverso",
             Reverso("V-04-HP0009", -100m));
 
         Assert.False(respuesta.IsSuccessStatusCode);
@@ -218,7 +218,7 @@ public class HallazgoPosteriorPuntaAPuntaPruebas(BaseDePruebas baseDePruebas)
         // el expediente es lo que les da ciclo propio y asiento reverso.
         var v = await Sembrar("HP-0010");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var fuente = Ulid.NewUlid().ToString();
 
@@ -363,7 +363,7 @@ public class HallazgoPosteriorPuntaAPuntaPruebas(BaseDePruebas baseDePruebas)
 
     private static async Task Post(HttpClient cliente, string ruta, object cuerpo)
     {
-        var respuesta = await cliente.PostAsJsonAsync(ruta, cuerpo);
+        var respuesta = await cliente.PostComoAsync(ruta, cuerpo);
 
         if (!respuesta.IsSuccessStatusCode)
             throw new Xunit.Sdk.XunitException(

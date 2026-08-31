@@ -40,7 +40,7 @@ public class RespaldoDePlacaPruebas(BaseDePruebas baseDePruebas)
         var r = await SembrarSinLaminaAsync("PLACA-001");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var mision = await CrearYAprobar(cliente);
 
@@ -65,7 +65,7 @@ public class RespaldoDePlacaPruebas(BaseDePruebas baseDePruebas)
         var r = await SembrarSinLaminaAsync("PLACA-002");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         // La misión sale el 20 y vuelve el 23. El respaldo cubre hasta el 21.
         await RegistrarRespaldo(cliente, r.Vehiculo, hasta: new DateOnly(2026, 3, 21));
@@ -84,7 +84,7 @@ public class RespaldoDePlacaPruebas(BaseDePruebas baseDePruebas)
         var r = await SembrarSinLaminaAsync("PLACA-003");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         // Hasta el 25: cubre la ventana del 20 al 23 más la holgura.
         await RegistrarRespaldo(cliente, r.Vehiculo, hasta: new DateOnly(2026, 3, 25));
@@ -107,7 +107,7 @@ public class RespaldoDePlacaPruebas(BaseDePruebas baseDePruebas)
         var r = await SembrarSinLaminaAsync("PLACA-004");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await RegistrarRespaldo(cliente, r.Vehiculo, hasta: new DateOnly(2026, 3, 21));
         await RegistrarRespaldo(cliente, r.Vehiculo, hasta: new DateOnly(2026, 3, 30));
@@ -134,9 +134,9 @@ public class RespaldoDePlacaPruebas(BaseDePruebas baseDePruebas)
         var r = await SembrarSinLaminaAsync("PLACA-005");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
-        var respuesta = await cliente.PostAsJsonAsync(
+        var respuesta = await cliente.PostComoAsync(
             $"/flota/{r.Vehiculo}/respaldo-de-placa", new
             {
                 Tipo = "Permiso provisional de circulación",
@@ -193,7 +193,7 @@ public class RespaldoDePlacaPruebas(BaseDePruebas baseDePruebas)
             await contexto.SaveChangesAsync();
         }
 
-        var respuesta = await cliente.PostAsJsonAsync(
+        var respuesta = await cliente.PostComoAsync(
             $"/flota/{vehiculo}/respaldo-de-placa", new
             {
                 Tipo = "Permiso provisional de circulación",
@@ -214,7 +214,7 @@ public class RespaldoDePlacaPruebas(BaseDePruebas baseDePruebas)
     {
         var id = Ulid.NewUlid().ToString();
 
-        await cliente.PostAsJsonAsync("/misiones", new
+        await cliente.PostComoAsync("/misiones", new
         {
             Id = id,
             CapturadaPor = "P-ASISTENTE",
@@ -230,10 +230,10 @@ public class RespaldoDePlacaPruebas(BaseDePruebas baseDePruebas)
             Momento,
         });
 
-        await cliente.PostAsJsonAsync($"/misiones/{id}/enviar",
+        await cliente.PostComoAsync($"/misiones/{id}/enviar",
             new { Ejecuta = "P-ASISTENTE", Momento });
 
-        await cliente.PostAsJsonAsync($"/misiones/{id}/aprobar",
+        await cliente.PostComoAsync($"/misiones/{id}/aprobar",
             new { Ejecuta = "P-JEFATURA", Momento });
 
         return id;
@@ -241,7 +241,7 @@ public class RespaldoDePlacaPruebas(BaseDePruebas baseDePruebas)
 
     private static Task<HttpResponseMessage> Programar(
         HttpClient cliente, string mision, FlotaSembrada.ParaProgramar r) =>
-        cliente.PostAsJsonAsync($"/misiones/{mision}/programar", new
+        cliente.PostComoAsync($"/misiones/{mision}/programar", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,

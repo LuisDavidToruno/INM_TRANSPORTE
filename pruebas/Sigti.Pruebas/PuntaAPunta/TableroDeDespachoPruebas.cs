@@ -37,7 +37,7 @@ public class TableroDeDespachoPruebas(BaseDePruebas baseDePruebas)
         var id = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         // Del lunes 16 al miércoles 18 — entre semana, para no chocar con `BD-04`.
         await CrearAprobarYProgramar(cliente, id, r, new DateOnly(2026, 3, 16), new DateOnly(2026, 3, 18));
@@ -62,7 +62,7 @@ public class TableroDeDespachoPruebas(BaseDePruebas baseDePruebas)
         var id = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearAprobarYProgramar(cliente, id, r, new DateOnly(2026, 3, 16), new DateOnly(2026, 3, 18));
 
@@ -82,7 +82,7 @@ public class TableroDeDespachoPruebas(BaseDePruebas baseDePruebas)
         var id = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearAprobarYProgramar(cliente, id, r, new DateOnly(2026, 3, 16), new DateOnly(2026, 3, 18));
         await Despachar(cliente, id, r);
@@ -105,7 +105,7 @@ public class TableroDeDespachoPruebas(BaseDePruebas baseDePruebas)
         var id = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearAprobarYProgramar(cliente, id, r, new DateOnly(2026, 3, 16), new DateOnly(2026, 3, 18));
         await Despachar(cliente, id, r);
@@ -126,7 +126,7 @@ public class TableroDeDespachoPruebas(BaseDePruebas baseDePruebas)
         var id = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearAprobarYProgramar(cliente, id, r, new DateOnly(2026, 3, 16), new DateOnly(2026, 3, 18));
         await Despachar(cliente, id, r);
@@ -147,7 +147,7 @@ public class TableroDeDespachoPruebas(BaseDePruebas baseDePruebas)
         var id = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearAprobarYProgramar(cliente, id, r, new DateOnly(2026, 3, 24), new DateOnly(2026, 3, 25));
 
@@ -161,7 +161,7 @@ public class TableroDeDespachoPruebas(BaseDePruebas baseDePruebas)
     public async Task Una_fecha_mal_formada_se_explica_en_vez_de_reventar()
     {
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var respuesta = await cliente.GetAsync("/despacho/dia?fecha=el-jueves");
 
@@ -182,7 +182,7 @@ public class TableroDeDespachoPruebas(BaseDePruebas baseDePruebas)
 
     private static async Task Despachar(HttpClient cliente, string id, FlotaSembrada.ParaProgramar r)
     {
-        var respuesta = await cliente.PostAsJsonAsync($"/misiones/{id}/despachar", new
+        var respuesta = await cliente.PostComoAsync($"/misiones/{id}/despachar", new
         {
             Ejecuta = "P-ENCARGADO",
             Momento,
@@ -200,7 +200,7 @@ public class TableroDeDespachoPruebas(BaseDePruebas baseDePruebas)
         DateOnly salida,
         DateOnly retorno)
     {
-        await cliente.PostAsJsonAsync("/misiones", new
+        await cliente.PostComoAsync("/misiones", new
         {
             Id = id,
             CapturadaPor = "P-ASISTENTE",
@@ -216,10 +216,10 @@ public class TableroDeDespachoPruebas(BaseDePruebas baseDePruebas)
             Momento,
         });
 
-        await cliente.PostAsJsonAsync($"/misiones/{id}/enviar", new { Ejecuta = "P-ASISTENTE", Momento });
-        await cliente.PostAsJsonAsync($"/misiones/{id}/aprobar", new { Ejecuta = "P-JEFATURA", Momento });
+        await cliente.PostComoAsync($"/misiones/{id}/enviar", new { Ejecuta = "P-ASISTENTE", Momento });
+        await cliente.PostComoAsync($"/misiones/{id}/aprobar", new { Ejecuta = "P-JEFATURA", Momento });
 
-        var programacion = await cliente.PostAsJsonAsync($"/misiones/{id}/programar", new
+        var programacion = await cliente.PostComoAsync($"/misiones/{id}/programar", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,

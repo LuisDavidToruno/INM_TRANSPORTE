@@ -44,11 +44,11 @@ public class FlotaRealPruebas(BaseDePruebas baseDePruebas)
 
         var idMision = Ulid.NewUlid().ToString();
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearYAprobar(cliente, idMision);
 
-        var respuesta = await cliente.PostAsJsonAsync($"/misiones/{idMision}/programar", new
+        var respuesta = await cliente.PostComoAsync($"/misiones/{idMision}/programar", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
@@ -75,11 +75,11 @@ public class FlotaRealPruebas(BaseDePruebas baseDePruebas)
 
         var idMision = Ulid.NewUlid().ToString();
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearYAprobar(cliente, idMision);
 
-        var respuesta = await cliente.PostAsJsonAsync($"/misiones/{idMision}/programar", new
+        var respuesta = await cliente.PostComoAsync($"/misiones/{idMision}/programar", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
@@ -96,7 +96,7 @@ public class FlotaRealPruebas(BaseDePruebas baseDePruebas)
         var idVehiculo = await SembrarVehiculo("TR-0097", new DateOnly(2027, 6, 30));
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var flota = await cliente.GetStringAsync("/flota");
 
@@ -151,7 +151,7 @@ public class FlotaRealPruebas(BaseDePruebas baseDePruebas)
 
     private static async Task CrearYAprobar(HttpClient cliente, string id)
     {
-        await cliente.PostAsJsonAsync("/misiones", new
+        await cliente.PostComoAsync("/misiones", new
         {
             Id = id,
             CapturadaPor = "P-ASISTENTE",
@@ -167,7 +167,7 @@ public class FlotaRealPruebas(BaseDePruebas baseDePruebas)
             Momento,
         });
 
-        await cliente.PostAsJsonAsync($"/misiones/{id}/enviar", new { Ejecuta = "P-ASISTENTE", Momento });
-        await cliente.PostAsJsonAsync($"/misiones/{id}/aprobar", new { Ejecuta = "P-JEFATURA", Momento });
+        await cliente.PostComoAsync($"/misiones/{id}/enviar", new { Ejecuta = "P-ASISTENTE", Momento });
+        await cliente.PostComoAsync($"/misiones/{id}/aprobar", new { Ejecuta = "P-JEFATURA", Momento });
     }
 }

@@ -1092,7 +1092,8 @@ misiones.MapGet("/{id}", async (string id, ConsultaDeMisiones consulta) =>
 /// por uno ante el auditor.
 misiones.MapPost("/{id}/enviar", async (
     string id, EjecutarTransicion peticion,
-    ServicioDeMisiones servicio, ServicioDeFolios folios, SigtiDbContext contexto) =>
+    ServicioDeMisiones servicio, ServicioDeFolios folios, SigtiDbContext contexto,
+    IdentidadDelLlamador identidad) =>
 {
     if (!Identificador.Valido(id, out var ulid, out var error)) return error;
 
@@ -1103,7 +1104,7 @@ misiones.MapPost("/{id}/enviar", async (
 
     var estado = await servicio.TransicionarAsync(
         ulid,
-        expediente => expediente.Enviar(new IdPersona(peticion.Ejecuta), peticion.Momento),
+        expediente => expediente.Enviar(identidad.Persona, peticion.Momento),
         peticion.Momento);
 
     // ── El congelamiento ────────────────────────────────────────────────────
@@ -1154,7 +1155,8 @@ misiones.MapPost("/{id}/enviar", async (
 /// autoridad que nunca debio existir.
 misiones.MapPost("/{id}/aprobar", async (
     string id, EjecutarTransicion peticion,
-    ServicioDeMisiones servicio, SigtiDbContext contexto) =>
+    ServicioDeMisiones servicio, SigtiDbContext contexto,
+    IdentidadDelLlamador identidad) =>
 {
     if (!Identificador.Valido(id, out var ulid, out var error)) return error;
 
@@ -1175,7 +1177,7 @@ misiones.MapPost("/{id}/aprobar", async (
     var estado = await servicio.TransicionarAsync(
         ulid,
         expediente => expediente.Aprobar(
-            new IdPersona(peticion.Ejecuta), peticion.Momento, peticion.Motivo),
+            identidad.Persona, peticion.Momento, peticion.Motivo),
         peticion.Momento);
 
     return Results.Ok(new { id, estado = estado.ToString() });
@@ -1206,7 +1208,8 @@ ConOdometro("retornar", (e, quien, cuando, o, captura, subtipo, justificacion, n
 misiones.MapPost("/{id}/liquidar", async (
     string id, EjecutarTransicion peticion, HttpContext http,
     ServicioDeMisiones servicio, ServicioDeCombustible combustible,
-    ServicioDeSegregacion segregacion, ConsultaDeConductores padron) =>
+    ServicioDeSegregacion segregacion, ConsultaDeConductores padron,
+    IdentidadDelLlamador identidad) =>
 {
     if (!Identificador.Valido(id, out var ulid, out var error)) return error;
 
@@ -1238,7 +1241,7 @@ misiones.MapPost("/{id}/liquidar", async (
         .FirstOrDefault(e => e is not null);
 
     await segregacion.ExigirAsync(
-        new IdPersona(peticion.Ejecuta),
+        identidad.Persona,
         Funcion.Liquida,
         ActosDeLaMision.De(expediente, id, conductor, entrego),
         id,
@@ -1250,7 +1253,7 @@ misiones.MapPost("/{id}/liquidar", async (
     var estado = await servicio.TransicionarAsync(
         ulid,
         expediente => expediente.Liquidar(
-            new IdPersona(peticion.Ejecuta), peticion.Momento, recuento),
+            identidad.Persona, peticion.Momento, recuento),
         peticion.Momento);
 
     return Results.Ok(new { id, estado = estado.ToString() });
@@ -2154,11 +2157,12 @@ permisosDeCirculacion.MapGet("/pendientes", async (ServicioDePermisos servicio) 
 /// `PT-021` — la firma. **Responde 200 aunque se rechace**: el rechazo no es un error del
 /// sistema, es el control funcionando, y el intento queda asentado igual.
 permisosDeCirculacion.MapPost("/{id}/firmar", async (
-    string id, EjecutarTransicion peticion, ServicioDePermisos servicio) =>
+    string id, EjecutarTransicion peticion, ServicioDePermisos servicio,
+    IdentidadDelLlamador identidad) =>
 {
     if (!Identificador.Valido(id, out var ulid, out var error)) return error;
 
-    var intento = await servicio.FirmarAsync(ulid, new IdPersona(peticion.Ejecuta), peticion.Momento);
+    var intento = await servicio.FirmarAsync(ulid, identidad.Persona, peticion.Momento);
 
     return Results.Ok(new
     {
@@ -2265,12 +2269,13 @@ misiones.MapGet("/{id}/permisos", async (string id, ServicioDePermisos servicio)
 /// SIN FIRMA** — la firma no se arrastra, porque lo que la maxima autoridad firmo fue otro
 /// vehiculo con otro motorista.
 permisosDeCirculacion.MapPost("/{id}/reemitir", async (
-    string id, RechazarMision peticion, ServicioDePermisos servicio) =>
+    string id, RechazarMision peticion, ServicioDePermisos servicio,
+    IdentidadDelLlamador identidad) =>
 {
     if (!Identificador.Valido(id, out var ulid, out var error)) return error;
 
     var nuevo = await servicio.ReemitirAsync(
-        ulid, peticion.Motivo, new IdPersona(peticion.Ejecuta), peticion.Momento);
+        ulid, peticion.Motivo, identidad.Persona, peticion.Momento);
 
     return Results.Created($"/permisos/{nuevo}", new
     {
@@ -2430,11 +2435,12 @@ var salvoconductos = app.MapGroup("/salvoconductos");
 
 /// `PT-023` — emitir. Exige permiso FIRMADO: el salvoconducto no autoriza, materializa.
 permisosDeCirculacion.MapPost("/{id}/salvoconducto", async (
-    string id, EjecutarTransicion peticion, ServicioDeSalvoconductos servicio) =>
+    string id, EjecutarTransicion peticion, ServicioDeSalvoconductos servicio,
+    IdentidadDelLlamador identidad) =>
 {
     if (!Identificador.Valido(id, out var ulid, out var error)) return error;
 
-    var emitido = await servicio.EmitirAsync(ulid, new IdPersona(peticion.Ejecuta), peticion.Momento);
+    var emitido = await servicio.EmitirAsync(ulid, identidad.Persona, peticion.Momento);
 
     return Results.Created($"/salvoconductos/{emitido}", new { id = emitido.ToString() });
 });
@@ -2480,17 +2486,28 @@ salvoconductos.MapGet("/verificar/{folioOCodigo}", async (
                         "emitido por este sistema.",
         })
         : Results.Ok(Documento(doc));
-});
+})
+
+// ⚠️ **El unico endpoint verdaderamente publico**, y tiene que serlo.
+//
+// Lo consulta el agente del TSC o de la DNVT en un operativo de carretera: no tiene usuario en
+// este sistema, no lo va a tener, y un papel que no se puede verificar vale lo mismo que uno
+// falsificado. Exigirle identidad seria convertir el control en un tramite y matarlo.
+//
+// Lo que devuelve esta acotado a eso: si el documento existe, a que ampara y si sigue vigente.
+// No abre el expediente.
+.AllowAnonymous();
 
 /// Reimprimir: **mismo folio, mismo contenido, misma huella** (RN-04). Lo unico que se agrega
 /// es el asiento de quien, cuando y por que.
 salvoconductos.MapPost("/{id}/reimprimir", async (
-    string id, RechazarMision peticion, ServicioDeSalvoconductos servicio) =>
+    string id, RechazarMision peticion, ServicioDeSalvoconductos servicio,
+    IdentidadDelLlamador identidad) =>
 {
     if (!Identificador.Valido(id, out var ulid, out var error)) return error;
 
     var orden = await servicio.ReimprimirAsync(
-        ulid, new IdPersona(peticion.Ejecuta), peticion.Motivo, peticion.Momento);
+        ulid, identidad.Persona, peticion.Motivo, peticion.Momento);
 
     return Results.Ok(new { id, impresion = orden });
 });
@@ -3259,10 +3276,11 @@ tareas.MapGet("/", async (ServicioDeTareas servicio, SigtiDbContext contexto) =>
 /// Cierra una tarea. **Quien la origino no puede**: el escalamiento la puso en otra bandeja
 /// justamente para que decida otra persona.
 tareas.MapPost("/{id}/cerrar", async (
-    string id, CerrarTarea peticion, ServicioDeTareas servicio) =>
+    string id, CerrarTarea peticion, ServicioDeTareas servicio,
+    IdentidadDelLlamador identidad) =>
 {
     await servicio.CerrarAsync(
-        Ulid.Parse(id), new IdPersona(peticion.Ejecuta), peticion.Motivo,
+        Ulid.Parse(id), identidad.Persona, peticion.Motivo,
         peticion.Descartar, peticion.Momento);
 
     return Results.Ok(new { id, descartada = peticion.Descartar });
@@ -3567,7 +3585,8 @@ app.MapGet("/espejos", async (ConsultaDelOrganigrama organigrama) =>
 // «en misión» sin misión que lo respalde.
 app.MapPost("/flota/{id}/estado", async (
     string id, DeclararEstado peticion, EstadoDeLaFlota flota, ConsultaDeFlota padron,
-    ServicioDeTitulos titulos) =>
+    ServicioDeTitulos titulos,
+    IdentidadDelLlamador identidad) =>
 {
     if (!Identificador.Valido(id, out var idVehiculo, out var error)) return error;
 
@@ -3615,7 +3634,7 @@ app.MapPost("/flota/{id}/estado", async (
     var advertencia = await flota.AnotarAsync(
         idVehiculo,
         new CambioDeEstadoOperativo(
-            peticion.Estado, peticion.Momento, peticion.Ejecuta, peticion.Motivo,
+            peticion.Estado, peticion.Momento, identidad.Persona.Valor, peticion.Motivo,
             Automatico: false),
         esBienPropio);
 
@@ -3719,7 +3738,8 @@ fondos.MapGet("/", async (ServicioDeCombustible servicio) =>
 /// pasan los actos del fondo y no los de ninguna mision.
 fondos.MapPost("/{id}/aprobar", async (
     string id, AprobarFondo peticion, HttpContext http,
-    ServicioDeCombustible servicio, ServicioDeSegregacion segregacion) =>
+    ServicioDeCombustible servicio, ServicioDeSegregacion segregacion,
+    IdentidadDelLlamador identidad) =>
 {
     var idFondo = Ulid.Parse(id);
 
@@ -3731,7 +3751,7 @@ fondos.MapPost("/{id}/aprobar", async (
             $"del fondo de {fondo.AmbitoDeclarado}, del {fondo.Desde:dd/MM/yyyy} al {fondo.Hasta:dd/MM/yyyy}";
 
         await segregacion.ExigirAsync(
-            new IdPersona(peticion.Ejecuta),
+            identidad.Persona,
             Funcion.ApruebaFondo,
             ActosDelFondo.De(fondo, referencia),
             id,
@@ -3741,7 +3761,7 @@ fondos.MapPost("/{id}/aprobar", async (
 
     var estado = await servicio.MoverFondoAsync(
         idFondo,
-        fondo => fondo.Aprobar(new IdPersona(peticion.Ejecuta), peticion.Monto,
+        fondo => fondo.Aprobar(identidad.Persona, peticion.Monto,
                                peticion.Partida, peticion.Momento),
         peticion.Momento);
 
@@ -3749,11 +3769,12 @@ fondos.MapPost("/{id}/aprobar", async (
 });
 
 fondos.MapPost("/{id}/ampliar", async (
-    string id, AmpliarFondo peticion, ServicioDeCombustible servicio) =>
+    string id, AmpliarFondo peticion, ServicioDeCombustible servicio,
+    IdentidadDelLlamador identidad) =>
 {
     var estado = await servicio.MoverFondoAsync(
         Ulid.Parse(id),
-        fondo => fondo.Ampliar(new IdPersona(peticion.Ejecuta), peticion.Monto,
+        fondo => fondo.Ampliar(identidad.Persona, peticion.Monto,
                                peticion.Motivo, peticion.Momento),
         peticion.Momento);
 
@@ -3761,10 +3782,11 @@ fondos.MapPost("/{id}/ampliar", async (
 });
 
 fondos.MapPost("/{id}/cerrar", async (
-    string id, CerrarFondo peticion, ServicioDeCombustible servicio) =>
+    string id, CerrarFondo peticion, ServicioDeCombustible servicio,
+    IdentidadDelLlamador identidad) =>
 {
     var estado = await servicio.CerrarFondoAsync(
-        Ulid.Parse(id), new IdPersona(peticion.Ejecuta), peticion.Partida, peticion.Momento);
+        Ulid.Parse(id), identidad.Persona, peticion.Partida, peticion.Momento);
 
     return Results.Ok(new { estado = estado.ToString() });
 });
@@ -3889,7 +3911,8 @@ conciliacion.MapPost("/fuentes", async (
 /// SIGTI— y las dos últimas abren expediente, en ambos sentidos.
 conciliacion.MapPost("/ejecutar", async (
     EjecutarConciliacion peticion, ServicioDeConciliacionExterna servicio,
-    ServicioDeHallazgosPosteriores hallazgos) =>
+    ServicioDeHallazgosPosteriores hallazgos,
+    IdentidadDelLlamador identidad) =>
 {
     var r = await servicio.ConciliarAsync(
         Ulid.Parse(peticion.IdFuente),
@@ -3901,7 +3924,7 @@ conciliacion.MapPost("/ejecutar", async (
                 l.BienDelInventario, l.Chasis, l.Motor, l.Correlativo, l.Placa),
             l.Referencia, l.Descripcion))],
         peticion.DocumentoFuente,
-        new IdPersona(peticion.Ejecuta),
+        identidad.Persona,
         peticion.ResponsableDeSeguimiento,
         peticion.Plazo,
         peticion.Momento,
@@ -3910,7 +3933,7 @@ conciliacion.MapPost("/ejecutar", async (
         // El expediente es lo que les da ciclo propio, asiento reverso y resolución que no se
         // borra — y lo que impide que se resuelvan reabriendo la misión.
         hallazgos,
-        Autoria.De(new IdPersona(peticion.Ejecuta), new IdPuesto(peticion.Puesto ?? "PU-AUDITORIA"),
+        Autoria.De(identidad.Persona, new IdPuesto(peticion.Puesto ?? "PU-AUDITORIA"),
             DateOnly.FromDateTime(peticion.Momento.Date)),
 
         peticion.ToleranciaEnDias ?? 1);
@@ -4306,7 +4329,8 @@ indisponibilidades.MapGet("/reservas-afectadas/{vehiculo}/{desde}/{hasta}", asyn
 
 /// Declara la indisponibilidad con su acuse. **La lista se congela aca** y no se reconstruye.
 indisponibilidades.MapPost("/", async (
-    DeclararIndisponibilidad peticion, ServicioDeIndisponibilidad servicio) =>
+    DeclararIndisponibilidad peticion, ServicioDeIndisponibilidad servicio,
+    IdentidadDelLlamador identidad) =>
 {
     var id = await servicio.DeclararAsync(
         Ulid.Parse(peticion.Id),
@@ -4315,7 +4339,7 @@ indisponibilidades.MapPost("/", async (
         peticion.Causa,
         peticion.Desde,
         peticion.FinEstimado,
-        peticion.Ejecuta,
+        identidad.Persona.Valor,
         peticion.MomentoDelAcuse);
 
     return Results.Created($"/indisponibilidades/{id}", new { id = id.ToString() });
@@ -4327,10 +4351,11 @@ indisponibilidades.MapGet("/", async (ServicioDeIndisponibilidad servicio) =>
 /// El desenlace de una reserva en conflicto — `RN-60` punto 4. **No expira en silencio.**
 indisponibilidades.MapPost("/{id}/reservas/{mision}/resolver", async (
     string id, string mision, ResolverReserva peticion,
-    ServicioDeIndisponibilidad servicio) =>
+    ServicioDeIndisponibilidad servicio,
+    IdentidadDelLlamador identidad) =>
 {
     await servicio.ResolverReservaAsync(
-        Ulid.Parse(id), Ulid.Parse(mision), peticion.Desenlace, peticion.Ejecuta,
+        Ulid.Parse(id), Ulid.Parse(mision), peticion.Desenlace, identidad.Persona.Valor,
         peticion.Motivo, peticion.Momento);
 
     return Results.Ok(new { resuelta = true });
@@ -4496,55 +4521,60 @@ incidentes.MapGet("/bienes-no-recuperados", async (ServicioDeIncidentes servicio
 });
 
 incidentes.MapPost("/{id}/constancia", async (
-    string id, AdjuntarConstancia peticion, ServicioDeIncidentes servicio) =>
+    string id, AdjuntarConstancia peticion, ServicioDeIncidentes servicio,
+    IdentidadDelLlamador identidad) =>
 {
     await servicio.AdjuntarConstanciaAsync(
         Ulid.Parse(id),
         new ConstanciaAnteAutoridad(peticion.Numero, peticion.Autoridad, peticion.Fecha),
-        peticion.Ejecuta, peticion.Momento);
+        identidad.Persona.Valor, peticion.Momento);
 
     return Results.Ok(new { adjuntada = true });
 });
 
 /// `I-03` — el desenlace de la interrupción. **No le cambia el estado a la misión** (`RN-70`).
 incidentes.MapPost("/{id}/desenlace", async (
-    string id, RegistrarDesenlace peticion, ServicioDeIncidentes servicio) =>
+    string id, RegistrarDesenlace peticion, ServicioDeIncidentes servicio,
+    IdentidadDelLlamador identidad) =>
 {
     await servicio.RegistrarDesenlaceAsync(
-        Ulid.Parse(id), peticion.Desenlace, peticion.Detalle, peticion.Ejecuta, peticion.Momento);
+        Ulid.Parse(id), peticion.Desenlace, peticion.Detalle, identidad.Persona.Valor, peticion.Momento);
 
     return Results.Ok(new { resuelta = true });
 });
 
 incidentes.MapPost("/{id}/gestiones", async (
-    string id, RegistrarGestion peticion, ServicioDeIncidentes servicio) =>
+    string id, RegistrarGestion peticion, ServicioDeIncidentes servicio,
+    IdentidadDelLlamador identidad) =>
 {
     await servicio.RegistrarGestionAsync(
         Ulid.Parse(id),
         new GestionDeRecuperacion(
             peticion.Fecha, peticion.Descripcion, peticion.Responsable, peticion.Plazo),
-        peticion.Ejecuta, peticion.Momento);
+        identidad.Persona.Valor, peticion.Momento);
 
     return Results.Ok(new { registrada = true });
 });
 
 incidentes.MapPost("/{id}/bienes/{bien}/recuperar", async (
-    string id, string bien, RecuperarBien peticion, ServicioDeIncidentes servicio) =>
+    string id, string bien, RecuperarBien peticion, ServicioDeIncidentes servicio,
+    IdentidadDelLlamador identidad) =>
 {
     await servicio.RecuperarBienAsync(
-        Ulid.Parse(id), Ulid.Parse(bien), peticion.Ejecuta, peticion.Momento, peticion.Donde);
+        Ulid.Parse(id), Ulid.Parse(bien), identidad.Persona.Valor, peticion.Momento, peticion.Donde);
 
     return Results.Ok(new { recuperado = true });
 });
 
 /// `I-06` — el descargo formal, la única salida del registro que no es la recuperación.
 incidentes.MapPost("/{id}/bienes/{bien}/descargar", async (
-    string id, string bien, DescargarBien peticion, ServicioDeIncidentes servicio) =>
+    string id, string bien, DescargarBien peticion, ServicioDeIncidentes servicio,
+    IdentidadDelLlamador identidad) =>
 {
     await servicio.DescargarBienAsync(
         Ulid.Parse(id), Ulid.Parse(bien),
         new ConstanciaDeDescargo(peticion.Numero, peticion.Autoridad, peticion.Fecha),
-        peticion.Ejecuta, peticion.Momento);
+        identidad.Persona.Valor, peticion.Momento);
 
     return Results.Ok(new { descargado = true });
 });
@@ -4552,22 +4582,24 @@ incidentes.MapPost("/{id}/bienes/{bien}/descargar", async (
 /// `I-07` — adjuntar el acto de determinación de responsabilidad de la instancia competente.
 /// **SIGTI lo registra; no lo produce** (`RN-74`).
 incidentes.MapPost("/{id}/determinacion", async (
-    string id, AdjuntarDeterminacion peticion, ServicioDeIncidentes servicio) =>
+    string id, AdjuntarDeterminacion peticion, ServicioDeIncidentes servicio,
+    IdentidadDelLlamador identidad) =>
 {
     await servicio.AdjuntarDeterminacionAsync(
         Ulid.Parse(id),
         new DeterminacionDeResponsabilidad(
             peticion.Numero, peticion.Instancia, peticion.Fecha, peticion.Resolucion),
-        peticion.Ejecuta, peticion.Momento);
+        identidad.Persona.Valor, peticion.Momento);
 
     return Results.Ok(new { adjuntada = true });
 });
 
 incidentes.MapPost("/{id}/resolver", async (
-    string id, ResolverIncidente peticion, ServicioDeIncidentes servicio) =>
+    string id, ResolverIncidente peticion, ServicioDeIncidentes servicio,
+    IdentidadDelLlamador identidad) =>
 {
     await servicio.ResolverAsync(
-        Ulid.Parse(id), peticion.ComoSeResolvio, peticion.Fecha, peticion.Ejecuta,
+        Ulid.Parse(id), peticion.ComoSeResolvio, peticion.Fecha, identidad.Persona.Valor,
         peticion.Momento, peticion.DeclaracionDeBienes);
 
     return Results.Ok(new { resuelto = true });
@@ -5722,11 +5754,12 @@ var vales = app.MapGroup("/combustible");
 // es contra ese valor que se valida.
 vales.MapPost("/", async (
     EmitirVale peticion, ServicioDeCombustible servicio,
-    IParametrosDeLaInstitucion parametros, ServicioDeReintegro reintegro) =>
+    IParametrosDeLaInstitucion parametros, ServicioDeReintegro reintegro,
+    IdentidadDelLlamador identidad) =>
 {
     var id = await servicio.EmitirAsync(
         Ulid.Parse(peticion.Id), peticion.Folio, Ulid.Parse(peticion.IdFondo),
-        Ulid.Parse(peticion.IdMision), new IdPersona(peticion.Ejecuta),
+        Ulid.Parse(peticion.IdMision), identidad.Persona,
         Ulid.Parse(peticion.IdMotoristaReceptor),
         peticion.Monto, peticion.Galones, peticion.Instrumento, peticion.TipoDeCombustible,
 
@@ -5792,7 +5825,8 @@ vales.MapGet("/mision/{id}", async (string id, ServicioDeCombustible servicio) =
 vales.MapPost("/{id}/entregar", async (
     string id, EntregarVale peticion, HttpContext http,
     ServicioDeCombustible servicio, ServicioDeMisiones misionesDelVale,
-    ServicioDeSegregacion segregacion, ConsultaDeConductores padron) =>
+    ServicioDeSegregacion segregacion, ConsultaDeConductores padron,
+    IdentidadDelLlamador identidad) =>
 {
     var vale = Ulid.Parse(id);
 
@@ -5813,7 +5847,7 @@ vales.MapPost("/{id}/entregar", async (
         }
 
         await segregacion.ExigirAsync(
-            new IdPersona(peticion.Ejecuta),
+            identidad.Persona,
             Funcion.EntregaFondo,
             ActosDeLaMision.De(
                 expediente, encontrada.Mision.ToString(), quienConduce, entregoElFondo: null),
@@ -5823,27 +5857,29 @@ vales.MapPost("/{id}/entregar", async (
     }
 
     var estado = await servicio.EntregarAsync(
-        vale, new IdPersona(peticion.Ejecuta), peticion.Constancia, peticion.Momento);
+        vale, identidad.Persona, peticion.Constancia, peticion.Momento);
 
     return Results.Ok(new { estado = estado.ToString() });
 });
 
 vales.MapPost("/{id}/anular", async (
-    string id, MotivarVale peticion, ServicioDeCombustible servicio) =>
+    string id, MotivarVale peticion, ServicioDeCombustible servicio,
+    IdentidadDelLlamador identidad) =>
 {
     var estado = await servicio.TransicionarAsync(
         Ulid.Parse(id),
-        vale => vale.Anular(new IdPersona(peticion.Ejecuta), peticion.Motivo, peticion.Momento),
+        vale => vale.Anular(identidad.Persona, peticion.Motivo, peticion.Momento),
         peticion.Momento);
 
     return Results.Ok(new { estado = estado.ToString() });
 });
 
 vales.MapPost("/{id}/consumo", async (
-    string id, RegistrarConsumo peticion, ServicioDeCombustible servicio) =>
+    string id, RegistrarConsumo peticion, ServicioDeCombustible servicio,
+    IdentidadDelLlamador identidad) =>
 {
     var estado = await servicio.RegistrarConsumoAsync(
-        Ulid.Parse(id), new IdPersona(peticion.Ejecuta),
+        Ulid.Parse(id), identidad.Persona,
         new ConsumoRegistrado(peticion.Galones, peticion.Monto, peticion.Estacion,
                               peticion.Odometro, peticion.Comprobante),
         peticion.Momento,
@@ -5853,33 +5889,36 @@ vales.MapPost("/{id}/consumo", async (
 });
 
 vales.MapPost("/{id}/devolver", async (
-    string id, MotivarVale peticion, ServicioDeCombustible servicio) =>
+    string id, MotivarVale peticion, ServicioDeCombustible servicio,
+    IdentidadDelLlamador identidad) =>
 {
     var estado = await servicio.TransicionarAsync(
         Ulid.Parse(id),
-        vale => vale.DevolverIntegra(new IdPersona(peticion.Ejecuta), peticion.Motivo, peticion.Momento),
+        vale => vale.DevolverIntegra(identidad.Persona, peticion.Motivo, peticion.Momento),
         peticion.Momento);
 
     return Results.Ok(new { estado = estado.ToString() });
 });
 
 vales.MapPost("/{id}/extravio", async (
-    string id, MotivarVale peticion, ServicioDeCombustible servicio) =>
+    string id, MotivarVale peticion, ServicioDeCombustible servicio,
+    IdentidadDelLlamador identidad) =>
 {
     var estado = await servicio.TransicionarAsync(
         Ulid.Parse(id),
-        vale => vale.DeclararExtravio(new IdPersona(peticion.Ejecuta), peticion.Motivo, peticion.Momento),
+        vale => vale.DeclararExtravio(identidad.Persona, peticion.Motivo, peticion.Momento),
         peticion.Momento);
 
     return Results.Ok(new { estado = estado.ToString() });
 });
 
 vales.MapPost("/{id}/liquidar", async (
-    string id, LiquidarVale peticion, ServicioDeCombustible servicio) =>
+    string id, LiquidarVale peticion, ServicioDeCombustible servicio,
+    IdentidadDelLlamador identidad) =>
 {
     var estado = await servicio.TransicionarAsync(
         Ulid.Parse(id),
-        vale => vale.Liquidar(new IdPersona(peticion.Ejecuta), peticion.SaldoDevuelto,
+        vale => vale.Liquidar(identidad.Persona, peticion.SaldoDevuelto,
                               peticion.Observacion, peticion.Momento),
         peticion.Momento);
 
@@ -5893,10 +5932,11 @@ vales.MapPost("/{id}/liquidar", async (
 // desviación. Es el mismo invariante de §7.2 sobre el cierre — el criterio decide, la
 // persona lo confirma con su causa.
 vales.MapPost("/{id}/conciliar", async (
-    string id, ConciliarVale peticion, ServicioDeConciliacion conciliacion) =>
+    string id, ConciliarVale peticion, ServicioDeConciliacion conciliacion,
+    IdentidadDelLlamador identidad) =>
 {
     var estado = await conciliacion.ConciliarAsync(
-        Ulid.Parse(id), new IdPersona(peticion.Ejecuta), peticion.Causa, peticion.Momento,
+        Ulid.Parse(id), identidad.Persona, peticion.Causa, peticion.Momento,
         // Los tres reparos que invalidan el cálculo sin invalidar el registro. Los declara
         // quien concilia porque hoy **el sistema no los sabe**: el nivel de tanque es de
         // `RN-83` y la espera con motor encendido de `M-19`, y ninguno existe.
@@ -6136,12 +6176,13 @@ parametros.MapPost("/", async (CargarParametro peticion, ServicioDeParametros se
 // HU-146: responde 200 en los dos casos, con `concedida`. El rechazo no es un error del
 // sistema — es el control funcionando, y queda asentado en la bitácora igual.
 parametros.MapPost("/{id}/aprobar", async (
-    string id, EjecutarTransicion peticion, ServicioDeParametros servicio) =>
+    string id, EjecutarTransicion peticion, ServicioDeParametros servicio,
+    IdentidadDelLlamador identidad) =>
 {
     if (!Identificador.Valido(id, out var ulid, out var error)) return error;
 
     var intento = await servicio.AprobarAsync(
-        ulid, new IdPersona(peticion.Ejecuta), peticion.Momento);
+        ulid, identidad.Persona, peticion.Momento);
 
     return Results.Ok(new { id, concedida = intento.Concedida, motivo = intento.MotivoDelRechazo });
 });
@@ -6154,13 +6195,14 @@ parametros.MapPost("/{id}/aprobar", async (
 // una improcedente dé vueltas para siempre — por eso son dos rutas y no una con bandera.
 misiones.MapPost("/{id}/rechazar", async (
     string id, RechazarMision peticion,
-    ServicioDeMisiones servicio, CatalogoProvisionalDeMotivosDeRechazo catalogo) =>
+    ServicioDeMisiones servicio, CatalogoProvisionalDeMotivosDeRechazo catalogo,
+    IdentidadDelLlamador identidad) =>
 {
     if (!Identificador.Valido(id, out var ulid, out var error)) return error;
 
     var estado = await servicio.TransicionarAsync(
         ulid,
-        e => e.Rechazar(new IdPersona(peticion.Ejecuta), peticion.Motivo,
+        e => e.Rechazar(identidad.Persona, peticion.Motivo,
                         peticion.Comentario, catalogo.Vigente, peticion.Momento),
         peticion.Momento);
 
@@ -6177,13 +6219,14 @@ app.MapGet("/motivos-de-rechazo", (CatalogoProvisionalDeMotivosDeRechazo catalog
 // mide por qué se dijo que no, se dice qué falta, y un catálogo no puede enumerar lo que
 // falta en un expediente concreto.
 misiones.MapPost("/{id}/devolver", async (
-    string id, EjecutarTransicion peticion, ServicioDeMisiones servicio) =>
+    string id, EjecutarTransicion peticion, ServicioDeMisiones servicio,
+    IdentidadDelLlamador identidad) =>
 {
     if (!Identificador.Valido(id, out var ulid, out var error)) return error;
 
     var estado = await servicio.TransicionarAsync(
         ulid,
-        e => e.DevolverParaCorreccion(new IdPersona(peticion.Ejecuta),
+        e => e.DevolverParaCorreccion(identidad.Persona,
                                       peticion.Motivo ?? "", peticion.Momento),
         peticion.Momento);
 
@@ -6193,13 +6236,14 @@ misiones.MapPost("/{id}/devolver", async (
 // `T-07` — desistir. NO exige segregación: no es un pronunciamiento sobre la solicitud,
 // es que quien la pidió ya no la quiere.
 misiones.MapPost("/{id}/desistir", async (
-    string id, EjecutarTransicion peticion, ServicioDeMisiones servicio) =>
+    string id, EjecutarTransicion peticion, ServicioDeMisiones servicio,
+    IdentidadDelLlamador identidad) =>
 {
     if (!Identificador.Valido(id, out var ulid, out var error)) return error;
 
     var estado = await servicio.TransicionarAsync(
         ulid,
-        e => e.Desistir(new IdPersona(peticion.Ejecuta), peticion.Motivo ?? "", peticion.Momento),
+        e => e.Desistir(identidad.Persona, peticion.Motivo ?? "", peticion.Momento),
         peticion.Momento);
 
     return Results.Ok(new { id, estado = estado.ToString() });
@@ -6207,13 +6251,14 @@ misiones.MapPost("/{id}/desistir", async (
 
 // `T-03` — descartar un borrador que nunca se envió.
 misiones.MapPost("/{id}/descartar", async (
-    string id, EjecutarTransicion peticion, ServicioDeMisiones servicio) =>
+    string id, EjecutarTransicion peticion, ServicioDeMisiones servicio,
+    IdentidadDelLlamador identidad) =>
 {
     if (!Identificador.Valido(id, out var ulid, out var error)) return error;
 
     var estado = await servicio.TransicionarAsync(
         ulid,
-        e => e.DescartarBorrador(new IdPersona(peticion.Ejecuta),
+        e => e.DescartarBorrador(identidad.Persona,
                                  peticion.Motivo ?? "", peticion.Momento),
         peticion.Momento);
 
@@ -6223,13 +6268,14 @@ misiones.MapPost("/{id}/descartar", async (
 // T-09: la anulación exige motivo TIPIFICADO. El comentario es complemento, no
 // sustituto: sin tipificación no hay indicador de déficit de flota.
 misiones.MapPost("/{id}/anular", async (
-    string id, AnularMision peticion, ServicioDeMisiones servicio) =>
+    string id, AnularMision peticion, ServicioDeMisiones servicio,
+    IdentidadDelLlamador identidad) =>
 {
     if (!Identificador.Valido(id, out var ulid, out var error)) return error;
 
     var estado = await servicio.TransicionarAsync(
         ulid,
-        e => e.Anular(new IdPersona(peticion.Ejecuta), peticion.Motivo, peticion.Comentario, peticion.Momento),
+        e => e.Anular(identidad.Persona, peticion.Motivo, peticion.Comentario, peticion.Momento),
         peticion.Momento);
 
     return Results.Ok(new { id, estado = estado.ToString() });
@@ -6242,13 +6288,14 @@ misiones.MapPost("/{id}/anular", async (
 // Motivo LIBRE y no tipificado, a diferencia de la anulación: acá la misión sigue viva y
 // lo que el motivo explica es a la dependencia por qué perdió el vehículo que ya tenía.
 misiones.MapPost("/{id}/desprogramar", async (
-    string id, EjecutarTransicion peticion, ServicioDeMisiones servicio) =>
+    string id, EjecutarTransicion peticion, ServicioDeMisiones servicio,
+    IdentidadDelLlamador identidad) =>
 {
     if (!Identificador.Valido(id, out var ulid, out var error)) return error;
 
     var estado = await servicio.TransicionarAsync(
         ulid,
-        e => e.Desprogramar(new IdPersona(peticion.Ejecuta), peticion.Motivo ?? "", peticion.Momento),
+        e => e.Desprogramar(identidad.Persona, peticion.Motivo ?? "", peticion.Momento),
         peticion.Momento);
 
     return Results.Ok(new { id, estado = estado.ToString() });
@@ -6257,13 +6304,14 @@ misiones.MapPost("/{id}/desprogramar", async (
 // `T-13` — anular una ya programada. Motivo TIPIFICADO, como `T-09`: es el mismo indicador
 // de déficit de flota, y una programada que se anula libera además recursos comprometidos.
 misiones.MapPost("/{id}/anular-programada", async (
-    string id, AnularMision peticion, ServicioDeMisiones servicio) =>
+    string id, AnularMision peticion, ServicioDeMisiones servicio,
+    IdentidadDelLlamador identidad) =>
 {
     if (!Identificador.Valido(id, out var ulid, out var error)) return error;
 
     var estado = await servicio.TransicionarAsync(
         ulid,
-        e => e.AnularProgramada(new IdPersona(peticion.Ejecuta), peticion.Motivo,
+        e => e.AnularProgramada(identidad.Persona, peticion.Motivo,
                                 peticion.Comentario, peticion.Momento),
         peticion.Momento);
 
@@ -6302,11 +6350,11 @@ ConAsignacion("reasignar", null,
     //
     // Va junto y no repartido en tres llamadas: la forma en que una regla de nueve efectos se
     // rompe es que alguien agregue el decimo y no toque las nueve llamadas.
-    async (mision, vehiculo, fechaDelHecho, peticion, arrastre) =>
+    async (mision, vehiculo, fechaDelHecho, peticion, arrastre, quien) =>
         await arrastre.AplicarAsync(
             mision, vehiculo, fechaDelHecho,
             $"{peticion.Motivo} · {peticion.Comentario}".Trim(' ', '·'),
-            new IdPersona(peticion.Ejecuta), peticion.Momento));
+            quien, peticion.Momento));
 
 // M-16 — Donde aterriza lo que el dispositivo capturó sin red.
 //
@@ -6447,7 +6495,8 @@ app.MapPost("/sincronizacion", async (
 // T-20: devolver la liquidación para rehacerla. La alternativa a devolverla es cerrarla
 // mal, y un descargo mal conciliado que se cierra ya no se corrige: se revierte.
 misiones.MapPost("/{id}/devolver-liquidacion", async (
-    string id, EjecutarTransicion peticion, ServicioDeMisiones servicio) =>
+    string id, EjecutarTransicion peticion, ServicioDeMisiones servicio,
+    IdentidadDelLlamador identidad) =>
 {
     if (string.IsNullOrWhiteSpace(peticion.Motivo))
         return Results.BadRequest(new { mensaje = "Devolver una liquidación exige motivo: quien la rehace tiene que saber qué corregir." });
@@ -6456,7 +6505,7 @@ misiones.MapPost("/{id}/devolver-liquidacion", async (
 
     var estado = await servicio.TransicionarAsync(
         ulid,
-        e => e.DevolverLiquidacion(new IdPersona(peticion.Ejecuta), peticion.Momento, peticion.Motivo!),
+        e => e.DevolverLiquidacion(identidad.Persona, peticion.Momento, peticion.Motivo!),
         peticion.Momento);
 
     return Results.Ok(new { id, estado = estado.ToString() });
@@ -6529,7 +6578,8 @@ misiones.MapGet("/{id}/propuesta-de-cierre", async (
 // elegiría —y §7.2 dice exactamente lo contrario: «el criterio decide y él lo confirma».
 misiones.MapPost("/{id}/cerrar", async (
     string id, CerrarMision peticion, ServicioDeMisiones servicio,
-    ServicioDeCombustible combustible, ServicioDeLaPropuestaDeCierre propuestas) =>
+    ServicioDeCombustible combustible, ServicioDeLaPropuestaDeCierre propuestas,
+    IdentidadDelLlamador identidad) =>
 {
     if (!Identificador.Valido(id, out var ulid, out var error)) return error;
 
@@ -6550,7 +6600,7 @@ misiones.MapPost("/{id}/cerrar", async (
 
     var estado = await servicio.TransicionarAsync(
         ulid,
-        e => e.Cerrar(new IdPersona(peticion.Ejecuta), peticion.Momento, criterios,
+        e => e.Cerrar(identidad.Persona, peticion.Momento, criterios,
                       peticion.Justificacion, recuento),
         peticion.Momento);
 
@@ -6588,7 +6638,7 @@ void ConAsignacion(
     string ruta,
     Funcion? funcion,
     Action<OrdenDeMision, IdPersona, AsignacionDeMision, MatrizDeLicencias, PoliticaDeDocumentacion, DateTimeOffset, RecursosTomados?, IReadOnlyList<ReservaDeRecurso>?, AsignarYTransicionar, CustodiaAlDespachar, CirculacionEnDiaInhabil, EstadoOperativo?, ConflictoPorIndisponibilidad, TituloAlProgramar> aplicar,
-    Func<Ulid, Ulid, DateOnly, AsignarYTransicionar, EfectosDeLaSustitucion, Task<Arrastre>>? despues = null) =>
+    Func<Ulid, Ulid, DateOnly, AsignarYTransicionar, EfectosDeLaSustitucion, IdPersona, Task<Arrastre>>? despues = null) =>
     misiones.MapPost($"/{{id}}/{ruta}", async (
         string id,
         AsignarYTransicionar peticion,
@@ -6607,7 +6657,8 @@ void ConAsignacion(
         ServicioDeTitulos titulos,
         IParametrosDeLaInstitucion parametros,
         EfectosDeLaSustitucion arrastre,
-        ServicioDeAcuses acuses) =>
+        ServicioDeAcuses acuses,
+        IdentidadDelLlamador identidad) =>
     {
         // El cliente manda IDENTIFICADORES, no la ficha técnica. Si mandara la ficha,
         // podría declarar 2,800 kg de un camión de 12,000 y BD-02 se evaluaría contra
@@ -6693,7 +6744,7 @@ void ConAsignacion(
                 .FirstOrDefault(e => e is not null);
 
             await segregacion.ExigirAsync(
-                new IdPersona(peticion.Ejecuta),
+                identidad.Persona,
                 pretendida,
                 ActosDeLaMision.De(expedienteAhora, id, quienConduce, entregoElFondo),
                 id,
@@ -6708,7 +6759,7 @@ void ConAsignacion(
                 // Los parámetros se resuelven a la fecha del hecho, que sale de la
                 // solicitud y no de la petición (P-4).
                 var salida = expediente.Solicitud.Ventana.Salida;
-                aplicar(expediente, new IdPersona(peticion.Ejecuta), asignacion,
+                aplicar(expediente, identidad.Persona, asignacion,
                         parametros.MatrizVigenteAl(salida), parametros.PoliticaVigenteAl(salida),
                         peticion.Momento, new RecursosTomados(idVehiculo, idConductor), reservas,
                         peticion, new CustodiaAlDespachar(historialDeCustodia, espejoDePuestos),
@@ -6749,7 +6800,7 @@ void ConAsignacion(
                 // de hoy (`P-4`, `RN-40`). La SAPP reclasifica por resolución.
                 (await servicio.BuscarAsync(ulid))?.Solicitud.Ventana.Salida
                     ?? DateOnly.FromDateTime(peticion.Momento.UtcDateTime),
-                peticion, arrastre);
+                peticion, arrastre, identidad.Persona);
 
         if (efectos is null) return Results.Ok(new { id, estado = estado.ToString() });
 
@@ -6805,13 +6856,13 @@ void ConAsignacion(
 void TransicionConMotivo(
     string ruta,
     Action<OrdenDeMision, IdPersona, DateTimeOffset, string?> aplicar) =>
-    misiones.MapPost($"/{{id}}/{ruta}", async (string id, EjecutarTransicion peticion, ServicioDeMisiones servicio) =>
+    misiones.MapPost($"/{{id}}/{ruta}", async (string id, EjecutarTransicion peticion, ServicioDeMisiones servicio, IdentidadDelLlamador identidad) =>
     {
         if (!Identificador.Valido(id, out var ulid, out var error)) return error;
 
         var estado = await servicio.TransicionarAsync(
             ulid,
-            expediente => aplicar(expediente, new IdPersona(peticion.Ejecuta), peticion.Momento, peticion.Motivo),
+            expediente => aplicar(expediente, identidad.Persona, peticion.Momento, peticion.Motivo),
             peticion.Momento);
 
         return Results.Ok(new { id, estado = estado.ToString() });
@@ -6832,7 +6883,8 @@ void ConOdometro(
         string id,
         RegistrarOdometro peticion,
         ServicioDeMisiones servicio,
-        ConsultaDeOdometro odometros) =>
+        ConsultaDeOdometro odometros,
+        IdentidadDelLlamador identidad) =>
     {
         if (!Identificador.Valido(id, out var ulid, out var error)) return error;
 
@@ -6851,7 +6903,7 @@ void ConOdometro(
         var estado = await servicio.TransicionarAsync(
             ulid,
             expediente => aplicar(
-                expediente, new IdPersona(peticion.Ejecuta), peticion.Momento,
+                expediente, identidad.Persona, peticion.Momento,
                 new LecturaResuelta(lectura, ultima), peticion.IdDeCaptura,
                 peticion.Subtipo, peticion.Justificacion,
                 // Los dos o ninguno: un valor sin escala no se puede interpretar. Ausente
@@ -6866,13 +6918,13 @@ void ConOdometro(
     });
 
 void Transicion(string ruta, Action<OrdenDeMision, IdPersona, DateTimeOffset> aplicar) =>
-    misiones.MapPost($"/{{id}}/{ruta}", async (string id, EjecutarTransicion peticion, ServicioDeMisiones servicio) =>
+    misiones.MapPost($"/{{id}}/{ruta}", async (string id, EjecutarTransicion peticion, ServicioDeMisiones servicio, IdentidadDelLlamador identidad) =>
     {
         if (!Identificador.Valido(id, out var ulid, out var error)) return error;
 
         var estado = await servicio.TransicionarAsync(
             ulid,
-            expediente => aplicar(expediente, new IdPersona(peticion.Ejecuta), peticion.Momento),
+            expediente => aplicar(expediente, identidad.Persona, peticion.Momento),
             peticion.Momento);
 
         return Results.Ok(new { id, estado = estado.ToString() });
@@ -6933,7 +6985,7 @@ internal sealed record CrearMision(
 /// El momento lo declara el cliente, no lo inventa el servidor: puede venir de un
 /// dispositivo que capturó el hecho hace cuatro días sin señal (`ADR-007`).
 /// </summary>
-internal sealed record EjecutarTransicion(string Ejecuta, DateTimeOffset Momento, string? Motivo = null);
+internal sealed record EjecutarTransicion(DateTimeOffset Momento, string? Motivo = null);
 
 /// `PT-020` — abrir el tramite del permiso de circulacion en dia u hora inhabil.
 ///
@@ -7022,12 +7074,12 @@ internal sealed record SolicitarFondo(
 /// la tiene, y bloquear su cierre. No es un campo que se pueda omitir por comodidad.
 /// </param>
 internal sealed record AprobarFondo(
-    string Ejecuta, decimal Monto, string? Partida, DateTimeOffset Momento);
+    decimal Monto, string? Partida, DateTimeOffset Momento);
 
 internal sealed record AmpliarFondo(
-    string Ejecuta, decimal Monto, string Motivo, DateTimeOffset Momento);
+    decimal Monto, string Motivo, DateTimeOffset Momento);
 
-internal sealed record CerrarFondo(string Ejecuta, string? Partida, DateTimeOffset Momento);
+internal sealed record CerrarFondo(string? Partida, DateTimeOffset Momento);
 
 /// <param name="IdMotoristaReceptor">
 /// **Quién está en la ventanilla**, por el ULID de su registro en el padrón. `RN-32` lo compara
@@ -7040,14 +7092,13 @@ internal sealed record EmitirVale(
     string IdFondo,
     string IdMision,
     string IdMotoristaReceptor,
-    string Ejecuta,
     decimal Monto,
     decimal? Galones,
     string Instrumento,
     string TipoDeCombustible,
     DateTimeOffset Momento);
 
-internal sealed record EntregarVale(string Ejecuta, string Constancia, DateTimeOffset Momento);
+internal sealed record EntregarVale(string Constancia, DateTimeOffset Momento);
 
 /// <param name="Fuente">
 /// De dónde salió. **No admite `FondoDeLaMision`**: ése entra por su vale, porque además mueve
@@ -7085,7 +7136,7 @@ internal sealed record RegistrarAbastecimiento(
     string? CombustibleDelVehiculo = null);
 
 /// <summary>Anular, devolver y declarar extravío: los tres exigen acta, y el acta va acá.</summary>
-internal sealed record MotivarVale(string Ejecuta, string Motivo, DateTimeOffset Momento);
+internal sealed record MotivarVale(string Motivo, DateTimeOffset Momento);
 
 /// <param name="Comprobante">
 /// Nulo es un caso previsto y no un descuido: `RN-85` tipifica la ausencia de comprobante, y el
@@ -7097,7 +7148,6 @@ internal sealed record MotivarVale(string Ejecuta, string Motivo, DateTimeOffset
 /// va a poder explicar.
 /// </param>
 internal sealed record RegistrarConsumo(
-    string Ejecuta,
     decimal Galones,
     decimal Monto,
     string Estacion,
@@ -7107,7 +7157,7 @@ internal sealed record RegistrarConsumo(
     string? IdDeCaptura = null);
 
 internal sealed record LiquidarVale(
-    string Ejecuta, decimal SaldoDevuelto, string? Observacion, DateTimeOffset Momento);
+    decimal SaldoDevuelto, string? Observacion, DateTimeOffset Momento);
 
 /// <param name="Causa">
 /// Por qué se desvió. **Obligatoria sólo si el cálculo dio hallazgo** — no se le puede pedir a
@@ -7127,7 +7177,6 @@ internal sealed record LiquidarVale(
 /// es de `M-19` y no existe. `RN-30` advierte que sin ella el hallazgo sería infundado.
 /// </param>
 internal sealed record ConciliarVale(
-    string Ejecuta,
     DateTimeOffset Momento,
     string? Causa = null,
     bool OdometroAveriado = false,
@@ -7157,7 +7206,6 @@ internal sealed record ConciliarVale(
 /// Se registra porque **un octavo de tanque no es lo mismo en un pickup que en un bus**.
 /// </param>
 internal sealed record RegistrarOdometro(
-    string Ejecuta,
     DateTimeOffset Momento,
     int? Odometro = null,
     SubtipoDeRetorno Subtipo = SubtipoDeRetorno.Ordinario,
@@ -7175,7 +7223,6 @@ internal sealed record RegistrarOdometro(
 /// cambio de estado sin razón no se sostiene ante el Tribunal Superior de Cuentas.
 /// </param>
 internal sealed record DeclararEstado(
-    string Ejecuta,
     EstadoOperativo Estado,
     DateTimeOffset Momento,
     string? Motivo = null);
@@ -7189,7 +7236,7 @@ internal sealed record EvaluarAsignacion(
 
 /// <summary>El motivo sale del catálogo cerrado; el comentario lo acompaña.</summary>
 internal sealed record AnularMision(
-    string Ejecuta, MotivoDeAnulacion Motivo, string? Comentario, DateTimeOffset Momento);
+    MotivoDeAnulacion Motivo, string? Comentario, DateTimeOffset Momento);
 
 /// <summary>
 /// Un rechazo — `T-06`. <b>El comentario NO es opcional</b>, a diferencia del de la
@@ -7197,14 +7244,13 @@ internal sealed record AnularMision(
 /// dependencia qué pasó. La exigencia vive en el dominio; acá el tipo sólo lo refleja.
 /// </summary>
 internal sealed record RechazarMision(
-    string Ejecuta, string Motivo, string Comentario, DateTimeOffset Momento);
+    string Motivo, string Comentario, DateTimeOffset Momento);
 
 /// <summary>
 /// Programar y despachar. La <b>placa es opcional</b>: sin placa metálica es un estado
 /// válido y no bloquea (`BD-03`).
 /// </summary>
 internal sealed record AsignarYTransicionar(
-    string Ejecuta,
     DateTimeOffset Momento,
     string IdVehiculo,
     string IdConductor,
@@ -7249,7 +7295,6 @@ public partial class Program;
 /// Lo que si es de quien cierra es la **justificacion**, que §7.2 exige cuando hay hallazgo:
 /// el criterio lo detecta el sistema, pero que se hizo con el lo declara una persona.
 internal sealed record CerrarMision(
-    string Ejecuta,
     DateTimeOffset Momento,
     string? Justificacion);
 
@@ -7304,7 +7349,20 @@ internal sealed record HechoDelDispositivo(
     string IdDeCaptura,
     string IdExpediente,
     string Transicion,
+
+    /// <summary>
+    /// ⚠️ <b>Este SI viaja en el cuerpo, y tiene que hacerlo.</b>
+    ///
+    /// No es quien sincroniza: es <b>quien ejecutó el hecho en el campo</b>, horas o días antes
+    /// y sin red. Un lote trae hechos de personas distintas —el motorista registró la salida, el
+    /// encargado de la delegación entregó el combustible— y el dispositivo los manda juntos
+    /// cuando encuentra señal.
+    ///
+    /// Tomarlo del token le atribuiría todo el lote a quien apretó «sincronizar», y la bitácora
+    /// inmutable registraría con hash y todo que una sola persona hizo lo que hicieron tres.
+    /// </summary>
     string Ejecuta,
+
     DateTimeOffset OcurridoEn,
     /// <summary>
     /// La lectura del odómetro que el motorista capturó <b>sin red</b>. `BD-05` se evalúa en
@@ -7527,7 +7585,6 @@ internal sealed record EjecutarConciliacion(
     IReadOnlyList<LineaDeclarada> Lineas,
     /// <summary>El archivo o documento del que salieron las líneas. **Obligatorio.**</summary>
     string DocumentoFuente,
-    string Ejecuta,
     string ResponsableDeSeguimiento,
     DateOnly Plazo,
     DateTimeOffset Momento,
@@ -7656,33 +7713,31 @@ internal sealed record RegistrarIncidente(
 internal sealed record BienDelIncidente(string Descripcion, bool EsElVehiculo);
 
 internal sealed record AdjuntarConstancia(
-    string Numero, string Autoridad, DateOnly Fecha, string Ejecuta, DateTimeOffset Momento);
+    string Numero, string Autoridad, DateOnly Fecha, DateTimeOffset Momento);
 
 internal sealed record RegistrarDesenlace(
     DesenlaceDeLaInterrupcion Desenlace,
     /// <summary>Quién lo autorizó y contra qué acto. `RN-70` lo exige en los cuatro desenlaces.</summary>
     string Detalle,
-    string Ejecuta,
     DateTimeOffset Momento);
 
 internal sealed record RegistrarGestion(
     DateOnly Fecha, string Descripcion, string Responsable, DateOnly Plazo,
-    string Ejecuta, DateTimeOffset Momento);
+    DateTimeOffset Momento);
 
-internal sealed record RecuperarBien(string Donde, string Ejecuta, DateTimeOffset Momento);
+internal sealed record RecuperarBien(string Donde, DateTimeOffset Momento);
 
 internal sealed record DescargarBien(
-    string Numero, string Autoridad, DateOnly Fecha, string Ejecuta, DateTimeOffset Momento);
+    string Numero, string Autoridad, DateOnly Fecha, DateTimeOffset Momento);
 
 /// <summary>El acto de OTRA instancia. SIGTI lo registra, no lo produce (`RN-74`).</summary>
 internal sealed record AdjuntarDeterminacion(
     string Numero, string Instancia, DateOnly Fecha, string Resolucion,
-    string Ejecuta, DateTimeOffset Momento);
+    DateTimeOffset Momento);
 
 internal sealed record ResolverIncidente(
     string ComoSeResolvio,
     DateOnly Fecha,
-    string Ejecuta,
     DateTimeOffset Momento,
     /// <summary>Por qué se cierra con bienes todavía afuera — `RN-75`.</summary>
     string? DeclaracionDeBienes);
@@ -7747,12 +7802,11 @@ internal sealed record DeclararIndisponibilidad(
     DateOnly Desde,
     /// <summary>Con fecha de fin, siempre: es contra ella que se contrasta la real.</summary>
     DateOnly FinEstimado,
-    string Ejecuta,
     /// <summary>Cuándo acusó sobre la lista de reservas afectadas.</summary>
     DateTimeOffset MomentoDelAcuse);
 
 internal sealed record ResolverReserva(
-    DesenlaceDeLaReserva Desenlace, string Ejecuta, string Motivo, DateTimeOffset Momento);
+    DesenlaceDeLaReserva Desenlace, string Motivo, DateTimeOffset Momento);
 
 internal sealed record DarDeAlta(
     DateOnly FinReal, string OrdenDeTrabajo, int OdometroDeSalida);
@@ -7764,7 +7818,6 @@ internal sealed record DarDeAlta(
 /// haría que el título no venciera nunca — y un comodato que no vence es una apropiación.
 /// </param>
 internal sealed record CerrarTarea(
-    string Ejecuta,
     /// <summary>Qué se hizo. Sin esto, «lo autorizó el jefe» y «ya no hacía falta» se ven igual.</summary>
     string Motivo,
     /// <summary>

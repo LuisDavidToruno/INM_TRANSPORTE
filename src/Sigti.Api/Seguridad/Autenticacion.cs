@@ -1,6 +1,7 @@
 using System.Text;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Sigti.Api.Seguridad;
@@ -81,7 +82,16 @@ public static class Autenticacion
                 };
             });
 
-        servicios.AddAuthorization();
+        // ⚠️ **Autenticación obligatoria en todo, salvo lo que se declare anónimo.**
+        //
+        // Va como política por omisión y no endpoint por endpoint a propósito: con doscientas
+        // rutas, la que se olvide de pedirla **no falla — atiende**, y nadie lo nota. Al revés,
+        // la que legítimamente atiende sin identidad tiene que decirlo con `AllowAnonymous`, y
+        // eso queda a la vista en la revisión.
+        servicios.AddAuthorization(opciones =>
+            opciones.FallbackPolicy = new AuthorizationPolicyBuilder()
+                .RequireAuthenticatedUser()
+                .Build());
 
         return servicios;
     }

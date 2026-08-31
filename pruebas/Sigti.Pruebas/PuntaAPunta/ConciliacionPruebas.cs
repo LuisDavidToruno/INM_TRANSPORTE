@@ -33,7 +33,7 @@ public class ConciliacionPruebas(BaseDePruebas baseDePruebas)
     {
         var r = await Sembrar("CN-0001");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         // Sale en 84,000 y vuelve en 84,420: 420 km. Carga 30 galones en dos veces.
         var (_, vale) = await MisionLiquidada(cliente, r, salida: 84_000, retorno: 84_420,
@@ -54,7 +54,7 @@ public class ConciliacionPruebas(BaseDePruebas baseDePruebas)
         // ninguno.
         var r = await Sembrar("CN-0002");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var (_, vale) = await MisionLiquidada(cliente, r, 84_000, 84_420, [(30m, 1_500m)]);
 
@@ -73,7 +73,7 @@ public class ConciliacionPruebas(BaseDePruebas baseDePruebas)
         // que es la salida honesta: el hecho ocurre y el diario declara qué no se comprobó.
         var r = await Sembrar("CN-0003");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var (mision, vale) = await MisionLiquidada(cliente, r, 84_000, 84_420, [(30m, 1_500m)]);
 
@@ -102,7 +102,7 @@ public class ConciliacionPruebas(BaseDePruebas baseDePruebas)
         // (`RN-30` punto 1) y con eso el cálculo corre. Esta misión rinde imposiblemente bien.
         var r = await Sembrar("CN-0004");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await HistoricoConciliado(cliente, r);
 
@@ -115,7 +115,7 @@ public class ConciliacionPruebas(BaseDePruebas baseDePruebas)
         Assert.True(c.GetProperty("esHallazgo").GetBoolean());
 
         // **Quien concilia no elige.** Sin causa, no pasa.
-        var rechazo = await cliente.PostAsJsonAsync($"/combustible/{vale}/conciliar", new
+        var rechazo = await cliente.PostComoAsync($"/combustible/{vale}/conciliar", new
         {
             Ejecuta = "P-AUDITORIA", Momento,
         });
@@ -144,7 +144,7 @@ public class ConciliacionPruebas(BaseDePruebas baseDePruebas)
         // valen lo mismo, y sólo el segundo sostiene un hallazgo firme.
         var r = await Sembrar("CN-0005");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await HistoricoConciliado(cliente, r);
 
@@ -164,7 +164,7 @@ public class ConciliacionPruebas(BaseDePruebas baseDePruebas)
         // `RN-30`: se conserva para el análisis agregado, «que sí es válido».
         var r = await Sembrar("CN-0006");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await HistoricoConciliado(cliente, r);
 
@@ -339,7 +339,7 @@ public class ConciliacionPruebas(BaseDePruebas baseDePruebas)
 
     private static async Task Post(HttpClient cliente, string ruta, object cuerpo)
     {
-        var respuesta = await cliente.PostAsJsonAsync(ruta, cuerpo);
+        var respuesta = await cliente.PostComoAsync(ruta, cuerpo);
 
         if (!respuesta.IsSuccessStatusCode)
             throw new Xunit.Sdk.XunitException(

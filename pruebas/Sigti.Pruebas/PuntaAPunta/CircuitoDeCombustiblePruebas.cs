@@ -35,7 +35,7 @@ public class CircuitoDeCombustiblePruebas(BaseDePruebas baseDePruebas)
     {
         var r = await Sembrar("CB-0001");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var fondo = await FondoAprobado(cliente, 40_000m);
         var mision = await MisionDespachada(cliente, r);
@@ -92,7 +92,7 @@ public class CircuitoDeCombustiblePruebas(BaseDePruebas baseDePruebas)
         // vuelva lo devuelto es la que sostiene el cuadre del período.
         var r = await Sembrar("CB-0002");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var fondo = await FondoAprobado(cliente, 40_000m);
         Assert.Equal(40_000m, await Saldo(cliente, fondo));
@@ -126,7 +126,7 @@ public class CircuitoDeCombustiblePruebas(BaseDePruebas baseDePruebas)
         // apareciera sin fondo teniendo el dinero intacto.
         var r = await Sembrar("CB-0003");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var fondo = await FondoAprobado(cliente, 40_000m);
         var mision = await MisionDespachada(cliente, r);
@@ -149,7 +149,7 @@ public class CircuitoDeCombustiblePruebas(BaseDePruebas baseDePruebas)
     {
         var r = await Sembrar("CB-0004");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var fondo = await FondoAprobado(cliente, 2_000m);
         var mision = await MisionDespachada(cliente, r);
@@ -171,12 +171,12 @@ public class CircuitoDeCombustiblePruebas(BaseDePruebas baseDePruebas)
         // siempre estuvo bien.
         var r = await Sembrar("CB-0005");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var fondo = await FondoAprobado(cliente, 40_000m);
         var mision = await MisionDespachada(cliente, r);
 
-        var respuesta = await cliente.PostAsJsonAsync("/combustible", new
+        var respuesta = await cliente.PostComoAsync("/combustible", new
         {
             Id = Ulid.NewUlid().ToString(),
             Folio = $"VAL-{Ulid.NewUlid()}",
@@ -215,12 +215,12 @@ public class CircuitoDeCombustiblePruebas(BaseDePruebas baseDePruebas)
         // misión ya salió tarde. O peor, alguien lo carga y arruina el motor.
         var r = await Sembrar("CB-0011");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var fondo = await FondoAprobado(cliente, 40_000m);
         var mision = await MisionDespachada(cliente, r);
 
-        var respuesta = await cliente.PostAsJsonAsync("/combustible", new
+        var respuesta = await cliente.PostComoAsync("/combustible", new
         {
             Id = Ulid.NewUlid().ToString(),
             Folio = $"VAL-{Ulid.NewUlid()}",
@@ -260,7 +260,7 @@ public class CircuitoDeCombustiblePruebas(BaseDePruebas baseDePruebas)
     {
         var r = await Sembrar("CB-0012");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var fondo = await FondoAprobado(cliente, 40_000m);
         var mision = await MisionDespachada(cliente, r);
@@ -278,13 +278,13 @@ public class CircuitoDeCombustiblePruebas(BaseDePruebas baseDePruebas)
         // «Entregar fondo de combustible» entre lo que no se puede.
         var r = await Sembrar("CB-0006");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var fondo = await FondoAprobado(cliente, 40_000m);
         var mision = await MisionProgramada(cliente, r);
         var vale = await Emitir(cliente, fondo, mision, r, monto: 2_500m);
 
-        var respuesta = await cliente.PostAsJsonAsync($"/combustible/{vale}/entregar", new
+        var respuesta = await cliente.PostComoAsync($"/combustible/{vale}/entregar", new
         {
             Ejecuta = "P-COMBUSTIBLE", Constancia = "Firma", Momento,
         });
@@ -300,7 +300,7 @@ public class CircuitoDeCombustiblePruebas(BaseDePruebas baseDePruebas)
         // expediente no se pueda declarar cuadrado mientras haya dinero sin descargar.
         var r = await Sembrar("CB-0007");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var fondo = await FondoAprobado(cliente, 40_000m);
         var mision = await MisionDespachada(cliente, r);
@@ -313,7 +313,7 @@ public class CircuitoDeCombustiblePruebas(BaseDePruebas baseDePruebas)
             Ejecuta = "P-MOTORISTA", Momento, Odometro = 84_420,
         });
 
-        var respuesta = await cliente.PostAsJsonAsync($"/misiones/{mision}/liquidar", new
+        var respuesta = await cliente.PostComoAsync($"/misiones/{mision}/liquidar", new
         {
             Ejecuta = "P-TRANSPORTE", Momento,
         });
@@ -329,13 +329,13 @@ public class CircuitoDeCombustiblePruebas(BaseDePruebas baseDePruebas)
     {
         var r = await Sembrar("CB-0008");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var fondo = await FondoAprobado(cliente, 40_000m);
         var mision = await MisionDespachada(cliente, r);
         var vale = await Emitir(cliente, fondo, mision, r, monto: 2_500m);
 
-        var rechazo = await cliente.PostAsJsonAsync($"/fondos/{fondo}/cerrar", new
+        var rechazo = await cliente.PostComoAsync($"/fondos/{fondo}/cerrar", new
         {
             Ejecuta = "P-CONTABILIDAD", Partida = "12-01-001-4-31200", Momento,
         });
@@ -361,11 +361,11 @@ public class CircuitoDeCombustiblePruebas(BaseDePruebas baseDePruebas)
         // que autorizó declara al final que todo cuadró.
         var r = await Sembrar("CB-0009");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var fondo = await FondoAprobado(cliente, 40_000m);
 
-        var respuesta = await cliente.PostAsJsonAsync($"/fondos/{fondo}/cerrar", new
+        var respuesta = await cliente.PostComoAsync($"/fondos/{fondo}/cerrar", new
         {
             Ejecuta = "P-GERENCIA", Partida = "12-01-001-4-31200", Momento,
         });
@@ -383,7 +383,7 @@ public class CircuitoDeCombustiblePruebas(BaseDePruebas baseDePruebas)
         // poder explicar — y la unicidad la impone la BASE, no una comprobación que se olvida.
         var r = await Sembrar("CB-0010");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var fondo = await FondoAprobado(cliente, 40_000m);
         var mision = await MisionDespachada(cliente, r);
@@ -402,7 +402,7 @@ public class CircuitoDeCombustiblePruebas(BaseDePruebas baseDePruebas)
         await Post(cliente, $"/combustible/{vale}/consumo", consumo);
 
         // El reenvío. Que falle es aceptable; lo que NO es aceptable es que sume otra vez.
-        try { await cliente.PostAsJsonAsync($"/combustible/{vale}/consumo", consumo); }
+        try { await cliente.PostComoAsync($"/combustible/{vale}/consumo", consumo); }
         catch { /* la base rechaza el duplicado, que es exactamente lo que se busca */ }
 
         var vales = await cliente.GetFromJsonAsync<JsonElement>($"/combustible/mision/{mision}");
@@ -512,7 +512,7 @@ public class CircuitoDeCombustiblePruebas(BaseDePruebas baseDePruebas)
         HttpClient cliente, string fondo, string mision,
         FlotaSembrada.ParaProgramar r, decimal monto, bool esperarExito)
     {
-        var respuesta = await cliente.PostAsJsonAsync("/combustible", new
+        var respuesta = await cliente.PostComoAsync("/combustible", new
         {
             Id = Ulid.NewUlid().ToString(),
             Folio = $"VAL-{Ulid.NewUlid()}",
@@ -554,7 +554,7 @@ public class CircuitoDeCombustiblePruebas(BaseDePruebas baseDePruebas)
 
     private static async Task Post(HttpClient cliente, string ruta, object cuerpo)
     {
-        var respuesta = await cliente.PostAsJsonAsync(ruta, cuerpo);
+        var respuesta = await cliente.PostComoAsync(ruta, cuerpo);
 
         if (!respuesta.IsSuccessStatusCode)
             throw new Xunit.Sdk.XunitException(

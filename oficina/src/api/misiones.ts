@@ -1,3 +1,4 @@
+import { salir, sesionActual } from '../app/sesion';
 import type { Expediente, MotivoDeAnulacion, Transicion } from '../dominio/mision';
 import { expedientesDeMuestra } from './muestra';
 
@@ -86,12 +87,28 @@ export async function pedir<T>(ruta: string, opciones?: RequestInit): Promise<T>
   // formulario mal formado, sin archivo y sin campos, y el error no menciona el encabezado.
   const esFormulario = opciones?.body instanceof FormData;
 
+  // ⚠️ **La identidad va en el token, no en el cuerpo.** El servidor ya no acepta que el
+  // cliente declare quién actúa: si esta cabecera falta, la petición es anónima y SIGTI la
+  // rechaza — que es exactamente lo que tiene que pasar.
+  const sesion = sesionActual();
+
+  const identidad: Record<string, string> =
+    sesion === null ? {} : { authorization: `Bearer ${sesion.token}` };
+
   const respuesta = await fetch(`${BASE}${ruta}`, {
     ...opciones,
     headers: esFormulario
-      ? { ...opciones?.headers }
-      : { 'content-type': 'application/json', ...opciones?.headers },
+      ? { ...identidad, ...opciones?.headers }
+      : { 'content-type': 'application/json', ...identidad, ...opciones?.headers },
   });
+
+  // **401 no es un rechazo de negocio.** No hay dato que corregir: o no hay identidad, o
+  // venció. La salida es volver a entrar, y por eso la sesión se cierra acá — dejarla puesta
+  // haría que la pantalla siga mostrando un nombre mientras todo devuelve 401.
+  if (respuesta.status === 401) {
+    salir();
+    throw new Error('La sesión venció o no hay identidad. Vuelva a entrar.');
+  }
 
   if (respuesta.status === 409) {
     const cuerpo = (await respuesta.json()) as RechazoDelServidor;

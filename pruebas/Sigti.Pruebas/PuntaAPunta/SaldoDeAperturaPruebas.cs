@@ -32,7 +32,7 @@ public class SaldoDeAperturaPruebas(BaseDePruebas baseDePruebas)
         // Un saldo que omite en silencio los préstamos vencidos es el abandono que la regla
         // existe para impedir, con formato de reporte.
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var inv = await Leer(cliente, "/saldo-de-apertura/inventario/2026-12-31");
         var fuentes = inv.GetProperty("fuentes").EnumerateArray().ToList();
@@ -66,7 +66,7 @@ public class SaldoDeAperturaPruebas(BaseDePruebas baseDePruebas)
     {
         var v = await Sembrar("SA-0002");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await Post(cliente, "/reintegros", new
         {
@@ -103,7 +103,7 @@ public class SaldoDeAperturaPruebas(BaseDePruebas baseDePruebas)
     public async Task El_saldo_es_un_documento_con_FOLIO_y_uno_por_ejercicio()
     {
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await Producir(cliente, "SA-2098-001", "2098", new DateOnly(2097, 12, 31));
 
@@ -111,7 +111,7 @@ public class SaldoDeAperturaPruebas(BaseDePruebas baseDePruebas)
         Assert.Equal("SA-2098-001", s.GetProperty("resumen").GetProperty("folio").GetString());
 
         // Un segundo dejaría dos inventarios del mismo corte, y el acta no podría citar cuál.
-        var segunda = await cliente.PostAsJsonAsync("/saldo-de-apertura", Cuerpo(
+        var segunda = await cliente.PostComoAsync("/saldo-de-apertura", Cuerpo(
             "SA-2098-002", "2098", new DateOnly(2097, 12, 31)));
 
         Assert.False(segunda.IsSuccessStatusCode);
@@ -122,9 +122,9 @@ public class SaldoDeAperturaPruebas(BaseDePruebas baseDePruebas)
     public async Task El_saldo_SIN_folio_se_rechaza()
     {
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
-        var respuesta = await cliente.PostAsJsonAsync("/saldo-de-apertura", Cuerpo(
+        var respuesta = await cliente.PostComoAsync("/saldo-de-apertura", Cuerpo(
             "  ", "2099", new DateOnly(2098, 12, 31)));
 
         Assert.False(respuesta.IsSuccessStatusCode);
@@ -139,7 +139,7 @@ public class SaldoDeAperturaPruebas(BaseDePruebas baseDePruebas)
         // tal. Es lo que impide presentarlo como pendiente reciente cada enero.
         var v = await Sembrar("SA-0005");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await Post(cliente, "/reintegros", new
         {
@@ -187,7 +187,7 @@ public class SaldoDeAperturaPruebas(BaseDePruebas baseDePruebas)
         // que el arrastre entre ejercicios dejara de verse.
         var v = await Sembrar("SA-0006");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await Post(cliente, "/reintegros", new
         {
@@ -242,9 +242,9 @@ public class SaldoDeAperturaPruebas(BaseDePruebas baseDePruebas)
         // Sin eso, resolver es indistinguible de vaciar el saldo — que es la presión que la
         // regla nombra.
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
-        var respuesta = await cliente.PostAsJsonAsync(
+        var respuesta = await cliente.PostComoAsync(
             $"/saldo-de-apertura/renglones/{Ulid.NewUlid()}/resolver",
             new { ComoSeResolvio = "   ", Fecha = new DateOnly(2081, 3, 20) });
 
@@ -258,7 +258,7 @@ public class SaldoDeAperturaPruebas(BaseDePruebas baseDePruebas)
         // `RN-97` punto 5: se reporta a Gerencia Administrativa y a Auditoría Interna al inicio
         // del ejercicio, **con su serie**.
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await Producir(cliente, "SA-2071-001", "2071", new DateOnly(2070, 12, 31));
 
@@ -306,7 +306,7 @@ public class SaldoDeAperturaPruebas(BaseDePruebas baseDePruebas)
 
     private static async Task Post(HttpClient cliente, string ruta, object cuerpo)
     {
-        var respuesta = await cliente.PostAsJsonAsync(ruta, cuerpo);
+        var respuesta = await cliente.PostComoAsync(ruta, cuerpo);
 
         if (!respuesta.IsSuccessStatusCode)
             throw new Xunit.Sdk.XunitException(

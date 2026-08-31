@@ -43,7 +43,7 @@ public class ConciliacionExternaPruebas(BaseDePruebas baseDePruebas)
     {
         var v = await Sembrar("CN-0001");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var fuente = await Fuente(cliente);
         await Abastecer(cliente, v, 11, 1_760m, "F-CN0001");
@@ -61,7 +61,7 @@ public class ConciliacionExternaPruebas(BaseDePruebas baseDePruebas)
         // institución: dos cobros con el mismo son un cobro de más.
         var v = await Sembrar("CN-0002");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var fuente = await Fuente(cliente);
         await Abastecer(cliente, v, 12, 1_760m, "F-CN0002");
@@ -84,7 +84,7 @@ public class ConciliacionExternaPruebas(BaseDePruebas baseDePruebas)
         // presume cuál». Conciliar en un solo sentido dejaría fuera el caso más grave.
         var v = await Sembrar("CN-0003");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var fuente = await Fuente(cliente);
         await Abastecer(cliente, v, 13, 1_760m, "F-CN0003");
@@ -113,7 +113,7 @@ public class ConciliacionExternaPruebas(BaseDePruebas baseDePruebas)
         // asigna por parecido.
         var v = await Sembrar("CN-0004");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var fuente = await Fuente(cliente);
 
@@ -134,7 +134,7 @@ public class ConciliacionExternaPruebas(BaseDePruebas baseDePruebas)
         // vehículos distintos.
         var v = await Sembrar("CN-0005", bien: "BN-CN0005");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var fuente = await Fuente(cliente);
 
@@ -153,7 +153,7 @@ public class ConciliacionExternaPruebas(BaseDePruebas baseDePruebas)
         // Produciría cero diferencias sobre cero líneas, y ese cero se lee después como
         // conformidad.
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var id = Ulid.NewUlid().ToString();
 
@@ -168,7 +168,7 @@ public class ConciliacionExternaPruebas(BaseDePruebas baseDePruebas)
             PorQueNoEstaDisponible = "La institución no tiene tag CoviPass.",
         });
 
-        var respuesta = await cliente.PostAsJsonAsync("/conciliacion/ejecutar", new
+        var respuesta = await cliente.PostComoAsync("/conciliacion/ejecutar", new
         {
             IdFuente = id,
             Desde,
@@ -193,7 +193,7 @@ public class ConciliacionExternaPruebas(BaseDePruebas baseDePruebas)
         // observación de control interno.
         var v = await Sembrar("CN-0007");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var id = await Fuente(cliente);
 
@@ -214,7 +214,7 @@ public class ConciliacionExternaPruebas(BaseDePruebas baseDePruebas)
         // idénticas y una diferencia no se puede volver a comprobar contra el papel.
         var v = await Sembrar("CN-0008");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var fuente = await Fuente(cliente);
         await Ejecutar(cliente, fuente, [Linea("L1", 18, 900m, "F-CN0008", v.Placa)], 18);
@@ -233,7 +233,7 @@ public class ConciliacionExternaPruebas(BaseDePruebas baseDePruebas)
     {
         var v = await Sembrar("CN-0009");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var fuente = await Fuente(cliente);
         await Ejecutar(cliente, fuente, [Linea("L1", 19, 777m, "F-CN0009", v.Placa)], 19);
@@ -254,7 +254,7 @@ public class ConciliacionExternaPruebas(BaseDePruebas baseDePruebas)
         Assert.DoesNotContain(despues.EnumerateArray(), x =>
             x.GetProperty("id").GetString() == id);
 
-        var segunda = await cliente.PostAsJsonAsync(
+        var segunda = await cliente.PostComoAsync(
             $"/conciliacion/diferencias/{id}/resolver",
             new { Resolucion = "Otra cosa.", Momento = Corte });
 
@@ -338,7 +338,7 @@ public class ConciliacionExternaPruebas(BaseDePruebas baseDePruebas)
     private static async Task<JsonElement> Ejecutar(
         HttpClient cliente, string fuente, object[] lineas, int dia)
     {
-        var respuesta = await cliente.PostAsJsonAsync("/conciliacion/ejecutar", new
+        var respuesta = await cliente.PostComoAsync("/conciliacion/ejecutar", new
         {
             IdFuente = fuente,
             Desde = new DateOnly(2026, 8, dia),
@@ -379,7 +379,7 @@ public class ConciliacionExternaPruebas(BaseDePruebas baseDePruebas)
 
     private static async Task Post(HttpClient cliente, string ruta, object cuerpo)
     {
-        var respuesta = await cliente.PostAsJsonAsync(ruta, cuerpo);
+        var respuesta = await cliente.PostComoAsync(ruta, cuerpo);
 
         if (!respuesta.IsSuccessStatusCode)
             throw new Xunit.Sdk.XunitException(

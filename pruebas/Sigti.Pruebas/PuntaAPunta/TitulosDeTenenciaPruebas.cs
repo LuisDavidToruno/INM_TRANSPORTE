@@ -40,14 +40,14 @@ public class TitulosDeTenenciaPruebas(BaseDePruebas baseDePruebas)
         var r = await Sembrar("TT-0001");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await RegistrarTitulo(cliente, r.Vehiculo, "Comodato", hasta: new DateOnly(2026, 12, 31));
 
         // El vehículo se inhabilita primero: `W-11` no es lo que esta prueba juzga.
         await Declarar(cliente, r.Vehiculo, "NoDisponible", "Fin del comodato, pendiente devolver");
 
-        var descargo = await cliente.PostAsJsonAsync($"/flota/{r.Vehiculo}/estado", new
+        var descargo = await cliente.PostComoAsync($"/flota/{r.Vehiculo}/estado", new
         {
             Ejecuta = "P-GERENCIA",
             Estado = "DadoDeBaja",
@@ -76,12 +76,12 @@ public class TitulosDeTenenciaPruebas(BaseDePruebas baseDePruebas)
         var r = await Sembrar("TT-0002");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await RegistrarTitulo(cliente, r.Vehiculo, "Propiedad", hasta: null);
         await Declarar(cliente, r.Vehiculo, "NoDisponible", "En trámite de descargo");
 
-        var retiro = await cliente.PostAsJsonAsync($"/flota/{r.Vehiculo}/estado", new
+        var retiro = await cliente.PostComoAsync($"/flota/{r.Vehiculo}/estado", new
         {
             Ejecuta = "P-GERENCIA",
             Estado = "RetiradoDeFlota",
@@ -103,11 +103,11 @@ public class TitulosDeTenenciaPruebas(BaseDePruebas baseDePruebas)
         var r = await Sembrar("TT-0003");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await Declarar(cliente, r.Vehiculo, "NoDisponible", "Alta en flota");
 
-        var respuesta = await cliente.PostAsJsonAsync($"/flota/{r.Vehiculo}/estado", new
+        var respuesta = await cliente.PostComoAsync($"/flota/{r.Vehiculo}/estado", new
         {
             Ejecuta = "P-GERENCIA",
             Estado = "DadoDeBaja",
@@ -137,14 +137,14 @@ public class TitulosDeTenenciaPruebas(BaseDePruebas baseDePruebas)
         var id = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         // El comodato vence el 17 de marzo; la misión sale el 16 y vuelve el 18.
         await RegistrarTitulo(cliente, r.Vehiculo, "Comodato", hasta: new DateOnly(2026, 3, 17));
 
         await CrearYAprobar(cliente, id);
 
-        var respuesta = await cliente.PostAsJsonAsync($"/misiones/{id}/programar", new
+        var respuesta = await cliente.PostComoAsync($"/misiones/{id}/programar", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
@@ -170,13 +170,13 @@ public class TitulosDeTenenciaPruebas(BaseDePruebas baseDePruebas)
         var id = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await RegistrarTitulo(cliente, r.Vehiculo, "Comodato", hasta: new DateOnly(2026, 12, 31));
 
         await CrearYAprobar(cliente, id);
 
-        var respuesta = await cliente.PostAsJsonAsync($"/misiones/{id}/programar", new
+        var respuesta = await cliente.PostComoAsync($"/misiones/{id}/programar", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
@@ -197,11 +197,11 @@ public class TitulosDeTenenciaPruebas(BaseDePruebas baseDePruebas)
         var r = await Sembrar("TT-0006");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await RegistrarTitulo(cliente, r.Vehiculo, "Comodato", hasta: new DateOnly(2026, 12, 31));
 
-        var segundo = await cliente.PostAsJsonAsync("/titulos", Cuerpo(
+        var segundo = await cliente.PostComoAsync("/titulos", Cuerpo(
             r.Vehiculo, "Alquiler", new DateOnly(2026, 6, 1), new DateOnly(2027, 6, 1)));
 
         Assert.Equal(HttpStatusCode.Conflict, segundo.StatusCode);
@@ -218,7 +218,7 @@ public class TitulosDeTenenciaPruebas(BaseDePruebas baseDePruebas)
         var r = await Sembrar("TT-0007");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await Post(cliente, "/titulos", new
         {
@@ -272,7 +272,7 @@ public class TitulosDeTenenciaPruebas(BaseDePruebas baseDePruebas)
         var afuera = await Sembrar("TT-0010");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         // Un comodato que terminó el año pasado: hoy no rige ninguno.
         await Post(cliente, "/titulos", Cuerpo(
@@ -309,7 +309,7 @@ public class TitulosDeTenenciaPruebas(BaseDePruebas baseDePruebas)
         var r = await Sembrar("TT-0011");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var hoy = DateOnly.FromDateTime(DateTime.UtcNow.Date);
 
@@ -406,7 +406,7 @@ public class TitulosDeTenenciaPruebas(BaseDePruebas baseDePruebas)
 
     private static async Task Post(HttpClient cliente, string ruta, object cuerpo)
     {
-        var respuesta = await cliente.PostAsJsonAsync(ruta, cuerpo);
+        var respuesta = await cliente.PostComoAsync(ruta, cuerpo);
 
         if (!respuesta.IsSuccessStatusCode)
             throw new Xunit.Sdk.XunitException(

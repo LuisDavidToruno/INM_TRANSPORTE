@@ -52,7 +52,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         var idMision = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearYAprobar(cliente, idMision);
 
@@ -87,7 +87,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         var idMision = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearYAprobar(cliente, idMision);
         await Programar(cliente, idMision, r);
@@ -98,11 +98,11 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
 
         // Con odómetro: `T-14` y `T-18` lo exigen. Estas pruebas no van de `BD-05`, pero un
         // recorrido tiene que ser coherente para que el control no bloquee por otra cosa.
-        await cliente.PostAsJsonAsync($"/misiones/{idMision}/iniciar-ruta",
+        await cliente.PostComoAsync($"/misiones/{idMision}/iniciar-ruta",
             new { Ejecuta = "P-MOTORISTA", Momento, Odometro = 10_000 });
         Assert.Equal("EnRuta", (await BarrasDe(cliente, r.Vehiculo))[0].GetProperty("estado").GetString());
 
-        var retorno = await cliente.PostAsJsonAsync(
+        var retorno = await cliente.PostComoAsync(
             $"/misiones/{idMision}/retornar",
             new { Ejecuta = "P-MOTORISTA", Momento, Odometro = 10_450 });
         retorno.EnsureSuccessStatusCode();
@@ -124,7 +124,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         var segunda = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearYAprobar(cliente, primera);
         await Programar(cliente, primera, r);
@@ -136,7 +136,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         // **El segundo motorista es OTRO, y eso es lo que hace válida la prueba.** Con el
         // mismo, el bloqueo podría estar disparando por el conductor y no por el vehículo,
         // y la prueba diría que verificó algo que no verificó.
-        var respuesta = await cliente.PostAsJsonAsync($"/misiones/{segunda}/programar", new
+        var respuesta = await cliente.PostComoAsync($"/misiones/{segunda}/programar", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
@@ -169,13 +169,13 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         var segunda = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearYAprobar(cliente, primera);
         await Programar(cliente, primera, r);
         await CrearYAprobar(cliente, segunda);
 
-        var evaluacion = await cliente.PostAsJsonAsync($"/misiones/{segunda}/evaluar-asignacion", new
+        var evaluacion = await cliente.PostComoAsync($"/misiones/{segunda}/evaluar-asignacion", new
         {
             IdVehiculo = r.Vehiculo,
             // Otro motorista, por lo mismo: el conflicto que se comprueba es el del vehículo.
@@ -208,7 +208,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         var segunda = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearYAprobar(cliente, primera);
         await Programar(cliente, primera, uno);
@@ -237,7 +237,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         var segunda = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearYAprobar(cliente, primera);
         await Programar(cliente, primera, r);
@@ -245,7 +245,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
 
         // La segunda choca, como debe.
         await CrearYAprobar(cliente, segunda);
-        var chocada = await cliente.PostAsJsonAsync($"/misiones/{segunda}/programar", new
+        var chocada = await cliente.PostComoAsync($"/misiones/{segunda}/programar", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
@@ -255,7 +255,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         Assert.Equal(System.Net.HttpStatusCode.Conflict, chocada.StatusCode);
 
         // Se libera la primera.
-        var liberacion = await cliente.PostAsJsonAsync($"/misiones/{primera}/desprogramar", new
+        var liberacion = await cliente.PostComoAsync($"/misiones/{primera}/desprogramar", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
@@ -285,12 +285,12 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         var id = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearYAprobar(cliente, id);
         await Programar(cliente, id, r);
 
-        var respuesta = await cliente.PostAsJsonAsync($"/misiones/{id}/desprogramar", new
+        var respuesta = await cliente.PostComoAsync($"/misiones/{id}/desprogramar", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
@@ -311,13 +311,13 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         var id = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearYAprobar(cliente, id);
         await Programar(cliente, id, r);
         Assert.Single(await BarrasDe(cliente, r.Vehiculo));
 
-        var anulacion = await cliente.PostAsJsonAsync($"/misiones/{id}/anular-programada", new
+        var anulacion = await cliente.PostComoAsync($"/misiones/{id}/anular-programada", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
@@ -345,7 +345,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         var id = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearYAprobar(cliente, id);
         await Programar(cliente, id, original);
@@ -353,7 +353,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         Assert.Single(await BarrasDe(cliente, original.Vehiculo));
         Assert.Empty(await BarrasDe(cliente, entrante.Vehiculo));
 
-        var reasignacion = await cliente.PostAsJsonAsync($"/misiones/{id}/reasignar", new
+        var reasignacion = await cliente.PostComoAsync($"/misiones/{id}/reasignar", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
@@ -391,7 +391,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         var deOtro = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearYAprobar(cliente, propia);
         await Programar(cliente, propia, mia);
@@ -399,7 +399,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         await CrearYAprobar(cliente, deOtro);
         await Programar(cliente, deOtro, ajena);
 
-        var respuesta = await cliente.PostAsJsonAsync($"/misiones/{propia}/reasignar", new
+        var respuesta = await cliente.PostComoAsync($"/misiones/{propia}/reasignar", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
@@ -428,7 +428,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         var id = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearYAprobar(cliente, id);
         await Programar(cliente, id, sinCustodio);
@@ -437,7 +437,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         // reservar; lo que no se puede es entregarlo.
         Assert.Single(await BarrasDe(cliente, sinCustodio.Vehiculo));
 
-        var despacho = await cliente.PostAsJsonAsync($"/misiones/{id}/despachar", new
+        var despacho = await cliente.PostComoAsync($"/misiones/{id}/despachar", new
         {
             Ejecuta = "P-ENCARGADO",
             Momento,
@@ -466,7 +466,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         var id = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearYAprobar(cliente, id);
         await Programar(cliente, id, v);
@@ -516,14 +516,14 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         var id = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearYAprobarEnFinDeSemana(cliente, id);
         await Programar(cliente, id, r);
 
         // Programar SÍ se puede: `BD-04` es de `T-12`. Se reserva el vehículo y se pide el
         // permiso mientras tanto — que es el orden real de las cosas.
-        var sinPermiso = await cliente.PostAsJsonAsync($"/misiones/{id}/despachar", new
+        var sinPermiso = await cliente.PostComoAsync($"/misiones/{id}/despachar", new
         {
             Ejecuta = "P-ENCARGADO",
             Momento,
@@ -542,7 +542,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         // ⚠️ Esto se insertaba a mano en la base porque **no existía forma de emitir un
         // permiso**: la tabla se leía y nadie escribía en ella. El bloqueo era una puerta sin
         // llave, y la prueba lo tapaba fabricando la fila. Ahora atraviesa el circuito.
-        var apertura = await cliente.PostAsJsonAsync($"/misiones/{id}/permiso", new
+        var apertura = await cliente.PostComoAsync($"/misiones/{id}/permiso", new
         {
             Justificacion = "Operativo migratorio de fin de semana con la Policía Nacional.",
             Solicita = "P-JEFE-TRANSPORTE",
@@ -563,7 +563,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         //
         // Es la mitad que importa: si un `SOLICITADO` contara, cualquiera destrabaría el
         // domingo abriendo un trámite y despachando sin esperar la firma.
-        var conTramite = await cliente.PostAsJsonAsync($"/misiones/{id}/despachar", new
+        var conTramite = await cliente.PostComoAsync($"/misiones/{id}/despachar", new
         {
             Ejecuta = "P-ENCARGADO",
             Momento,
@@ -575,7 +575,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         Assert.Contains("BD-04", await conTramite.Content.ReadAsStringAsync());
 
         // ── Quien no es la máxima autoridad no firma ─────────────────────────
-        var deLaGerencia = await cliente.PostAsJsonAsync($"/permisos/{permiso}/firmar", new
+        var deLaGerencia = await cliente.PostComoAsync($"/permisos/{permiso}/firmar", new
         {
             Ejecuta = "P-GERENCIA-ADMIN",
             Momento,
@@ -585,7 +585,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         Assert.False(rechazo.GetProperty("concedida").GetBoolean());
 
         // ── La máxima autoridad firma ────────────────────────────────────────
-        var firma = await cliente.PostAsJsonAsync($"/permisos/{permiso}/firmar", new
+        var firma = await cliente.PostComoAsync($"/permisos/{permiso}/firmar", new
         {
             Ejecuta = "P-MAXIMA",
             Momento,
@@ -601,7 +601,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         // `INV-19` pide el permiso <b>y su salvoconducto impreso</b>. Con la firma registrada
         // en el sistema y sin papel en la guantera, el agente en carretera pide algo que quedó
         // en el escritorio.
-        var soloFirmado = await cliente.PostAsJsonAsync($"/misiones/{id}/despachar", new
+        var soloFirmado = await cliente.PostComoAsync($"/misiones/{id}/despachar", new
         {
             Ejecuta = "P-ENCARGADO",
             Momento,
@@ -618,7 +618,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         //
         // `RN-25`: sin este documento impreso no se despacha en día inhábil, y no hay
         // excepción. El permiso firmado autoriza; el papel es lo que un agente puede pedir.
-        var emision = await cliente.PostAsJsonAsync($"/permisos/{permiso}/salvoconducto", new
+        var emision = await cliente.PostComoAsync($"/permisos/{permiso}/salvoconducto", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
@@ -660,7 +660,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         // ── Un segundo documento para el mismo permiso: NO ──────────────────
         //
         // `RN-04`: dos folios para una misma circulación rompen la conciliación.
-        var repetido = await cliente.PostAsJsonAsync($"/permisos/{permiso}/salvoconducto", new
+        var repetido = await cliente.PostComoAsync($"/permisos/{permiso}/salvoconducto", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
@@ -672,7 +672,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         // ── La reimpresión conserva folio, contenido y huella ───────────────
         var salvoconducto = documento.GetProperty("id").GetString()!;
 
-        var reimpreso = await cliente.PostAsJsonAsync(
+        var reimpreso = await cliente.PostComoAsync(
             $"/salvoconductos/{salvoconducto}/reimprimir", new
             {
                 Ejecuta = "P-TRANSPORTE",
@@ -701,7 +701,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         //
         // `RN-65`: emitir, imprimir y **entregar contra acuse**. Es lo que separa «el sistema
         // emitió el papel» de «el motorista lo tiene», y `INV-19` pide la segunda.
-        var acuse = await cliente.PostAsJsonAsync($"/misiones/{id}/acuse", new
+        var acuse = await cliente.PostComoAsync($"/misiones/{id}/acuse", new
         {
             Documento = "Salvoconducto",
             Entrega = "P-TRANSPORTE",
@@ -758,12 +758,12 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         var id = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearYAprobarEnFinDeSemana(cliente, id);
         await Programar(cliente, id, r);
 
-        var apertura = await cliente.PostAsJsonAsync($"/misiones/{id}/permiso", new
+        var apertura = await cliente.PostComoAsync($"/misiones/{id}/permiso", new
         {
             Justificacion = "Operativo migratorio de fin de semana.",
             Solicita = "P-TRANSPORTE",
@@ -773,13 +773,13 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         var permiso = (await apertura.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("id").GetString()!;
 
-        await cliente.PostAsJsonAsync($"/permisos/{permiso}/firmar", new
+        await cliente.PostComoAsync($"/permisos/{permiso}/firmar", new
         {
             Ejecuta = "P-MAXIMA",
             Momento,
         });
 
-        await cliente.PostAsJsonAsync($"/permisos/{permiso}/salvoconducto", new
+        await cliente.PostComoAsync($"/permisos/{permiso}/salvoconducto", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
@@ -798,7 +798,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         //
         // Nadie anula el salvoconducto: se desprograma la misión, que es lo que pasa en un
         // relevo. El papel sigue impreso y en la mano de alguien.
-        var suelta = await cliente.PostAsJsonAsync($"/misiones/{id}/desprogramar", new
+        var suelta = await cliente.PostComoAsync($"/misiones/{id}/desprogramar", new
         {
             Ejecuta = "P-TRANSPORTE",
             Motivo = "Relevo de motorista por incapacidad.",
@@ -846,12 +846,12 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         var id = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearYAprobarEnFinDeSemana(cliente, id);
         await Programar(cliente, id, r);
 
-        var apertura = await cliente.PostAsJsonAsync($"/misiones/{id}/permiso", new
+        var apertura = await cliente.PostComoAsync($"/misiones/{id}/permiso", new
         {
             Justificacion = "Operativo migratorio de fin de semana.",
             Solicita = "P-TRANSPORTE",
@@ -861,13 +861,13 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         var permiso = (await apertura.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("id").GetString()!;
 
-        await cliente.PostAsJsonAsync($"/permisos/{permiso}/firmar", new
+        await cliente.PostComoAsync($"/permisos/{permiso}/firmar", new
         {
             Ejecuta = "P-MAXIMA",
             Momento,
         });
 
-        await cliente.PostAsJsonAsync($"/permisos/{permiso}/salvoconducto", new
+        await cliente.PostComoAsync($"/permisos/{permiso}/salvoconducto", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
@@ -878,7 +878,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         var codigo = papel.GetProperty("codigoCorto").GetString()!;
 
         // ── Reemitir ─────────────────────────────────────────────────────────
-        var reemision = await cliente.PostAsJsonAsync($"/permisos/{permiso}/reemitir", new
+        var reemision = await cliente.PostComoAsync($"/permisos/{permiso}/reemitir", new
         {
             Ejecuta = "P-TRANSPORTE",
             Motivo = "Sustitución de vehículo por entrada a taller.",
@@ -916,13 +916,13 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         Assert.Equal(permiso, recien.GetProperty("reemplaza").GetString());
 
         // ── El folio no se recicla ──────────────────────────────────────────
-        await cliente.PostAsJsonAsync($"/permisos/{nuevo}/firmar", new
+        await cliente.PostComoAsync($"/permisos/{nuevo}/firmar", new
         {
             Ejecuta = "P-MAXIMA",
             Momento,
         });
 
-        await cliente.PostAsJsonAsync($"/permisos/{nuevo}/salvoconducto", new
+        await cliente.PostComoAsync($"/permisos/{nuevo}/salvoconducto", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
@@ -954,12 +954,12 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         var id = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearYAprobarEnFinDeSemana(cliente, id);
         await Programar(cliente, id, r);
 
-        var apertura = await cliente.PostAsJsonAsync($"/misiones/{id}/permiso", new
+        var apertura = await cliente.PostComoAsync($"/misiones/{id}/permiso", new
         {
             Justificacion = "Operativo migratorio de fin de semana.",
             Solicita = "P-TRANSPORTE",
@@ -969,13 +969,13 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         var permiso = (await apertura.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("id").GetString()!;
 
-        await cliente.PostAsJsonAsync($"/permisos/{permiso}/firmar", new
+        await cliente.PostComoAsync($"/permisos/{permiso}/firmar", new
         {
             Ejecuta = "P-MAXIMA",
             Momento,
         });
 
-        await cliente.PostAsJsonAsync($"/permisos/{permiso}/salvoconducto", new
+        await cliente.PostComoAsync($"/permisos/{permiso}/salvoconducto", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
@@ -985,7 +985,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         var codigo = papel.GetProperty("codigoCorto").GetString()!;
 
         // ── La sustitución ───────────────────────────────────────────────────
-        var reasignacion = await cliente.PostAsJsonAsync($"/misiones/{id}/reasignar", new
+        var reasignacion = await cliente.PostComoAsync($"/misiones/{id}/reasignar", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
@@ -1060,13 +1060,13 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         var id = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearYAprobar(cliente, id);
         await Programar(cliente, id, r);
 
         // ── La entrega, al despachar ─────────────────────────────────────────
-        var entrega = await cliente.PostAsJsonAsync($"/misiones/{id}/acta-de-custodia", new
+        var entrega = await cliente.PostComoAsync($"/misiones/{id}/acta-de-custodia", new
         {
             Tipo = "Entrega",
             IdVehiculo = r.Vehiculo,
@@ -1095,7 +1095,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         Assert.Equal(JsonValueKind.Null, aMedias.GetProperty("cotejo").ValueKind);
 
         // ── La devolución, sin el gato ───────────────────────────────────────
-        var devolucion = await cliente.PostAsJsonAsync($"/misiones/{id}/acta-de-custodia", new
+        var devolucion = await cliente.PostComoAsync($"/misiones/{id}/acta-de-custodia", new
         {
             Tipo = "Devolucion",
             IdVehiculo = r.Vehiculo,
@@ -1148,12 +1148,12 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         var id = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearYAprobar(cliente, id);
         await Programar(cliente, id, r);
 
-        var respuesta = await cliente.PostAsJsonAsync($"/misiones/{id}/acta-de-custodia", new
+        var respuesta = await cliente.PostComoAsync($"/misiones/{id}/acta-de-custodia", new
         {
             Tipo = "Devolucion",
             IdVehiculo = r.Vehiculo,
@@ -1174,7 +1174,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
     /// <summary>Del viernes 20 al domingo 22 de marzo de 2026 — cruza el fin de semana.</summary>
     private static async Task CrearYAprobarEnFinDeSemana(HttpClient cliente, string id)
     {
-        await cliente.PostAsJsonAsync("/misiones", new
+        await cliente.PostComoAsync("/misiones", new
         {
             Id = id,
             CapturadaPor = "P-ASISTENTE",
@@ -1190,8 +1190,8 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
             Momento,
         });
 
-        await cliente.PostAsJsonAsync($"/misiones/{id}/enviar", new { Ejecuta = "P-ASISTENTE", Momento });
-        await cliente.PostAsJsonAsync($"/misiones/{id}/aprobar", new { Ejecuta = "P-JEFATURA", Momento });
+        await cliente.PostComoAsync($"/misiones/{id}/enviar", new { Ejecuta = "P-ASISTENTE", Momento });
+        await cliente.PostComoAsync($"/misiones/{id}/aprobar", new { Ejecuta = "P-JEFATURA", Momento });
     }
 
     [Fact]
@@ -1204,7 +1204,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         var idMision = Ulid.NewUlid().ToString();
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearYAprobar(cliente, idMision);
         await Programar(cliente, idMision, r);
@@ -1222,7 +1222,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
         // armada por «no hay nada ocupado» — que es la respuesta que lleva a asignar un
         // vehículo que ya está tomado.
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var respuesta = await cliente.GetAsync("/flota/ocupacion?desde=2026-03-24&hasta=2026-03-18");
 
@@ -1252,7 +1252,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
     /// </summary>
     private static async Task Despachar(HttpClient cliente, string idMision, FlotaSembrada.ParaProgramar r)
     {
-        var respuesta = await cliente.PostAsJsonAsync($"/misiones/{idMision}/despachar", new
+        var respuesta = await cliente.PostComoAsync($"/misiones/{idMision}/despachar", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
@@ -1265,7 +1265,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
 
     private static async Task Programar(HttpClient cliente, string idMision, FlotaSembrada.ParaProgramar r)
     {
-        var respuesta = await cliente.PostAsJsonAsync($"/misiones/{idMision}/programar", new
+        var respuesta = await cliente.PostComoAsync($"/misiones/{idMision}/programar", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
@@ -1301,7 +1301,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
 
     private static async Task CrearYAprobar(HttpClient cliente, string id)
     {
-        await cliente.PostAsJsonAsync("/misiones", new
+        await cliente.PostComoAsync("/misiones", new
         {
             Id = id,
             CapturadaPor = "P-ASISTENTE",
@@ -1317,7 +1317,7 @@ public class OcupacionDeFlotaPruebas(BaseDePruebas baseDePruebas)
             Momento,
         });
 
-        await cliente.PostAsJsonAsync($"/misiones/{id}/enviar", new { Ejecuta = "P-ASISTENTE", Momento });
-        await cliente.PostAsJsonAsync($"/misiones/{id}/aprobar", new { Ejecuta = "P-JEFATURA", Momento });
+        await cliente.PostComoAsync($"/misiones/{id}/enviar", new { Ejecuta = "P-ASISTENTE", Momento });
+        await cliente.PostComoAsync($"/misiones/{id}/aprobar", new { Ejecuta = "P-JEFATURA", Momento });
     }
 }

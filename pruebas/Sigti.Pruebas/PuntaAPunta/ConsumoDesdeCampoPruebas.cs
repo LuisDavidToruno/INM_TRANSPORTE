@@ -42,7 +42,7 @@ public class ConsumoDesdeCampoPruebas(BaseDePruebas baseDePruebas)
     {
         var r = await Sembrar("CP-0001");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var (mision, vale) = await MisionEnRutaConVale(cliente, r);
 
@@ -96,7 +96,7 @@ public class ConsumoDesdeCampoPruebas(BaseDePruebas baseDePruebas)
         // servidor se entere después no cambia a qué día pertenece ese galón.
         var r = await Sembrar("CP-0002");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var (mision, vale) = await MisionEnRutaConVale(cliente, r);
 
@@ -119,7 +119,7 @@ public class ConsumoDesdeCampoPruebas(BaseDePruebas baseDePruebas)
         // de la misión, y `V-04` vive en el del vale: cada reintento pasaba por nuevo.
         var r = await Sembrar("CP-0003");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var (mision, vale) = await MisionEnRutaConVale(cliente, r);
         var captura = Ulid.NewUlid().ToString();
@@ -151,7 +151,7 @@ public class ConsumoDesdeCampoPruebas(BaseDePruebas baseDePruebas)
         // perderlo todo por un hecho mal armado sería el fallo que este endpoint evita.
         var r = await Sembrar("CP-0004");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var (mision, vale) = await MisionEnRutaConVale(cliente, r);
 
@@ -191,7 +191,7 @@ public class ConsumoDesdeCampoPruebas(BaseDePruebas baseDePruebas)
         // `RN-85`: **el registro del abastecimiento no se omite nunca por falta de papel.**
         var r = await Sembrar("CP-0005");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var (mision, vale) = await MisionEnRutaConVale(cliente, r);
 
@@ -240,7 +240,7 @@ public class ConsumoDesdeCampoPruebas(BaseDePruebas baseDePruebas)
     {
         var r = await Sembrar("CP-0006");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var (mision, vale) = await MisionEnRutaConVale(cliente, r);
 
@@ -278,7 +278,7 @@ public class ConsumoDesdeCampoPruebas(BaseDePruebas baseDePruebas)
         // el motivo tiene que decirlo para que alguien la busque.
         var r = await Sembrar("CP-0007");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var (mision, vale) = await MisionEnRutaConVale(cliente, r, entregar: false);
 
@@ -296,7 +296,7 @@ public class ConsumoDesdeCampoPruebas(BaseDePruebas baseDePruebas)
         // su ausencia se lee como rendimiento imposiblemente bueno.
         var r = await Sembrar("CF-0001");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var (mision, vale) = await MisionEnRutaConVale(cliente, r);
 
@@ -352,7 +352,7 @@ public class ConsumoDesdeCampoPruebas(BaseDePruebas baseDePruebas)
         // una desviación inventada por el propio sistema.
         var r = await Sembrar("CF-0002");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var (mision, _) = await MisionEnRutaConVale(cliente, r);
         var captura = Ulid.NewUlid().ToString();
@@ -401,7 +401,7 @@ public class ConsumoDesdeCampoPruebas(BaseDePruebas baseDePruebas)
         // dispositivo a inventarlo.
         var r = await Sembrar("CF-0003");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var lote = await Sincronizar(cliente, new
         {
@@ -443,7 +443,7 @@ public class ConsumoDesdeCampoPruebas(BaseDePruebas baseDePruebas)
         // de `RN-30` que depende del nivel nunca se activaba porque el nivel nunca estaba.
         var r = await Sembrar("NT-0001");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var mision = await MisionDespachada(cliente, r);
 
@@ -482,7 +482,7 @@ public class ConsumoDesdeCampoPruebas(BaseDePruebas baseDePruebas)
         // indicador estaba averiado o porque nadie se acordó, y sólo la primera se corrige.
         var r = await Sembrar("NT-0002");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var mision = await MisionDespachada(cliente, r);
 
@@ -542,7 +542,7 @@ public class ConsumoDesdeCampoPruebas(BaseDePruebas baseDePruebas)
 
     private static async Task<JsonElement> Sincronizar(HttpClient cliente, object lote)
     {
-        var respuesta = await cliente.PostAsJsonAsync("/sincronizacion", lote);
+        var respuesta = await cliente.PostComoAsync("/sincronizacion", lote);
 
         // El cuerpo va en el fallo: un «500» a secas obliga a reproducirlo para saber qué pasó.
         if (!respuesta.IsSuccessStatusCode)
@@ -656,7 +656,7 @@ public class ConsumoDesdeCampoPruebas(BaseDePruebas baseDePruebas)
 
     private static async Task Post(HttpClient cliente, string ruta, object cuerpo)
     {
-        var respuesta = await cliente.PostAsJsonAsync(ruta, cuerpo);
+        var respuesta = await cliente.PostComoAsync(ruta, cuerpo);
 
         if (!respuesta.IsSuccessStatusCode)
             throw new Xunit.Sdk.XunitException(

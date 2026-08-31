@@ -44,7 +44,7 @@ public class PropuestaDeCierrePruebas(BaseDePruebas baseDePruebas)
         var r = await SembrarAsync("PROPUESTA-A");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var mision = await HastaLiquidarAsync(cliente, r);
         await RegistrarIncidenteAsync(cliente, mision);
@@ -56,7 +56,7 @@ public class PropuestaDeCierrePruebas(BaseDePruebas baseDePruebas)
 
         // ⚠️ Sin criterios en el cuerpo. Quien cierra declara **qué se hizo** con el hallazgo;
         // cuál es el hallazgo lo decide el sistema.
-        var cierre = await cliente.PostAsJsonAsync($"/misiones/{mision}/cerrar", new
+        var cierre = await cliente.PostComoAsync($"/misiones/{mision}/cerrar", new
         {
             Ejecuta = "P-GERENCIA",
             Momento,
@@ -89,12 +89,12 @@ public class PropuestaDeCierrePruebas(BaseDePruebas baseDePruebas)
         var r = await SembrarAsync("PROPUESTA-B");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var mision = await HastaLiquidarAsync(cliente, r);
         await RegistrarIncidenteAsync(cliente, mision);
 
-        var cierre = await cliente.PostAsJsonAsync($"/misiones/{mision}/cerrar", new
+        var cierre = await cliente.PostComoAsync($"/misiones/{mision}/cerrar", new
         {
             Ejecuta = "P-GERENCIA",
             Momento,
@@ -134,7 +134,7 @@ public class PropuestaDeCierrePruebas(BaseDePruebas baseDePruebas)
         var r = await SembrarAsync("PROPUESTA-C");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var mision = await HastaLiquidarAsync(cliente, r);
 
@@ -154,7 +154,7 @@ public class PropuestaDeCierrePruebas(BaseDePruebas baseDePruebas)
             c => Assert.False(
                 string.IsNullOrWhiteSpace(c.GetProperty("detalle").GetString())));
 
-        var cierre = await cliente.PostAsJsonAsync($"/misiones/{mision}/cerrar", new
+        var cierre = await cliente.PostComoAsync($"/misiones/{mision}/cerrar", new
         {
             Ejecuta = "P-GERENCIA",
             Momento,
@@ -183,7 +183,7 @@ public class PropuestaDeCierrePruebas(BaseDePruebas baseDePruebas)
         var r = await SembrarAsync("PROPUESTA-D");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var mision = await HastaLiquidarAsync(cliente, r);
 
@@ -227,7 +227,7 @@ public class PropuestaDeCierrePruebas(BaseDePruebas baseDePruebas)
         var original = await SembrarAsync("PROPUESTA-E");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var mision = await ProgramadaAsync(cliente, original);
 
@@ -235,7 +235,7 @@ public class PropuestaDeCierrePruebas(BaseDePruebas baseDePruebas)
         // vehículo y el motorista son los de la orden.
         var fondo = await FondoAprobadoAsync(cliente);
 
-        var vale = await cliente.PostAsJsonAsync("/combustible", new
+        var vale = await cliente.PostComoAsync("/combustible", new
         {
             Id = Ulid.NewUlid().ToString(),
             Folio = $"VAL-H13-{Ulid.NewUlid().ToString()[^6..]}",
@@ -256,7 +256,7 @@ public class PropuestaDeCierrePruebas(BaseDePruebas baseDePruebas)
         // económico ya ocurrido.
         var relevo = await SembrarAsync("PROPUESTA-E2");
 
-        var reasignada = await cliente.PostAsJsonAsync($"/misiones/{mision}/reasignar", new
+        var reasignada = await cliente.PostComoAsync($"/misiones/{mision}/reasignar", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
@@ -296,7 +296,7 @@ public class PropuestaDeCierrePruebas(BaseDePruebas baseDePruebas)
     {
         var id = await CrearYAprobarAsync(cliente);
 
-        var programada = await cliente.PostAsJsonAsync($"/misiones/{id}/programar", new
+        var programada = await cliente.PostComoAsync($"/misiones/{id}/programar", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
@@ -312,7 +312,7 @@ public class PropuestaDeCierrePruebas(BaseDePruebas baseDePruebas)
     {
         var id = Ulid.NewUlid().ToString();
 
-        await cliente.PostAsJsonAsync("/fondos", new
+        await cliente.PostComoAsync("/fondos", new
         {
             Id = id,
             Ambito = "Dependencia",
@@ -325,7 +325,7 @@ public class PropuestaDeCierrePruebas(BaseDePruebas baseDePruebas)
             Momento,
         });
 
-        var aprobado = await cliente.PostAsJsonAsync($"/fondos/{id}/aprobar", new
+        var aprobado = await cliente.PostComoAsync($"/fondos/{id}/aprobar", new
         {
             Ejecuta = "P-GERENCIA", Monto = 20_000m, Partida = "12-01-001-4-31200", Momento,
         });
@@ -346,7 +346,7 @@ public class PropuestaDeCierrePruebas(BaseDePruebas baseDePruebas)
     {
         var id = Ulid.NewUlid().ToString();
 
-        await cliente.PostAsJsonAsync("/misiones", new
+        await cliente.PostComoAsync("/misiones", new
         {
             Id = id,
             CapturadaPor = "P-ASISTENTE",
@@ -362,10 +362,10 @@ public class PropuestaDeCierrePruebas(BaseDePruebas baseDePruebas)
             Momento,
         });
 
-        await cliente.PostAsJsonAsync($"/misiones/{id}/enviar",
+        await cliente.PostComoAsync($"/misiones/{id}/enviar",
             new { Ejecuta = "P-ASISTENTE", Momento });
 
-        await cliente.PostAsJsonAsync($"/misiones/{id}/aprobar",
+        await cliente.PostComoAsync($"/misiones/{id}/aprobar",
             new { Ejecuta = "P-JEFATURA", Momento });
 
         return id;
@@ -377,7 +377,7 @@ public class PropuestaDeCierrePruebas(BaseDePruebas baseDePruebas)
     {
         var id = await CrearYAprobarAsync(cliente);
 
-        var programada = await cliente.PostAsJsonAsync($"/misiones/{id}/programar", new
+        var programada = await cliente.PostComoAsync($"/misiones/{id}/programar", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
@@ -387,7 +387,7 @@ public class PropuestaDeCierrePruebas(BaseDePruebas baseDePruebas)
 
         Assert.True(programada.IsSuccessStatusCode, await programada.Content.ReadAsStringAsync());
 
-        var despachada = await cliente.PostAsJsonAsync($"/misiones/{id}/despachar", new
+        var despachada = await cliente.PostComoAsync($"/misiones/{id}/despachar", new
         {
             Ejecuta = "P-DESPACHO",
             Momento,
@@ -397,13 +397,13 @@ public class PropuestaDeCierrePruebas(BaseDePruebas baseDePruebas)
 
         Assert.True(despachada.IsSuccessStatusCode, await despachada.Content.ReadAsStringAsync());
 
-        await cliente.PostAsJsonAsync($"/misiones/{id}/iniciar-ruta",
+        await cliente.PostComoAsync($"/misiones/{id}/iniciar-ruta",
             new { Ejecuta = "P-DESPACHO", Momento, Odometro = 10_000 });
 
-        await cliente.PostAsJsonAsync($"/misiones/{id}/retornar",
+        await cliente.PostComoAsync($"/misiones/{id}/retornar",
             new { Ejecuta = "P-DESPACHO", Momento, Odometro = 10_450 });
 
-        var liquidada = await cliente.PostAsJsonAsync($"/misiones/{id}/liquidar",
+        var liquidada = await cliente.PostComoAsync($"/misiones/{id}/liquidar",
             new { Ejecuta = "P-TRANSPORTE", Momento });
 
         Assert.True(liquidada.IsSuccessStatusCode, await liquidada.Content.ReadAsStringAsync());
@@ -419,7 +419,7 @@ public class PropuestaDeCierrePruebas(BaseDePruebas baseDePruebas)
     {
         var hecho = new DateTimeOffset(2026, 3, 18, 11, 0, 0, TimeSpan.FromHours(-6));
 
-        var respuesta = await cliente.PostAsJsonAsync("/incidentes", new
+        var respuesta = await cliente.PostComoAsync("/incidentes", new
         {
             Id = Ulid.NewUlid().ToString(),
             Tipo = "AveriaMecanica",

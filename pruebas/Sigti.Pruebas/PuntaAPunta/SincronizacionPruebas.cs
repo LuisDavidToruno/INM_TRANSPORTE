@@ -41,7 +41,7 @@ public class SincronizacionPruebas(BaseDePruebas baseDePruebas)
         await using (var siembra = baseDePruebas.Contexto()) await FlotaSembrada.SembrarAsync(siembra);
         var idDeCaptura = Ulid.NewUlid().ToString();
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await LlevarHastaDespachada(cliente, id);
 
@@ -64,11 +64,11 @@ public class SincronizacionPruebas(BaseDePruebas baseDePruebas)
             },
         };
 
-        var primera = await cliente.PostAsJsonAsync("/sincronizacion", lote);
+        var primera = await cliente.PostComoAsync("/sincronizacion", lote);
         Assert.Equal(HttpStatusCode.OK, primera.StatusCode);
 
         // El dispositivo no recibió el acuse y reenvía. Es el caso NORMAL, no el raro.
-        var segunda = await cliente.PostAsJsonAsync("/sincronizacion", lote);
+        var segunda = await cliente.PostComoAsync("/sincronizacion", lote);
         Assert.Equal(HttpStatusCode.OK, segunda.StatusCode);
 
         // **Y se RECONOCE, no se rechaza.** Contar transiciones no basta: la máquina de
@@ -103,11 +103,11 @@ public class SincronizacionPruebas(BaseDePruebas baseDePruebas)
         await using (var siembra = baseDePruebas.Contexto()) await FlotaSembrada.SembrarAsync(siembra);
         var idDeCaptura = Ulid.NewUlid().ToString();
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await LlevarHastaDespachada(cliente, id);
 
-        var respuesta = await cliente.PostAsJsonAsync("/sincronizacion", new
+        var respuesta = await cliente.PostComoAsync("/sincronizacion", new
         {
             IdDispositivo = "DEV-TOCOA-01",
             Transiciones = new[]
@@ -134,7 +134,7 @@ public class SincronizacionPruebas(BaseDePruebas baseDePruebas)
     /// <summary>Deja el expediente listo para que el dispositivo registre la salida.</summary>
     private async Task LlevarHastaDespachada(HttpClient cliente, string id)
     {
-        var creacion = await cliente.PostAsJsonAsync("/misiones", new
+        var creacion = await cliente.PostComoAsync("/misiones", new
         {
             Id = id,
             CapturadaPor = "P-ASISTENTE",
@@ -159,7 +159,7 @@ public class SincronizacionPruebas(BaseDePruebas baseDePruebas)
 
     private static async Task Paso(HttpClient cliente, string id, string ruta, string ejecuta)
     {
-        var r = await cliente.PostAsJsonAsync($"/misiones/{id}/{ruta}", new { Ejecuta = ejecuta, Momento });
+        var r = await cliente.PostComoAsync($"/misiones/{id}/{ruta}", new { Ejecuta = ejecuta, Momento });
         Assert.Equal(HttpStatusCode.OK, r.StatusCode);
     }
 
@@ -172,7 +172,7 @@ public class SincronizacionPruebas(BaseDePruebas baseDePruebas)
     {
         _recursos ??= await ParaProgramar();
 
-        var r = await cliente.PostAsJsonAsync($"/misiones/{id}/{ruta}", new
+        var r = await cliente.PostComoAsync($"/misiones/{id}/{ruta}", new
         {
             Ejecuta = ejecuta,
             Momento,

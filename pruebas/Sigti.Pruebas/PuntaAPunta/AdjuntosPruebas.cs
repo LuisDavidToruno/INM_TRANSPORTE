@@ -45,7 +45,7 @@ public class AdjuntosPruebas(BaseDePruebas baseDePruebas) : IDisposable
         var contenido = Encoding.UTF8.GetBytes("una fotografía del odómetro");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var respuesta = await Subir(cliente, idAdjunto, contenido, HashDe(contenido));
 
@@ -76,7 +76,7 @@ public class AdjuntosPruebas(BaseDePruebas baseDePruebas) : IDisposable
         var hashDeLoQueEraAntes = HashDe(Encoding.UTF8.GetBytes("la fotografía completa"));
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var respuesta = await Subir(cliente, idAdjunto, contenido, hashDeLoQueEraAntes);
 
@@ -97,7 +97,7 @@ public class AdjuntosPruebas(BaseDePruebas baseDePruebas) : IDisposable
         var contenido = Encoding.UTF8.GetBytes("una fotografía del comprobante");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var primera = await Subir(cliente, idAdjunto, contenido, HashDe(contenido));
         var segunda = await Subir(cliente, idAdjunto, contenido, HashDe(contenido));

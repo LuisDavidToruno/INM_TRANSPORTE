@@ -46,7 +46,7 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         var mision = await SembrarMisionAsync(anio, EstadoDeMision.EnRuta, "En ruta al corte");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var antes = await AsientosDeAsync(mision);
 
@@ -70,11 +70,11 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         await SembrarCortesAsync(anio);
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await Post(cliente, "/cierre-de-ejercicio", Cuerpo($"AC-{anio}-001", anio));
 
-        var segunda = await cliente.PostAsJsonAsync(
+        var segunda = await cliente.PostComoAsync(
             "/cierre-de-ejercicio", Cuerpo($"AC-{anio}-002", anio));
 
         Assert.False(segunda.IsSuccessStatusCode);
@@ -104,7 +104,7 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
             cierre: new DateTime(anio, 12, 30, 16, 41, 0));
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var acta = await VistaPrevia(cliente, anio);
 
@@ -141,7 +141,7 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
             cierre: new DateTime(anio, 12, 29, 11, 0, 0));
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var acta = await VistaPrevia(cliente, anio);
 
@@ -169,7 +169,7 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         await SembrarCortesAsync(anio, diaYMes: "06-30", diasDespues: 10);
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var acta = await VistaPrevia(cliente, anio);
 
@@ -195,7 +195,7 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         const int anio = 2042;
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var respuesta = await cliente.GetAsync($"/cierre-de-ejercicio/{anio}/vista-previa");
 
@@ -212,9 +212,9 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         const int anio = 2043;
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
-        var respuesta = await cliente.PostAsJsonAsync(
+        var respuesta = await cliente.PostComoAsync(
             "/cierre-de-ejercicio", Cuerpo($"AC-{anio}-001", anio));
 
         Assert.False(respuesta.IsSuccessStatusCode);
@@ -234,7 +234,7 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         await SembrarCortesAsync(anio);
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var acta = await Leer(cliente,
             $"/cierre-de-ejercicio/{anio}/vista-previa" +
@@ -256,7 +256,7 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         await SembrarCortesAsync(anio, diaYMes: "12-31", diasDespues: 20);
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var conCortes = await Leer(cliente, $"/cierre-de-ejercicio/{anio}/cortes");
 
@@ -290,7 +290,7 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         await SembrarVentanaAsync(anio, dias: 40);
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var acta = await VistaPrevia(cliente, anio);
         var ventana = acta.GetProperty("ventana");
@@ -330,7 +330,7 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
             cierre: new DateTime(anio, 12, 30, 16, 41, 0));
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var acta = await VistaPrevia(cliente, anio);
 
@@ -364,7 +364,7 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         await SembrarCortesAsync(anio);
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var folio = await SembrarValeEmitidoAsync(cliente, anio);
 
@@ -378,7 +378,7 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         await Post(cliente, "/cierre-de-ejercicio", Cuerpo($"AC-{anio}-001", anio));
 
         // ── Y recién ahora se anula ─────────────────────────────────────────
-        var respuesta = await cliente.PostAsJsonAsync(
+        var respuesta = await cliente.PostComoAsync(
             $"/cierre-de-ejercicio/{anio}/anular-folios",
             new
             {
@@ -423,7 +423,7 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         await SembrarCortesAsync(anio);
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var folio = await SembrarValeEmitidoAsync(cliente, anio);
 
@@ -487,7 +487,7 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         await SembrarCortesAsync(anio);
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var folio = await SembrarValeEmitidoAsync(cliente, anio);
 
@@ -538,7 +538,7 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         await SembrarCortesAsync(anio);
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var folio = await SembrarValeEmitidoAsync(cliente, anio);
 
@@ -582,7 +582,7 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
     [Fact]
     public async Task Sin_acta_no_hay_reporte_de_reversion()
     {
-        var respuesta = await Aplicacion().CreateClient()
+        var respuesta = await Aplicacion().CrearCliente()
             .GetAsync("/cierre-de-ejercicio/2047/reversion");
 
         Assert.Equal(System.Net.HttpStatusCode.NotFound, respuesta.StatusCode);
@@ -597,9 +597,9 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
     public async Task Anular_folios_sin_acta_no_pasa()
     {
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
-        var respuesta = await cliente.PostAsJsonAsync(
+        var respuesta = await cliente.PostComoAsync(
             "/cierre-de-ejercicio/2039/anular-folios",
             new { Persona = "P-ADMIN", Motivo = "Cierre", Momento = DateTimeOffset.UtcNow });
 
@@ -642,7 +642,7 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         }
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var acta = await VistaPrevia(cliente, anio);
 
@@ -681,7 +681,7 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         }
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var acta = await VistaPrevia(cliente, anio);
 
@@ -708,7 +708,7 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         await SembrarCortesAsync(anio);
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await Post(cliente, "/saldo-de-apertura", new
         {
@@ -737,7 +737,7 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
         // comprobación **corra**: la diferencia aparece cuando alguien edita uno de los dos.
         Assert.Empty(vista.GetProperty("diferenciasConElSaldo").EnumerateArray());
 
-        var respuesta = await cliente.PostAsJsonAsync(
+        var respuesta = await cliente.PostComoAsync(
             "/cierre-de-ejercicio", Cuerpo($"AC-{anio}-001", anio));
 
         Assert.True(respuesta.IsSuccessStatusCode);
@@ -1089,7 +1089,7 @@ public class CierreDeEjercicioPruebas(BaseDePruebas baseDePruebas)
 
     private static async Task Post(HttpClient cliente, string ruta, object cuerpo)
     {
-        var respuesta = await cliente.PostAsJsonAsync(ruta, cuerpo);
+        var respuesta = await cliente.PostComoAsync(ruta, cuerpo);
 
         if (!respuesta.IsSuccessStatusCode)
             throw new Xunit.Sdk.XunitException(

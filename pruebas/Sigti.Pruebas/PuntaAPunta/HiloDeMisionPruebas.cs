@@ -45,9 +45,9 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
         await using (var siembra = baseDePruebas.Contexto()) await FlotaSembrada.SembrarAsync(siembra);
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
-        var creacion = await cliente.PostAsJsonAsync("/misiones", new
+        var creacion = await cliente.PostComoAsync("/misiones", new
         {
             Id = id,
             CapturadaPor = "P-ASISTENTE",
@@ -97,7 +97,7 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
 
         // `BD-06` en el cierre: quien liquidó no puede cerrar. Es el último par de la
         // cadena, y en una delegación pequeña la misma persona tiene los dos botones.
-        var cierraQuienLiquido = await cliente.PostAsJsonAsync(
+        var cierraQuienLiquido = await cliente.PostComoAsync(
             $"/misiones/{id}/cerrar",
             new { Ejecuta = "P-TRANSPORTE", Momento, Criterios = Array.Empty<object>(), Justificacion = (string?)null });
         Assert.Equal(HttpStatusCode.Conflict, cierraQuienLiquido.StatusCode);
@@ -105,7 +105,7 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
 
         // Sin criterios detectados, el expediente cierra limpio. Quien cierra no eligió
         // ese destino: no hay forma de pedirlo.
-        var final = await cliente.PostAsJsonAsync(
+        var final = await cliente.PostComoAsync(
             $"/misiones/{id}/cerrar",
             new { Ejecuta = "P-GERENCIA", Momento, Criterios = Array.Empty<object>(), Justificacion = (string?)null });
         Assert.Equal(HttpStatusCode.OK, final.StatusCode);
@@ -153,11 +153,11 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
         await using (var siembra = baseDePruebas.Contexto()) await FlotaSembrada.SembrarAsync(siembra);
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await CrearYAprobar(cliente, id);
 
-        var respuesta = await cliente.PostAsJsonAsync($"/misiones/{id}/programar", new
+        var respuesta = await cliente.PostComoAsync($"/misiones/{id}/programar", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
@@ -178,7 +178,7 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
         // cliente de campo**, no el servidor. Un dispositivo con un error de generación
         // sincronizaría contra un 500 opaco, y quien lo diagnostique no tendría nada.
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var respuesta = await cliente.GetAsync("/misiones/NO-ES-UN-ULID");
 
@@ -192,7 +192,7 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
     /// </summary>
     private static async Task ConOdometro(HttpClient cliente, string id, string ruta, int km)
     {
-        var r = await cliente.PostAsJsonAsync($"/misiones/{id}/{ruta}",
+        var r = await cliente.PostComoAsync($"/misiones/{id}/{ruta}",
             new { Ejecuta = "P-MOTORISTA", Momento, Odometro = km });
 
         Assert.Equal(HttpStatusCode.OK, r.StatusCode);
@@ -207,7 +207,7 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
         string idConductor,
         HttpStatusCode esperado = HttpStatusCode.OK)
     {
-        var respuesta = await cliente.PostAsJsonAsync($"/misiones/{id}/{ruta}", new
+        var respuesta = await cliente.PostComoAsync($"/misiones/{id}/{ruta}", new
         {
             Ejecuta = ejecuta,
             Momento,
@@ -222,7 +222,7 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
     /// <summary>Deja un expediente aprobado y listo para programar.</summary>
     private async Task CrearYAprobar(HttpClient cliente, string id)
     {
-        await cliente.PostAsJsonAsync("/misiones", new
+        await cliente.PostComoAsync("/misiones", new
         {
             Id = id,
             CapturadaPor = "P-ASISTENTE",
@@ -248,7 +248,7 @@ public class HiloDeMisionPruebas(BaseDePruebas baseDePruebas)
         string ejecuta,
         HttpStatusCode esperado = HttpStatusCode.OK)
     {
-        var respuesta = await cliente.PostAsJsonAsync(
+        var respuesta = await cliente.PostComoAsync(
             $"/misiones/{id}/{ruta}", new { Ejecuta = ejecuta, Momento });
 
         Assert.Equal(esperado, respuesta.StatusCode);

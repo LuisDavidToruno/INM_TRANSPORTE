@@ -2,11 +2,13 @@ import type { ReactElement } from 'react';
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
-import { CircleAlert, IdCard, TriangleAlert, UserX } from 'lucide-react';
+import { CircleAlert, IdCard, UserX } from 'lucide-react';
 
-import { Campo, Nota, Panel, SelectorBuscable, TarjetaOpcion, Vacio } from '../../ui';
+import { Boton, Nota, Panel, TarjetaOpcion, Vacio } from '../../ui';
 import { pedir } from '../../api/misiones';
 import { usarPuesto } from '../../app/puesto';
+import { sesionActual, salir } from '../../app/sesion';
+import Autenticar from './Autenticar';
 
 /**
  * `PT-001` — Ingreso y selección de puesto vigente.
@@ -17,28 +19,34 @@ import { usarPuesto } from '../../app/puesto';
  * raíces distintas, no una mezclada</b>. Mezclarlas produciría un menú que ninguno de los dos
  * puestos tiene, y un alcance de datos que es la unión de dos permisos que nadie otorgó junto.
  *
- * ── Y lo que esta pantalla no es ────────────────────────────────────────────
- * <b>No es un inicio de sesión.</b> No hay contraseña, no hay verificación, y elegir a otra
- * persona no requiere nada. Se dice en la pantalla en vez de disimularse con una caja de
- * contraseña que no valida: una pantalla que <i>parece</i> autenticar es peor que una que
- * declara no hacerlo, porque hace creer que hay un control donde no lo hay.
+ * ── Quién entra ya no se elige de una lista ─────────────────────────────────
+ * Antes esta pantalla ofrecía un desplegable con todo el organigrama, y quien lo abriera podía
+ * trabajar en nombre de cualquiera. Ahora <b>la persona sale del token</b>: se autentica contra
+ * el servicio de identidad institucional, y de ahí en adelante lo único que se elige es con
+ * cuál de <i>sus propios</i> puestos va a trabajar.
+ *
+ * La elección de puesto no desaparece —`R-1` la exige, porque una persona puede ocupar varios y
+ * los permisos no se mezclan—, pero deja de ser una elección de identidad.
  */
 export default function Ingreso(): ReactElement {
   const { elegido, elegir } = usarPuesto();
   const navegar = useNavigate();
 
-  const [persona, setPersona] = useState(() => elegido?.persona ?? '');
+  // Fuerza el redibujo cuando la sesión cambia; el token vive fuera de React a propósito.
+  const [, redibujar] = useState(0);
+  const sesion = sesionActual();
 
-  const gente = useQuery({
-    queryKey: ['puesto', 'personas'],
-    queryFn: () => pedir<Persona[]>('/puesto/personas'),
-  });
+  // ⚠️ **La persona sale del token y de ningún otro lado.** No hay estado local que la pueda
+  // cambiar: ésa era la puerta por la que cualquiera trabajaba en nombre de cualquiera.
+  const persona = sesion?.persona ?? '';
 
   const suyos = useQuery({
     queryKey: ['puesto', 'de', persona],
     queryFn: () => pedir<PuestosDeLaPersona>(`/puesto/de/${persona}`),
     enabled: persona !== '',
   });
+
+  if (sesion === null) return <Autenticar alEntrar={() => redibujar((n) => n + 1)} />;
 
   // ── El puesto único no se hace elegir ─────────────────────────────────────
   // El dictamen pide «aviso de puesto único». Obligar a confirmar una lista de una sola opción
@@ -65,35 +73,24 @@ export default function Ingreso(): ReactElement {
         </p>
       </header>
 
-      <Nota tono="aviso" icono={<TriangleAlert />}>
-        <b>Esto no es un inicio de sesión.</b> Todavía no hay autenticación: nadie verifica que
-        quien elige un puesto tenga derecho a ocuparlo, y elegir a otra persona no pide nada.
-        Mientras siga así, el alcance de datos <b>filtra, pero no protege</b>.
-      </Nota>
+      <Panel titulo="Quién entró">
+        <div className="tw:flex tw:flex-wrap tw:items-center tw:justify-between tw:gap-3">
+          <div className="tw:flex tw:flex-col tw:gap-0.5 tw:text-sm">
+            <b>{sesion.nombre}</b>
+            <span className="tw:text-xs tw:text-tinta-mid">
+              {sesion.persona} · {sesion.roles.join(', ')}
+            </span>
+          </div>
 
-      <Panel titulo="Quién entra">
-        <div className="tw:sm:max-w-md">
-          <Campo
-            etiqueta="Persona"
-            ayuda="Sale del organigrama: son quienes ocupan algún puesto hoy."
+          <Boton
+            variante="secundario"
+            onClick={() => {
+              salir();
+              redibujar((n) => n + 1);
+            }}
           >
-            {(control) => (
-              <SelectorBuscable
-                {...control}
-                valor={persona}
-                onCambio={setPersona}
-                opciones={(gente.data ?? []).map((p) => ({
-                  valor: p.persona,
-                  etiqueta:
-                    p.puestos.length === 1
-                      ? `${p.persona} — ${p.puestos[0]}`
-                      : `${p.persona} — ${p.puestos.length} puestos`,
-                  buscarTambien: p.puestos.join(' '),
-                }))}
-                vacio="Elija a quién representa…"
-              />
-            )}
-          </Campo>
+            Salir
+          </Boton>
         </div>
       </Panel>
 
@@ -194,11 +191,6 @@ function avisoDe(p: PuestoVigente): string {
     return `El mapa no declara raíz para ${p.rolesSinRaiz.join(', ')}`;
 
   return p.raices.map((r) => r.pantalla).filter(Boolean).join(' · ');
-}
-
-interface Persona {
-  persona: string;
-  puestos: string[];
 }
 
 interface PuestoVigente {

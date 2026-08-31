@@ -32,7 +32,7 @@ public class ExistenciasDelTanquePruebas(BaseDePruebas baseDePruebas)
     {
         var r = await Sembrar("TQ-0001");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var tanque = await AbrirTanque(cliente, 500m);
 
@@ -74,12 +74,12 @@ public class ExistenciasDelTanquePruebas(BaseDePruebas baseDePruebas)
         // lo soltó — que es peor que no tener el libro.
         var r = await Sembrar("TQ-0002");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var tanque = await AbrirTanque(cliente, 40m);
         var abastecimiento = Ulid.NewUlid().ToString();
 
-        var respuesta = await cliente.PostAsJsonAsync("/abastecimientos", new
+        var respuesta = await cliente.PostComoAsync("/abastecimientos", new
         {
             Id = abastecimiento,
             IdVehiculo = r.Vehiculo,
@@ -113,11 +113,11 @@ public class ExistenciasDelTanquePruebas(BaseDePruebas baseDePruebas)
     {
         var r = await Sembrar("TQ-0003");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var tanque = await AbrirTanque(cliente, 500m);
 
-        var respuesta = await cliente.PostAsJsonAsync("/abastecimientos", new
+        var respuesta = await cliente.PostComoAsync("/abastecimientos", new
         {
             Id = Ulid.NewUlid().ToString(),
             IdVehiculo = r.Vehiculo,
@@ -146,7 +146,7 @@ public class ExistenciasDelTanquePruebas(BaseDePruebas baseDePruebas)
         // del denominador de `RN-30`, que es donde más falta hace.
         var r = await Sembrar("TQ-0004");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var abastecimiento = Ulid.NewUlid().ToString();
 
@@ -177,7 +177,7 @@ public class ExistenciasDelTanquePruebas(BaseDePruebas baseDePruebas)
     {
         var r = await Sembrar("TQ-0005");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var tanque = await AbrirTanque(cliente, 500m);
         var abastecimiento = Ulid.NewUlid().ToString();
@@ -207,7 +207,7 @@ public class ExistenciasDelTanquePruebas(BaseDePruebas baseDePruebas)
     public async Task El_trasiego_mueve_los_dos_tanques_y_conserva_el_total()
     {
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var origen = await AbrirTanque(cliente, 500m);
         var destino = await AbrirTanque(cliente, 100m);
@@ -239,7 +239,7 @@ public class ExistenciasDelTanquePruebas(BaseDePruebas baseDePruebas)
     public async Task El_arqueo_MIDE_y_no_cuadra_el_libro_por_su_cuenta()
     {
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var tanque = await AbrirTanque(cliente, 500m);
 
@@ -280,7 +280,7 @@ public class ExistenciasDelTanquePruebas(BaseDePruebas baseDePruebas)
     public async Task Un_tanque_nunca_arqueado_no_esta_cuadrado_esta_SIN_VERIFICAR()
     {
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var tanque = await AbrirTanque(cliente, 500m);
         var t = await Leer(cliente, $"/tanques/{tanque}");
@@ -332,7 +332,7 @@ public class ExistenciasDelTanquePruebas(BaseDePruebas baseDePruebas)
 
     private static async Task Post(HttpClient cliente, string ruta, object cuerpo)
     {
-        var respuesta = await cliente.PostAsJsonAsync(ruta, cuerpo);
+        var respuesta = await cliente.PostComoAsync(ruta, cuerpo);
 
         if (!respuesta.IsSuccessStatusCode)
             throw new Xunit.Sdk.XunitException(

@@ -33,7 +33,7 @@ public class IndisponibilidadPruebas(BaseDePruebas baseDePruebas)
     public async Task La_reserva_en_conflicto_IMPIDE_el_despacho_hasta_su_desenlace()
     {
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var (mision, vehiculo, conductor, salida) = await MisionProgramadaAsync(cliente);
 
@@ -102,7 +102,7 @@ public class IndisponibilidadPruebas(BaseDePruebas baseDePruebas)
     public async Task La_lista_acusada_se_conserva_aunque_la_mision_cambie_despues()
     {
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var (mision, vehiculo, conductor, salida) = await MisionProgramadaAsync(cliente);
 
@@ -162,7 +162,7 @@ public class IndisponibilidadPruebas(BaseDePruebas baseDePruebas)
     public async Task El_alta_exige_orden_de_trabajo_y_mide_la_desviacion()
     {
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var vehiculo = Ulid.NewUlid().ToString();
         var id = Ulid.NewUlid().ToString();
@@ -179,7 +179,7 @@ public class IndisponibilidadPruebas(BaseDePruebas baseDePruebas)
             MomentoDelAcuse = DateTimeOffset.UtcNow,
         });
 
-        var sinOrden = await cliente.PostAsJsonAsync($"/indisponibilidades/{id}/alta", new
+        var sinOrden = await cliente.PostComoAsync($"/indisponibilidades/{id}/alta", new
         {
             FinReal = new DateOnly(2026, 5, 18),
             OrdenDeTrabajo = "",
@@ -214,13 +214,13 @@ public class IndisponibilidadPruebas(BaseDePruebas baseDePruebas)
     public async Task Un_vehiculo_no_se_declara_indisponible_dos_veces()
     {
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var vehiculo = Ulid.NewUlid().ToString();
 
         await Post(cliente, "/indisponibilidades", Cuerpo(vehiculo));
 
-        var segunda = await cliente.PostAsJsonAsync("/indisponibilidades", Cuerpo(vehiculo));
+        var segunda = await cliente.PostComoAsync("/indisponibilidades", Cuerpo(vehiculo));
 
         Assert.False(segunda.IsSuccessStatusCode);
         Assert.Contains("ya está indisponible", await segunda.Content.ReadAsStringAsync());
@@ -292,7 +292,7 @@ public class IndisponibilidadPruebas(BaseDePruebas baseDePruebas)
 
     private static Task<HttpResponseMessage> Despachar(
         HttpClient cliente, string mision, string vehiculo, string conductor) =>
-        cliente.PostAsJsonAsync($"/misiones/{mision}/despachar", new
+        cliente.PostComoAsync($"/misiones/{mision}/despachar", new
         {
             Ejecuta = "P-DESPACHO",
             Momento = new DateTimeOffset(2026, 3, 16, 7, 30, 0, TimeSpan.FromHours(-6)),
@@ -314,7 +314,7 @@ public class IndisponibilidadPruebas(BaseDePruebas baseDePruebas)
 
     private static async Task Post(HttpClient cliente, string ruta, object cuerpo)
     {
-        var respuesta = await cliente.PostAsJsonAsync(ruta, cuerpo);
+        var respuesta = await cliente.PostComoAsync(ruta, cuerpo);
 
         if (!respuesta.IsSuccessStatusCode)
             throw new Xunit.Sdk.XunitException(

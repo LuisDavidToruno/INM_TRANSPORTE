@@ -58,7 +58,7 @@ public class FeriadoLargoPruebas(BaseDePruebas baseDePruebas)
         var seQueda = await SembrarAsync("FERIADO-B");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await ProgramarConPermisoAsync(cliente, sale);
 
@@ -91,7 +91,7 @@ public class FeriadoLargoPruebas(BaseDePruebas baseDePruebas)
         await SembrarAsync("FERIADO-C");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var reporte = await ReporteAsync(cliente);
 
@@ -124,7 +124,7 @@ public class FeriadoLargoPruebas(BaseDePruebas baseDePruebas)
         var programado = await SembrarAsync("FERIADO-D");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var bueno = await ProgramarConPermisoAsync(cliente, programado);
 
@@ -132,7 +132,7 @@ public class FeriadoLargoPruebas(BaseDePruebas baseDePruebas)
         // motorista que amparar, y el permiso es nominativo — `RN-23`.
         var sinProgramar = await TramitarSinProgramarAsync(cliente);
 
-        var respuesta = await cliente.PostAsJsonAsync("/periodos/firmar-lote", new
+        var respuesta = await cliente.PostComoAsync("/periodos/firmar-lote", new
         {
             Permisos = new[] { bueno, sinProgramar },
             Firma = "P-MAXIMA",
@@ -181,11 +181,11 @@ public class FeriadoLargoPruebas(BaseDePruebas baseDePruebas)
         var r = await SembrarAsync("FERIADO-E");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var permiso = await ProgramarConPermisoAsync(cliente, r);
 
-        var respuesta = await cliente.PostAsJsonAsync("/periodos/firmar-lote", new
+        var respuesta = await cliente.PostComoAsync("/periodos/firmar-lote", new
         {
             Permisos = new[] { permiso },
             Firma = "P-ASISTENTE",
@@ -211,9 +211,9 @@ public class FeriadoLargoPruebas(BaseDePruebas baseDePruebas)
         var r = await SembrarAsync("FERIADO-F");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
-        var respuesta = await cliente.PostAsJsonAsync("/periodos/resguardos", new
+        var respuesta = await cliente.PostComoAsync("/periodos/resguardos", new
         {
             Vehiculo = r.Vehiculo,
             Desde,
@@ -251,9 +251,9 @@ public class FeriadoLargoPruebas(BaseDePruebas baseDePruebas)
         var r = await SembrarAsync("FERIADO-G");
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
-        var respuesta = await cliente.PostAsJsonAsync("/periodos/resguardos", new
+        var respuesta = await cliente.PostComoAsync("/periodos/resguardos", new
         {
             Vehiculo = r.Vehiculo,
             Desde,
@@ -294,7 +294,7 @@ public class FeriadoLargoPruebas(BaseDePruebas baseDePruebas)
         await DarDeBajaAsync(Ulid.Parse(r.Vehiculo));
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var reporte = await ReporteAsync(cliente);
 
@@ -371,7 +371,7 @@ public class FeriadoLargoPruebas(BaseDePruebas baseDePruebas)
     {
         var id = Ulid.NewUlid().ToString();
 
-        await cliente.PostAsJsonAsync("/misiones", new
+        await cliente.PostComoAsync("/misiones", new
         {
             Id = id,
             CapturadaPor = "P-ASISTENTE",
@@ -387,10 +387,10 @@ public class FeriadoLargoPruebas(BaseDePruebas baseDePruebas)
             Momento,
         });
 
-        await cliente.PostAsJsonAsync($"/misiones/{id}/enviar",
+        await cliente.PostComoAsync($"/misiones/{id}/enviar",
             new { Ejecuta = "P-ASISTENTE", Momento });
 
-        await cliente.PostAsJsonAsync($"/misiones/{id}/aprobar",
+        await cliente.PostComoAsync($"/misiones/{id}/aprobar",
             new { Ejecuta = "P-JEFATURA", Momento });
 
         return id;
@@ -402,7 +402,7 @@ public class FeriadoLargoPruebas(BaseDePruebas baseDePruebas)
     {
         var mision = await CrearYAprobarAsync(cliente);
 
-        var programada = await cliente.PostAsJsonAsync($"/misiones/{mision}/programar", new
+        var programada = await cliente.PostComoAsync($"/misiones/{mision}/programar", new
         {
             Ejecuta = "P-TRANSPORTE",
             Momento,
@@ -424,7 +424,7 @@ public class FeriadoLargoPruebas(BaseDePruebas baseDePruebas)
 
     private static async Task<string> AbrirTramiteAsync(HttpClient cliente, string mision)
     {
-        var respuesta = await cliente.PostAsJsonAsync($"/misiones/{mision}/permiso", new
+        var respuesta = await cliente.PostComoAsync($"/misiones/{mision}/permiso", new
         {
             Justificacion = "Relevo de turno en frontera: el puesto no cierra el fin de semana.",
             Solicita = "P-ASISTENTE",

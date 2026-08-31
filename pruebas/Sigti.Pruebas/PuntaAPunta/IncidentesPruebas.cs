@@ -36,7 +36,7 @@ public class IncidentesPruebas(BaseDePruebas baseDePruebas)
     public async Task El_incidente_registrado_en_campo_no_trae_responsabilidad()
     {
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var id = await RegistrarAsync(cliente, tipo: "Accidente", interrumpe: true);
 
@@ -59,7 +59,7 @@ public class IncidentesPruebas(BaseDePruebas baseDePruebas)
     public async Task Las_dos_fechas_del_incidente_se_conservan_por_separado()
     {
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var id = await RegistrarAsync(
             cliente,
@@ -80,11 +80,11 @@ public class IncidentesPruebas(BaseDePruebas baseDePruebas)
     public async Task La_determinacion_se_adjunta_como_acto_de_otra_instancia()
     {
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var id = await RegistrarAsync(cliente, tipo: "Accidente");
 
-        var sinEmisor = await cliente.PostAsJsonAsync($"/incidentes/{id}/determinacion", new
+        var sinEmisor = await cliente.PostComoAsync($"/incidentes/{id}/determinacion", new
         {
             Numero = "RES-2026-14",
             Instancia = "",
@@ -129,7 +129,7 @@ public class IncidentesPruebas(BaseDePruebas baseDePruebas)
         var corte = new DateOnly(anio, 12, 31);
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var id = await RegistrarAsync(
             cliente,
@@ -150,7 +150,7 @@ public class IncidentesPruebas(BaseDePruebas baseDePruebas)
                 && r.GetProperty("impideCerrar").GetBoolean());
 
         // ── Y el bloqueo dispara ────────────────────────────────────────────
-        var bloqueado = await cliente.PostAsJsonAsync("/saldo-de-apertura", Saldo(anio, corte));
+        var bloqueado = await cliente.PostComoAsync("/saldo-de-apertura", Saldo(anio, corte));
 
         Assert.False(bloqueado.IsSuccessStatusCode);
 
@@ -194,7 +194,7 @@ public class IncidentesPruebas(BaseDePruebas baseDePruebas)
         var corte = new DateOnly(anio, 12, 31);
 
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await RegistrarAsync(
             cliente,
@@ -216,7 +216,7 @@ public class IncidentesPruebas(BaseDePruebas baseDePruebas)
     public async Task El_bien_sustraido_permanece_en_el_registro_y_cambia_de_estado()
     {
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var id = await RegistrarAsync(
             cliente,
@@ -235,7 +235,7 @@ public class IncidentesPruebas(BaseDePruebas baseDePruebas)
         Assert.Contains(afuera.EnumerateArray(), b => b.GetProperty("incidente").GetString() == id);
 
         // ── El expediente no cierra con el bien afuera sin declararlo ────────
-        var bloqueado = await cliente.PostAsJsonAsync($"/incidentes/{id}/resolver", new
+        var bloqueado = await cliente.PostComoAsync($"/incidentes/{id}/resolver", new
         {
             ComoSeResolvio = "Se agotaron las gestiones.",
             Fecha = new DateOnly(2027, 1, 15),
@@ -285,7 +285,7 @@ public class IncidentesPruebas(BaseDePruebas baseDePruebas)
     public async Task El_bien_solo_se_descarga_con_acto_formal()
     {
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var id = await RegistrarAsync(
             cliente,
@@ -296,7 +296,7 @@ public class IncidentesPruebas(BaseDePruebas baseDePruebas)
             .GetProperty("bienes").EnumerateArray().Single()
             .GetProperty("id").GetString();
 
-        var sinActo = await cliente.PostAsJsonAsync(
+        var sinActo = await cliente.PostComoAsync(
             $"/incidentes/{id}/bienes/{bien}/descargar",
             new
             {
@@ -391,7 +391,7 @@ public class IncidentesPruebas(BaseDePruebas baseDePruebas)
 
     private static async Task Post(HttpClient cliente, string ruta, object cuerpo)
     {
-        var respuesta = await cliente.PostAsJsonAsync(ruta, cuerpo);
+        var respuesta = await cliente.PostComoAsync(ruta, cuerpo);
 
         if (!respuesta.IsSuccessStatusCode)
             throw new Xunit.Sdk.XunitException(

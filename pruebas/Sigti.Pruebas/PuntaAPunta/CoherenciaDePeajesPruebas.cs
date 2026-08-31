@@ -39,7 +39,7 @@ public class CoherenciaDePeajesPruebas(BaseDePruebas baseDePruebas)
         // La misión se autorizó hasta Comayagua y el vehículo pagó en Yojoa.
         var c = await Sembrar("CO-0001");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var mision = Ulid.NewUlid().ToString();
 
@@ -67,7 +67,7 @@ public class CoherenciaDePeajesPruebas(BaseDePruebas baseDePruebas)
         // hallazgos falsos en masa.
         var c = await Sembrar("CO-0002");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var mision = Ulid.NewUlid().ToString();
 
@@ -114,7 +114,7 @@ public class CoherenciaDePeajesPruebas(BaseDePruebas baseDePruebas)
     {
         var c = await Sembrar("CO-0003");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var mision = Ulid.NewUlid().ToString();
 
@@ -137,7 +137,7 @@ public class CoherenciaDePeajesPruebas(BaseDePruebas baseDePruebas)
         // nadie cobró.
         var c = await Sembrar("CO-0004");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         await Post(cliente, $"/peajes/puntos/{c.Comayagua}/estado", new
         {
@@ -164,7 +164,7 @@ public class CoherenciaDePeajesPruebas(BaseDePruebas baseDePruebas)
         // hallazgos no se lea como conformidad».
         var c = await Sembrar("CO-0005");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var mision = Ulid.NewUlid().ToString();
         await Pasar(cliente, mision, c, c.Zambrano, 0.5, 84_030);
@@ -187,7 +187,7 @@ public class CoherenciaDePeajesPruebas(BaseDePruebas baseDePruebas)
         // en vez de fingir que evaluó los intervalos.
         var c = await Sembrar("CO-0006");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var mision = Ulid.NewUlid().ToString();
         await Pasar(cliente, mision, c, c.Zambrano, 0.5, 84_030);
@@ -207,12 +207,12 @@ public class CoherenciaDePeajesPruebas(BaseDePruebas baseDePruebas)
     {
         var c = await Sembrar("CO-0007");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var mision = Ulid.NewUlid().ToString();
         await Congelar(cliente, mision, c, [(c.Zambrano, 2)]);
 
-        var respuesta = await cliente.PostAsJsonAsync("/peajes/estimacion/congelar", new
+        var respuesta = await cliente.PostComoAsync("/peajes/estimacion/congelar", new
         {
             IdMision = mision,
             Cruces = new[] { new { IdPunto = c.Comayagua, Cruces = 2 } },
@@ -233,7 +233,7 @@ public class CoherenciaDePeajesPruebas(BaseDePruebas baseDePruebas)
     {
         var c = await Sembrar("CO-0008");
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var mision = Ulid.NewUlid().ToString();
         var captura = Ulid.NewUlid().ToString();
@@ -262,7 +262,7 @@ public class CoherenciaDePeajesPruebas(BaseDePruebas baseDePruebas)
     public async Task Una_mision_sin_pasos_no_produce_dictamen()
     {
         using var aplicacion = Aplicacion();
-        using var cliente = aplicacion.CreateClient();
+        using var cliente = aplicacion.CrearCliente();
 
         var d = await Leer(cliente, $"/peajes/coherencia/{Ulid.NewUlid()}");
 
@@ -395,7 +395,7 @@ public class CoherenciaDePeajesPruebas(BaseDePruebas baseDePruebas)
 
     private static async Task Post(HttpClient cliente, string ruta, object cuerpo)
     {
-        var respuesta = await cliente.PostAsJsonAsync(ruta, cuerpo);
+        var respuesta = await cliente.PostComoAsync(ruta, cuerpo);
 
         if (!respuesta.IsSuccessStatusCode)
             throw new Xunit.Sdk.XunitException(
