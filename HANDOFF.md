@@ -638,6 +638,88 @@ al asignar, y **corregí la prueba, no la regla**.
 
 ---
 
+## Las altas de flota y motoristas — la flota deja de entrar sólo por siembra
+
+Hasta hoy había **cuatro vehículos y cuatro motoristas, todos sembrados**, y ningún endpoint
+capaz de crear el quinto: cada ruta de `/flota` operaba sobre un `{id}` que ya existía. Una
+institución no podía cargar su flota real, y sin flota real no hay piloto.
+
+`POST /flota` y `POST /conductores`, **construidos con prueba primero**: 13 pruebas nuevas, cada
+una vista fallar antes de existir el código.
+
+### La asimetría que la matriz declara, y que ahora se ejecuta
+
+| Acción | Quién ejecuta |
+|---|---|
+| **23** — mantener expediente del vehículo | `ACT-04` Jefe de Transporte, `ACT-10` Encargado de Delegación, `ACT-14` Encargado de Bienes |
+| **24** — habilitar motorista en el padrón | **sólo `ACT-04`** |
+
+**No es la misma lista, y eso es deliberado.** `ACT-10` ejecuta la 23 y en la 24 figura como
+`P`: propone, sin consumar el acto. La delegación incorpora el vehículo que le asignaron; no
+mete gente al padrón de quien conduce. Si las dos altas se hubieran resuelto con el mismo
+permiso, esa distinción se perdía sin que nadie la derogara.
+
+### Tres decisiones que valen más que el código
+
+**Sin placa se da de alta.** Hay desabastecimiento nacional de láminas: un alta que exija placa
+deja fuera a la flota que de verdad circula. Hay una prueba que lo defiende y que **pasa desde el
+primer día a propósito** — no empuja código, impide que alguien agregue después la validación que
+parece obvia. Lo que sí se exige es coherencia: declarar `ConLamina` sin número se rechaza,
+porque la lámina **es** el número.
+
+**Falta el número de ejes: el alta pasa y lo dice.** `CategoriaDelVehiculo` ya admite el nulo a
+propósito —dice qué atributo falta y estima—, así que bloquear acá contradiría a `M-18`. Lo que
+no se vale es callarlo: entra con `CategoriaDePeajeSinResolver` en la respuesta del alta, que es
+el único momento en que quien lo registró está mirando.
+
+**Una licencia vencida se registra.** Registrar no es habilitar: el padrón es el censo de quién
+conduce, y quién sale hoy lo deciden `BD-02` y `RN-57` contra la vigencia a la fecha del hecho.
+Negar el alta dejaría a la persona fuera del sistema —con su historial y sus restricciones
+médicas— por un documento que se renueva.
+
+### ⚠️ Cuatro defectos que salieron por el camino, y tres eran míos
+
+**El corredor decía «Correctas!» con cero pruebas.** Completaba todo nombre corto con
+`Sigti.Pruebas.PuntaAPunta.`, así que filtrar una clase de dominio no casaba con nada y la
+corrida terminaba en verde con `Total: 0`. Un pase en falso es peor que una falla: la falla se
+ve. Ahora un filtro que no casa con nada **sale con código 2 y lo dice**.
+
+**Mis identificadores de prueba eran el reloj disfrazado de azar.** Usaba
+`Ulid.NewUlid().ToString()[..8]` para generar siglas y licencias únicas — y los primeros diez
+caracteres de un ULID **son la marca de tiempo en milisegundos**. Dos llamadas seguidas producían
+el mismo sufijo. Corregido a la cola aleatoria en los tres lugares.
+
+Lo encontró una **prueba de mutación**: metí a `ACT-10` en la lista de la acción 24 para
+comprobar que la prueba de competencia era honesta, y cayeron **dos** pruebas en vez de una. La
+segunda no tenía por qué caer, y ahí estaba el fixture. Con el arreglo, la misma mutación tumba
+exactamente una — la correcta.
+
+**La falta de competencia contestaba `409`.** No tener permiso no es un conflicto de datos:
+quien recibía el 409 se ponía a cambiarle las siglas al vehículo cuando lo que tenía mal era el
+puesto. Ahora es `403` cuando el problema es quién pide y `409` cuando el problema es el dato.
+
+**Y el que no es mío: `HB23-01`.** La fila 23 de la matriz le da `E³` a `ACT-11` Encargado de
+Mantenimiento, y la nota al pie 3 dice *«informa disponibilidad y estado técnico; no decide la
+asignación»* — que describe consulta y parece escrita para la fila 4. **No lo resolví en
+silencio**: el alta tomó lo restrictivo y queda como insumo #108 para el PO. Su estado técnico ya
+lo mueve por `/flota/{id}/estado`, así que no queda bloqueado.
+
+### Verificado en vivo, porque las de punta a punta siguen bloqueadas
+
+| Qué | Resultado |
+|---|---|
+| Jefe de Transporte da de alta sin placa | `201` + `CategoriaDePeajeSinResolver` |
+| Un solicitante cualquiera lo intenta | `403` con la acción 23 nombrada |
+| Siglas repetidas | `409`, no una violación de índice |
+| `ConLamina` sin número de placa | `409` |
+| Encargado de Despacho → padrón de motoristas | `403` |
+| Jefe de Transporte → padrón de motoristas | `201` |
+
+Suite: **1220 pasan, 0 fallos reales**, 221 bloqueadas por Smart App Control con la misma causa
+idéntica, todas en `PuntaAPunta`.
+
+---
+
 ## `H-13` — el combustible que quedó en el vehículo sustituido
 
 **1422 pruebas en verde.** Siete de los trece criterios se evalúan; seis se declaran sin

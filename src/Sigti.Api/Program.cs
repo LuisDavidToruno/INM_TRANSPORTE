@@ -106,6 +106,8 @@ constructor.Services.AddScoped<ConsultaDePermisos>();
 constructor.Services.AddScoped<ServicioDePermisos>();
 constructor.Services.AddScoped<EfectosDeLaSustitucion>();
 constructor.Services.AddScoped<ServicioDeRespaldoDePlaca>();
+constructor.Services.AddScoped<ServicioDeAltaDeFlota>();
+constructor.Services.AddScoped<ServicioDeAltaDeMotoristas>();
 constructor.Services.AddScoped<ServicioDeRotulacion>();
 constructor.Services.AddScoped<PaqueteDeIdentificacion>();
 constructor.Services.AddScoped<ServicioDeActasDeCustodia>();
@@ -6731,6 +6733,117 @@ app.MapPost("/puesto/asignaciones/{id}/cerrar", async (
     return Results.Ok(new { id, hasta = peticion.Hasta });
 });
 
+
+/// **El alta de un vehiculo** — `M-03`, accion 23 de la matriz de permisos.
+///
+/// ── Por que esto no existia ──────────────────────────────────
+/// La flota solo entraba por siembra: habia cuatro vehiculos y ninguna forma de crear el
+/// quinto. Una institucion no podia cargar su flota real, y sin flota real no hay piloto.
+app.MapPost("/flota", async (
+    RegistrarVehiculo peticion, ServicioDeAltaDeFlota servicio, IdentidadDelLlamador identidad) =>
+{
+    if (!Enum.TryParse<ClaseNormativa>(peticion.Clase, ignoreCase: true, out var clase))
+    {
+        return Results.BadRequest(new
+        {
+            mensaje = $"«{peticion.Clase}» no es una clase normativa de vehiculo.",
+            valores = Enum.GetNames<ClaseNormativa>(),
+        });
+    }
+
+    // ⚠️ **El estado de la placa NO cae por omision a `ConLamina`.** Un vehiculo sin lamina
+    // que entrara marcado como si la tuviera se veria habilitado para circular sin serlo.
+    if (!Enum.TryParse<EstadoDePlaca>(peticion.EstadoDePlaca, ignoreCase: true, out var placa))
+    {
+        return Results.BadRequest(new
+        {
+            mensaje = $"«{peticion.EstadoDePlaca}» no es un estado de placa de RN-64. Sin",
+            detalle = "lamina es un estado valido y hay que decir CUAL de ellos es.",
+            valores = Enum.GetNames<EstadoDePlaca>(),
+        });
+    }
+
+    var hoy = peticion.Hoy ?? DateOnly.FromDateTime(DateTime.UtcNow);
+
+    var r = await servicio.RegistrarAsync(new AltaDeVehiculo
+    {
+        Siglas = peticion.Siglas,
+        TipoDeVehiculo = peticion.TipoDeVehiculo,
+        Clase = clase,
+        PesoBrutoKg = peticion.PesoBrutoKg,
+        CapacidadPasajeros = peticion.CapacidadPasajeros,
+        LlevaRemolque = peticion.LlevaRemolque,
+        VenceMatricula = peticion.VenceMatricula,
+        Placa = peticion.Placa,
+        EstadoDePlaca = placa,
+        NumeroDeEjes = peticion.NumeroDeEjes,
+    }, hoy, identidad.Persona);
+
+    if (!r.Procede)
+    {
+        // 403 cuando el problema es el puesto; 409 cuando el problema es el dato.
+        return r.EsFaltaDeCompetencia
+            ? Results.Json(new { mensaje = r.Mensaje }, statusCode: StatusCodes.Status403Forbidden)
+            : Results.Conflict(new { mensaje = r.Mensaje });
+    }
+
+    return Results.Created($"/flota/{r.Id}", new
+    {
+        id = r.Id.ToString(),
+        mensaje = r.Mensaje,
+
+        // Lo que entro con una carencia anotada. Va en la respuesta del alta porque es el
+        // unico momento en que quien lo registro esta mirando: despues nadie vuelve.
+        observaciones = r.Observaciones.Select(o => o.ToString()),
+    });
+});
+
+/// **El alta de un motorista en el padron** — `M-05`, accion 24 de la matriz de permisos.
+///
+/// La lista de quien puede NO es la misma que la del vehiculo, y es deliberado: la accion 24
+/// la ejecuta solo el Jefe de Transporte.
+app.MapPost("/conductores", async (
+    RegistrarMotorista peticion, ServicioDeAltaDeMotoristas servicio,
+    IdentidadDelLlamador identidad) =>
+{
+    if (!Enum.TryParse<CategoriaDeLicencia>(peticion.Categoria, ignoreCase: true, out var cat))
+    {
+        return Results.BadRequest(new
+        {
+            mensaje = $"«{peticion.Categoria}» no es una categoria de licencia.",
+
+            // Son NUEVE, y `BE` es B enganchada a remolque. No existe ninguna `DE`.
+            valores = Enum.GetNames<CategoriaDeLicencia>(),
+        });
+    }
+
+    var hoy = peticion.Hoy ?? DateOnly.FromDateTime(DateTime.UtcNow);
+
+    var r = await servicio.RegistrarAsync(new AltaDeMotorista
+    {
+        Nombre = peticion.Nombre,
+        EsDelPadron = peticion.EsDelPadron,
+        NumeroDeLicencia = peticion.NumeroDeLicencia,
+        Categoria = cat,
+        VenceLicencia = peticion.VenceLicencia,
+        Restricciones = peticion.Restricciones,
+    }, hoy, identidad.Persona);
+
+    if (!r.Procede)
+    {
+        return r.EsFaltaDeCompetencia
+            ? Results.Json(new { mensaje = r.Mensaje }, statusCode: StatusCodes.Status403Forbidden)
+            : Results.Conflict(new { mensaje = r.Mensaje });
+    }
+
+    return Results.Created($"/conductores/{r.Id}", new
+    {
+        id = r.Id.ToString(),
+        mensaje = r.Mensaje,
+        observaciones = r.Observaciones.Select(o => o.ToString()),
+    });
+});
+
 app.Run();
 return;
 
@@ -8071,3 +8184,28 @@ internal sealed record AsignarPuesto(
 /// El motivo es obligatorio: sin el, dentro de un año nadie va a poder decir si fue una
 /// rotacion, una sancion o un error de carga.
 internal sealed record CerrarAsignacion(DateOnly Hasta, string Motivo, DateTimeOffset Momento);
+
+/// Lo que se pide para incorporar un vehiculo. `Placa` y `NumeroDeEjes` son opcionales;
+/// `EstadoDePlaca` **no lo es**, porque su omision no es neutral.
+internal sealed record RegistrarVehiculo(
+    string Siglas,
+    string TipoDeVehiculo,
+    string Clase,
+    int PesoBrutoKg,
+    int CapacidadPasajeros,
+    bool LlevaRemolque,
+    DateOnly VenceMatricula,
+    string EstadoDePlaca,
+    string? Placa = null,
+    int? NumeroDeEjes = null,
+    DateOnly? Hoy = null);
+
+/// Lo que se pide para incorporar un motorista al padron.
+internal sealed record RegistrarMotorista(
+    string Nombre,
+    bool EsDelPadron,
+    string NumeroDeLicencia,
+    string Categoria,
+    DateOnly VenceLicencia,
+    string? Restricciones = null,
+    DateOnly? Hoy = null);

@@ -22,11 +22,12 @@ using Xunit.Runners;
 var rutaPedida = args.FirstOrDefault(a => a.EndsWith(".dll"));
 var filtro = args.FirstOrDefault(a => !a.EndsWith(".dll"));
 
-// Se acepta el nombre corto de la clase y se completa el espacio de nombres, que es como uno
-// se acuerda de ella.
-var tipo = filtro is null ? null
-    : filtro.Contains('.') ? filtro
-    : "Sigti.Pruebas.PuntaAPunta." + filtro;
+// Se acepta el nombre corto de la clase, que es como uno se acuerda de ella.
+//
+// ⚠️ Antes se completaba con «Sigti.Pruebas.PuntaAPunta.», y eso daba por hecho que toda clase
+// buscada es de punta a punta. Filtrar una clase de dominio —`M03_Flota`, `M05_Motoristas`—
+// no casaba con nada, y la corrida terminaba diciendo **«Correctas!»** con cero pruebas.
+var tipo = filtro;
 
 var ensamblado = Path.GetFullPath(rutaPedida ?? Path.Combine(
     AppContext.BaseDirectory, "Sigti.Pruebas.dll"));
@@ -109,5 +110,17 @@ Console.WriteLine(
     $"{(fallidas == 0 ? "Correctas!" : "Con error!")} - " +
     $"Con error: {fallidas}, Superado: {pasadas}, Omitido: {omitidas}, " +
     $"Total: {pasadas + fallidas + omitidas}, Duración: {reloj.Elapsed:mm\\:ss}");
+
+// ⚠️ **Cero pruebas no es éxito.** Un filtro mal escrito no casa con nada, y sin esto la
+// corrida termina en «Correctas!» y código 0 — que es exactamente lo que uno lee cuando cree
+// que acaba de verificar algo. Un pase en falso es peor que una falla: la falla se ve.
+if (filtro is not null && pasadas + fallidas + omitidas == 0)
+{
+    Console.WriteLine();
+    Console.WriteLine(
+        $"NINGUNA prueba caso con «{filtro}». No se verifico nada. Revise el nombre de la clase.");
+
+    return 2;
+}
 
 return fallidas == 0 ? 0 : 1;
