@@ -183,6 +183,11 @@ deserialización en vez de un dato que SIGTI puede mostrar aunque no lo conozca.
 > Conviene que quede escrito así de claro: **si SIGTI construye su control de doble movilización
 > sobre este endpoint, va a pasar todas las pruebas y no va a detectar nada.**
 
+> ⚠️ **Y hoy tampoco hay con qué probar la regla de incapacidades.** Las 3 filas vivas son
+> `BLOQUEO_GERENTE`; las de `INCAPACIDAD` y `VACACIONES` están anuladas. Ver «Respuesta a la
+> revisión de SIGTI» al final: la salida es un doble del puerto, no esperar a que ARGOS tenga
+> los datos.
+
 ---
 
 ## B. Cierran fronteras que `DP-001` dejó declaradas y sin implementar
@@ -400,6 +405,74 @@ Ninguna es de este servicio — las tres son escritura o corrección en `SICOVBD
 | 1 | Poblar `Unidades.SubResponsableUsuarioID` y `ResponsableAusente` | Sin esto el escalamiento a un suplente no existe |
 | 2 | Corregir las designaciones duplicadas en `DesignacionAprobadorUnidad` | 4 filas que son 2 designaciones |
 | 3 | Registrar **por persona** quién va en una gira, o poblar `Gira.Mision` | Sin una de las dos, ni doble movilización ni cruce de viáticos |
+
+### ▶ Respuesta a la revisión de SIGTI — 2026-09-01
+
+Tres observaciones, verificadas una por una. **Una ya estaba resuelta, una era incorrecta por una
+razón que igual valía, y una es correcta y no la puede resolver `ARGOS_API`.**
+
+#### 1. El HANDOFF vencido — ya no dice eso
+
+Correcto cuando lo leyeron, y resuelto entre medias. La sección se reemplazó en el commit
+`d94f364`, que ya está en `origin`. Hoy el documento describe la barrera real. **Con un `git
+pull` lo ven.**
+
+Y hicieron bien en no editarlo desde allá.
+
+#### 2. `ApplicationIntent` — las tres capas están, pero el señalamiento valía
+
+La conclusión era incorrecta: la cadena viva no lo trae **y no hace falta**. Lo impone
+`BaseDeArgos` en código, con `SqlConnectionStringBuilder`, precisamente para que no dependa de
+que alguien copie bien la cadena en cada despliegue. Una cadena que pidiera `ReadWrite` se
+corrige sola.
+
+**Pero acertaron en lo de fondo:** no había forma de comprobarlo sin leer el fuente. Y en este
+proyecto ya pasó que una afirmación así resultara falsa — el README decía «solo lectura»
+mientras el servicio se conectaba con una cuenta `sysadmin`. **Una capa de seguridad que sólo se
+puede verificar leyendo el código no está verificada.**
+
+Ahora hay tres pruebas que lo fijan, y se quitó `ApplicationIntent` del ejemplo de
+configuración, que es lo que llevó a la lectura equivocada: estaba ahí sugiriendo que hacía
+falta ponerlo.
+
+> Una precisión sobre esa capa: tienen razón en que sobre una instancia suelta es inerte. No
+> impide escribir. De eso se encarga el usuario de base de datos, que ahora es
+> `argos_api_lectura` con `DENY` sobre `INSERT`, `UPDATE`, `DELETE`, `EXECUTE` y `ALTER`, y está
+> demostrado con nueve comprobaciones que intentan escribir y exigen que les nieguen el paso.
+
+#### 3. No hay datos para probar A-2 — y la salida está de su lado
+
+Verificado y exacto: **3 filas vivas, las tres `BLOQUEO_GERENTE`** de febrero de 2026;
+`INCAPACIDAD` (3) y `VACACIONES` (2) anuladas con `EstadoID = 34`.
+
+`ARGOS_API` **no puede crear esos datos**. Es su regla fundacional, y desde el cambio de usuario
+es además literalmente imposible: se probó el `INSERT` sobre `DisponibilidadEmpleado` y el
+servidor lo denegó.
+
+**La recomendación es que prueben la regla con un doble de su puerto**, y no como parche
+mientras consiguen los datos: como la forma correcta de probarla.
+
+Ya tienen todo lo que hace falta. `IEspejoDeOrganizacion`
+(`src/Sigti.Aplicacion/M20_Integraciones/EspejoDeOrganizacion.cs`) es un puerto, lo implementa
+`PadronDesdeArgos` hablando HTTP, y su `Program.cs:61` ya dice que **la implementación concreta
+se registra ahí y en ningún otro lado**. Es exactamente la costura que hace falta: un
+`DisponibilidadEnMemoria` que devuelva una incapacidad vigente deja la regla ejercitada sin que
+ARGOS tenga que tener nada.
+
+Es lo mismo que hizo `ARGOS_API` con su lógica de autenticación: antes vivía pegada al SQL y
+sólo se podía probar en una máquina con `SICOVBD` conectada — la lógica donde un error se paga
+más caro era justo la única que casi nunca se probaba. Hoy se prueba entera, sin base, en
+milisegundos.
+
+> ⚠️ **Conviene tenerlo aunque consigan los datos en ARGOS.** Una regla de negocio que sólo se
+> puede probar si la base de otro sistema tiene la fila correcta es una regla que se va a dejar
+> de probar: basta que alguien limpie los datos de prueba, o que el ambiente se recree, para que
+> la prueba se ponga en verde sin ejercitar nada. Y «no despachar a quien está incapacitado» es
+> de las que no se pueden dejar de probar.
+
+Si además quieren el camino de punta a punta contra datos reales, eso **sí** hay que pedirlo al
+equipo de ARGOS: una incapacidad vigente y unas vacaciones bastan. Pero ése es un extra sobre la
+prueba de la regla, no su sustituto.
 
 ### Y una advertencia para las dos partes
 
